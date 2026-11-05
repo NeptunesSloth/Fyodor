@@ -98,7 +98,7 @@ def triggers(s):
 
 def ramp(s, spell="Rampant Growth", lands=1):
     """Cast a ramp spell and resolve it: the lands enter; stop with the triggers on the stack (Alice has priority)."""
-    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     mana(s, G=4)
     c = card(s, spell)
     if not c.zone.endswith(":hand"):
@@ -230,7 +230,7 @@ def test_council_of_reeds_legendary_copies_fold(cards):
     mana(s, G=1)
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Giant Growth").id, targets=[card(s, "Council of Reeds").id])
     settle(s)
-    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     for _ in range(10):
         if triggers(s):
             break
@@ -271,7 +271,7 @@ def test_stifle_counters_one_instance(cards):
     """Bob Stifles "Scute Swarm (×4)": a target is one of the four identical instances, split off first (the other three stay one
     ability above it). Three resolve: seven Swarms."""
     s = board(cards, 4, theirs=["Stifle"])
-    act(s, "p2", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     ramp(s)
     folded = s.state.zones["stack"][-1]
     act(s, "p1", type="pass_priority")
@@ -348,4 +348,33 @@ def test_sixty_five_thousand_swarms_play_a_land_fast(cards):
         assert count(s) == expected
     assert len(objects(s)) < 40
     assert max(took) < 20, took
+    check(s)
+
+
+# -- token stack folds (playtest choice) -- a player who stops at every priority gets every window, while that many triggers is playable
+def test_full_control_keeps_identical_triggers_separate(cards):
+    """Bob asked to stop at every priority (full control): Alice's five identical Scute Swarm triggers stay five abilities, so he can act
+    between them (732.2b: any player may shorten a shortcut). The result is the same: ten Swarms."""
+    s = board(cards, 5)
+    act(s, "p2", type="set_prefs", full_control=True)
+    ramp(s)
+    assert triggers(s) == ["Scute Swarm"] * 5
+    settle(s)
+    assert count(s) == 10 and not triggers(s)
+    check(s)
+
+
+def test_full_control_still_folds_a_stack_too_big_to_trigger_one_by_one(cards):
+    """Past INDIVIDUAL_LIMIT separate triggers would refuse the land outright, so the fold stays even with full control."""
+    s = board(cards, 16, mine=["Adrix and Nev, Twincasters", "Primal Vigor", "Traveling Chocobo"])
+    ramp(s)
+    settle(s)
+    ramp(s)
+    settle(s)
+    assert count(s) == 1296
+    act(s, "p2", type="set_prefs", full_control=True)
+    ramp(s)
+    assert any(t.startswith("Scute Swarm (×") for t in triggers(s))
+    settle(s)
+    assert count(s) == 11664
     check(s)

@@ -54,8 +54,8 @@ def test_mystic_reflection_waiting_keeps_the_triggers_separate(cards):
     would make all three Bears, so the triggers aren't folded."""
     s = board(cards, 3, lands=4, theirs=["Mystic Reflection", "Grizzly Bears"])
     bears = put(s, "Grizzly Bears", "p2")
-    act(s, "p1", type="set_prefs", full_control=True)
-    act(s, "p2", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     mana(s, G=4)
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rampant Growth").id)
     if s.state.rules.priority == "p1":
@@ -82,7 +82,7 @@ def test_mystic_reflection_in_response_refuses_resolving_the_fold(cards):
     automation and resolve them by hand) instead of resolved wrong."""
     s = board(cards, 3, lands=4, theirs=["Mystic Reflection", "Grizzly Bears"])
     bears = put(s, "Grizzly Bears", "p2")
-    act(s, "p2", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     ramp(s)
     assert triggers(s) == ["Scute Swarm (×3)"]
     act(s, "p1", type="pass_priority")
@@ -99,7 +99,7 @@ def test_fold_survives_save_load_at_the_order_decision(cards):
     through replay and save/load before and after the order is chosen."""
     s = board(cards, 3, mine=["Rampaging Baloths"])
     act(s, "p1", type="create_token", player="p1", token={"card_id": card(s, "Rampaging Baloths").card_id}, count=1, stacked=False)
-    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # every priority a stop (a test device; full control would keep the triggers separate)
     mana(s, G=4)
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rampant Growth").id)
     ordered = False

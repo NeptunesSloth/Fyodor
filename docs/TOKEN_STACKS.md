@@ -243,6 +243,11 @@ additive or first-time token replacements (Xorn, Esix); Chatterfang with a stack
 identical before it resolves (refused rather than taken apart); placing the split-off instances of a folded ability that isn't on top of
 the stack.
 
+**Full control keeps the windows** (a playtest choice). Two separate identical permanents fold like a stack's members (one "Scute
+Swarm (×2)" instead of two passes). But while any player in the game has asked to stop at every priority (`full_control`), a group of at
+most `INDIVIDUAL_LIMIT` identical triggers stays separate, so that player gets a window between them (732.2b: any player may shorten a
+shortcut). Past that size separate triggers would refuse the action outright, so the fold stays.
+
 ## 10. Big counts by hand (and the token math panel)
 
 When the engine refuses a creation (section 2), the players finish by hand with automation paused, and the table makes one card ×N:

@@ -1071,6 +1071,11 @@ def _folded_pending(plan: Plan, shapes: dict[str, bool]) -> list[Any]:
             d = {k: v for k, v in rep.ability.items() if k != "members"}
             why = ["another triggered ability to order among them"] if not alone else [] if fp else ["its source's copiable values aren't known"]
             why = why or fold_problems_once(plan, controller, d, rep.source_card, rep.source_object)
+            # -- token stack folds (playtest choice) -- a player who stops at every priority (full control) gets every window between the
+            # instances (732.2b: any player may shorten a shortcut), as long as that many separate triggers is playable at all; past
+            # INDIVIDUAL_LIMIT the fold stays (separate triggers would refuse the action outright).
+            if not why and w <= INDIVIDUAL_LIMIT and _full_control_seat(plan):
+                why = ["a player stops at every priority"]
             if not why:
                 sources = list(dict.fromkeys((t.source_card, t.source_object) for t in group))
                 folded = rep.model_copy(update={"ability": folded_ability(d, w, rep.name, sources),
@@ -1089,6 +1094,13 @@ def _folded_pending(plan: Plan, shapes: dict[str, bool]) -> list[Any]:
                 out[at:at + 1] = [t.model_copy(update={"id": t.id if i == 0 else secrets.token_hex(4), "ability": one}, deep=True)
                                   for i in range(n)]
     return out
+
+
+def _full_control_seat(plan: Plan) -> bool:
+    """-- token stack folds (playtest choice) -- Has a player still in the game asked to stop at every priority?"""
+    from app.rules.plan import live_players
+
+    return any(plan.rules.prefs_for(p).full_control for p in live_players(plan.state))
 
 
 def folded_ability(d: dict[str, Any], w: int, name: str, sources: list[tuple[str | None, str | None]]) -> dict[str, Any]:
