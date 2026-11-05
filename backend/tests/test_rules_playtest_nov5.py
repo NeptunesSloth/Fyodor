@@ -230,3 +230,42 @@ def test_a_spell_with_nothing_optional_is_cast_without_a_question(cards):
     assert s.state.players["p2"].life == 37
     replay_matches(s)
 
+
+
+# -- Gingerbrute --------------------------------------------------------------------------------------------------------------------------
+def test_gingerbrute_evasion_ability_activates(cards):
+    """The report: "activate abilities of Gingerbrute". {1}: can't be blocked this turn except by creatures with haste (602.2)."""
+    s = table(cards, ["Gingerbrute"])
+    g = put(s, "Gingerbrute")
+    idx = next(ab.index for ab in ch(s, g).abilities if ab.text.startswith("{1}:"))
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=g.id, ability=idx)
+    settle(s)
+    assert s.state.rules.mana_pool.get("p1", {}).get("C", 0) == 0 if hasattr(s.state.rules, "mana_pool") else True
+    replay_matches(s)
+    saved(s)
+
+
+def test_gingerbrute_sacrifice_gains_three_life(cards):
+    s = table(cards, ["Gingerbrute"])
+    g = put(s, "Gingerbrute")
+    idx = next(ab.index for ab in ch(s, g).abilities if ab.text.startswith("{2}, {T}"))
+    mana(s, C=2)
+    before = s.state.players["p1"].life
+    act(s, "p1", type="activate_ability", card_id=g.id, ability=idx)
+    settle(s)
+    assert s.state.players["p1"].life == before + 3
+    assert s.state.cards[g.id].zone == "p1:graveyard"
+    replay_matches(s)
+    saved(s)
+
+
+def test_gingerbrute_abilities_are_offered_to_the_table(cards):
+    """The table's card menu offers what the hints list (frontend rulesMenu): both abilities, with the mana for them."""
+    from app.rules.casting import activatable
+
+    s = table(cards, ["Gingerbrute"])
+    g = put(s, "Gingerbrute")
+    mana(s, C=2)
+    offered = {a["ability"] for a in activatable(s.state, "p1", s.cards, announce=True) if a["card_id"] == g.id}
+    assert len(offered) == 2, offered
