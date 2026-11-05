@@ -212,7 +212,16 @@ def test_instruction_retention_large_library_then_unrelated_shuffle_rekeys_norma
     roundtrip(s)
 
 
-def test_actual_surveil_two_selected_cards_move_before_replacement_shuffle(cards):
+def test_actual_surveil_two_selected_cards_move_before_replacement_shuffle(cards, monkeypatch):
+    import app.game.session as sessions
+
+    original = sessions.resolve
+    rng = random.Random(0)  # a fixed shuffle: Curate's draw must not take the freshly shuffled-in Progenitus (1 in 25)
+
+    def resolve(*args, **kwargs):
+        return original(*args, **{**kwargs, "rng": rng})
+
+    monkeypatch.setattr(sessions, "resolve", resolve)
     s = game(cards, ["Curate", "Progenitus"])
     put(s, "Curate", "hand")
     progenitus = put(s, "Progenitus", "hand")
