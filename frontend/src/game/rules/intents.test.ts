@@ -81,7 +81,7 @@ describe("automation intents", () => {
     useGame.setState({ view: view(RULES) });
     expect(dropAsIntent(["c1"], { zone: "p1:battlefield", x: 10, y: 20 })).toBe(true);
     expect(dropAsIntent(["c2"], { zone: "stack" })).toBe(true);
-    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2" }]);
+    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2", ask_optional: true }]);
   });
 
   it("leaves Alt-drops, other players' cards, multi-drops and OFF to the sandbox", () => {
@@ -106,7 +106,7 @@ describe("automation intents", () => {
     useGame.setState({ view: v });
     expect(manaAbilityIndex("f1", v)).toBe(0);  // a basic land's intrinsic ability
     expect(tapForMana("f1", "p1")).toBe(true);
-    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0 }]);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true }]);  // the server reads which mana ability (Chromatic Lantern: playtest nov 5)
     expect(tapForMana("l1", "p1")).toBe(false);  // no mana ability: a plain tap
     expect(tapForMana("c4", "p1")).toBe(false);  // not yours
   });
@@ -123,7 +123,7 @@ describe("automation intents", () => {
     expect(sent).toEqual([
       { type: "activate_ability", card_id: "cr", ability: 0, convoke: true },
       { type: "activate_ability", card_id: "ar", ability: 0, improvise: true },
-      { type: "activate_ability", card_id: "f1", ability: 0 },
+      { type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true },
     ]);
   });
 
@@ -718,7 +718,7 @@ describe("decision answers", () => {
     expect(useXPrompt.getState().action).toMatchObject({ ability: 0 });
     useXPrompt.setState({ action: null });
     void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
-    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2", ask_optional: true });
   });
 
   it("validates Other multikicker range and retains its count through a subsequent X prompt", () => {

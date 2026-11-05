@@ -1222,6 +1222,9 @@ class CastSpell(_Intent):
     # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: a cast made as an effect resolves (cascade, discover, Gandalf …) asks its caster which optional
     # additional costs to pay (kicker, bargain, gift, casualty …); True once they were asked, so the answer "none" is not asked again
     optional_asked: bool = False
+    # -- playtest fixes (nov 5) -- a cast from the table (drag to the stack / battlefield): the optional additional costs the table offers for it
+    # (``optional_costs`` hints: Silverquill's casualty, Defiler of Vigor's life …) are asked (601.2b) instead of being taken as declined
+    ask_optional: bool = False
     # -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the Phyrexian symbols of the cost (their colors, "G/W" for {G/W/P}) paid with 2 life each; the
     # rest are paid with mana. None: not announced yet (asked when both ways can be paid); [] announces mana for every symbol
     life_symbols: list[str] | None = Field(default=None, max_length=20)
@@ -1286,6 +1289,9 @@ class ActivateAbility(_Intent):
     # lists one target per chosen mode that has one, in that order (as for a modal spell).
     modes: list[int] = Field(default_factory=list, max_length=10)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
+    # -- playtest fixes (nov 5) -- a tap gesture from the table: the engine reads which of the permanent's {T} mana abilities is meant
+    # (``ability`` is only the table's guess; several ⇒ the player picks the mana: app/rules/tap_gesture.py)
+    tap_for_mana: bool = False
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
     # While paying for a spell with that keyword: commit (or, again, release) this card to pay one
     # symbol of its cost — nothing is tapped or exiled until the whole cost is paid.

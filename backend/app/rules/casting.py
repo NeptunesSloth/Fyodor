@@ -3777,6 +3777,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
     if problem:
         raise ActionError(problem)
+    if _ask_table_optional(plan, a, card, ch):  # -- playtest fixes (nov 5) -- 601.2b: Silverquill's casualty on a spell cast from the table
+        return
     grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via, alternative_key=a.alt_cost)
     sac_at_cleanup = not a.free and flash_sac(plan.state, plan.actor, card, ch, plan.info)  # (-- flash auras (wave 46B) -- judged before it is on the stack)
     if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
@@ -5309,6 +5311,23 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
     return out
 
 
+def _ask_table_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> bool:
+    """-- playtest fixes (nov 5) -- 601.2b: a spell cast from the table (``ask_optional``: dragged to the stack) announces the optional additional
+    costs the table offers for it — the ones the hints list (``optional_costs``: Silverquill's "has casualty 1" (702.153a), Defiler of Vigor's
+    life …), each payable now — as a private question (none may be chosen); the answer re-runs the cast with them (``resume_free_optional``).
+    A cast that already announced its costs, or with another way of casting it chosen, isn't asked. True while the question waits."""
+    if not a.ask_optional or a.optional_asked or a.optional_costs or a.kicker or a.chorus or a.replicate or a.free or a.alt_cost is not None \
+            or a.face_down or plan.manual(card):
+        return False
+    offers = [o for o in optional_castable(plan.state, plan.actor, card, plan.info) if o.get("face") in (None, a.face)]
+    if not offers:
+        return False
+    decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'This spell'}: pay any optional additional costs? (601.2b)",
+           options=[DecisionOption(id=o["id"], label=o["label"]) for o in offers], min_choices=0, max_choices=len(offers),
+           resume=_announcing(plan, "free_optional", a, card_object=plan.oid(card)), source=card)
+    return True
+
+
 def announce_free_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> bool:
     """601.2b, 118.9d: ask the caster of a free cast which optional additional costs to pay (privately; none may be chosen), unless the intent
     already announced them (``kicker``, ``optional_costs``) or they were asked. True while the question waits; its answer re-runs the cast."""
@@ -6021,6 +6040,13 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             return
         raise ActionError("That card has no ability to use from the command zone")
     ch = plan.ch(card)
+    if a.tap_for_mana and card.zone.endswith(":battlefield"):  # -- playtest fixes (nov 5) -- a tap gesture: which mana ability
+        from app.rules import tap_gesture
+
+        picked = tap_gesture.resolve(plan, card, ch, a, paying=False)
+        if picked is None:
+            return  # the player picks the mana
+        a = picked
     # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
     ab = next((x for x in ch.abilities if x.index == a.ability), None)
     if card.zone == "stack" and ab is not None and ab.kind == "activated" and ab.text.endswith("is on the stack."):  # -- wave 110G -- Lightning Storm: 113.6 an ability that works on the stack, any player may activate it (602.2)
@@ -6238,6 +6264,13 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     if d is not None and any(c["card"] == card.id for c in ((d.resume or {}).get("intent") or {}).get("contributions") or []):
         raise ActionError(f"{card.name or 'That card'} is already paying part of the cost (click it again to take it back)")
     ch = plan.ch(card)
+    if a.tap_for_mana:  # -- playtest fixes (nov 5) -- a tap gesture: which mana ability (Chromatic Lantern's on a Forest)
+        from app.rules import tap_gesture
+
+        picked = tap_gesture.resolve(plan, card, ch, a, paying=True)
+        if picked is None:
+            return  # the player picks the mana (a question nested in the payment)
+        a = picked
     ability = _find_ability(ch, a.ability)
     from app.rules import (
         wave110j_final,  # (wave 110J: Piracy lets a land's mana ability be activated by another player)

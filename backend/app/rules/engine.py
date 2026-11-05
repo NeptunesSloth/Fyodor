@@ -84,6 +84,7 @@ from app.rules import (
     sba,
     scripts,
     spell_grants,  # -- spell grants (wave 28C) --
+    tap_gesture,  # -- playtest fixes (nov 5) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
     wave110a_teferi,  # -- wave 110A --
@@ -2020,6 +2021,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "payment_sources": casting.resume_payment_sources,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
+    "tap_for_mana": tap_gesture.resume,  # -- playtest fixes (nov 5) --
     "crew": casting.resume_crew,
     "ability_cost": cost_payment.resume_choice,
     "declaration_cost_order": nonmana_combat_costs.resume_order,
