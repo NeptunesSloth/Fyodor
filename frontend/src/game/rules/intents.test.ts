@@ -81,7 +81,7 @@ describe("automation intents", () => {
     useGame.setState({ view: view(RULES) });
     expect(dropAsIntent(["c1"], { zone: "p1:battlefield", x: 10, y: 20 })).toBe(true);
     expect(dropAsIntent(["c2"], { zone: "stack" })).toBe(true);
-    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2" }]);
+    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2", ask_optional: true }]);
   });
 
   it("leaves Alt-drops, other players' cards, multi-drops and OFF to the sandbox", () => {
@@ -718,7 +718,7 @@ describe("decision answers", () => {
     expect(useXPrompt.getState().action).toMatchObject({ ability: 0 });
     useXPrompt.setState({ action: null });
     void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
-    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2", ask_optional: true });
   });
 
   it("validates Other multikicker range and retains its count through a subsequent X prompt", () => {

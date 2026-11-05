@@ -78,7 +78,8 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     return true;
   }
   if ((to.zone === "battlefield" && to.player === me) || to.zone === "stack") {
-    void send({ type: "cast_spell", card_id: card.id });
+    // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
+    void send({ type: "cast_spell", card_id: card.id, ask_optional: true });
     return true;
   }
   return false;
