@@ -12,6 +12,7 @@ without importing the rules engine.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
@@ -2021,13 +2022,19 @@ class _Around:
 
 def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> ObjectSnapshot:
     """``around``: the table's blockers and attachments, gathered once for many snapshots of one table (``Capture``)."""
+    return ObjectSnapshot(**_snapshot_fields(state, card_id, around))
+
+
+def _snapshot_fields(state: GameState, card_id: str, around: _Around | None = None) -> dict[str, Any]:
+    """The fields of ``snapshot`` (-- big boards round 3 -- read now, the snapshot built from them when first asked for: ``Capture``)."""
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
     if token is not None and token.back is not None and c.face == 1:  # -- wave 3F -- a transformed double-faced token
         token = token.back
-    return ObjectSnapshot(
-        object_id=rules.object_id(card_id) if rules else card_id, card=card_id, printing=c.card_id, name=c.name,
+    oid = rules.object_id(card_id) if rules else card_id  # -- big boards round 3 -- read once (it was read up to four times per snapshot)
+    return dict(
+        object_id=oid, card=card_id, printing=c.card_id, name=c.name,
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped, choices=dict(c.choices),
         stickers101=[p.model_dump() for p in c.stickers101],
         face_down=c.face_down, face_down_kind=c.face_down_kind, face_down_as=c.face_down_as, face=c.face, is_token=c.is_token,
@@ -2036,8 +2043,8 @@ def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> O
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
         token_mana_cost=token.mana_cost if token else "",
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
-        ring_bearer=bool(rules and c.zone.endswith(":battlefield") and rules.ring_bearers.get(c.controller) == rules.object_id(c.id)),
-        suspected=bool(rules and rules.object_id(card_id) in rules.suspected),
+        ring_bearer=bool(rules and c.zone.endswith(":battlefield") and rules.ring_bearers.get(c.controller) == oid),
+        suspected=bool(rules and oid in rules.suspected),
         effects=[e.value or e.name for e in c.effects], attacking=c.is_attacking, attacking_without_target=c.attacking_without_target, attack_defender_lost=c.attack_defender_lost, entry_characteristics=c.entry_characteristics,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)
         blocking=c.is_blocking, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to,
@@ -2045,8 +2052,8 @@ def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> O
         text=token.text if token else "",
         blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)] if around is None
         else [o for o in around.blockers.get(card_id, ()) if o != card_id],  # (wave 53C)
-        banded_with_ids=[oid for band in rules.attacking_bands if rules.object_id(card_id) in band for oid in band
-                         if oid != rules.object_id(card_id)] if rules and c.is_attacking else [],
+        banded_with_ids=[other for band in rules.attacking_bands if oid in band for other in band
+                         if other != oid] if rules and c.is_attacking else [],
         attached_objects=({a.id: rules.object_id(a.id) for a in state.cards.values() if a.attached_to == c.id} if around is None
                           else {a: rules.object_id(a) for a in around.attached.get(c.id, ())}) if rules else {},
         attached_objects_known=rules is not None,
@@ -2054,6 +2061,52 @@ def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> O
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
         x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)
     )
+
+
+class _Fields:
+    """-- big boards round 3 -- a snapshot not built yet, read through its fields (``Capture.fields``)."""
+
+    __slots__ = ("_fields",)
+
+    def __init__(self, fields: dict[str, Any]) -> None:
+        self._fields = fields
+
+    def __getattr__(self, name: str) -> Any:
+        return self._fields[name]
+
+
+class _Snaps(Mapping[str, ObjectSnapshot]):
+    """-- big boards round 3 -- ``Capture.snaps``: card id → its snapshot, built from the fields read at the capture when first asked
+    for. A step changes few of the hundreds of objects a capture reads on a big table, and building (validating) every snapshot was
+    most of the cost of every step; ``track`` compares the fields that tell what changed (``Capture.fields``) without building them.
+    Exact: the fields are read at the capture, as before, into containers nothing else holds (the card's own containers are copied,
+    as ``snapshot`` always did), and each snapshot is built once and then is the same object for every reader, as before."""
+
+    __slots__ = ("fields", "built")
+
+    def __init__(self, fields: dict[str, dict[str, Any]]) -> None:
+        self.fields = fields
+        self.built: dict[str, ObjectSnapshot] = {}
+
+    def __getitem__(self, card_id: str) -> ObjectSnapshot:
+        snap = self.built.get(card_id)
+        if snap is None:
+            snap = self.built[card_id] = ObjectSnapshot(**self.fields[card_id])
+        return snap
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.fields)
+
+    def __len__(self) -> int:
+        return len(self.fields)
+
+    def __contains__(self, card_id: object) -> bool:
+        return card_id in self.fields
+
+    def view(self, card_id: str) -> Any:
+        """The snapshot if it was built (a reader may have changed it since), else its fields read like it."""
+        snap = self.built.get(card_id)
+        return snap if snap is not None else _Fields(self.fields[card_id])
 
 
 def remember_stack(state: GameState, card_id: str, info: Any = None, *, was_stack: bool = False) -> None:
@@ -2093,11 +2146,11 @@ class Capture:
         # when a later library shuffle deliberately destroys its physical id.
         paid_exile = {oid for payment in state.rules.payments.values() for oid in payment.exiled_objects} if state.rules else set()
         around = _Around(state)
-        self.snaps = {
-            cid: snapshot(state, cid, around) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
+        self.snaps: Mapping[str, ObjectSnapshot] = _Snaps({  # (big boards round 3: each snapshot built when first asked for)
+            cid: _snapshot_fields(state, cid, around) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
             or (_zone_name(c.zone) == "exile" and not c.face_down and state.rules is not None
                 and (state.rules.object_id(cid) in paid_exile or bool(c.counters) or cid in state.rules.suspended))
-        }
+        })
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
         # -- spell copies (wave 31D) -- the annotations of the spells on the stack (X, modes, kicker), reset when one leaves it
         self.stack_info = {cid: c.stack_info.model_copy(deep=True) for cid, c in state.cards.items() if c.zone == "stack" and c.stack_info is not None}
@@ -2106,6 +2159,15 @@ class Capture:
         # card id -> card types as they are now (layers applied) for the permanents the rules engine
         # is about to move off the battlefield (set by Plan.do; empty for a step made by hand)
         self.types: dict[str, list[str]] = {}
+
+
+    def fields(self) -> Iterator[tuple[str, Any]]:
+        """-- big boards round 3 -- (card id, its snapshot or, not built yet, its fields read like it) for each snapshot, in order: for
+        readers of a few fields of every snapshot (``track``), which build none."""
+        snaps = self.snaps
+        if isinstance(snaps, _Snaps):
+            return ((cid, snaps.view(cid)) for cid in snaps.fields)
+        return iter(snaps.items())
 
 
 def capture(state: GameState) -> Capture | None:
@@ -2335,7 +2397,7 @@ KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deatht
 
 
 def _attach_event(state: GameState, kind: EventKind, card_id: str, oid: str, host: str | None, player: str | None,
-                  snaps: dict[str, ObjectSnapshot]) -> None:
+                  snaps: Mapping[str, ObjectSnapshot]) -> None:
     """-- attachment events (wave 30S) -- ``card_id`` became attached to / unattached from the permanent ``host`` (its object as it was in
     the step's capture: it may have left too) or the player (the event's ``by_card`` / ``source`` / ``player``)."""
     rules = state.rules
@@ -2395,8 +2457,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
             rules.lki[old_oid].copy_recipe = copy_recipe_of(rules, old_oid)  # -- copy system (wave 2F) --
             # -- sagas & attached-object triggers (wave 3S): what was attached to it (603.10a) --
-            rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
-            rules.lki[old_oid].attached_objects = {c: s.object_id for c, s in before.snaps.items() if s.attached_to == card_id}
+            rules.lki[old_oid].attached = [c for c, s in before.fields() if s.attached_to == card_id]
+            rules.lki[old_oid].attached_objects = {c: s.object_id for c, s in before.fields() if s.attached_to == card_id}
             rules.lki[old_oid].attached_objects_known = True
         if old_name == 'stack' and new_name == 'battlefield' and snap is not None \
                 and (payment := rules.payments.get(old_oid)) is not None:
@@ -2466,7 +2528,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
              from_zone=old_zone, to_zone=new_zone, actor=actor, non_discard=non_discard)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
-    pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}
+    pile = {p["id"]: snap for _, snap in before.fields() for p in snap.merged}  # (big boards round 3: building no snapshot)
     for card_id, card in state.cards.items():
         if card_id not in before.zones and (_zone_name(card.zone) in TRACKED_ZONES or card_id in pile):
             shell = pile.get(card_id)
@@ -2483,7 +2545,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                     rules.entry_life_origins.append(rules.object_id(card_id))
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
                                          tapped=card.tapped, face_down110b=bool(card.face_down), token110e=card.is_token))  # (-- entry forms (wave 5F) --)
-    for card_id, snap in before.snaps.items():
+    for card_id, snap in before.fields():  # (big boards round 3: the fields each snapshot was read with, building none)
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:
             continue

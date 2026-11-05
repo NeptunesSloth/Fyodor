@@ -40,6 +40,8 @@ import threading
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
+from pydantic_core import to_json
+
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
 from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
@@ -193,9 +195,25 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
     # -- copy system (wave 2F): statics are read from copiable values (613.2c: a Clone of an anthem
     # has the anthem's ability), so which copy effect applies to each permanent is part of the key
-    from app.rules.copying import copy_index
-
-    copies = copy_index(r)
+    # -- big boards round 3 -- (copying.copy_index, serialised in one call) object id → (timestamp, position in ``recipes``) of the latest
+    # copy effect that applies to it, and all the copy effects' recipes serialised together, which the key holds once: two keys with the
+    # same positions and the same recipes have the same recipe for each object, so the key is equal only when the old one was (its parts
+    # are as before, or finer); serialising each recipe apart cost a call per copy token for every key.
+    copies: dict[str, tuple[int, Any]] = {}
+    recipes_json = b""
+    if r is not None:
+        recipes = [e for e in r.effects if e.layer == "1" and e.copy_recipe is not None]
+        for i, e in enumerate(recipes):
+            for o in e.affected:
+                if o not in copies or e.timestamp >= copies[o][0]:
+                    copies[o] = (e.timestamp, i)
+        recipes_json = to_json([e.copy_recipe for e in recipes])
+    # -- big boards round 3 -- the rules state's object numbers, restamps and automation modes read directly (RulesState.object_id,
+    # card_mode and ``timestamp`` read exactly these: the same values, without three calls per card); ``timestamp`` itself while a
+    # prospective field is being solved (its entering object's own number); no choices or stickers: the same empty tuple
+    probe = _T.probe
+    prospective = probe is not None and (state is probe.origin or state is probe.state)
+    objects, restamped, modes = (r.objects, r.restamped, r.card_modes) if r is not None else ({}, {}, {})
     # -- big boards (perf) -- the parts of the key read from the cards, in one pass over them (a big table has hundreds of cards, and this
     # key is read by every derivation outside a read pass): the same tuples as reading the cards once per part, in the same card order
     # before each sort, so each part is exactly what it was (every call below only reads).
@@ -206,9 +224,12 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     entries110d: list[tuple[str, Any]] = []
     for cid, c in state.cards.items():
         if c.zone.endswith(":battlefield"):
-            oid = r.object_id(cid) if r else ""
+            oid = f"{cid}.{objects.get(cid, 0)}" if r else ""
             rows.append((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                         r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())), tuple(p.model_dump_json() for p in c.stickers101),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
+                         modes.get(cid, "auto") if r else "",
+                         (timestamp(state, cid) if prospective else max(objects.get(cid, 0), restamped.get(cid, 0))) if r else 0,
+                         tuple(sorted(c.choices.items())) if c.choices else (),
+                         tuple(p.model_dump_json() for p in c.stickers101) if c.stickers101 else (),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
                          copies.get(oid, (0, "")) if r else (0, "")))
             if c.attached_to:  # -- review (Codex) -- what each permanent is attached to (a "loses all abilities" Aura's host, attached_types.wipes)
                 attached.append((cid, c.attached_to or ""))
@@ -239,7 +260,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                       tuple((e.id, tuple(e.affected)) for e in r.effects if e.layer in ("4", "5", "6")) if r else (),
                       tuple(sorted(entries110d)),  # (wave 110D)
                       tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
-                      tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
+                      tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else (),  # -- Rooms (wave 18G) -- the doors unlocked
+                      recipes_json)  # (big boards round 3: the copy effects' recipes, ``copies``)
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
         # -- layers (wave 22A) -- the layered group statics are solved against the table state (their conditions are read now)
