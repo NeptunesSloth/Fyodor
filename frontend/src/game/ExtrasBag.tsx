@@ -204,6 +204,11 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
                 <span className="bag-tile-card bag-find-slot"><SearchGlyph /><span>Find any token</span></span>
               </button>
             </div>
+            <button type="button" className="bag-more" onClick={() => useGame.getState().openDialog("token_math")} data-testid="extras-token-math"
+              title={`Scute Swarm, landfall, copies and token doublers worked out${keyLabel("token_math", keymap) ? ` (${keyLabel("token_math", keymap)})` : ""}`}>
+              <span>Token math…</span>
+              {keyLabel("token_math", keymap) && <kbd>{keyLabel("token_math", keymap)}</kbd>}
+            </button>
           </section>
         </div>
         <div className="extras-side">

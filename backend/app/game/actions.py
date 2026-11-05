@@ -376,7 +376,8 @@ class CreateToken(Base):
     type: Literal["create_token"] = "create_token"
     player: Id | None = None  # controller
     token: TokenSpec
-    count: int = Field(default=1, ge=1, le=100)
+    # -- big token counts -- up to MAX_SEPARATE separate objects; more only as one stack ("Goblin ×5,000"), made while automation is paused
+    count: int = Field(default=1, ge=1, le=10 ** 15)
     x: Coord | None = None
     y: Coord | None = None
     tapped: bool = False
@@ -390,11 +391,18 @@ class CreateToken(Base):
     resolved_token: TokenDef | None = None
 
 
+MAX_SEPARATE_TOKENS = 100  # -- big token counts -- the most tokens one action makes as separate objects
+MAX_SEPARATE_COPIES = 50  # and the most separate copies of a card
+
+
 class CopyCard(Base):
     type: Literal["copy_card"] = "copy_card"
     card_id: Id
     player: Id | None = None  # controller of the copy (default: actor)
-    count: int = Field(default=1, ge=1, le=50)
+    count: int = Field(default=1, ge=1, le=10 ** 15)  # (-- big token counts -- more than MAX_SEPARATE_COPIES only ``stacked``)
+    # -- big token counts -- one card standing for ``count`` token copies ("Scute Swarm ×4,096"): the table's stack, made by hand while rules
+    # automation is paused (the engine keeps each token copy of a card its own object: docs/TOKEN_STACKS.md)
+    stacked: bool = False
     modifications: str = Field(default="", max_length=300)
     # the scripted tables' "exact copy": the copy also takes the original's counters, effect markers and choices
     # (a tabletop convenience; a rules copy, 707.2, copies none of them)
@@ -1295,6 +1303,9 @@ class AttackDeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid")
     card_id: Id
     target: Id  # a player id, or a planeswalker / battle card id
+    # -- engine token stacks -- attack with only this many members of a token stack ("Goblin ×512": attack with 40); the rest are split
+    # off first, in the same action (docs/TOKEN_STACKS.md §4). None: the whole object attacks.
+    count: int | None = Field(default=None, ge=1, le=10 ** 15)
 
 
 class DeclareAttackers(_Intent):

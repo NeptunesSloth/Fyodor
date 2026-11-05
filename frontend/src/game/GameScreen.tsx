@@ -259,6 +259,10 @@ function useShortcuts() {
           e.preventDefault();
           s.openDialog(s.dialog === "dice" ? null : "dice");
           break;
+        case "token_math":
+          e.preventDefault();
+          s.openDialog(s.dialog === "token_math" ? null : "token_math");
+          break;
         case "auto_pass":
           void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;

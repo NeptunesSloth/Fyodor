@@ -194,6 +194,11 @@ body.reduced-motion .signal-feed li { animation-name: night-fade; }
 .combat-strip-title { font: 700 14px var(--font-display); color: var(--text); }
 .combat-strip-front { display: flex; align-items: center; gap: 8px; }
 .combat-strip-label { font-size: 12px; color: var(--text-dim); max-width: 96px; }
+/* token stacks attacking: the plain sum of what the unblocked ones deal (the server deals it) */
+.combat-total { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.combat-strip-label .combat-total { display: flex; flex-direction: column; margin-top: 3px; }
+.combat-strip-label:has(.combat-total) { max-width: 136px; }
+.combat-stack-dmg { font-variant-numeric: tabular-nums; }
 .combat-strip-row { display: flex; gap: 16px; }
 .combat-strip-lane { display: flex; align-items: center; gap: 6px; }
 .combat-strip-lane .combat-card { width: 46px; }

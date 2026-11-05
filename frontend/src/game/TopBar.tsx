@@ -15,6 +15,7 @@ import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
 import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
 import { AutomationHud } from "./rules/RulesHud";
+import { BoardPressure } from "./TokenMathDialog";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -44,6 +45,7 @@ export function TopBar() {
       </div>
       <span className="spacer" />
       {/* what the rules engine does, and Concede: in the bar, not over the last seat's plaque */}
+      <BoardPressure />
       <AutomationHud />
       {dayNight && (
         <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"

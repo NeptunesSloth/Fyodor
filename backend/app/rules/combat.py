@@ -476,6 +476,21 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         eligible = {o.id[2:] for o in d.options if o.id.startswith("a:")}
         targets = {o.id[2:] for o in d.options if o.id.startswith("t:")}
     current_targets = set(attack_targets(plan.state, plan.active, plan.info)) if a.attackers else set()
+    # -- engine token stacks -- "attack with 40 of Goblin ×512": the other members are split off first and stay home (docs/TOKEN_STACKS.md
+    # §4; 508.1a: each member is its own creature, declared or not). Within this action, so the part keeps its id and its place in the
+    # declaration's eligible creatures. (A rerun that pays the attack cost finds the part already that size.)
+    for decl in a.attackers:
+        if decl.count is None:
+            continue
+        card = plan.state.cards.get(decl.card_id)
+        if card is None or decl.card_id not in eligible:
+            raise ActionError("That creature can't attack now")
+        if decl.count > card.quantity:
+            raise ActionError(f"{card.name} stands for only {card.quantity:,} tokens")
+        if decl.count < card.quantity:
+            from app.rules import token_stacks
+
+            token_stacks.keep(plan, decl.card_id, decl.count)
     seen: set[str] = set()
     for decl in a.attackers:
         card = plan.state.cards.get(decl.card_id)

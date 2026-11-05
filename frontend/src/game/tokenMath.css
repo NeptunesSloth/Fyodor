@@ -1,0 +1,32 @@
+/* Token math dialog (TokenMathDialog.tsx) */
+.tm-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.tm-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+.tm-num input { width: 96px; }
+.tm-mult { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); }
+.tm-mult-head { margin-right: 6px; }
+.tm-chip { border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+.tm-chip small { color: var(--text-faint); }
+.tm-makers { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0 10px; }
+.tm-maker { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.tm-maker small { color: var(--text-faint); }
+.tm-names input { width: 52px; margin-left: 6px; }
+.tm-table { font-variant-numeric: tabular-nums; }
+.tm-table th { text-align: left; font-weight: 600; padding: 5px 6px; border-bottom: 1px solid var(--line-2); }
+.tm-table small { color: var(--text-faint); }
+.tm-total-row td { font-weight: 600; }
+.tm-sum { margin: 10px 0; }
+.tm-big { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tm-warn { border-left: 3px solid var(--warn, #d9a441); padding: 6px 10px; background: var(--bg-2); font-size: 13px; }
+.tm-load { margin: 6px 2px 0; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.tm-load b { color: var(--text); font-weight: 600; }
+.tm-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 4px 0 10px; }
+.tm-quick small { color: var(--text-faint); }
+.tm-quick-scape { display: inline-flex; align-items: center; gap: 8px; }
+.tm-inline-num { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.tm-inline-num input { width: 64px; }
+.tm-apply { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+/* the board pressure badge (top bar) */
+.tm-pressure { font-variant-numeric: tabular-nums; gap: 4px; }
+.tm-pressure-n { font-weight: 650; color: var(--warn, #d9a441); }
+.tm-pressure-sub { color: var(--text-dim); }
+@media (max-width: 640px) { .tm-table { font-size: 12px; } .tm-num input { width: 72px; } }

@@ -142,6 +142,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
             if not trusted:
                 raise ActionError("Only the rules engine makes a token stack this way")
             a.stacked, a.count = True, 1
+        if not a.stacked and a.count > A.MAX_SEPARATE_TOKENS:  # -- big token counts -- more than that is one card ×N
+            raise ActionError(_too_many(state, f"{a.count:,} tokens", A.MAX_SEPARATE_TOKENS))
         a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
         a.resolved_token = _token_def(a.token, info)
         if a.x is None or a.y is None:
@@ -149,6 +151,15 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
             a.x, a.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(a.resolved_token.type_line))
     elif isinstance(a, A.CopyCard | A.CreateAbility):
         count = a.count if isinstance(a, A.CopyCard) else 1
+        if isinstance(a, A.CopyCard):  # -- big token counts -- one card standing for many copies, made by hand
+            if a.stacked:
+                if state.rules is not None and state.settings.automation != "off":
+                    raise ActionError(_too_many(state, f"{a.count:,} copies", A.MAX_SEPARATE_COPIES))
+                if a.saved_stack is not None or a.last_known or a.zone is not None:
+                    raise ActionError("Only a copy on the battlefield can be a stack")
+                count = 1
+            elif a.count > A.MAX_SEPARATE_COPIES:
+                raise ActionError(_too_many(state, f"{a.count:,} copies", A.MAX_SEPARATE_COPIES))
         a.r = A.NewIds(ids=[new_id() for _ in range(count)])
     elif isinstance(a, A.SpawnCard):
         data = info.get(a.card_id)
@@ -417,3 +428,11 @@ def _resolve_macro(state: GameState, a: A.RunMacro, actor: str, info: CardInfo, 
         engine.apply(scratch, resolved)
         steps.append(resolved.model_dump(mode="json"))
     return steps
+
+
+def _too_many(state: GameState, what: str, limit: int) -> str:
+    """-- big token counts -- the refusal for more separate objects than one action makes."""
+    if state.rules is not None and state.settings.automation != "off":
+        return (f"{what} is too many to make by hand while rules automation is on: each one is its own object, at most {limit:,} at a time. "
+                "Pause automation to make them as one card ×N.")
+    return f"{what} is more than {limit:,} separate cards: make them as one card ×N (a token stack)."

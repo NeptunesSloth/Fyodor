@@ -151,7 +151,7 @@ def stack_adjust(state: GameState, a: A.StackAdjust) -> None:
         ops.delete(state, c)
         log(state, a.actor, a.ts, [pname(state, a.actor), text(f" removed the last {c.name} token")])
         return
-    c.quantity = min(new, 10_000)
+    c.quantity = min(new, 10 ** 15)  # (-- big token counts -- the engine stack's ceiling)
     verb = f"added {a.delta}" if a.delta > 0 else f"removed {-a.delta}"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" {verb} {c.name} (×{c.quantity})")])
 
