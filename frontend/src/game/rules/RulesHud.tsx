@@ -18,6 +18,7 @@ import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { wheelEligible } from "./wheel";
+import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
@@ -635,6 +636,7 @@ function NumberChoice({ d }: { d: DecisionView }) {
 function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
+  const [filter, setFilter] = useState("");
   const options = d.options ?? [];
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
@@ -662,9 +664,18 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
             {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden>{playerName(view, g.player).slice(0, 1).toUpperCase()}</span>}
             {g.options.map((o) => <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>)}
           </div>
-        )) : options.filter((o) => o.group !== "seen").map((o) => (
-          <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
-        ))}
+        )) : (
+          <>
+            {d.kind === "choose_one" && options.length > FILTER_MIN && ( /* a long list (a creature type): type to narrow it, Enter takes the first match */
+              <input className="decision-name" data-testid="option-filter" autoFocus value={filter} placeholder="Type to filter…"
+                onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={(e) => { const m = filterOptions(options.filter((o) => o.group !== "seen"), filter)[0]; if (e.key === "Enter" && m) done([m.id]); }} />
+            )}
+            {filterOptions(options.filter((o) => o.group !== "seen"), filter).map((o) => (
+              <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
+            ))}
+          </>
+        )}
         {d.rememberable && (
           <select className="decision-remember" data-testid="remember" value={remember} onChange={(e) => setRemember(e.target.value)}>
             <option value="">Ask me every time</option>
