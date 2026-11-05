@@ -9,6 +9,7 @@ import { BORDER, CARD_H, CANVAS_TIER, GLYPHS as TYPE_GLYPHS, INK, layoutProxy, p
 import { drawnBackCanvas } from "../cards/drawnBack";
 import { proxyFontsReady, textMeasure, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
+import { countText } from "../game/piles";
 
 /** Small deterministic PRNG so every table looks the same on every device. */
 export function rng(seed: number): () => number {
@@ -806,10 +807,15 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
   g.textBaseline = "middle";
   // pile count, top right, clear of the name line's mana cost (lands have none)
   if (o.pile) {
-    plate(g, W - 186, 96, 172, 110);
-    g.fillStyle = "#f4ead6";
+    // (an engine token stack can be "×131,072": the plate widens to the left and the figure shrinks to fit)
+    const text = countText(o.pile);
     g.font = "800 76px Inter, Arial, sans-serif";
-    g.fillText(`×${o.pile}`, W - 100, 154);
+    const size = Math.max(40, Math.min(76, Math.floor((76 * 330) / Math.max(1, g.measureText(text).width))));
+    g.font = `800 ${size}px Inter, Arial, sans-serif`;
+    const pw = Math.max(172, Math.min(360, g.measureText(text).width + 36));
+    plate(g, W - 14 - pw, 96, pw, 110);
+    g.fillStyle = "#f4ead6";
+    g.fillText(text, W - 14 - pw / 2, 154);
   }
   // owner gem, top left, over the art's corner
   if (o.owner) {

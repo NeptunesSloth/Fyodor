@@ -12,7 +12,7 @@ import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
 import { TargetMark } from "./targeting/TargetMark";
 import { Icon } from "../components/Icon";
-import { countMark } from "./piles";
+import { countMark, countText } from "./piles";
 import { BoardTile, packStats } from "./BoardTile";
 import { reorderArranged } from "./arrangeDrop";
 import { useHoverCard } from "./hoverCard";
@@ -91,7 +91,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     >
       {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
       {legal === "rules-target" && <TargetMark id={id} />}
-      {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>×{count.n}</span>}
+      {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>{countText(count.n)}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}

@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { GLYPHS, PALETTE, proxyColours, proxyFace, type CustomProxy } from "../cards/proxy";
 import { proxyFontsReady, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
+import { countText } from "../game/piles";
 import type { CardOverlay } from "./textures";
 
 /** Tile canvas width (px); its height is 1.12 times that (game/arrange.ts TILE_RATIO). */
@@ -352,8 +353,8 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
   let left = bar + W * 0.04;
   // ×N, at the left under the name bar, where a stack's edges are
   if (o.pile) {
-    g.font = `800 ${Math.round(W * 0.13)}px ${UI}`;
-    const text = `×${o.pile}`;
+    const text = countText(o.pile);
+    g.font = `800 ${Math.round(W * (text.length > 5 ? 0.09 : 0.13))}px ${UI}`; // ("×131,072": smaller, still on the tile)
     const w = g.measureText(text).width + W * 0.09;
     const h = W * 0.19;
     chip(W * 0.04, left, w, h, BRASS);
