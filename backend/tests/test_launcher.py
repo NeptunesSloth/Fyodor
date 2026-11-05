@@ -52,12 +52,10 @@ def test_first_run_downloads_the_cards_and_lets_the_pod_join(tmp_path, monkeypat
         monkeypatch.setenv(k, v)
     calls: list[list[str]] = []
     served: dict[str, object] = {}
-    import uvicorn
-
     import tools.update_cards
 
     monkeypatch.setattr(tools.update_cards, "main", lambda argv: calls.append(argv) or 0)
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: served.update(kw))
+    monkeypatch.setattr(launcher, "serve", lambda settings: served.update(host=settings.host))
     assert launcher.main(["--port", "0", "--no-browser"]) == 0
     assert calls and calls[0][:2] == ["--images", "none"]  # missing card database: fetched once
     assert served["host"] == "0.0.0.0"  # LAN by default
@@ -129,3 +127,50 @@ def test_windows_8_1_gets_the_chromium_that_still_runs_there(install_dir, monkey
     assert launcher.bundled_browser() == install_dir / "browser" / "chrome.exe"
     monkeypatch.setattr(launcher, "_windows_major", lambda: 6)  # Windows 8.1
     assert launcher.bundled_browser() == install_dir / "browser-legacy" / "chrome.exe"
+
+
+def test_restart_from_settings_starts_the_server_again_in_the_same_program(tmp_path, monkeypatch):
+    """After a restore, Settings → Restart Fyodor: the server stops and starts again in place (no window to find and
+    close), which is when the staged restore is applied."""
+    import json
+    import threading
+    import time
+    import urllib.request
+
+    import app.main
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_PORT": str(port), "FYODOR_AUTO_BACKUP_MINUTES": "0"})
+    made: list = []
+    real = app.main.create_app
+
+    def create_app(st):
+        made.append(real(st))
+        return made[-1]
+
+    monkeypatch.setattr(app.main, "create_app", create_app)
+    t = threading.Thread(target=launcher.serve, args=(settings,), daemon=True)
+    t.start()
+    url = f"http://127.0.0.1:{port}"
+
+    def up(n: int) -> bool:
+        for _ in range(150):
+            if len(made) >= n:
+                try:
+                    with urllib.request.urlopen(f"{url}/api/health", timeout=1):
+                        return True
+                except OSError:
+                    pass
+            time.sleep(0.1)
+        return False
+
+    assert up(1)
+    req = urllib.request.Request(f"{url}/api/restart", data=b"{}", method="POST", headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        assert r.status == 202 and json.loads(r.read())["restarting"] is True
+    assert up(2)  # a new server, from a new app, on the same port
+    made[-1].state.request_restart.__defaults__[0].should_exit = True  # stop for good (no restart)
+    t.join(10)
+    assert not t.is_alive() and len(made) == 2

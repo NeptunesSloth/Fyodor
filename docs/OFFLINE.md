@@ -8,6 +8,19 @@ The Windows installer carries everything Fyodor needs, so an offline computer ne
 
 That's all: no browser to update, no download, no Internet, not even on the first start.
 
+## Bringing your decks
+
+Your decks travel in a Fyodor backup file:
+
+1. On the computer that has your decks (with Fyodor, online or not): **Settings → Back up Fyodor now**. It saves a
+   `fyodor-backup-….zip` file (to Downloads). Copy it onto the USB stick with the installer.
+2. On the offline computer, in Fyodor: **Settings → Restore from a file…**, choose that file, then click
+   **Restart Fyodor now**. Your decks, saved games and pod stats are all there.
+
+A restore replaces what the offline computer had (a copy of it is kept). Decks that live on Archidekt or as text
+lists: import them into Fyodor on the online computer first (Decks → Import; several at once with the bulk import),
+then back up. A deck list can also be pasted in on the offline computer itself: Decks → Import → paste the list.
+
 ## What's inside
 
 - **Fyodor's own window.** The installer ships its own Chromium (`browser\` beside `Fyodor.exe`), and Fyodor opens the

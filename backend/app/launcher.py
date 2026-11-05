@@ -225,12 +225,31 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_browser:
         threading.Thread(target=_open_when_ready, args=(local, settings), daemon=True).start()
 
+    serve(settings)
+    return 0
+
+
+def serve(settings: Settings) -> None:
+    """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
+    which is when a staged restore is applied (app/storage/backup.py)."""
     import uvicorn
 
     from app.main import create_app
 
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port, log_level=settings.log_level.lower())
-    return 0
+    while True:
+        again = threading.Event()
+        app = create_app(settings)
+        server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port, log_level=settings.log_level.lower()))
+
+        def request_restart(server: uvicorn.Server = server, again: threading.Event = again) -> None:
+            again.set()
+            server.should_exit = True
+
+        app.state.request_restart = request_restart
+        server.run()
+        if not again.is_set():
+            return
+        print("\nRestarting Fyodor…\n")
 
 
 if __name__ == "__main__":
