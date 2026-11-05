@@ -37,3 +37,22 @@ export function initialAttackPlan(d: DecisionView): Record<string, string> {
   }
   return plan;
 }
+
+/**
+ * The declaration the server gets from the plan ("a:<card>" → "t:<target>"). A token stack ("Goblin ×512") attacks with all its members
+ * unless `counts` names fewer (1..its size): then the declaration carries that count and the server splits the others off, in the same
+ * action (docs/TOKEN_STACKS.md §4). `sizes`: each attacker's stack size (1 for a single creature).
+ */
+export function attackDeclarations(plan: Record<string, string>, counts: Record<string, number> = {}, sizes: Record<string, number> = {}): { card_id: string; target: string; count?: number }[] {
+  return Object.entries(plan).map(([a, t]) => {
+    const size = sizes[a] ?? 1;
+    const k = counts[a];
+    const part = k != null && Number.isFinite(k) && k >= 1 && k < size ? Math.floor(k) : null;
+    return { card_id: a.slice(2), target: t.slice(2), ...(part != null ? { count: part } : {}) };
+  });
+}
+
+/** How many creatures the plan attacks with (a stack counts its members, or the part of it that attacks). */
+export function attackingCount(plan: Record<string, string>, counts: Record<string, number> = {}, sizes: Record<string, number> = {}): number {
+  return attackDeclarations(plan, counts, sizes).reduce((n, d) => n + (d.count ?? sizes[`a:${d.card_id}`] ?? 1), 0);
+}

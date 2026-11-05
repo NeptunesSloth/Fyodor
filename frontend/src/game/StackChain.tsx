@@ -4,12 +4,13 @@
  * identical triggers in a row collapse into one "3×" row. Shared by the manual stack panel and the
  * rules engine's stack, so both read the same way.
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { playerName } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
 import { isVisible, type GameCard, type GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
 import { useHoverCard } from "./hoverCard";
+import { abilityKey, batchTitle, groupStack, ROW_LIMIT, type StackGroup } from "./stackGroups";
 
 export function stackTypeLine(cardId: string | null | undefined): string {
   const data = cardId ? useCardCache.getState().cards[cardId] : undefined;
@@ -34,31 +35,38 @@ function kindOf(c: GameCard | undefined): string {
   return stackTypeLine(c.card_id);
 }
 
-export interface ChainEntry {
-  /** The top-most id of the group (what hover, drag and hold act on). */
-  id: string;
-  ids: string[];
-  /** Chain number of the top-most object (1 = bottom of the stack). */
-  no: number;
+export type ChainEntry = StackGroup;
+
+/**
+ * Top first; consecutive abilities that read the same (same source, same text, same controller, nothing noted on them) share a row
+ * (stackGroups.ts). Never grouped: spells, face-down objects, anything with a target, and the object a pending decision is about (a
+ * player must see what they answer).
+ */
+export function chainEntries(view: GameView): ChainEntry[] {
+  const targeted = new Set((view.arrows ?? []).map((a) => a.source));
+  const asked = view.rules?.decision?.source_id ?? null;
+  return groupStack(view.stack, (id) => {
+    const c = view.cards[id];
+    if (!c || !isVisible(c) || !c.ability || targeted.has(id) || id === asked) return null;
+    const info = c.stack_info;
+    const notes = info && (info.x != null || info.modes.length || info.tags.length) ? JSON.stringify(info) : "";
+    return abilityKey(c.ability.source_name, c.ability.text ?? "", c.controller, notes);
+  });
 }
 
-/** Top first; consecutive objects that read the same (same source, same text, no targets) share a row. */
-export function chainEntries(view: GameView): ChainEntry[] {
-  const out: ChainEntry[] = [];
-  const stack = view.stack;
-  const sig = (id: string) => {
-    const c = view.cards[id];
-    if (!c || !isVisible(c) || !c.ability) return `solo:${id}`;
-    const targeted = (view.arrows ?? []).some((a) => a.source === id);
-    return targeted ? `solo:${id}` : `${c.ability.source_name}|${c.ability.text}|${c.controller}`;
-  };
-  for (let i = stack.length - 1; i >= 0; i--) {
-    const id = stack[i]!;
-    const last = out[out.length - 1];
-    if (last && !sig(id).startsWith("solo:") && sig(id) === sig(last.ids[0]!)) last.ids.push(id);
-    else out.push({ id, ids: [id], no: i + 1 });
-  }
-  return out;
+/** The first ROW_LIMIT rows, then a "Show N more" control: a stack of a thousand different objects stays quick to draw. */
+export function useChainRows(entries: ChainEntry[]): { rows: ChainEntry[]; more: ReactNode } {
+  const [limit, setLimit] = useState(ROW_LIMIT);
+  const rows = entries.length > limit ? entries.slice(0, limit) : entries;
+  const hidden = entries.length - rows.length;
+  const more = hidden > 0 ? (
+    <li className="chain-more">
+      <button className="tt-btn ghost" data-testid="stack-more" onClick={() => setLimit((n) => n + ROW_LIMIT * 4)}>
+        Show {Math.min(hidden, ROW_LIMIT * 4).toLocaleString("en-US")} more ({hidden.toLocaleString("en-US")} below)
+      </button>
+    </li>
+  ) : null;
+  return { rows, more };
 }
 
 export function ChainRow({ entry, top, view, children, ...rest }: {
@@ -70,6 +78,8 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
   const info = visible ? c.stack_info : undefined;
   const count = entry.ids.length;
   const hover = useHoverCard();
+  const [open, setOpen] = useState(false);
+  const batch = count > 1 && visible && !!c.ability;
   return (
     <li
       className={`chain-row ${top ? "top" : ""}`}
@@ -82,7 +92,15 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
       <span className="chain-thumb">{c && <GameCardFace card={c} size="small" />}</span>
       <span className="chain-body">
         {top && <span className="chain-next">Resolves next</span>}
-        <b className="chain-name">{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
+        {batch ? (
+          // the count never truncates: a long source name gives way first
+          <b className="chain-name chain-name-batch" title={batchTitle(c.ability!.source_name, c.ability!.text ?? "", c.ability!.kind, count)}>
+            <span className="chain-name-text">{batchTitle(c.ability!.source_name, c.ability!.text ?? "", c.ability!.kind, 1)}</span>{" "}
+            <span className="chain-batch-count">×{count.toLocaleString("en-US")}</span>
+          </b>
+        ) : (
+          <b className="chain-name">{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
+        )}
         <span className="chain-who">{c ? playerName(view, c.controller) : ""}{kindOf(c) ? ` · ${kindOf(c)}` : ""}</span>
         {visible && c.ability?.text && <span className="chain-text">{c.ability.text}</span>}
         {targets.length > 0 && <span className="chain-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
@@ -93,8 +111,39 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
             {info.modes.map((m) => <span key={m} className="stack-mode">✓ {m}</span>)}
           </span>
         )}
+        {batch && (
+          <button className="chain-batch-toggle" data-testid="stack-batch-toggle" aria-expanded={open}
+            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
+            {open ? "Hide each" : `Show each (${count.toLocaleString("en-US")})`}
+          </button>
+        )}
+        {batch && open && <BatchMembers entry={entry} />}
       </span>
       {children}
     </li>
+  );
+}
+
+/** An opened batch: each of its objects by chain number, top first (in pages, so a batch of thousands opens at once). */
+function BatchMembers({ entry }: { entry: ChainEntry }) {
+  const [limit, setLimit] = useState(ROW_LIMIT);
+  const hover = useHoverCard();
+  const shown = entry.ids.slice(0, limit);
+  const rest = entry.ids.length - shown.length;
+  return (
+    <ol className="chain-batch" data-testid="stack-batch" aria-label="Each object in this batch">
+      {shown.map((id, i) => (
+        <li key={id} className={`chain-batch-item ${i === 0 ? "first" : ""}`} {...hover(id)}
+          title={i === 0 ? `Chain ${entry.no - i}: resolves first of these` : `Chain ${entry.no - i}`}>{entry.no - i}</li>
+      ))}
+      {rest > 0 && (
+        <li>
+          <button className="tt-btn ghost" onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setLimit((n) => n + ROW_LIMIT * 4); }}>
+            Show {Math.min(rest, ROW_LIMIT * 4).toLocaleString("en-US")} more
+          </button>
+        </li>
+      )}
+    </ol>
   );
 }

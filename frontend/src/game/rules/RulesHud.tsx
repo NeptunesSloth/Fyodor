@@ -12,14 +12,14 @@ import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView
 import { autocomplete } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
-import { ChainRow, chainEntries } from "../StackChain";
+import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { wheelEligible } from "./wheel";
 import { isOut } from "../outOfGame";
-import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
 import { useCardCache } from "../../state/cardCache";
@@ -364,9 +364,10 @@ export function TurnDial() {
 export function RulesStack() {
   const ctx = useRules();
   const [responding, setResponding] = useState<string | null>(null);
+  const entries = ctx ? chainEntries(ctx.view) : [];
+  const { rows, more } = useChainRows(entries); // (a batch of identical triggers is one row; past ROW_LIMIT rows, "Show more")
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
-  const entries = chainEntries(view);
   const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
   const top = entries[0]?.id ?? "";
   return (
@@ -374,11 +375,14 @@ export function RulesStack() {
       <section className="rules-stack chain plaque" data-testid="rules-stack" aria-label="The stack">
         <div className="chain-head"><span className="chain-title">The stack<span className="chain-count"> · {view.stack.length}</span></span></div>
         <ol className="chain-list">
-          {entries.map((entry, i) => (
+          {rows.map((entry, i) => (
             <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
-              <button className="tt-btn ghost chain-hold" title="Stop and give me priority after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>Stop after</button>
+              {/* (a batch: after the last of it, the bottom-most) */}
+              <button className="tt-btn ghost chain-hold" title={entry.ids.length > 1 ? "Stop and give me priority after all of these resolve" : "Stop and give me priority after this resolves"}
+                onClick={() => void setPrefs({ stop_after: entry.ids[entry.ids.length - 1] })}>Stop after</button>
             </ChainRow>
           ))}
+          {more}
         </ol>
         {mine && (
           <div className="chain-actions">
@@ -778,6 +782,10 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const targets = opts.filter((o) => o.id.startsWith("t:"));
   const [plan, setPlan] = useState<Record<string, string>>(() => initialAttackPlan(d)); // (attackPlan.ts: what must attack, 508.1d)
   const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
+  // -- engine token stacks -- how many of a "Goblin ×512" attack (all unless lowered; the server splits the rest off)
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const cards = useGame((s) => s.view?.cards);
+  const sizes = Object.fromEntries(attackers.map((a) => [a.id, Math.max(1, cards?.[a.id.slice(2)]?.quantity ?? 1)]));
   const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
   const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
     holders: string[]; members: string[]; description: string;
@@ -803,7 +811,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   });
   const declare = () => void send({
     type: "declare_attackers",
-    attackers: Object.entries(plan).map(([a, t]) => ({ card_id: a.slice(2), target: t.slice(2) })),
+    attackers: attackDeclarations(plan, counts, sizes),
     bands: bands.map((members) => members.map((a) => a.slice(2))),
   });
   return (
@@ -816,6 +824,17 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
             <option value="">Doesn't attack</option>
             {attackTargetsFor(d, a.id).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
+          {(sizes[a.id] ?? 1) > 1 && plan[a.id] && (
+            <span className="combat-count">
+              <input type="number" min={1} max={sizes[a.id]} step={1} aria-label={`How many of the ${a.label} attack`}
+                data-testid={`attack-count-${a.id.slice(2)}`} value={counts[a.id] ?? sizes[a.id]}
+                onChange={(e) => {
+                  const k = Math.floor(Number(e.target.value));
+                  setCounts((c) => ({ ...c, [a.id]: Math.min(sizes[a.id] ?? 1, Math.max(1, Number.isFinite(k) ? k : 1)) }));
+                }} />
+              <span className="combat-count-of">of {(sizes[a.id] ?? 1).toLocaleString("en-US")}</span>
+            </span>
+          )}
           {leaders.size > 0 && plan[a.id] && (
             <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
               value={bandPlan[a.id] ?? ""} onChange={(e) => setBandPlan({ ...bandPlan, [a.id]: e.target.value })}>
@@ -834,7 +853,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
             .filter((a) => attackTargetsFor(d, a.id).some((t) => t.id === targets[0]!.id)).map((a) => [a.id, targets[0]!.id])))}>All attack</button>
         )}
         <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
-          {Object.keys(plan).length ? `Attack with ${Object.keys(plan).length}` : "No attack"}
+          {Object.keys(plan).length ? `Attack with ${attackingCount(plan, counts, sizes).toLocaleString("en-US")}` : "No attack"}
         </button>
       </div>
     </div>

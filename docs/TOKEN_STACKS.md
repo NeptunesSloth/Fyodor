@@ -92,7 +92,7 @@ retries the action once with every stack spread, or refuses it):
 | State-based actions (0 toughness, lethal damage, deathtouch damage, +1/+1 and -1/-1 counters) | Every member is identical, so each member has the same result: the whole stack is put into the graveyard together. Runs inside `whole()`. |
 | Legend rule (704.5j) | Legendary tokens never stack. |
 | Singling out members (a target, a sacrifice, a choice, one blocker, one blocked attacker, a mana source) | **Split first**: the chosen card id keeps exactly one member and the rest move to a new object (new id and rules object id) that copies every rules record of the stack (`adopt`: control timestamp, entry this turn, card mode, continuous effects that affected it). Then the action runs normally on a single token. Splitting happens at the boundary where the choice enters the engine: intent card ids (targets, attackers' blocks, mana sources, crew, cost choices) and decision answers. An engine-made choice that bypasses those boundaries hits the touch guard instead. |
-| Combat: attacking | Declaring a stack as an attacker attacks with all its members, at the same target. To attack with part, split off N first (the table's "Split off…"). An unblocked stack deals `quantity` × its damage (510.1a for each member, all dealt simultaneously, 510.2). The attack's total power record counts every member. |
+| Combat: attacking | Declaring a stack as an attacker attacks with all its members, at the same target. To attack with part, the declaration names how many (`AttackDeclaration.count`: the other members are split off inside the same action, `token_stacks.keep`; a part of at most 100 is spread at the next action, still attacking), or split off N first before the declare-attackers step (the table's "Split off…"). An unblocked stack deals `quantity` × its damage (510.1a for each member, all dealt simultaneously, 510.2). The attack's total power record counts every member. |
 | Combat: blocks | A blocker blocks one attacker: naming a stack as an attacker that is blocked splits one member off, which is the blocked one (all block lines naming that stack block that one member; to block several members, split them first); naming a stack as a blocker splits one member off, which blocks. |
 | Combat: lifelink, toxic, "whenever a creature deals combat damage" | Not exact for a stack (separate life gain events per member, 119.9/120.3f): lifelink and toxic tokens never stack; the observers are refused by the audit. |
 | Per-member triggers ("whenever a creature enters / dies / attacks") | 603.2c: N events trigger N times. Refused by the audit (the stack is spread when small, the action refused when big), except the whitelisted *enters* shape below. |
@@ -128,6 +128,13 @@ noticing. A stack of 131,072 is made in well under a second (the test asserts < 
 The 2D and 3D tables already show `quantity` as a ×N badge (`piles.countMark`); it now reads "×65,536". With automation on the token-stack
 menu offers "Split one off" and "Split off…" (engine-exact splits; a part of at most 100 becomes separate tokens at the next action) and
 "Split into N tokens" only up to `INDIVIDUAL_LIMIT` (`tokenStacks.ENGINE_SPREAD_MAX`); the server refuses a bigger `expand_stack`.
+
+Part of a stack: the declare-attackers panel asks how many of a stack attack (all by default) and sends the count. The card menu offers
+"Attack with some of the ×N" (per target), "Tap some…"/"Untap some…" and, when the table is run by hand, "Sacrifice some…": each splits
+n − k off first (`split_stack` moves `count` to a new card, so the card itself, whose id is known, keeps k) and then acts on the card —
+two table actions, two undo steps. The combat lanes show, when a stack attacks, the attacking count and what the unblocked attackers deal
+(members × power; display only). The stack list shows consecutive identical abilities as one row ("Scute Swarm — landfall ×400",
+`stackGroups.ts`), never grouping a targeted object or the object a decision is about.
 
 ## 8. Not exact, so refused (and what remains)
 

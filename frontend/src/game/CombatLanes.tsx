@@ -3,6 +3,8 @@ import { useGame } from "../state/gameStore";
 import { isVisible, type GameCard, type GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
 import { useHoverCard } from "./hoverCard";
+import { attackerDamage, frontTotal, totalText } from "./combatTotals";
+import { stackSize } from "./tokenStacks";
 
 /*
  * Combat lane view (TABLETOP_QOL_MILESTONE.md #9): an optional, temporary presentation of combat.
@@ -56,12 +58,12 @@ export function CombatLanes() {
             </div>
             {fronts.map((f) => (
               <section key={f.key} className="combat-front">
-                <h3>Attacking {f.label}</h3>
+                <h3>Attacking {f.label}<FrontTotalNote view={view} lanes={f.lanes} /></h3>
                 <div className="combat-row">
                   {f.lanes.map(({ attacker, blockers }) => (
                     <div key={attacker.id} className="combat-lane">
                       <LaneCard card={attacker} onPick={(id) => select([id])} />
-                      <span className={`combat-vs ${blockers.length ? "" : "open"}`}>{blockers.length ? `Blocked by ${blockers.length}` : "Unblocked"}</span>
+                      <span className={`combat-vs ${blockers.length ? "" : "open"}`}>{blockers.length ? `Blocked by ${blockers.length}` : "Unblocked"}<StackDamage view={view} card={attacker} blocked={blockers.length > 0} /></span>
                       <div className="combat-blockers">
                         {blockers.map((b) => <LaneCard key={b.id} card={b} small onPick={(id) => select([id])} />)}
                       </div>
@@ -98,7 +100,7 @@ export function CombatStrip() {
       <b className="combat-strip-title">Combat</b>
       {fronts.map((f) => (
         <div key={f.key} className="combat-strip-front">
-          <span className="combat-strip-label">Attacking {f.label}</span>
+          <span className="combat-strip-label">Attacking {f.label}<FrontTotalNote view={view} lanes={f.lanes} compact /></span>
           <div className="combat-strip-row">
             {f.lanes.map(({ attacker, blockers }) => (
               <div key={attacker.id} className="combat-strip-lane">
@@ -108,7 +110,7 @@ export function CombatStrip() {
                     <span className="combat-strip-vs" aria-label="blocked by">vs</span>
                     {blockers.map((b) => <LaneCard key={b.id} card={b} small onPick={(id) => select([id])} />)}
                   </>
-                ) : <span className="combat-vs open">Unblocked</span>}
+                ) : <span className="combat-vs open">Unblocked<StackDamage view={view} card={attacker} blocked={false} /></span>}
               </div>
             ))}
           </div>
@@ -116,4 +118,23 @@ export function CombatStrip() {
       ))}
     </section>
   );
+}
+
+/** -- engine token stacks -- the total an attack's unblocked creatures deal (stack members × power), when a stack attacks there. */
+function FrontTotalNote({ view, lanes, compact }: { view: GameView; lanes: Lane[]; compact?: boolean }) {
+  const t = frontTotal(view, lanes);
+  if (!t.stacked) return null;
+  const attacking = `${t.attackers.toLocaleString("en-US")} attacking`;
+  // (the 2D strip's narrow label: one fact per line)
+  if (compact) return <span className="combat-total" data-testid="combat-total"><span>{attacking}</span><span>{totalText(t)}</span></span>;
+  return <span className="combat-total" data-testid="combat-total"> · {attacking} · {totalText(t)}</span>;
+}
+
+/** An unblocked stack's own share: "×512 → 1,024". */
+function StackDamage({ view, card, blocked }: { view: GameView; card: GameCard; blocked: boolean }) {
+  const n = stackSize(card);
+  if (n < 2 || blocked) return null;
+  const dmg = attackerDamage(view, card);
+  if (dmg == null) return null;
+  return <span className="combat-stack-dmg" data-testid="combat-stack-damage"> · ×{n.toLocaleString("en-US")} → {dmg.toLocaleString("en-US")}</span>;
 }
