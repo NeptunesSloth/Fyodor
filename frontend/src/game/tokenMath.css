@@ -17,4 +17,16 @@
 .tm-sum { margin: 10px 0; }
 .tm-big { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tm-warn { border-left: 3px solid var(--warn, #d9a441); padding: 6px 10px; background: var(--bg-2); font-size: 13px; }
+.tm-load { margin: 6px 2px 0; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.tm-load b { color: var(--text); font-weight: 600; }
+.tm-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 4px 0 10px; }
+.tm-quick small { color: var(--text-faint); }
+.tm-quick-scape { display: inline-flex; align-items: center; gap: 8px; }
+.tm-inline-num { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.tm-inline-num input { width: 64px; }
+.tm-apply { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+/* the board pressure badge (top bar) */
+.tm-pressure { font-variant-numeric: tabular-nums; gap: 4px; }
+.tm-pressure-n { font-weight: 650; color: var(--warn, #d9a441); }
+.tm-pressure-sub { color: var(--text-dim); }
 @media (max-width: 640px) { .tm-table { font-size: 12px; } .tm-num input { width: 72px; } }

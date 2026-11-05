@@ -40,6 +40,10 @@ export interface LandfallMaker {
   needsSevenNames?: boolean;
   /** "you may": counted as if you say yes. */
   optional?: boolean;
+  /** The token's colors ("G"), from its rules text (kind "tokens"). */
+  colors?: string[];
+  /** The card it is (for its related tokens), when it has one. */
+  cardId?: string;
 }
 
 export interface Board {
@@ -59,12 +63,18 @@ export interface Board {
   /** Ashaya: your nontoken creatures are lands too. */
   creaturesAreLands: boolean;
   copiers: SelfCopier[];
+  /** A Scute Swarm permanent of yours to copy (Apply), or null. */
+  swarmId: string | null;
+  /** Its card, for its related Insect token. */
+  swarmCardId?: string;
 }
 
 export const emptyBoard = (): Board => ({
   lands: 0, landNames: 0, swarms: 0, triggers: 1, triggerSources: [], factors: [], extras: [], makers: [], plants: 0, creaturesAreLands: false, copiers: [],
+  swarmId: null,
 });
 
+const COLOR_LETTER: Record<string, string> = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 const TIMES: Record<string, number> = { twice: 2, "three times": 3, "four times": 4 };
 
@@ -118,6 +128,7 @@ export function landfallMaker(name: string, text: string, count = 1): LandfallMa
     const [, word, what, alt] = creates[creates.length - 1]!;
     const amount = NUMBER_WORDS[word!] ?? 0;
     if (amount) {
+      const colors = [...new Set([...`${what} ${alt ?? ""}`.matchAll(/\b(white|blue|black|red|green)\b/g)].map((c) => COLOR_LETTER[c[1]!]!))];
       const clean = (x: string) => x.replace(/\b(creature|token|green|black|white|blue|red|colorless)\b/g, "").replace(/\s+/g, " ").trim();
       const label = alt ? `${clean(what!)} or ${clean(alt)}` : clean(what!);
       return {
@@ -128,6 +139,7 @@ export function landfallMaker(name: string, text: string, count = 1): LandfallMa
         label: label.replace(/(^|\s)([a-z])/g, (_, sp: string, c: string) => sp + c.toUpperCase()).replace(" Or ", " or "),
         needsSevenNames: /seven or more lands with different names/.test(body),
         optional: false,
+        colors,
       };
     }
   }
@@ -184,6 +196,9 @@ export interface Plan {
   together: boolean;
   /** Makers left out by the player (by name). */
   skip?: string[];
+  /** Lands sacrificed just before (Scapeshift: "Sacrifice any number of lands. Search … for up to that many land cards, put them onto
+   * the battlefield"). Only with `together`; the lands you control drop by this many before the new ones enter. */
+  sacrificed?: number;
 }
 
 /** The steps of a plan: one per land, or one for all of them at once. */
@@ -191,7 +206,7 @@ export function project(board: Board, plan: Plan): Step[] {
   const steps: Step[] = [];
   const t = Math.max(1, board.triggers);
   const extras = board.extras.length;
-  let lands = board.lands;
+  let lands = Math.max(0, board.lands - (plan.together ? Math.min(board.lands, Math.max(0, plan.sacrificed ?? 0)) : 0));
   let swarms = board.swarms;
   const batches = plan.together ? [plan.lands] : Array.from({ length: Math.max(0, plan.lands) }, () => 1);
   for (const k of batches) {
@@ -306,14 +321,22 @@ export function readBoard(view: GameView, player: string, lookup: Lookup): Board
       board.lands += qty(c);
       names.add(c.name);
     }
-    if (isScute(c.name) || isScute(c.copy_of?.source_name ?? "")) board.swarms += qty(c);
+    if (isScute(c.name) || isScute(c.copy_of?.source_name ?? "")) {
+      board.swarms += qty(c);
+      if (!board.swarmId) {
+        board.swarmId = c.id;
+        board.swarmCardId = c.card_id ?? c.token?.card_id ?? undefined;
+      }
+    }
     if (/\bplant\b/i.test(type) && creature) board.plants += qty(c);
     const m = landfallMaker(c.name, text, qty(c));
+    if (m && (c.card_id ?? c.token?.card_id)) m.cardId = (c.card_id ?? c.token?.card_id)!;
     if (m) {
       const had = makers.get(c.name);
       makers.set(c.name, had ? { ...had, count: had.count + m.count } : m);
     }
     const sc = selfCopier(c.name, text, qty(c));
+    if (sc) sc.id = c.id;
     if (sc) {
       const had = copiers.get(c.name);
       copiers.set(c.name, had ? { ...had, count: had.count + sc.count } : sc);
@@ -353,6 +376,8 @@ export interface SelfCopier {
   count: number;
   /** When it triggers, in its own words ("at the beginning of your upkeep"). */
   when: string;
+  /** One of them on the battlefield (the first read), to copy. */
+  id?: string;
 }
 
 export function selfCopier(name: string, text: string, count = 1): SelfCopier | null {
@@ -404,3 +429,172 @@ export function creatureCensus(view: GameView, player: string, lookup: Lookup): 
  * one by one; past these it gets slow (docs/CURRENT_STATE.md "Big boards", docs/TOKEN_STACKS.md). */
 export const SLOW_TRIGGERS = 100;
 export const SLOW_OBJECTS = 256;
+
+// --- the graveyard, the whole table, copy spells ----------------------------------------------------------------------
+
+/** Land cards in `player`'s graveyard (a public zone): what Lumra, Bellow of the Woods or Splendid Reclamation returns all at once. */
+export function graveyardLands(view: GameView, player: string, lookup: Lookup): number {
+  const ids = view.zones[`${player}:graveyard`];
+  if (!Array.isArray(ids)) return 0;
+  let n = 0;
+  for (const id of ids) {
+    const c = view.cards[id];
+    if (c && isVisible(c) && /\bland\b/i.test(textOf(c, lookup).type)) n += 1;
+  }
+  return n;
+}
+
+/** Objects on the battlefield past which the table and the rules engine start to feel it; the board pressure badge shows from here. */
+export const PRESSURE_OBJECTS = 150;
+/** A stack standing for more tokens than one action makes separately (actions.MAX_SEPARATE_TOKENS) shows the badge too. */
+export const PRESSURE_STACK = 100;
+/** Triggered abilities waiting on the stack that show the badge. */
+export const PRESSURE_TRIGGERS = 50;
+
+export interface BoardLoad {
+  /** Cards on the battlefield, every player's: each card (a ×N stack too) is one object. */
+  objects: number;
+  /** What they stand for: a ×N stack counts N. A face-down card counts 1 (nothing about it is read). */
+  permanents: number;
+  /** The biggest ×N stack (1: none). */
+  biggestStack: number;
+  /** Triggered abilities on the stack (a ×N stack entry counts N). */
+  triggers: number;
+}
+
+/** How heavy the whole table is, from public counts only. */
+export function boardLoad(view: GameView): BoardLoad {
+  const out: BoardLoad = { objects: 0, permanents: 0, biggestStack: 1, triggers: 0 };
+  for (const [zone, ids] of Object.entries(view.zones)) {
+    if (!zone.endsWith(":battlefield") || !Array.isArray(ids)) continue;
+    for (const id of ids) {
+      const c = view.cards[id];
+      if (!c) continue;
+      const n = isVisible(c) ? qty(c) : 1;
+      out.objects += 1;
+      out.permanents += n;
+      out.biggestStack = Math.max(out.biggestStack, n);
+    }
+  }
+  for (const id of view.stack ?? []) {
+    const c = view.cards[id];
+    if (c && isVisible(c) && c.ability?.kind === "triggered") out.triggers += qty(c);
+  }
+  return out;
+}
+
+/** Whether the board pressure badge shows. */
+export const underPressure = (l: BoardLoad): boolean =>
+  l.objects >= PRESSURE_OBJECTS || l.biggestStack > PRESSURE_STACK || l.triggers >= PRESSURE_TRIGGERS;
+
+/** Doppelgang: "For each of X target permanents, create X tokens that are copies of that permanent." X creations of X copies, each
+ * creation doubled (616.1): per target and in all. */
+export function doppelgang(x: number, factors: TokenFactor[], creature = true, extras = 0): { perTarget: number; total: number; extra: number } {
+  const one = createTokens(x, creature, factors, extras);
+  return { perTarget: one.tokens, total: one.tokens * x, extra: one.extra * x };
+}
+
+/** Biovisionary ("if you control four or more creatures named Biovisionary, you win the game"): copies still needed, and how many
+ * one-copy effects (Cackling Counterpart, an unkicked Rite of Replication) that takes with your doublers. */
+export function biovisionaryNeed(have: number, factor: number): { copies: number; spells: number } {
+  const copies = Math.max(0, 4 - have);
+  return { copies, spells: Math.ceil(copies / Math.max(1, factor)) };
+}
+
+// --- putting it on the table (automation off) ---------------------------------------------------------------------
+
+/** The largest count one action takes (actions.py: create_token / copy_card `count`). */
+export const MAX_ACTION_COUNT = 1e15;
+/** Tokens one action makes as separate objects (actions.MAX_SEPARATE_TOKENS); more are one card ×N. */
+export const MAX_SEPARATE_TOKENS = 100;
+
+/** A create_token `token`: a printed token (card_id) or a plain one. */
+export type TokenSpecLike = { card_id: string } | { name: string; type_line: string; power?: string; toughness?: string; colors: string[] };
+
+interface Related { id: string; name: string; type_line?: string | null }
+
+const ARTIFACT_TOKENS = new Set(["treasure", "food", "clue", "blood", "gold", "map", "powerstone", "incubator", "junk", "shard"]);
+
+/**
+ * The token a maker's label stands for ("4/4 Beast", "Treasure"): the card's own related token of that name when it lists one,
+ * else a plain token. Null for a choice ("Food or Treasure"), which the player makes by hand.
+ */
+export function tokenSpecFor(label: string, colors: string[], creature: boolean, related: Related[] = []): TokenSpecLike | null {
+  if (/\bor\b/i.test(label)) return null;
+  const m = /^(?:(\d+|\*)\/(\d+|\*)\s+)?(.+)$/.exec(label.trim());
+  if (!m) return null;
+  const name = m[3]!.trim();
+  const own = related.find((r) => r.name.toLowerCase() === name.toLowerCase());
+  if (own) return { card_id: own.id };
+  if (creature) return { name, type_line: `Token Creature — ${name}`, power: m[1] ?? "1", toughness: m[2] ?? "1", colors };
+  return { name, type_line: ARTIFACT_TOKENS.has(name.toLowerCase()) ? `Token Artifact — ${name}` : `Token — ${name}`, colors };
+}
+
+export interface ApplyStep {
+  /** "14 Scute Swarm copies (one card ×14)". */
+  line: string;
+  action: { type: string } & Record<string, unknown>;
+}
+
+export interface ApplyPlan {
+  steps: ApplyStep[];
+  /** What it leaves to the player, in words. */
+  skipped: string[];
+}
+
+/** The create_token for `n` tokens: past 100, or the "collapse identical tokens" setting, one card ×N (as the Create tokens dialog). */
+export function createAction(player: string, token: TokenSpecLike, n: number, collapse: number): ApplyStep["action"] {
+  const stacked = n > MAX_SEPARATE_TOKENS || (collapse > 0 && n > collapse);
+  return { type: "create_token", player, token, count: n, stacked };
+}
+
+/**
+ * The actions that put a landfall projection's tokens on `player`'s table by hand: the new Scute Swarms as one stacked copy of a
+ * Scute Swarm they control, the Insects and the other makers' tokens as create_token. Lands, mana, counters and power doubling
+ * stay the player's to do.
+ */
+export function landfallApply(board: Board, sum: ReturnType<typeof totals>, opts: {
+  player: string; collapse: number; related: (cardId: string | undefined) => Related[];
+}): ApplyPlan {
+  const plan: ApplyPlan = { steps: [], skipped: [] };
+  const tooBig = (n: number, what: string) => {
+    if (n <= MAX_ACTION_COUNT) return false;
+    plan.skipped.push(`${fmt(n)} ${what}: more than one card can stand for`);
+    return true;
+  };
+  if (sum.newSwarms > 0 && !tooBig(sum.newSwarms, "Scute Swarms")) {
+    if (board.swarmId) {
+      plan.steps.push({
+        line: `${fmt(sum.newSwarms)} Scute Swarm cop${sum.newSwarms === 1 ? "y" : "ies"} (one card ×${fmt(sum.newSwarms)})`,
+        action: { type: "copy_card", card_id: board.swarmId, player: opts.player, count: sum.newSwarms, stacked: true },
+      });
+    } else plan.skipped.push(`${fmt(sum.newSwarms)} Scute Swarms: there's no Scute Swarm on your battlefield to copy`);
+  }
+  const add = (n: number, label: string, token: TokenSpecLike | null) => {
+    if (n <= 0 || tooBig(n, label)) return;
+    if (!token) {
+      plan.skipped.push(`${fmt(n)} ${label}: your choice each time, so make them from Create tokens`);
+      return;
+    }
+    const action = createAction(opts.player, token, n, opts.collapse);
+    plan.steps.push({ line: `${fmt(n)} ${label}${action.stacked && n > 1 ? ` (one card ×${fmt(n)})` : ""}`, action });
+  };
+  add(sum.insects, "1/1 Insect", tokenSpecFor("1/1 Insect", ["G"], true, opts.related(board.swarmCardId)));
+  for (const [label, n] of Object.entries(sum.tokens)) {
+    const m = board.makers.find((x) => x.kind === "tokens" && x.label === label);
+    add(n, label, m ? tokenSpecFor(label, m.colors ?? [], m.creature, opts.related(m.cardId)) : null);
+  }
+  add(sum.extra, "1/1 Squirrel", tokenSpecFor("1/1 Squirrel", ["G"], true));
+  return plan;
+}
+
+/** A self-copier after `rounds` rounds by hand: the new copies as one stacked copy of it. */
+export function selfCopyApply(c: SelfCopier, factor: number, rounds: number, player: string): ApplyStep | null {
+  const after = selfCopyGrowth(c.count, factor, rounds).at(-1) ?? c.count;
+  const n = after - c.count;
+  if (!c.id || n <= 0 || n > MAX_ACTION_COUNT) return null;
+  return {
+    line: `${fmt(n)} ${c.name} cop${n === 1 ? "y" : "ies"} (one card ×${fmt(n)})`,
+    action: { type: "copy_card", card_id: c.id, player, count: n, stacked: true },
+  };
+}

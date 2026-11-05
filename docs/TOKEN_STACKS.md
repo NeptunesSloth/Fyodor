@@ -158,5 +158,17 @@ When the engine refuses a creation (section 2), the players finish by hand with 
 **Token math** (`frontend/src/game/TokenMathDialog.tsx`, `tokenMath.ts`; Shift+T or the Bag of Extras) works the numbers out before a
 big turn: Scute Swarm and other landfall makers one land at a time or all at once (Lumra, Scapeshift: 603.2c, 603.10), landfall trigger
 doublers (Ancient Greenwarden, Traveling Chocobo, Yarok: 603.2d), token doublers (616.1), self-copiers (Biowaste Blob, Council of Reeds),
-Craterhoof swing totals and a count of the tokens on the board. It reads only the public board and sends nothing.
+Craterhoof swing totals and a count of the tokens on the board. It reads only the public board (battlefields and graveyards, never a hand
+or library) and sends nothing on its own.
+
+* **Put this on the table** (automation off, your own board only): after one confirm listing everything, the projection's new Scute
+  Swarms are one `copy_card` of a Scute Swarm you control with `stacked: true`; Insects, other landfall tokens and Chatterfang's Squirrels
+  are `create_token` (the card's related token when it lists one, else a plain token from the text), stacked past 100 or the "collapse
+  identical tokens" setting. A choice ("Food or Treasure"), mana and counters stay the player's. Self-copiers: "Apply N rounds" copies
+  the card as one stack. With automation on, the panel says the engine makes them as the triggers resolve.
+* Quick setups: "Lands in graveyard: N — all at once" (Lumra, Splendid Reclamation; the graveyard is public) and Scapeshift (S lands
+  sacrificed first, then S enter at once, so the six-lands check sees L − S + S). Copies: Doppelgang X (X × X, each creation doubled),
+  Rite of Replication kicked, Biovisionary copies still needed.
+* **Board pressure badge** (top bar, `BoardPressure`): shows from 150 battlefield objects, a ×N stack past 100, or 50 triggers waiting;
+  a ×N stack is one object standing for N tokens. Clicking it opens Token math.
 

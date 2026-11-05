@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/Modal";
+import { toast } from "../components/Toasts";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
-import { isVisible } from "../types/game";
+import { SPECTATOR, isVisible, type GameView } from "../types/game";
+import { send } from "./actions";
 import { keyLabel } from "./hotkeys";
 import {
-  SLOW_OBJECTS, SLOW_TRIGGERS, createTokens, creatureCensus, factorFor, fmt, landsUntil, project, readBoard, selfCopyGrowth, tokenCensus, totals,
-  type Board, type TokenFactor,
+  SLOW_OBJECTS, SLOW_TRIGGERS, biovisionaryNeed, boardLoad, createTokens, creatureCensus, doppelgang, factorFor, fmt, graveyardLands, landfallApply,
+  landsUntil, project, readBoard, selfCopyApply, selfCopyGrowth, tokenCensus, totals, underPressure,
+  type ApplyStep, type Board, type BoardLoad, type TokenFactor,
 } from "./tokenMath";
 import "./tokenMath.css";
 
@@ -48,12 +51,15 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
   const [make, setMake] = useState(1);
   const [makeCreature, setMakeCreature] = useState(true);
   const [rounds, setRounds] = useState(3);
+  const [sacrificed, setSacrificed] = useState(0);
+  const [dopX, setDopX] = useState(3);
 
   const ids = useMemo(() => {
     const out: string[] = [];
     if (!view) return out;
     for (const [zone, zids] of Object.entries(view.zones)) {
-      if (!zone.endsWith(":battlefield") || !Array.isArray(zids)) continue;
+      // the battlefield, and the graveyards (public) for Lumra's count
+      if (!(zone.endsWith(":battlefield") || zone.endsWith(":graveyard")) || !Array.isArray(zids)) continue;
       for (const id of zids) {
         const c = view.cards[id];
         if (c && isVisible(c) && c.card_id) out.push(c.card_id);
@@ -64,7 +70,8 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => requestCards(ids), [ids]);
 
   const read = useMemo(() => (view ? readBoard(view, player, (id) => cache[id]) : null), [view, player, cache]);
-  if (!view || !read) return null;
+  const load = useMemo(() => (view ? boardLoad(view) : null), [view]);
+  if (!view || !read || !load) return null;
 
   const extraDoublers: TokenFactor[] = Array.from({ length: over.doublers ?? 0 }, () => ({ name: "Extra doubler", factor: 2, creatureOnly: false }));
   const board: Board = {
@@ -80,13 +87,15 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
   const factorC = factorFor(board.factors, true);
   const factorO = factorFor(board.factors, false);
   const automation = !!view.rules;
+  // -- put it on the table -- by hand, automation off, and only on your own board
+  const apply: ApplyMode = automation ? "engine" : player !== me || view.viewer === SPECTATOR ? "other" : "yours";
   const key = keyLabel("token_math", keymap);
   const name = view.players.find((p) => p.id === player)?.name ?? "";
 
   return (
     <Modal title="Token math" wide onClose={onClose}
       footer={<>
-        <span className="hint">Only you see this: it reads the public board and sends nothing.{key ? ` ${key} opens and closes it.` : ""}</span>
+        <span className="hint">Only you see this: it reads the public board, and changes nothing unless you put a result on the table.{key ? ` ${key} opens and closes it.` : ""}</span>
         <span className="spacer" />
         <button className="btn" onClick={onClose}>Close</button>
       </>}>
@@ -106,6 +115,7 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
       </div>
 
       <Multipliers board={board} read={read} factorC={factorC} factorO={factorO} />
+      <LoadLine load={load} />
 
       {tab !== "board" && (
         <div className="tm-row">
@@ -125,20 +135,89 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
       {tab === "landfall" && (
         <LandfallTab board={board} enter={enter} setEnter={setEnter} together={together} setTogether={setTogether}
           skip={skip} setSkip={setSkip} target={target} setTarget={setTarget} automation={automation}
-          setLandNames={(n) => set({ landNames: n })} />
+          setLandNames={(n) => set({ landNames: n })} sacrificed={sacrificed} setSacrificed={setSacrificed}
+          graveyard={graveyardLands(view, player, (id) => cache[id])} apply={apply} me={me}
+          related={(id) => (id ? cache[id]?.related_tokens ?? [] : [])} />
       )}
       {tab === "copies" && (
         <CopiesTab board={board} make={make} setMake={setMake} creature={makeCreature} setCreature={setMakeCreature}
           rounds={rounds} setRounds={setRounds} factorC={factorC} automation={automation}
           census={creatureCensus(view, player, (id) => cache[id])}
-          biovisionaries={countNamed(view, player, "Biovisionary")} />
+          biovisionaries={countNamed(view, player, "Biovisionary")} dopX={dopX} setDopX={setDopX} apply={apply} me={me} />
       )}
       {tab === "board" && <BoardTab rows={tokenCensus(view, player)} name={name} />}
     </Modal>
   );
 }
 
-function countNamed(view: NonNullable<ReturnType<typeof useGame.getState>["view"]>, player: string, name: string): number {
+/** "yours": automation off and your own board, so a result can go on the table; "engine": the rules engine makes them; "other": not your board. */
+type ApplyMode = "yours" | "engine" | "other";
+
+/** Ask once, listing everything, then send the actions in order (each is one undo step). */
+async function putOnTable(heading: string, steps: ApplyStep[], skipped: string[]): Promise<void> {
+  const text = [heading, ...steps.map((s) => `• ${s.line}`), ...(skipped.length ? ["", "Left to you:", ...skipped.map((s) => `• ${s}`)] : [])].join("\n");
+  if (!window.confirm(text)) return;
+  const done: string[] = [];
+  for (const s of steps) {
+    if (!(await send(s.action))) break;
+    done.push(s.line);
+  }
+  if (done.length) toast(`On the table: ${done.join(", ")}`);
+}
+
+/** The "put it on the table" control, or why there isn't one. */
+function ApplyBar({ mode, label, disabled, why, onApply, testId }: {
+  mode: ApplyMode; label: string; disabled?: boolean; why?: string; onApply: () => void; testId: string;
+}) {
+  if (mode === "engine") return <p className="hint tm-apply" data-testid={`${testId}-hint`}>The rules engine makes these when the triggers resolve.</p>;
+  if (mode === "other") return null;
+  return (
+    <div className="tm-apply">
+      <button className="btn primary" disabled={disabled} onClick={onApply} data-testid={testId}
+        title="Automation is off: make these tokens now, as one card ×N where there are many. Asks first; Undo takes each back.">{label}</button>
+      {why && <span className="hint">{why}</span>}
+    </div>
+  );
+}
+
+/** The whole battlefield as the table and the rules engine count it. */
+function LoadLine({ load }: { load: BoardLoad }) {
+  return (
+    <p className="tm-load" data-testid="tm-load">
+      On the battlefield now: <b>{fmt(load.objects)}</b> object{load.objects === 1 ? "" : "s"}
+      {load.permanents !== load.objects && <> standing for <b>{fmt(load.permanents)}</b> permanents (a ×N stack is one object for N tokens)</>}
+      {load.triggers > 0 && <>; {fmt(load.triggers)} trigger{load.triggers === 1 ? "" : "s"} waiting</>}.
+    </p>
+  );
+}
+
+/**
+ * BOARD PRESSURE: a small top-bar badge once the battlefield is big (150+ objects, a ×N stack past 100, or 50+ triggers waiting).
+ * It opens Token math. Public counts only (game/tokenMath.ts boardLoad).
+ */
+export function BoardPressure() {
+  const view = useGame((s) => s.view);
+  const load = useMemo(() => (view ? boardLoad(view) : null), [view]);
+  const keymap = usePrefs((s) => s.keymap);
+  if (!load || !underPressure(load)) return null;
+  const key = keyLabel("token_math", keymap);
+  const title = [
+    `${fmt(load.objects)} objects on the battlefield${load.permanents !== load.objects ? `, standing for ${fmt(load.permanents)} permanents (a ×N stack is one object for N tokens)` : ""}.`,
+    load.triggers ? `${fmt(load.triggers)} triggered abilities on the stack.` : "",
+    "With rules automation on, each token copy (a Scute Swarm, a clone) is its own object for the rules engine and each trigger resolves one at a time, so big turns take a while.",
+    `Token math${key ? ` (${key})` : ""} projects a turn before you play it.`,
+  ].filter(Boolean).join(" ");
+  return (
+    <button className="tt-btn ghost tm-pressure" data-testid="board-pressure" title={title} aria-label={`Board load: ${title}`}
+      onClick={() => useGame.getState().openDialog("token_math")}>
+      <span className="tm-pressure-n">{fmt(load.objects)}</span> objects
+      {load.biggestStack > 1 && <span className="tm-pressure-sub">· ×{fmt(load.biggestStack)} stack</span>}
+      {load.triggers > 0 && <span className="tm-pressure-sub">· {fmt(load.triggers)} triggers</span>}
+    </button>
+  );
+}
+
+function countNamed(view: GameView, player: string, name: string): number {
   let n = 0;
   for (const c of Object.values(view.cards)) {
     if (isVisible(c) && c.controller === player && c.zone.endsWith(":battlefield") && c.name === name) n += Math.max(1, c.quantity ?? 1);
@@ -171,12 +250,18 @@ function SlowNote({ triggers, objects, automation }: { triggers: number; objects
   );
 }
 
-function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setSkip, target, setTarget, automation, setLandNames }: {
+function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setSkip, target, setTarget, automation, setLandNames, sacrificed, setSacrificed,
+  graveyard, apply, me, related }: {
   board: Board; enter: number; setEnter: (n: number) => void; together: boolean; setTogether: (b: boolean) => void;
   skip: string[]; setSkip: (s: string[]) => void; target: number; setTarget: (n: number) => void; automation: boolean; setLandNames: (n: number) => void;
+  sacrificed: number; setSacrificed: (n: number) => void; graveyard: number; apply: ApplyMode; me: string;
+  related: (cardId: string | undefined) => { id: string; name: string }[];
 }) {
-  const steps = project(board, { lands: enter, together, skip });
+  const [shift, setShift] = useState(Math.min(board.lands, 6) || 1);
+  const allAtOnce = (n: number, sac: number) => { setEnter(Math.max(1, n)); setTogether(true); setSacrificed(sac); };
+  const steps = project(board, { lands: enter, together, skip, sacrificed: together ? sacrificed : 0 });
   const sum = totals(steps);
+  const plan = landfallApply(board, sum, { player: me, collapse: usePrefs.getState().tokenCollapse, related });
   const last = steps.at(-1);
   const until = landsUntil(board, target);
   const otherLabels = [...new Set(steps.flatMap((s) => Object.keys(s.tokens)))];
@@ -192,6 +277,26 @@ function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setS
           <button className={!together ? "on" : ""} onClick={() => setTogether(false)} data-testid="tm-one-at-a-time" title="Land drops, fetch lands, Azusa: each land resolves before the next">One at a time</button>
           <button className={together ? "on" : ""} onClick={() => setTogether(true)} data-testid="tm-all-at-once" title="Lumra, Scapeshift, Splendid Reclamation: every land enters in one event">All at once</button>
         </div>
+        {together && (
+          <NumberField label="Sacrificed first" value={sacrificed} max={board.lands} onChange={setSacrificed} testId="tm-sacrificed"
+            title="Scapeshift: the lands you sacrifice leave before the new ones enter, so the lands you control end where they started" />
+        )}
+      </div>
+      <div className="tm-quick" role="group" aria-label="Quick setups">
+        <button className="btn" disabled={graveyard === 0} onClick={() => allAtOnce(graveyard, 0)} data-testid="tm-graveyard"
+          title="Land cards in this player's graveyard (public), returned all at once">
+          Lands in graveyard: <b>{graveyard}</b> — all at once <small>(Lumra, Splendid Reclamation)</small>
+        </button>
+        <span className="tm-quick-scape">
+          <button className="btn" disabled={shift < 1 || board.lands < 1} onClick={() => allAtOnce(Math.min(shift, board.lands), Math.min(shift, board.lands))} data-testid="tm-scapeshift"
+            title="Sacrifice that many lands, then that many enter at once: the lands you control end where they started">
+            Scapeshift
+          </button>
+          <label className="tm-inline-num">sacrificing
+            <input type="number" min={1} max={Math.max(1, board.lands)} value={shift} aria-label="Lands sacrificed to Scapeshift"
+              onChange={(e) => setShift(num(e.target.value, 1, Math.max(1, board.lands)))} data-testid="tm-scapeshift-n" />
+          </label>
+        </span>
       </div>
       {board.makers.length > 0 && (
         <div className="tm-makers">
@@ -224,7 +329,7 @@ function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setS
             <tr key="gap"><td colSpan={8} className="hint">…</td></tr>
           ) : (
             <tr key={i}>
-              <td>{together ? `${s.entered} lands` : `#${steps.indexOf(s) + 1}`}</td>
+              <td>{together ? `${s.entered} land${s.entered === 1 ? "" : "s"}${sacrificed ? ` (${Math.min(sacrificed, board.lands)} sacrificed first)` : ""}` : `#${steps.indexOf(s) + 1}`}</td>
               <td>{fmt(s.lands)}</td>
               <td>{fmt(s.triggers)}</td>
               <td><b>{fmt(s.swarms)}</b>{s.newSwarms ? <small> (+{fmt(s.newSwarms)})</small> : null}</td>
@@ -247,6 +352,10 @@ function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setS
         {hasTifa && <>, power doubled {fmt(steps.reduce((a, s) => a + s.doublings, 0))} times (×{fmt(2 ** steps.reduce((a, s) => a + s.doublings, 0))})</>}
         .
       </p>
+      <ApplyBar mode={apply} label="Put this on the table" testId="tm-apply" disabled={!plan.steps.length}
+        why={plan.steps.length ? "Play the lands yourself; mana and counters are yours to add." : plan.skipped[0] ? `Nothing to make here: ${plan.skipped[0]}.` : "No tokens in this projection."}
+        onApply={() => void putOnTable(`Put on your battlefield (${together ? `${enter} land${enter === 1 ? "" : "s"} at once` : `${enter} land${enter === 1 ? "" : "s"}, one at a time`}):`,
+          plan.steps, plan.skipped)} />
       {board.swarms > 0 && (
         <div className="tm-row">
           <NumberField label="Swarms wanted" value={target} min={1} onChange={setTarget} testId="tm-target" />
@@ -257,28 +366,39 @@ function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setS
       <p className="hint">
         Each land is one landfall event (603.2c): lands entering together trigger every Scute Swarm once per land, but the copies they make
         weren't there yet and don't trigger (603.10). One at a time, the copies trigger on the next land, so the count grows exponentially.
-        Six lands is checked as each trigger resolves.
+        Six lands is checked as each trigger resolves; Scapeshift sacrifices before the new lands enter, so the check sees the count you started with.
       </p>
     </>
   );
 }
 
-function CopiesTab({ board, make, setMake, creature, setCreature, rounds, setRounds, factorC, automation, census, biovisionaries }: {
+function CopiesTab({ board, make, setMake, creature, setCreature, rounds, setRounds, factorC, automation, census, biovisionaries, dopX, setDopX, apply, me }: {
   board: Board; make: number; setMake: (n: number) => void; creature: boolean; setCreature: (b: boolean) => void;
   rounds: number; setRounds: (n: number) => void; factorC: number; automation: boolean;
   census: { count: number; power: number; untapped: number; untappedPower: number }; biovisionaries: number;
+  dopX: number; setDopX: (n: number) => void; apply: ApplyMode; me: string;
 }) {
   const made = createTokens(make, creature, board.factors, board.extras.length);
+  const dop = doppelgang(dopX, board.factors, creature, board.extras.length);
   const hoofX = census.count + 1;
+  const bio = biovisionaryNeed(biovisionaries, factorC);
   return (
     <>
       <h3 className="help-section">Create tokens or copies</h3>
       <div className="tm-row">
-        <NumberField label="Tokens (or copies)" value={make} min={1} onChange={setMake} testId="tm-make" title="Rite of Replication kicked: 5. Doppelgang X=3: 9 (3 copies of each of 3)." />
+        <NumberField label="Tokens (or copies)" value={make} min={1} onChange={setMake} testId="tm-make" title="One effect creating this many: Rite of Replication kicked makes 5." />
         <label className="field inline"><input type="checkbox" checked={creature} onChange={(e) => setCreature(e.target.checked)} /> creature tokens</label>
+        <button className="btn" onClick={() => { setMake(5); setCreature(true); }} data-testid="tm-rite" title="Rite of Replication, kicked: five copies of target creature">Rite of Replication, kicked</button>
         <span className="tm-big" data-testid="tm-made">→ {fmt(made.tokens)}{made.extra ? ` + ${fmt(made.extra)} Squirrels` : ""}</span>
       </div>
-      <SlowNote triggers={0} objects={made.tokens + made.extra} automation={automation} />
+      <div className="tm-row" title="Doppelgang: for each of X target permanents, create X tokens that are copies of that permanent (X creations, each doubled)">
+        <NumberField label="Doppelgang X" value={dopX} min={1} max={1000} onChange={setDopX} testId="tm-dop" />
+        <span data-testid="tm-dop-out">
+          {fmt(dopX)} target{dopX === 1 ? "" : "s"} × <b>{fmt(dop.perTarget)}</b> copies each{dop.perTarget !== dopX ? ` (${fmt(dopX)} × ${fmt(dop.perTarget / dopX)})` : ""} = <b>{fmt(dop.total)}</b> tokens
+          {dop.extra ? ` + ${fmt(dop.extra)} Squirrels` : ""}
+        </span>
+      </div>
+      <SlowNote triggers={0} objects={Math.max(made.tokens + made.extra, dop.total + dop.extra)} automation={automation} />
 
       <h3 className="help-section">Cards that copy themselves</h3>
       {board.copiers.length === 0 ? (
@@ -287,17 +407,30 @@ function CopiesTab({ board, make, setMake, creature, setCreature, rounds, setRou
         <>
           <div className="tm-row"><NumberField label="Rounds" value={rounds} min={1} max={20} onChange={setRounds} testId="tm-rounds" /></div>
           <table className="shortcuts tm-table" data-testid="tm-copiers">
-            <thead><tr><th>Card</th><th>Now</th>{Array.from({ length: rounds }, (_, i) => <th key={i}>{i + 1}</th>)}</tr></thead>
+            <thead><tr><th>Card</th><th>Now</th>{Array.from({ length: rounds }, (_, i) => <th key={i}>{i + 1}</th>)}{apply === "yours" && <th />}</tr></thead>
             <tbody>
-              {board.copiers.map((c) => (
-                <tr key={c.name} title={`Triggers ${c.when}`}>
-                  <td>{c.name}<br /><small className="hint">{c.when}</small></td>
-                  <td>{c.count}</td>
-                  {selfCopyGrowth(c.count, factorC, rounds).map((n, i) => <td key={i}>{fmt(n)}</td>)}
-                </tr>
-              ))}
+              {board.copiers.map((c) => {
+                const step = selfCopyApply(c, factorC, rounds, me);
+                return (
+                  <tr key={c.name} title={`Triggers ${c.when}`}>
+                    <td>{c.name}<br /><small className="hint">{c.when}</small></td>
+                    <td>{c.count}</td>
+                    {selfCopyGrowth(c.count, factorC, rounds).map((n, i) => <td key={i}>{fmt(n)}</td>)}
+                    {apply === "yours" && (
+                      <td>
+                        <button className="btn" disabled={!step} data-testid="tm-copier-apply"
+                          title={step ? `Make ${step.line} now. Asks first; Undo takes it back.` : "Too many to stand for with one card"}
+                          onClick={() => step && void putOnTable(`${c.name}, ${rounds} round${rounds === 1 ? "" : "s"}:`, [step], [])}>
+                          Apply {rounds} round{rounds === 1 ? "" : "s"}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          {apply === "engine" && <p className="hint">The rules engine makes these copies when the triggers resolve.</p>}
         </>
       )}
 
@@ -306,7 +439,13 @@ function CopiesTab({ board, make, setMake, creature, setCreature, rounds, setRou
         {fmt(census.count)} creatures, {fmt(census.untappedPower)} power untapped ({fmt(census.power)} in all).
         {" "}With Craterhoof Behemoth entering: X = {fmt(hoofX)}, so the untapped creatures plus Craterhoof hit for <b>{fmt(census.untappedPower + 5 + (census.untapped + 1) * hoofX)}</b> (all trample, if they can all attack).
       </p>
-      {biovisionaries > 0 && <p data-testid="tm-biovisionary">Biovisionary: {biovisionaries} of 4 {biovisionaries >= 4 ? "— you win at the beginning of the end step." : ""}</p>}
+      {biovisionaries > 0 && (
+        <p data-testid="tm-biovisionary">
+          Biovisionary: {biovisionaries} of 4
+          {bio.copies === 0 ? " — you win at the beginning of the end step." : <> — <b>{bio.copies}</b> more cop{bio.copies === 1 ? "y" : "ies"} needed
+            {factorC > 1 ? <>: each one-copy spell makes ×{fmt(factorC)} with your doublers, so <b>{bio.spells}</b> spell{bio.spells === 1 ? "" : "s"}</> : null}.</>}
+        </p>
+      )}
     </>
   );
 }
