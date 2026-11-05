@@ -258,6 +258,7 @@ export function dialState(view: GameView, me: string): { auto: boolean; watching
  */
 export function TurnDial() {
   const ctx = useRules();
+  const folded = usePrefs((s) => s.turnDial === "folded");
   if (!ctx || ctx.view.game.night?.result) return null; // game over: the rematch vote is the only next step
   const { view, rules, me } = ctx;
   const turn = view.turn;
@@ -276,14 +277,21 @@ export function TurnDial() {
   const deciding = auto && rules!.decision?.player === me;
   const blocked = deciding ? "Answer your decision first" : undefined;
   return (
-    <div className="turn-dial-wrap plaque-wrap">
-      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
+    <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
+      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
           <PhaseDial step={step} turn={turn.number} color={active?.color} />
           <div className="td-read">
             <header className="td-head" data-testid="turn-tracker">
               <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
               <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
+              {/* the playtest: the dial covered cards; folded, it keeps the step, the status and the pass button */}
+              <button type="button" className="td-fold" data-testid="dial-fold" aria-pressed={folded}
+                title={folded ? "Unfold the turn dial" : "Fold the turn dial (it covers less of the table)"}
+                aria-label={folded ? "Unfold the turn dial" : "Fold the turn dial"}
+                onClick={() => { usePrefs.getState().set({ turnDial: folded ? "full" : "folded" }); window.dispatchEvent(new Event("fyodor:dial-fold")); }}>
+                <Icon name={folded ? "plus" : "down"} size={14} />
+              </button>
             </header>
             <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
               onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
