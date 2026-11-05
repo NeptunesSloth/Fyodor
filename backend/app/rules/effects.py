@@ -3722,6 +3722,9 @@ PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-f
 from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)
 
 PRIMITIVES["reveal_hand_cards"] = _reveal_hand.reveal_hand_cards
+from app.rules import token_stacks as _token_stacks  # noqa: E402, I001  -- token stack folds (wave TS2) -- a folded trigger, as it resolves
+
+PRIMITIVES["fold_check"] = _token_stacks.fold_check
 PRIMITIVES["reveal_some"] = _reveal_hand.reveal_some  # -- hand disruption (wave 52C) --
 
 
@@ -4319,7 +4322,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else _pay_words(e) if e["do"] == "optional_payment"  # (pod deck audit: the Go-Shintai end-step triggers read "Optional_payment")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()})) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "fold_check", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
     said = ", ".join(parts) or "do it"
     return said[:1].upper() + said[1:]  # (pod deck audit: not str.capitalize, which made "Draw X card(s)" "Draw x card(s)" and "{G}" "{g}")
 

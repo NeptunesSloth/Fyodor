@@ -177,6 +177,10 @@ def guard(plan: Plan, payload: dict[str, Any]) -> None:
 # -- splitting ----------------------------------------------------------------------------------------------------------------------
 def single_out(plan: Plan, card_id: str) -> None:
     """Make ``card_id`` stand for exactly one member: the other members move to a new object (the same tokens, already there)."""
+    card = plan.state.cards.get(card_id)
+    if card is not None and card.zone == "stack":
+        single_out_fold(plan, card_id)  # -- token stack folds (wave TS2) -- one instance of a folded triggered ability
+        return
     keep(plan, card_id, 1)
 
 
@@ -199,6 +203,9 @@ def check_targets(plan: Plan, entry: Any) -> None:
         card = plan.state.cards.get(ref.id)
         if card is not None and card.is_token and card.quantity > 1 and card.zone.endswith(":battlefield"):
             raise StackGate(f"{label(card)} is a stack of tokens, and a target must be one of them.")
+        if card is not None and card.zone == "stack" and _fold_of(plan, ref.id) is not None:  # -- token stack folds (wave TS2) --
+            raise ActionError(f"{plan.rules.stack[ref.id].name} stands for several identical triggered abilities, and a target must be "
+                              f"one of them. Pause automation and do this by hand.")
 
 
 def single_out_all(plan: Plan, ids: Any) -> None:
@@ -231,7 +238,7 @@ def _intent_ids(intent: Any) -> list[str]:
 
 def single_out_intent(plan: Plan, intent: Any) -> None:
     """Before an intent runs: each card id it names as one object stands for one member (601.2c, 602.2b, 509.1a)."""
-    if not stacks(plan.state):
+    if not stacks(plan.state) and not folds_on_stack(plan):  # (-- token stack folds (wave TS2) -- or a folded triggered ability)
         return
     ids = _intent_ids(intent)
     if intent.type == "choose" and plan.rules.decision is not None:
@@ -303,7 +310,10 @@ def _stack_problem(plan: Plan, card: CardInstance, ch: Characteristics) -> str |
         return "it is attached to something"
     if any(c.attached_to == card.id for c in plan.state.cards.values()):
         return "something is attached to it"
+    defs = _defs(ch) if any(ab.kind == "triggered" for ab in ch.abilities) else {}
     for ab in ch.abilities:
+        if ab.kind == "triggered" and fold_shape(defs.get(ab.index)) is not None:
+            continue  # -- token stack folds (wave TS2) -- every member's trigger is folded into one (fold_pending, docs/TOKEN_STACKS.md 9)
         if ab.kind != "keywords" or not set(ab.keywords) <= SAFE_KEYWORDS:
             return f"it has the ability “{ab.text}”"
     if not ch.keywords <= SAFE_KEYWORDS:
@@ -357,10 +367,12 @@ def _matches(plan: Plan, key: str, card: CardInstance, ch: Characteristics, you:
 
 
 class _Audit:
-    def __init__(self, plan: Plan, stack_ids: list[str]) -> None:
+    def __init__(self, plan: Plan, stack_ids: list[str], chs: dict[str, Characteristics] | None = None, fold: bool = False) -> None:
         self.plan = plan
-        self.stacks = [(plan.state.cards[cid], plan.ch(plan.state.cards[cid])) for cid in stack_ids]
+        chs = chs or {}
+        self.stacks = [(plan.state.cards[cid], chs.get(cid) or plan.ch(plan.state.cards[cid])) for cid in stack_ids]
         self.words = tuple(sorted({w for _, ch in self.stacks for w in _words(ch)}))
+        self.fold = fold  # -- token stack folds (wave TS2) -- auditing the tokens a folded trigger makes, not a stack (fold_problems)
 
     def refers(self, sels: list[str], observer: CardInstance) -> bool:
         return any(_matches(self.plan, key, card, ch, observer.controller, observer.id) for key in sels for card, ch in self.stacks)
@@ -390,6 +402,9 @@ class _Audit:
             return self.amount_ok(e.get("n"), observer)
         if do == "no_regen" and set(e) == {"do"}:
             return True
+        if do == "search" and who == "you" and set(e) <= {"do", "who", "filter", "to", "reveal", "n"} \
+                and e.get("to") in ("hand", "battlefield", "battlefield_tapped", "top", "graveyard"):
+            return True  # -- token stack folds (wave TS2) -- 701.23: cards found in a library (Rampant Growth); new lands are audited as they arrive
         if do == "create_token" and who == "you" and set(e) <= {"do", "who", "n", "token"}:
             return self.amount_ok(e.get("n"), observer)
         if do == "destroy_all" and set(e) <= {"do", "who", "types"} and who == "all":
@@ -413,6 +428,13 @@ class _Audit:
             if d.get("static") == "replace" and d.get("event") == "counters" and (d.get("op") or {}).get("do") in ("mul", "add") \
                     and not d.get("effects"):
                 return True  # 614.1a: counters put on a stack are put on each member alike, and each member's event is replaced alike
+            # -- token stack folds (wave TS2) --
+            if d.get("static") == "trigger_multiplier" and d.get("cause") == "enter" and not d.get("effects"):
+                return True  # 603.2d: one more instance of each trigger an entering object causes (trigger_multipliers.multiply copies it)
+            if d.get("static") == "permission" and d.get("zone") in ("library_top", "graveyard") and not d.get("effects"):
+                return True  # (playing or casting cards from a library or a graveyard: never a token on the battlefield)
+            if d.get("static") == "no_legend_rule" and not d.get("effects"):
+                return True  # 704.5j: a stack is never legendary; the legendary tokens a fold makes are judged in fold_problems
             if d.get("static") == "grant" and not d.get("conditions") and not d.get("grants") and not d.get("rules") \
                     and d.get("base") is None and d.get("attached_kind") is None and not d.get("effects") \
                     and set(d.get("keywords") or ()) <= SAFE_KEYWORDS:
@@ -426,6 +448,8 @@ class _Audit:
                 # a target that may be a stack member: the intent's / decision's choice splits it off first (single_out_intent), and
                 # an engine-made choice that bypasses that hits the touch guard
                 pass
+            if kind == "triggered" and fold_shape(d) is not None:  # -- token stack folds (wave TS2) --
+                return self.fold_observer_ok(d, observer)
             if kind == "triggered":
                 trigger = {k: v for k, v in d.items() if k not in ("kind", "effects", "optional", "target")}
                 if trigger.get("trigger") in _PHASE_TRIGGERS and set(trigger) == {"trigger"} or trigger.get("trigger") == "enters_self" and set(trigger) == {"trigger"}:
@@ -433,13 +457,23 @@ class _Audit:
                 elif trigger.get("trigger") == "enters_other" and set(trigger) <= {"trigger", "filter"} and not d.get("optional") \
                         and d.get("target") is None and all(isinstance(e, dict) and e.get("do") in ("gain_life", "lose_life", "draw")
                                                             for e in d.get("effects") or []):
-                    pass  # 603.2c: one trigger per member that entered (triggers._other_enters reads token_stacks.weight)
+                    # 603.2c: one trigger per member that entered (triggers._other_enters reads token_stacks.weight)
+                    if self.fold and not (all(e.get("do") in FOLD_DOS for e in d.get("effects") or []) and not _life_readers(self.plan)):
+                        return False  # -- token stack folds (wave TS2) -- a draw between two folded resolutions could matter
+                    pass
                 elif not self.blind(trigger):
                     return False
             if not _cost_ok(d.get("cost"), self.words):
                 return False
             return all(isinstance(e, dict) and self.effect_ok(e, observer) for e in d.get("effects") or [])
         return self.blind(d)
+
+    def fold_observer_ok(self, d: dict[str, Any], observer: CardInstance) -> bool:
+        """-- token stack folds (wave TS2) -- a foldable trigger (fold_shape) of another permanent while a stack exists: its condition
+        doesn't count the stack, and no stack is a land (a landfall trigger per member). Its own instances fold (fold_pending)."""
+        if self.refers(_cond_sels(d), observer):
+            return False
+        return not (d.get("trigger") == "landfall" and any(ch.is_land for _, ch in self.stacks))
 
     def observer_problem(self, card: CardInstance, ch: Characteristics) -> str | None:
         from app.rules import oracle, scripts
@@ -503,21 +537,34 @@ _REACTIVE = ("delayed", "replacements", "prevention", "prevention_riders", "rege
              "chosen_objects", "attack_piles", "block_piles110f", "free_casts", "deferred_payments")
 
 
-def problems(plan: Plan, stack_ids: list[str] | None = None) -> list[str]:
+def problems(plan: Plan, stack_ids: list[str] | None = None, *, chs: dict[str, Characteristics] | None = None,
+             recipes: dict[str, Any] | None = None, fold: bool = False) -> list[str]:
     """Why the engine can't treat the stacks (``stack_ids``, default every stack) exactly right now: public names only. Empty: it can.
 
     Read: each stack itself; every other permanent; everything on the stack; emblems; the abilities of graveyard and face-up exile cards;
-    the rules records that react to future events. Hidden cards are never read (a refusal that depended on one would reveal it)."""
+    the rules records that react to future events. Hidden cards are never read (a refusal that depended on one would reveal it).
+    (-- token stack folds (wave TS2) -- ``chs`` / ``recipes``: a probe's characteristics and copiable values; ``fold``: the ids are the
+    tokens a folded trigger makes, judged by fold_problems rather than as stacks.)"""
     ids = stacks(plan.state) if stack_ids is None else [cid for cid in stack_ids if cid in plan.state.cards]
     if not ids:
         return []
+    with plan.reading():  # -- token stack folds (wave TS2) -- each permanent derived once per audit (a big board: 150 objects)
+        return _problems(plan, ids, chs or {}, recipes, fold)
+
+
+def _problems(plan: Plan, ids: list[str], chs: dict[str, Characteristics], recipes: dict[str, Any] | None, fold: bool) -> list[str]:
     out: list[str] = []
-    for cid in ids:
+    for cid in ids if not fold else ():
         stack = plan.state.cards[cid]
-        why = _stack_problem(plan, stack, plan.ch(stack))
+        sch = chs.get(cid) or plan.ch(stack)
+        why = _stack_problem(plan, stack, sch)
         if why is not None:
             out.append(f"{label(stack)}: {why}")
-    audit = _Audit(plan, ids)
+            continue
+        # -- token stack folds (wave TS2) -- a stack keeps a foldable trigger only while folding it is exact
+        for d in _fold_defs(sch):
+            out += [f"{label(stack)}: {why}" for why in fold_problems_once(plan, stack.controller, d, stack.id, plan.oid(stack), recipes=recipes)]
+    audit = _Audit(plan, ids, chs, fold)
     stack_set = set(ids)
     seen: set[str] = set()
     for key, zone_ids in plan.state.zones.items():
@@ -535,6 +582,8 @@ def problems(plan: Plan, stack_ids: list[str] | None = None) -> list[str]:
             entry = plan.rules.stack.get(cid) if zone == "stack" else None
             if entry is not None and card.ability is not None:  # an ability on the stack: what it will do (its source was read as a permanent)
                 d = {"kind": "activated", "effects": entry.effects, "target": entry.target_spec}
+                if entry.kind == "trigger" and entry.target_spec is None and not entry.targets and not entry.optional:
+                    d = _entry_fold_def(entry) or d  # -- token stack folds (wave TS2) -- a foldable trigger, folded or not
                 why = None if audit.definition_ok(d, card) else (entry.name or card.name)
                 if why is not None and why not in seen:
                     seen.add(why)
@@ -643,26 +692,473 @@ def _life_readers(plan: Plan) -> list[str]:
     return out
 
 
-# -- formation ----------------------------------------------------------------------------------------------------------------------
-def may_stack(plan: Plan, player: str, token: dict[str, Any]) -> str | None:
-    """Could ``count`` tokens of ``token`` be made as one stack for ``player`` now? None: yes; else why not (public)."""
+# -- token stack folds (wave TS2) ----------------------------------------------------------------------------------------------------
+# docs/TOKEN_STACKS.md section 9. N identical triggered abilities that only create tokens ("Landfall — … create a token that's a copy of
+# this creature", Scute Swarm; "At the beginning of your upkeep, if …, create a token that's a copy of this creature", Biowaste Blob) are
+# put on the stack as ONE ability "Scute Swarm (×N)" that resolves as the N would, one after another with every player passing (the 732.2a
+# shortcut the Soul Warden fold already takes): its condition is checked as it resolves (603.4, 608.2c), and it makes N times the tokens
+# in one creation event. That is exact only when nothing can tell the difference, which fold_problems checks:
+#
+# * the N resolutions are identical: the same definition, sources with the same copiable values (707.2), no target, no choice (an
+#   optional ability's "you may" is answered for each instance, Ancient Greenwarden ruling 2020-09-25), no event information read;
+# * nothing happens between them: no ability triggers on the tokens being created or entering one batch at a time (the audit refuses
+#   any observer but a folded fixed life gain), no ability watches triggers or the stack, and the condition can't count the tokens made;
+# * one creation event of N×k tokens ends as N events of k: the only token replacements the audit lets through multiply ("twice that
+#   many", 616.1 / 616.1f: 2·(N·k) = N·(2·k), in any order); an additive one ("plus an additional token", "first time each turn") is
+#   refused, as is a batch observer ("whenever you create one or more tokens", 603.2c: one event, not N);
+# * the controller has no other trigger to order between them (603.3b: they would be ordered as a block).
+FOLD_TRIGGERS = frozenset({"landfall", "upkeep_you", "end_step_you", "step:begin_combat:you"})
+_FOLD_KEYS = frozenset({"kind", "trigger", "effects", "optional", "target", "if", "members"})
+_ABILITY_WORDS = re.compile(r"\btrigger|\bstack\b|\babilit(?:y|ies)\b", re.IGNORECASE)
+
+
+def _defs(ch: Characteristics) -> dict[int, dict[str, Any]]:
+    from app.rules import scripts
+
+    try:
+        return scripts.definitions(ch)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _fold_cond_ok(c: Any) -> bool:
+    """A condition the engine reads the same way before and after the tokens are made (checked against them in fold_problems):
+    "if you control six or more lands" (a count), "if you control a commander", "if you've cast a noncreature spell this turn"."""
+    if not isinstance(c, dict):
+        return False
+    if set(c) == {"not"}:
+        return _fold_cond_ok(c["not"])
+    if set(c) == {"value", "op", "n"} and isinstance(c["n"], int) and isinstance(c["value"], dict) and set(c["value"]) == {"count"} \
+            and isinstance(c["value"]["count"], str) and c["value"]["count"].startswith("sel:"):
+        return True
+    return c.get("history") == "cast" and set(c) <= {"history", "who", "sel", "n", "op"} and c.get("who") == "you"
+
+
+def _cond_sels(d: dict[str, Any]) -> list[str]:
+    sels: list[str] = []
+    for c in [d.get("if"), *(e.get("cond") for e in d.get("effects") or [] if isinstance(e, dict) and e.get("do") == "only_if")]:
+        if c is not None:
+            _strip_sels(c, sels)
+    return sels
+
+
+def fold_shape(d: Any) -> list[dict[str, Any]] | None:
+    """The token creations of a triggered ability the engine can fold (None: it can't): a phase or landfall trigger, no target, not
+    optional, whose effects are only "create [n] [fixed token]" and "create [n] token[s] that's a copy of this creature", gated by
+    conditions read the same way each time (_fold_cond_ok; Scute Swarm's "If you control six or more lands, … instead")."""
+    if not isinstance(d, dict) or d.get("kind") != "triggered" or d.get("trigger") not in FOLD_TRIGGERS or not set(d) <= _FOLD_KEYS:
+        return None
+    if d.get("optional") or d.get("target") is not None or (d.get("if") is not None and not _fold_cond_ok(d["if"])):
+        return None
+    return _fold_effects(d.get("effects"))
+
+
+def _fold_effects(effects: Any) -> list[dict[str, Any]] | None:
+    makes: list[dict[str, Any]] = []
+    flags: set[str] = set()
+    for e in effects if isinstance(effects, list) else ():
+        if not isinstance(e, dict):
+            return None
+        do = e.get("do")
+        if do == "only_if" and set(e) <= {"do", "cond", "skip", "bind"} and isinstance(e.get("skip"), int):
+            c = e.get("cond")
+            if not (isinstance(c, dict) and set(c) <= {"flag", "negate"} and c.get("flag") in flags) and not _fold_cond_ok(c):
+                return None
+            if isinstance(e.get("bind"), str):
+                flags.add(e["bind"])
+        elif _fold_make(e):
+            makes.append(e)
+        else:
+            return None
+    return makes or None
+
+
+def _fold_make(e: dict[str, Any]) -> bool:
+    """"Create [n] [fixed token]" for you, or "create [n] token(s) that's a copy of this creature"."""
+    if type(e.get("n")) is not int or e["n"] <= 0:
+        return False
+    if e.get("do") == "create_token":
+        return e.get("who") == "you" and set(e) <= {"do", "who", "n", "token"} and isinstance(e.get("token"), dict) \
+            and not any(str(k).startswith("_") for k in e["token"])
+    return e.get("do") == "token_copy" and e.get("who") == "self" and set(e) <= {"do", "who", "n"}
+
+
+def _fold_defs(ch: Characteristics) -> list[dict[str, Any]]:
+    if not any(ab.kind == "triggered" for ab in ch.abilities):
+        return []
+    defs = _defs(ch)
+    return [d for ab in ch.abilities if ab.kind == "triggered" and (d := defs.get(ab.index)) is not None and fold_shape(d) is not None]
+
+
+def _entry_fold_def(entry: Any) -> dict[str, Any] | None:
+    """A trigger on the stack that is a foldable shape (folded or not), as a definition the audit reads. It already triggered: its
+    trigger condition is no longer read (a phase trigger stands in for it)."""
+    effects = list(entry.effects or [])
+    if effects and isinstance(effects[0], dict) and effects[0].get("do") == "fold_check":
+        d = effects[0].get("def")
+        return {**d, "trigger": "upkeep_you"} if isinstance(d, dict) and fold_shape({**d, "trigger": "upkeep_you"}) is not None else None
+    d = {"kind": "triggered", "trigger": "upkeep_you", "effects": effects, "optional": False, "target": None}
+    return d if fold_shape(d) is not None else None
+
+
+def _source_recipe(plan: Plan, source_card: str | None, source_object: str | None, recipes: dict[str, Any] | None = None) -> Any:
+    """The copiable values (707.2) of a trigger's source: on the battlefield, else as it last existed there (608.2h). None: unknown."""
+    from app.game.rules_state import CopyRecipe
+    from app.rules import copying
+
+    if recipes and source_card in recipes:
+        return recipes[source_card]
+    card = plan.state.cards.get(source_card or "")
+    if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == source_object:
+        if card.face_down or card.merged:
+            return None
+        return copying.recipe_of(plan, card)
+    snap = plan.rules.lki.get(source_object or "")
+    if snap is None or not snap.zone.endswith("battlefield") or snap.face_down:
+        return None
+    if snap.copy_recipe is not None:
+        return snap.copy_recipe
+    return CopyRecipe(printing=snap.printing, face=snap.face, source=snap.name[:200]) if snap.printing else None
+
+
+def _fingerprint(recipe: Any) -> str:
+    return json.dumps(recipe.model_dump(mode="json", exclude={"source"}), sort_keys=True) if recipe is not None else ""
+
+
+@contextmanager
+def _probe(plan: Plan, player: str, token: dict[str, Any]) -> Iterator[CardInstance | None]:
+    """A token of this kind, for a moment, on ``player``'s battlefield as a stack of two (nothing recorded; None: it can't be read)."""
     from app.game.state import TokenDef, zone_key
 
     spec = {k: v for k, v in token.items() if not k.startswith("_")}
     try:
         tdef = TokenDef.model_validate({**spec, "name": spec.get("name") or "Token"})
     except Exception:  # noqa: BLE001
-        return "the token can't be read"
-    probe = CardInstance(id="__stack_probe__", name=tdef.name, owner=player, controller=player, zone=zone_key(player, "battlefield"),
-                         is_token=True, token=tdef, quantity=2, card_id=tdef.card_id)
+        yield None
+        return
+    n = 0
+    while f"__stack_probe{n or ''}__" in plan.state.cards:  # (a probe inside another probe's audit: a stack's own fold)
+        n += 1
+    probe = CardInstance(id=f"__stack_probe{n or ''}__", name=tdef.name, owner=player, controller=player,
+                         zone=zone_key(player, "battlefield"), is_token=True, token=tdef, quantity=2, card_id=tdef.card_id)
+    from app.rules import read_pass
+
+    outer = getattr(read_pass._PASS, "cur", None)  # (a read pass open around this one never sees the probe: its own pass, below)
+    read_pass._PASS.cur = None
     plan.state.cards[probe.id] = probe
     plan.state.zone(probe.zone).append(probe.id)
     try:
-        found = problems(plan, [probe.id])
+        with read_pass.scope(plan.state, plan.info):
+            yield probe
     finally:
         plan.state.zone(probe.zone).remove(probe.id)
         del plan.state.cards[probe.id]
+        read_pass._PASS.cur = outer
         _forget_probe(plan, probe.id)
+
+
+def _copy_problem(plan: Plan, recipe: Any) -> str | None:
+    """A token copy the engine can treat exactly in a stack or a fold: its copiable values are a recipe whose exceptions (707.9) are
+    copiable values too ("except it isn't legendary", "except it's a 1/1"). One filled in as each copy enters, or a double-faced or
+    melded original, is refused."""
+    from app.rules import copying
+
+    if recipe is None:
+        return "its copiable values aren't known"
+    if any(ex.pt_self110a or ex.enter_counters for ex in recipe.excepts):
+        return "each copy is finished as it enters"
+    layout = (plan.info.get(recipe.printing) or {}).get("layout") if recipe.printing else None
+    if layout in copying.DOUBLE_FACED or layout == "meld":
+        return "it copies a double-faced card"
+    return None
+
+
+def copy_spec(plan: Plan, recipe: Any) -> tuple[dict[str, Any], Characteristics]:
+    """The token spec of a copy made from ``recipe`` (as copying.token_copy_request makes it) and its copiable characteristics."""
+    from app.rules import copying
+
+    ch = copying.characteristics(recipe, plan.info)
+    if recipe.printing and plan.info.get(recipe.printing) is not None:
+        spec: dict[str, Any] = {"card_id": recipe.printing, "name": (ch.name or "Token")[:80]}
+    else:
+        spec = {k: (recipe.token or {}).get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
+    return {**spec, "type_line": copying.type_line(ch)}, ch
+
+
+def _kinds(plan: Plan, d: dict[str, Any], source_card: str | None, source_object: str | None,
+           recipes: dict[str, Any] | None = None) -> list[tuple[dict[str, Any], Characteristics | None, Any]] | str:
+    """The kinds of token the ability ``d`` of this source can make (its fixed tokens, copies of its source): (token spec, copiable
+    characteristics or None, copy recipe or None). A str: why they can't be known."""
+    makes = fold_shape(d)
+    if makes is None:
+        return "it isn't an ability the engine folds"
+    kinds: list[tuple[dict[str, Any], Characteristics | None, Any]] = []
+    for m in makes:
+        if m["do"] == "create_token":
+            kinds.append((dict(m["token"]), None, None))
+            continue
+        recipe = _source_recipe(plan, source_card, source_object, recipes)
+        why = _copy_problem(plan, recipe)
+        if why is not None:
+            return f"a copy of it: {why}"
+        spec, ch = copy_spec(plan, recipe)
+        kinds.append((spec, ch, recipe))
+    return kinds
+
+
+def _crossed(plan: Plan, controller: str, groups: list[Any]) -> bool:
+    """Several groups of foldable triggers of one controller go on the stack as blocks in an order the controller picks (603.3b). That
+    takes no option away only if no group's tokens could change another group's condition (Scute Swarm counts lands: a fold making land
+    tokens would)."""
+    if len(groups) < 2:
+        return False
+    made = [_kinds(plan, g[0].ability, g[0].source_card, g[0].source_object) for g in groups]
+    for i, g in enumerate(groups):
+        sels = _cond_sels(g[0].ability)
+        for j, kinds in enumerate(made):
+            if i == j or not sels:
+                continue
+            if isinstance(kinds, str):
+                return True
+            for spec, ch, _ in kinds:
+                with _probe(plan, controller, spec) as probe:
+                    if probe is None or any(_matches(plan, k, probe, ch or plan.ch(probe), controller, g[0].source_card) for k in sels):
+                        return True
+    return False
+
+
+def fold_problems(plan: Plan, controller: str, d: dict[str, Any], source_card: str | None, source_object: str | None, *,
+                  recipes: dict[str, Any] | None = None) -> list[str]:
+    """Why N instances of the triggered ability ``d`` (of this source) can't be resolved as one folded ability now (public reasons;
+    empty: they can). See the section comment above."""
+    kinds = _kinds(plan, d, source_card, source_object, recipes)
+    if isinstance(kinds, str):
+        return [kinds]
+    out = _ability_readers(plan)
+    sels = _cond_sels(d)
+    for spec, ch, recipe in kinds:
+        with _probe(plan, controller, spec) as probe:
+            if probe is None:
+                out.append("its token can't be read")
+                continue
+            pch = ch or plan.ch(probe)
+            if any(_matches(plan, key, probe, pch, controller, source_card) for key in sels):
+                out.append("the tokens it makes would change its condition")  # 603.4, 608.2c: the N checks could differ
+            if "Legendary" in pch.supertypes and not any(dd.get("static") == "no_legend_rule" and dd.get("scope") in ("creatures", "all", "permanents", "tokens")
+                                                         for dd in _defs(pch).values()):
+                out.append("its legendary tokens would follow the legend rule one at a time")  # 704.5j between the resolutions
+            pdefs = _defs(pch)
+            for ab in pch.abilities:
+                if ab.kind == "triggered" and fold_shape(pdefs.get(ab.index)) is None:
+                    out.append(f"each token it makes has the ability “{ab.text}”")  # (it would trigger between the resolutions)
+            audit = _Audit(plan, [probe.id], {probe.id: pch}, fold=True)
+            why = audit.observer_problem(probe, pch)
+            if why is not None:
+                out.append(why)
+            out += problems(plan, [probe.id], chs={probe.id: pch}, recipes={probe.id: recipe} if recipe is not None else None, fold=True)
+    return list(dict.fromkeys(out))
+
+
+def fold_problems_once(plan: Plan, controller: str, d: dict[str, Any], source_card: str | None, source_object: str | None, *,
+                       recipes: dict[str, Any] | None = None) -> list[str]:
+    """``fold_problems``, worked out once per read pass for each kind of source (the stacks and identical permanents of a big board
+    share it: the same definition, controller and copiable values)."""
+    from app.rules import read_pass
+
+    sels = _cond_sels(d)
+    own = source_card if any('"other"' in s or '"self"' in s or "another" in s for s in sels) else None
+    key = ("ts2_fold", controller, json.dumps(d, sort_keys=True), _fingerprint(_source_recipe(plan, source_card, source_object, recipes)), own)
+    return list(read_pass.once(plan.state, plan.info, key,
+                               lambda: tuple(fold_problems(plan, controller, d, source_card, source_object, recipes=recipes))))
+
+
+def _ability_readers(plan: Plan) -> list[str]:
+    """Public abilities that could see how many triggered abilities there are or what is on the stack ("whenever an ability triggers",
+    "counter target triggered ability" on a permanent): a fold puts one object on the stack for N. Trigger multipliers (603.2d) are read
+    exactly (they act on each instance as it triggers). Hidden cards are never read: a target choice that names a folded ability splits
+    one instance off (single_out)."""
+    from app.rules import oracle
+
+    out: list[str] = []
+    for key, ids in plan.state.zones.items():
+        zone = key.split(":")[-1]
+        if zone not in ("battlefield", "stack", "command", "graveyard", "exile"):
+            continue
+        for cid in ids:
+            card = plan.state.cards.get(cid)
+            if card is None or card.face_down or card.ability is not None or not plan.in_game(card):
+                continue
+            if zone == "command" and not (card.token and card.token.type_line == "Emblem"):
+                continue
+            ch = plan.ch(card)
+            if not any(ab.kind != "keywords" and _ABILITY_WORDS.search(ab.text) for ab in ch.abilities):
+                continue
+            defs = _defs(ch)
+            for ab in ch.abilities:
+                if ab.kind == "keywords" or not _ABILITY_WORDS.search(oracle.strip_reminders(ab.text)):
+                    continue
+                dd = defs.get(ab.index) or {}
+                if dd.get("static") == "trigger_multiplier" and dd.get("cause") == "enter":
+                    continue
+                if zone in ("graveyard", "exile", "stack") and ab.kind not in ("triggered", "static"):
+                    continue
+                out.append(ch.name or card.name)
+    return out
+
+
+def _weight_of(plan: Plan, t: Any) -> int:
+    """How many identical instances this pending trigger stands for: a stack's members each triggered (603.2c)."""
+    src = plan.state.cards.get(t.source_card or "")
+    if src is None or not src.is_token or src.quantity <= 1:
+        return 1
+    if plan.oid(src) != t.source_object:
+        raise StackGate(f"{label(src)} triggered, and the engine can't tell how many of its members did.")
+    return src.quantity
+
+
+def fold_pending(plan: Plan) -> None:
+    """Before triggered abilities go on the stack (603.3b): fold each group of identical foldable triggers of one controller (and a
+    stack's members' instances) into one "Name (×N)". A stack whose triggers can't fold triggers once per member (up to
+    INDIVIDUAL_LIMIT, else the action stops: StackGate)."""
+    r = plan.rules
+    shapes = {t.id: fold_shape(t.ability) is not None for t in r.pending_triggers if not t.ordered and "fold" not in t.ability}
+    if not any(shapes.values()):
+        return
+    with plan.reading():
+        r.pending_triggers = _folded_pending(plan, shapes)
+
+
+def _folded_pending(plan: Plan, shapes: dict[str, bool]) -> list[Any]:
+    import secrets
+
+    r = plan.rules
+    out = list(r.pending_triggers)
+    for controller in dict.fromkeys(t.controller for t in r.pending_triggers):
+        mine = [t for t in r.pending_triggers if t.controller == controller]
+        if not any(shapes.get(t.id) for t in mine):
+            continue
+        alone = all(shapes.get(t.id) for t in mine)  # (603.3b: another trigger to order among them: no fold)
+        groups: dict[tuple[str, str], list[Any]] = {}
+        for t in mine:
+            if shapes.get(t.id):
+                fp = _fingerprint(_source_recipe(plan, t.source_card, t.source_object))
+                plain = {k: v for k, v in t.ability.items() if k != "members"}
+                groups.setdefault((json.dumps(plain, sort_keys=True), fp), []).append(t)
+        alone = alone and not _crossed(plan, controller, list(groups.values()))
+        for (_, fp), group in groups.items():
+            weights = [int(t.ability.get("members") or 0) or _weight_of(plan, t) for t in group]
+            w = sum(weights)
+            if w <= 1:
+                continue
+            rep = group[0]
+            d = {k: v for k, v in rep.ability.items() if k != "members"}
+            why = ["another triggered ability to order among them"] if not alone else [] if fp else ["its source's copiable values aren't known"]
+            why = why or fold_problems_once(plan, controller, d, rep.source_card, rep.source_object)
+            if not why:
+                sources = list(dict.fromkeys((t.source_card, t.source_object) for t in group))
+                folded = rep.model_copy(update={"ability": folded_ability(d, w, rep.name, sources),
+                                                "name": f"{rep.name} (×{w:,})"}, deep=True)
+                at = out.index(rep)
+                out = [x for x in out if x not in group]
+                out.insert(min(at, len(out)), folded)
+                continue
+            for t, n in zip(group, weights, strict=True):  # 603.2c: each member's own trigger
+                if n <= 1:
+                    continue
+                if n > INDIVIDUAL_LIMIT:
+                    raise StackGate(f"{rep.name}'s ability would trigger {n:,} times, one at a time ({'; '.join(why)}).")
+                at = out.index(t)
+                one = {**t.ability, "members": 1}
+                out[at:at + 1] = [t.model_copy(update={"id": t.id if i == 0 else secrets.token_hex(4), "ability": one}, deep=True)
+                                  for i in range(n)]
+    return out
+
+
+def folded_ability(d: dict[str, Any], w: int, name: str, sources: list[tuple[str | None, str | None]]) -> dict[str, Any]:
+    """The ability ``w`` instances of ``d`` fold into: each creation makes w times as many, after a resolution check (fold_check)."""
+    effects = [{**e, "n": int(e["n"]) * w} if e.get("do") in ("create_token", "token_copy") else e for e in d.get("effects") or []]
+    check = {"do": "fold_check", "def": d, "w": w, "name": name, "sources": [list(s) for s in sources]}
+    return {**d, "effects": [check, *effects], "fold": w}
+
+
+def fold_check(plan: Plan, ctx: Any, e: dict[str, Any]) -> bool:
+    """As a folded ability resolves: still exact? Its sources have the same copiable values as when it triggered (or as they last
+    existed, 608.2h), and fold_problems finds nothing (something may have arrived in response). Otherwise the action is refused: the
+    instances can't be taken apart again here (docs/TOKEN_STACKS.md 9)."""
+    d = e["def"]
+    src_card, src_oid = ctx.get("source_card"), ctx.get("source_object")
+    with plan.reading():
+        why = fold_problems_once(plan, ctx["controller"], d, src_card, src_oid)
+        if any(m.get("do") == "token_copy" for m in fold_shape(d) or []):
+            fp = _fingerprint(_source_recipe(plan, src_card, src_oid))
+            if not fp or any(_fingerprint(_source_recipe(plan, c, o)) != fp for c, o in e.get("sources") or []):
+                why.append("its sources no longer have the same copiable values")
+    if why:
+        raise ActionError(f"{e.get('name') or 'This'} (×{int(e['w']):,}) stands for {int(e['w']):,} identical triggered abilities, and the "
+                          f"engine can't resolve them together exactly any more ({'; '.join(why)}). Pause automation and resolve them by hand.")
+    return True
+
+
+def _fold_of(plan: Plan, card_id: str) -> dict[str, Any] | None:
+    entry = plan.rules.stack.get(card_id)
+    effects = entry.effects if entry is not None else []
+    first = effects[0] if effects else None
+    return first if isinstance(first, dict) and first.get("do") == "fold_check" and int(first.get("w", 1)) > 1 else None
+
+
+def folds_on_stack(plan: Plan) -> bool:
+    return any(_fold_of(plan, cid) is not None for cid in plan.state.zones.get("stack", []))
+
+
+def single_out_fold(plan: Plan, card_id: str) -> None:
+    """A choice names a folded ability (a target: "counter target triggered ability", "copy target triggered ability"): it means one
+    of the N identical instances. ``card_id`` keeps one instance; the other N-1 become a new ability object above it (they are
+    identical and next to each other on the stack, so which one was named doesn't matter). Only for the topmost object: placing the
+    rest anywhere else isn't modelled, so the action is refused."""
+    from app.game.rules_state import StackEntry
+
+    fold = _fold_of(plan, card_id)
+    if fold is None:
+        return
+    stack = plan.state.zones.get("stack", [])
+    entry = plan.rules.stack[card_id]
+    if not stack or stack[-1] != card_id:
+        raise ActionError(f"{entry.name} stands for {int(fold['w']):,} identical triggered abilities, and the engine can only single one "
+                          f"of them out while it is on top of the stack. Pause automation to do this by hand.")
+    w, d, name = int(fold["w"]), fold["def"], str(fold.get("name") or entry.name)
+    source = entry.source_card if entry.source_card in plan.state.cards else None
+    created = plan.do({"type": "create_ability", "text": f"{name} (×{w - 1:,})’s ability", "source_id": source, "kind": "triggered"},
+                      actor=entry.controller)
+    new_ids = getattr(created, "r", None)
+    if new_ids is None or not new_ids.ids:
+        raise ActionError(f"{entry.name} couldn't be split.")
+    rest = folded_ability(d, w - 1, name, fold.get("sources") or []) if w - 1 > 1 else d
+    one: dict[str, Any] = d
+    plan.rules.stack[new_ids.ids[0]] = StackEntry.model_validate({**entry.model_dump(), "effects": rest["effects"],
+                                                                  "name": f"{name} (×{w - 1:,})" if w - 1 > 1 else name})
+    plan.rules.stack[card_id] = StackEntry.model_validate({**entry.model_dump(), "effects": one["effects"], "name": name})
+
+
+# -- formation ----------------------------------------------------------------------------------------------------------------------
+def may_stack(plan: Plan, player: str, token: dict[str, Any]) -> str | None:
+    """Could ``count`` tokens of ``token`` be made as one stack for ``player`` now? None: yes; else why not (public).
+    (-- token stack folds (wave TS2) -- a token copy, ``_copy``: judged with the copiable values it will have, 707.2.)"""
+    from app.game.rules_state import CopyRecipe
+
+    recipe = CopyRecipe.model_validate(token["_copy"]) if token.get("_copy") else None
+    if token.get("_copy"):
+        why = _copy_problem(plan, recipe)
+        if why is not None:
+            return why
+    with _probe(plan, player, token) as probe:
+        if probe is None:
+            return "the token can't be read"
+        if recipe is None:
+            found = problems(plan, [probe.id])
+        else:
+            from app.rules import copying
+
+            found = problems(plan, [probe.id], chs={probe.id: copying.characteristics(recipe, plan.info)}, recipes={probe.id: recipe})
     return "; ".join(found) if found else None
 
 

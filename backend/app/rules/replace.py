@@ -916,7 +916,8 @@ def _stack_formation(plan: Plan, pid: str, ev: Event, picks: list[dict[str, str]
     if left <= token_stacks.STACK_FROM:
         return False
     why = None
-    if individual or any(picks) or ev["token"].get("_copy") or ev.get("embalmed") or ev.get("recipient_ref"):
+    # -- token stack folds (wave TS2) -- a token copy may stack too (judged with its copiable values: token_stacks.may_stack)
+    if individual or any(picks) or ev["token"].get("_entry_counters") or ev.get("embalmed") or ev.get("recipient_ref"):
         why = "each of these tokens is made on its own"
     elif plan.rules.specimens110f:
         why = "Gather Specimens is waiting to act"
