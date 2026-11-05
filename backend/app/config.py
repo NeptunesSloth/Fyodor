@@ -22,6 +22,17 @@ if FROZEN:
 DATA_ROOT = Path.home() / "Fyodor" if FROZEN else REPO_ROOT
 
 
+def install_dir() -> Path:
+    """Where Fyodor is installed: beside Fyodor.exe (the installer's browser/ and seed/ folders sit there); dist/Fyodor in a checkout."""
+    return Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2] / "dist" / "Fyodor"
+
+
+def bundled_images() -> Path | None:
+    """-- offline token art -- the card pictures the installer carries (seed/images: every token's art), read in place; None without."""
+    path = install_dir() / "seed" / "images"
+    return path if path.is_dir() else None
+
+
 def _load_dotenv(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.is_file():

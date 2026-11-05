@@ -9,6 +9,8 @@
 #            (dist/Fyodor/browser-legacy; 109 was the last Chromium for Windows 7 and 8)
 #   CARDS_DB=<a cards.sqlite>  ships it as the card database Fyodor starts with (dist/Fyodor/seed), so not even the first
 #            start needs the Internet. With both, the one installer file is everything an offline computer needs.
+#   TOKEN_IMAGES=<an image cache's tokens/ folder (python -m tools.update_cards --images tokens)>  ships every token's art
+#            (dist/Fyodor/seed/images/tokens), read in place by the server when its own cache has none: token art offline
 #   SMOKE=1  (Linux) installs the result silently into a fresh Wine prefix, starts the installed app, checks that it serves,
 #            then uninstalls it silently and checks that its files are gone.
 set -euo pipefail
@@ -44,6 +46,10 @@ if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then
   [ -f "$LEGACY_BROWSER_DIR/chrome.exe" ] || { echo "LEGACY_BROWSER_DIR has no chrome.exe: $LEGACY_BROWSER_DIR" >&2; exit 1; }
   cp -r "$LEGACY_BROWSER_DIR" "$SRC/browser-legacy"
 fi
+if [ -n "${TOKEN_IMAGES:-}" ]; then
+  [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
+  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
+fi
 if [ -n "${CARDS_DB:-}" ]; then
   [ -f "$CARDS_DB" ] || { echo "no card database at $CARDS_DB" >&2; exit 1; }
   mkdir -p "$SRC/seed" && cp "$CARDS_DB" "$SRC/seed/cards.sqlite"
@@ -73,7 +79,11 @@ if [ "${SMOKE:-0}" = "1" ] && [ "$WINDOWS" = 0 ]; then
     || { echo "no Start-menu shortcut for all users" >&2; exit 1; }
   if [ -n "${BROWSER_DIR:-}" ]; then [ -f "$APP/browser/chrome.exe" ] || { echo "the installer did not put Fyodor's window in" >&2; exit 1; }; fi
   if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then [ -f "$APP/browser-legacy/chrome.exe" ] || { echo "the installer did not put the Windows 8.1 window in" >&2; exit 1; }; fi
-  if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the installer did not put the card database in" >&2; exit 1; }; fi
+  if [ -n "${TOKEN_IMAGES:-}" ]; then
+  [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
+  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
+fi
+if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the installer did not put the card database in" >&2; exit 1; }; fi
   wn 'C:\Fyodor\Fyodor.exe' --check || { echo "the installed app's checks failed" >&2; exit 1; }
   port="${SMOKE_PORT:-18766}"
   mkdir -p "$ROOT/build"
@@ -86,7 +96,11 @@ if [ "${SMOKE:-0}" = "1" ] && [ "$WINDOWS" = 0 ]; then
   page="$(curl -fsS --noproxy '*' -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/" 2>/dev/null || true)"
   "$WINESERVER" -k 2>/dev/null || true
   [ "$ok" = 1 ] && [ "$page" = 200 ] || { echo "the installed app did not serve (see build/installer-smoke.log)" >&2; exit 1; }
-  if [ -n "${CARDS_DB:-}" ]; then  # a fresh Windows: the first start put the shipped card database in place, no download
+  if [ -n "${TOKEN_IMAGES:-}" ]; then
+  [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
+  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
+fi
+if [ -n "${CARDS_DB:-}" ]; then  # a fresh Windows: the first start put the shipped card database in place, no download
     grep -q '"available":true' "$ROOT/build/installer-health.json" || { echo "the first start did not put the card database in place" >&2; exit 1; }
   fi
   # _?= runs the uninstaller in place and waits for it (it can't delete itself then, so that one file stays)
