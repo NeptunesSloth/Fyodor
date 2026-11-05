@@ -24,6 +24,16 @@ async function game(page: Page, renderer: "2d" | "3d"): Promise<string> {
   return ((await res.json()) as { game: { id: string } }).game.id;
 }
 
+/** The header buttons of the open zone browser that something else covers (by their text). */
+function headButtonsOnTop(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...document.querySelectorAll<HTMLElement>(".zone-browser .zb-head button")]
+    .filter((b) => {
+      const r = b.getBoundingClientRect();
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) !== b && !b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+    })
+    .map((b) => b.textContent ?? ""));
+}
+
 for (const renderer of ["3d", "2d"] as const) {
   test(`search the library three times in a row, ${renderer} table`, async ({ page }) => {
     test.setTimeout(240_000);
@@ -45,8 +55,43 @@ for (const renderer of ["3d", "2d"] as const) {
         const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 16);
         return inView && !!hit?.closest(".zone-browser");
       })).toBe(true);
+      // and every button in its header (Done, Close: top right) is clear of the turn dial in the corner
+      expect(await headButtonsOnTop(page)).toEqual([]);
       await browser.getByRole("button", { name: "Done & shuffle" }).click();
       await expect(browser).toHaveCount(0);
     }
   });
 }
+
+for (const width of [1920, 1440, 700]) {
+  test(`a short zone browser's Close button is never under the turn dial, at ${width}px`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width, height: 900 });
+    const id = await game(page, "2d");
+    await page.goto(`/#/game/${id}`);
+    await page.waitForTimeout(1500);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("turn-dial")).toBeVisible();
+    // an empty zone: the shortest browser, its header low beside the dial (Bob's graveyard: at 700px the dial covers Alice's piles)
+    await page.locator('main.table [data-drop="p2:graveyard"]').first().click();
+    await expect(page.locator(".zone-browser")).toContainText("Nothing to show.");
+    expect(await headButtonsOnTop(page)).toEqual([]);
+  });
+}
+
+test("a library search shows its cards even while another zone's browser is open", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const id = await game(page, "2d");
+  await page.goto(`/#/game/${id}`);
+  await page.waitForTimeout(1500);
+  await page.keyboard.press("Escape");
+  await page.locator('main.table [data-drop="p1:graveyard"]').first().click();
+  const browser = page.locator(".zone-browser");
+  await expect(browser).toContainText("Nothing to show.");
+  await page.request.post(`/api/games/${id}/actions`, { data: { action: { type: "search_start", zone: { zone: "library", player: "p1" } } } });
+  await expect(browser.getByText("Searching your library")).toBeVisible();
+  await expect(browser.locator(".zb-card").first()).toBeVisible();
+  await browser.getByRole("button", { name: "Done & shuffle" }).click();
+  await expect(browser).toHaveCount(0);
+});

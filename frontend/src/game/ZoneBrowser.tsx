@@ -21,8 +21,11 @@ export function ZoneBrowser({ me }: { me: string }) {
   const [filter, setFilter] = useState("");
   const cards = useCardCache((s) => s.cards);
 
-  const zoneKey = browser?.zone ?? view?.searches[view.viewer] ?? null;
-  const searching = !!view && !!zoneKey && view.searches[view.viewer] === zoneKey;
+  // a search of my library takes the window over from any zone I was looking at (the Command zone, a graveyard…)
+  const search = view?.searches[view.viewer] ?? null;
+  const own = browser && (!search || browser.zone === search) ? browser : null; // the opened zone's title and limit
+  const zoneKey = search ?? browser?.zone ?? null;
+  const searching = !!search;
 
   const ids = useMemo(() => {
     if (!view || !zoneKey) return [];
@@ -30,8 +33,8 @@ export function ZoneBrowser({ me }: { me: string }) {
     if (!z) return [];
     if (Array.isArray(z)) return [...z].reverse(); // newest/top first
     const known = z.known.map(([, id]) => id);
-    return browser?.limit ? z.known.filter(([i]) => i < browser.limit!).map(([, id]) => id) : known;
-  }, [view, zoneKey, browser?.limit]);
+    return own?.limit ? z.known.filter(([i]) => i < own.limit!).map(([, id]) => id) : known;
+  }, [view, zoneKey, own?.limit]);
 
   if (!view || !zoneKey) return null;
   const { zone, player } = splitZone(zoneKey);
@@ -45,7 +48,7 @@ export function ZoneBrowser({ me }: { me: string }) {
   });
   const libraryCount = !Array.isArray(view.zones[zoneKey]) ? (view.zones[zoneKey] as { count: number }).count : ids.length;
   const title =
-    browser?.title ??
+    own?.title ??
     (searching ? `Searching ${player === me ? "your" : `${playerName(view, player)}'s`} ${zone}` : `${playerName(view, player)}'s ${zone}`);
 
   const close = (shuffle?: boolean) => {
