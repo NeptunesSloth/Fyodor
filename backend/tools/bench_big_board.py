@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import cProfile
 import hashlib
+import importlib
 import itertools
 import secrets
 import statistics
@@ -29,8 +30,12 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
-from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+
+# The test kit's fixtures and helpers (untyped test code: loaded by name so the type checker doesn't follow them into tests/)
+_fixtures: Any = importlib.import_module("tests.fixtures.cards")
+_helpers: Any = importlib.import_module("tests.game_helpers")
+card, fixture_cards = _fixtures.card, _fixtures.fixture_cards
+act, deck, enable = _helpers.act, _helpers.deck, _helpers.enable
 
 
 @contextmanager
