@@ -47,7 +47,7 @@ VIAddVersionKey "LegalCopyright" "Fyodor contributors"
 !define MUI_UNICON "fyodor.ico"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Fyodor ${VERSION}"
-!define MUI_WELCOMEPAGE_TEXT "Fyodor runs Commander game nights on your own network: one computer hosts, everyone else joins from a browser or their own Fyodor.$\r$\n$\r$\nThe first start downloads the card database from Scryfall. After that, Fyodor works offline.$\r$\n$\r$\nClick Next to continue."
+!define MUI_WELCOMEPAGE_TEXT "Fyodor runs Commander game nights on your own network: one computer hosts, everyone else joins from a browser or their own Fyodor.$\r$\n$\r$\nEverything is included: its own window and the card database. Fyodor never needs the Internet, not even on its first start, so this one file is all an offline computer needs.$\r$\n$\r$\nClick Next to continue."
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "Start Fyodor now"
@@ -83,6 +83,8 @@ Section "Fyodor (required)" SecApp
   SetOutPath "$INSTDIR"
   ; replace an older install's program files (never the user's data, which isn't here)
   RMDir /r "$INSTDIR\_internal"
+  RMDir /r "$INSTDIR\browser"
+  RMDir /r "$INSTDIR\seed"
   File /r "${SRC}\*"
   File "/oname=$INSTDIR\fyodor.ico" "fyodor.ico"
   WriteUninstaller "$INSTDIR\Uninstall Fyodor.exe"
@@ -131,6 +133,8 @@ Section "Uninstall"
   Delete "$DESKTOP\${APP}.lnk"
   ; only what the installer put here: never a recursive delete of the install folder itself
   RMDir /r "$INSTDIR\_internal"
+  RMDir /r "$INSTDIR\browser" ; Fyodor's own window (Chromium)
+  RMDir /r "$INSTDIR\seed" ; the card database it starts with
   Delete "$INSTDIR\${EXE}"
   Delete "$INSTDIR\fyodor.ico"
   Delete "$INSTDIR\Uninstall Fyodor.exe"

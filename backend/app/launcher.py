@@ -9,13 +9,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
 import urllib.request
 import webbrowser
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.config import FROZEN, Settings, load_settings
 
@@ -78,14 +81,66 @@ def preflight(settings: Settings) -> list[Check]:
     return checks
 
 
-def _open_when_ready(url: str) -> None:
+def _install_dir() -> Path:
+    """Where Fyodor is installed: beside Fyodor.exe (the installer's browser/ and seed/ folders sit there)."""
+    return Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2] / "dist" / "Fyodor"
+
+
+def bundled_browser() -> Path | None:
+    """Fyodor's own window: the Chromium the Windows installer ships, so an old, un-updatable system browser
+    (an offline computer's Edge) is never in the way. None when there isn't one (a source checkout)."""
+    exe = _install_dir() / "browser" / "chrome.exe"
+    return exe if exe.is_file() else None
+
+
+def seed_card_database(settings: Settings) -> bool:
+    """The first start on a computer with no card database: copy in the one the installer carries. True if it did."""
+    seed = _install_dir() / "seed" / "cards.sqlite"
+    if settings.cards_db_path.exists() or not seed.is_file():
+        return False
+    settings.ensure_dirs()
+    part = settings.cards_db_path.with_suffix(".sqlite.part")
+    shutil.copyfile(seed, part)  # (a half-copied file never looks like a database: renamed only once whole)
+    part.replace(settings.cards_db_path)
+    return True
+
+
+def _running_fyodor(url: str) -> bool:
+    """Is a Fyodor already serving here? (Opening it twice brings the table back instead of failing on the port.)"""
+    try:
+        with urllib.request.urlopen(f"{url}/api/health", timeout=1.5) as r:  # noqa: S310 - our own local server
+            return b'"status"' in r.read(400)
+    except OSError:
+        return False
+
+
+def open_table(url: str, settings: Settings) -> None:
+    """The table in Fyodor's own window when it has one, else the computer's default browser."""
+    exe = bundled_browser()
+    if exe is not None:
+        profile = settings.data_dir / "window"  # its own profile: nothing shared with (or needed from) the system browser
+        try:
+            subprocess.Popen(  # noqa: S603 - our own bundled browser, our own local address
+                [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                 "--disable-background-networking", "--disable-component-update", "--disable-sync",
+                 "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
+                 "--start-maximized"],
+                close_fds=True,
+            )
+            return
+        except OSError as exc:
+            print(f"  (Fyodor's own window would not open: {exc}; using the default browser)")
+    webbrowser.open(url)
+
+
+def _open_when_ready(url: str, settings: Settings) -> None:
     for _ in range(100):
         try:
             with urllib.request.urlopen(f"{url}/api/health", timeout=1):  # noqa: S310 - our own local server
                 break
         except OSError:
             time.sleep(0.2)
-    webbrowser.open(url)
+    open_table(url, settings)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -111,7 +166,16 @@ def main(argv: list[str] | None = None) -> int:
         env["FYODOR_PORT"] = str(args.port)
     settings = load_settings(env)
 
+    local = f"http://127.0.0.1:{settings.port}"
+    if not args.check and _running_fyodor(local):
+        print("Fyodor is already running on this computer: opening the table.")
+        if not args.no_browser:
+            open_table(local, settings)
+        return 0
+
     print("Fyodor — checking this computer\n")
+    if not args.check and seed_card_database(settings):
+        print("  First start: the card database that came with Fyodor is now in place (no Internet needed).")
     checks = preflight(settings)
     if not args.check and any(c.label == "Card database missing" for c in checks):
         print("  First run: downloading the Magic card database (one time, needs Internet, about 80 MB)…")
@@ -131,7 +195,6 @@ def main(argv: list[str] | None = None) -> int:
             input("Press Enter to close.")
         return 1
 
-    local = f"http://127.0.0.1:{settings.port}"
     print(f"\nOpen the table on this computer: {local}")
     if args.lan:
         addrs = lan_addresses()
@@ -151,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Press Ctrl+C to stop. Games are autosaved.\n")
 
     if not args.no_browser:
-        threading.Thread(target=_open_when_ready, args=(local,), daemon=True).start()
+        threading.Thread(target=_open_when_ready, args=(local, settings), daemon=True).start()
 
     import uvicorn
 

@@ -3,9 +3,21 @@
 from __future__ import annotations
 
 import socket
+import sqlite3
+
+import pytest
 
 from app import launcher
 from app.config import load_settings
+
+
+@pytest.fixture(autouse=True)
+def install_dir(tmp_path, monkeypatch):
+    """A Fyodor install of the test's own (no bundled window or card database unless a test puts one there)."""
+    root = tmp_path / "install"
+    root.mkdir()
+    monkeypatch.setattr(launcher, "_install_dir", lambda: root)
+    return root
 
 
 def test_preflight_reports_what_is_missing(tmp_path, capsys):
@@ -66,3 +78,44 @@ def test_check_output_survives_a_console_that_cannot_print_check_marks(tmp_path)
                          capture_output=True, env=env, timeout=60)
     assert run.returncode == 0, run.stderr.decode("cp1252", "replace")[-600:]
     assert b"Card database missing" in run.stdout
+
+
+def test_the_installer_s_card_database_is_put_in_place_on_the_first_start(tmp_path, install_dir):
+    (install_dir / "seed").mkdir()
+    sqlite3.connect(install_dir / "seed" / "cards.sqlite").execute("create table t (x)").connection.commit()
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")})
+    assert launcher.seed_card_database(settings) and settings.cards_db_path.is_file()
+    assert not settings.cards_db_path.with_suffix(".sqlite.part").exists()
+    # never over one already there (a newer download, say)
+    settings.cards_db_path.write_bytes(b"mine")
+    assert not launcher.seed_card_database(settings) and settings.cards_db_path.read_bytes() == b"mine"
+
+
+def test_no_seed_no_copy(tmp_path):
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")})
+    assert not launcher.seed_card_database(settings) and not settings.cards_db_path.exists()
+
+
+def test_the_table_opens_in_fyodor_s_own_window_when_it_has_one(tmp_path, install_dir, monkeypatch):
+    opened: list = []
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda url: opened.append(("system", url)))
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda argv, **kw: opened.append(("own", argv)))
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")})
+    launcher.open_table("http://127.0.0.1:8000", settings)
+    assert opened == [("system", "http://127.0.0.1:8000")]  # no window of its own: the default browser
+    opened.clear()
+    (install_dir / "browser").mkdir()
+    (install_dir / "browser" / "chrome.exe").write_bytes(b"")
+    launcher.open_table("http://127.0.0.1:8000", settings)
+    kind, argv = opened[0]
+    assert kind == "own" and argv[0].endswith("chrome.exe") and "--app=http://127.0.0.1:8000" in argv
+    assert f"--user-data-dir={settings.data_dir / 'window'}" in argv
+
+
+def test_starting_fyodor_again_opens_the_table_instead_of_failing_on_the_port(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("FYODOR_DATA_DIR", str(tmp_path / "d"))
+    monkeypatch.setattr(launcher, "_running_fyodor", lambda url: True)
+    opened: list[str] = []
+    monkeypatch.setattr(launcher, "open_table", lambda url, settings: opened.append(url))
+    assert launcher.main(["--local"]) == 0
+    assert opened == ["http://127.0.0.1:8000"] and "already running" in capsys.readouterr().out
