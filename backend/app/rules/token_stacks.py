@@ -177,12 +177,17 @@ def guard(plan: Plan, payload: dict[str, Any]) -> None:
 # -- splitting ----------------------------------------------------------------------------------------------------------------------
 def single_out(plan: Plan, card_id: str) -> None:
     """Make ``card_id`` stand for exactly one member: the other members move to a new object (the same tokens, already there)."""
+    keep(plan, card_id, 1)
+
+
+def keep(plan: Plan, card_id: str, count: int) -> None:
+    """Make ``card_id`` stand for exactly ``count`` of its members (an attack with part of a stack): the others move to a new object."""
     card = plan.state.cards.get(card_id)
-    if card is None or not card.is_token or card.quantity <= 1:
+    if card is None or not card.is_token or card.quantity <= count:
         return
     before = set(plan.state.cards)
     with whole(plan):
-        plan.do({"type": "split_stack", "card_id": card_id, "count": card.quantity - 1})
+        plan.do({"type": "split_stack", "card_id": card_id, "count": card.quantity - count})
     adopt(plan.state, card_id, [c for c in plan.state.cards if c not in before])
 
 

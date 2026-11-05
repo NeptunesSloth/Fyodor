@@ -1295,6 +1295,9 @@ class AttackDeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid")
     card_id: Id
     target: Id  # a player id, or a planeswalker / battle card id
+    # -- engine token stacks -- attack with only this many members of a token stack ("Goblin ×512": attack with 40); the rest are split
+    # off first, in the same action (docs/TOKEN_STACKS.md §4). None: the whole object attacks.
+    count: int | None = Field(default=None, ge=1, le=10 ** 15)
 
 
 class DeclareAttackers(_Intent):
