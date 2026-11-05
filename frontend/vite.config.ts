@@ -5,6 +5,8 @@ const backend = process.env.FYODOR_BACKEND_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   plugins: [react()],
+  // older browsers too: an offline computer keeps whatever Edge or Chrome it had when it went offline
+  build: { target: ["es2020", "edge88", "chrome88", "firefox78", "safari14"] },
   optimizeDeps: { include: ["react", "react-dom", "react-dom/client", "zustand"] },
   server: {
     host: process.env.FYODOR_FRONTEND_HOST ?? "127.0.0.1",
