@@ -123,22 +123,69 @@ def _running_fyodor(url: str) -> bool:
         return False
 
 
-def open_table(url: str, settings: Settings) -> None:
-    """The table in Fyodor's own window when it has one, else the computer's default browser."""
-    exe = bundled_browser()
-    if exe is not None:
-        profile = settings.data_dir / "window"  # its own profile: nothing shared with (or needed from) the system browser
-        try:
-            subprocess.Popen(  # noqa: S603 - our own bundled browser, our own local address
-                [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
-                 "--disable-background-networking", "--disable-component-update", "--disable-sync",
-                 "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
-                 "--start-maximized"],
-                close_fds=True,
-            )
-            return
-        except OSError as exc:
-            print(f"  (Fyodor's own window would not open: {exc}; using the default browser)")
+PAGE_SEEN = threading.Event()  # set when a window has asked this server for the table's page (serve() watches)
+WINDOW_WAIT = 45.0  # seconds before the console says what to do if the window still shows nothing
+MODERN = 111  # Chrome/Edge from this version draw everything the table uses
+
+
+def _browser_version(exe: Path) -> int:
+    """The major version of an installed Chrome or Edge: its Application folder holds a folder per version."""
+    majors = [int(d.name.split(".")[0]) for d in exe.parent.iterdir() if d.is_dir() and d.name.count(".") == 3 and d.name.split(".")[0].isdigit()] \
+        if exe.parent.is_dir() else []
+    return max(majors, default=0)
+
+
+def installed_browsers() -> list[tuple[str, Path]]:
+    """Chrome and Edge already on this Windows computer, new enough for the table (signed and kept up to date by
+    their makers, so security software trusts them). An old one, like an offline computer's Edge, is skipped."""
+    if os.name != "nt":
+        return []
+    env = os.environ
+    roots = [env.get("PROGRAMFILES", r"C:\Program Files"), env.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"), env.get("LOCALAPPDATA", "")]
+    found: list[tuple[str, Path]] = []
+    for name, rel in (("Chrome", r"Google\Chrome\Application\chrome.exe"), ("Edge", r"Microsoft\Edge\Application\msedge.exe")):
+        for root in roots:
+            exe = Path(root) / rel if root else None
+            if exe is not None and exe.is_file() and _browser_version(exe) >= MODERN:
+                found.append((name, exe))
+                break
+    return found
+
+
+def windows_to_try() -> list[tuple[str, Path]]:
+    """In order: an up-to-date Chrome or Edge on this computer, then the Chromium the installer ships."""
+    own = bundled_browser()
+    return installed_browsers() + ([("Fyodor's own window", own)] if own else [])
+
+
+def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Popen[bytes] | None:
+    profile = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}")  # its own profile
+    try:
+        return subprocess.Popen(  # noqa: S603 - a browser opening our own local address
+            [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+             "--disable-background-networking", "--disable-component-update", "--disable-sync",
+             "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
+             "--enable-logging", f"--log-file={profile / 'browser.log'}",  # why, if it ever shows nothing
+             "--start-maximized"],
+            close_fds=True,
+        )
+    except OSError as exc:
+        print(f"  ({name} would not start: {exc})")
+        return None
+
+
+def open_table(url: str, settings: Settings, watch: bool = False) -> None:
+    """The table in a window of its own (the first of windows_to_try that starts), else the default browser. With
+    ``watch`` (this program is the server), a window that hasn't asked for the page after WINDOW_WAIT seconds gets a
+    note in this console. It isn't closed: a first start can be slow while security software scans the browser."""
+    for name, exe in windows_to_try():
+        if _launch(name, exe, url, settings) is None:
+            continue
+        if watch and not PAGE_SEEN.wait(WINDOW_WAIT):
+            log = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}") / "browser.log"
+            print(f"\n  The table hasn't appeared in {name} yet. A first start can take a minute. If it stays empty, close"
+                  f" the window and open Fyodor again, or open {url} in any up-to-date browser. (Its log: {log})\n")
+        return
     webbrowser.open(url)
 
 
@@ -149,7 +196,7 @@ def _open_when_ready(url: str, settings: Settings) -> None:
                 break
         except OSError:
             time.sleep(0.2)
-    open_table(url, settings)
+    open_table(url, settings, watch=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -246,6 +293,13 @@ def serve(settings: Settings) -> None:
             server.should_exit = True
 
         app.state.request_restart = request_restart
+
+        @app.middleware("http")
+        async def note_the_page(request, call_next):  # type: ignore[no-untyped-def]
+            if request.url.path == "/" or request.url.path.startswith("/assets/"):
+                PAGE_SEEN.set()  # a window asked for the table (open_table watches for this)
+            return await call_next(request)
+
         server.run()
         if not again.is_set():
             return

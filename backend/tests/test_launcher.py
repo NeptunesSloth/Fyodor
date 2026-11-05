@@ -102,6 +102,7 @@ def test_the_table_opens_in_fyodor_s_own_window_when_it_has_one(tmp_path, instal
     launcher.open_table("http://127.0.0.1:8000", settings)
     assert opened == [("system", "http://127.0.0.1:8000")]  # no window of its own: the default browser
     opened.clear()
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [])
     (install_dir / "browser").mkdir()
     (install_dir / "browser" / "chrome.exe").write_bytes(b"")
     launcher.open_table("http://127.0.0.1:8000", settings)
@@ -174,3 +175,28 @@ def test_restart_from_settings_starts_the_server_again_in_the_same_program(tmp_p
     made[-1].state.request_restart.__defaults__[0].should_exit = True  # stop for good (no restart)
     t.join(10)
     assert not t.is_alive() and len(made) == 2
+
+
+def test_an_up_to_date_chrome_or_edge_on_the_computer_comes_first(install_dir, monkeypatch, tmp_path):
+    (install_dir / "browser").mkdir()
+    (install_dir / "browser" / "chrome.exe").write_bytes(b"")
+    chrome = tmp_path / "Chrome" / "Application"
+    (chrome / "131.0.6778.86").mkdir(parents=True)
+    (chrome / "chrome.exe").write_bytes(b"")
+    assert launcher._browser_version(chrome / "chrome.exe") == 131
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [("Chrome", chrome / "chrome.exe")])
+    assert [n for n, _ in launcher.windows_to_try()] == ["Chrome", "Fyodor's own window"]
+
+
+def test_a_slow_window_is_left_open_and_the_console_says_what_to_do(tmp_path, install_dir, monkeypatch, capsys):
+    (install_dir / "browser").mkdir()
+    (install_dir / "browser" / "chrome.exe").write_bytes(b"")
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [])
+    launched: list = []
+    monkeypatch.setattr(launcher, "_launch", lambda name, exe, url, settings: launched.append(name) or object())
+    monkeypatch.setattr(launcher, "WINDOW_WAIT", 0.05)
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda url: launched.append("system"))
+    launcher.PAGE_SEEN.clear()
+    launcher.open_table("http://127.0.0.1:8000", load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")}), watch=True)
+    assert launched == ["Fyodor's own window"]  # not replaced by the default browser (an offline PC's old Edge)
+    assert "hasn't appeared" in capsys.readouterr().out
