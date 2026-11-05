@@ -11,7 +11,7 @@ import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import type { AutomationLevel, MulliganPolicy, TableFormat } from "../types/game";
-import { FORMAT_NAME, SANDBOX_LOCK, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
+import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -19,6 +19,7 @@ import { listDecks } from "../services/decks";
 import {
   closeGame,
   createGame,
+  tableAction,
   deleteSave,
   joinGame,
   lanInfo,
@@ -206,7 +207,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [helper, setHelper] = useState<"off" | "simple">("simple");
   const [automation, setAutomation] = useState<AutomationLevel>("full"); // the pod plays Commander at Full (the API's own default stays Off)
   const useLobby = lobby;
-  const level: AutomationLevel = sandbox ? "off" : automation; // a Sandbox table starts as the manual table
+  const level: AutomationLevel = automation; // (a Sandbox table starts manual on the server; its chosen level is switched on at once)
   const [players, setPlayers] = useState<CreatePlayer[]>([
     { name: ownName(activeProfile().name) || "Player 1", deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name
     { name: "Seat 2", deck_id: null, color: COLORS[1] },
@@ -240,6 +241,30 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const start = async () => {
     setBusy(true);
     try {
+      if (sandbox) {
+        // -- Sandbox: test a deck on your own -- one seat, your deck dealt at once, no lobby and nobody joining
+        const res = await createGame({
+          name: name.trim() || "Deck test",
+          format,
+          mode: "lan",
+          players: [{ name: players[0]?.name.trim() || "Player 1", deck_id: hostDeck, color: players[0]?.color }],
+          shuffle: true,
+          lobby: false,
+          seats: 1,
+          mulligan_rule: mulligan,
+          mulligan_policy: configurable ? policy : null,
+          priority_helper: helper,
+          automation: "off", // (the server starts a Sandbox table manual; the level chosen here is switched on just after)
+          first_player: 0,
+          starting_life: life ? Number(life) : null,
+          auto_untap: true,
+        });
+        if (configurable && policy) rememberPolicy(mulligan, policy);
+        if (res.seat) rememberSeat(res.game.id, res.seat.token);
+        if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
+        navigate(`/game/${res.game.id}`);
+        return;
+      }
       const res = await createGame({
         name: name.trim() || "Game",
         format,
@@ -277,13 +302,13 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
       <div className="pg-table" data-format={format}>
         <header className="pg-head">
           <div className="pg-head-title">
-            <h1 id="pg-new-title">Host a LAN night</h1>
-            <p title="Alone at the table, it's solo testing">The pod joins from their own computers with the room code.</p>
+            <h1 id="pg-new-title">{sandbox ? "Test a deck" : "Host a LAN night"}</h1>
+            <p>{sandbox ? "Just you and your deck at the table. Nobody joins; nothing is checked." : "The pod joins from their own computers with the room code."}</p>
           </div>
-          <label className="pg-pass">
+          {!sandbox && <label className="pg-pass">
             <span>Password</span>
             <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="No password" autoComplete="new-password" />
-          </label>
+          </label>}
         </header>
 
         <div className="pg-formats" role="radiogroup" aria-label="Format" data-testid="table-format">
@@ -291,7 +316,10 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             <label key={f.id} className={`pg-format ${format === f.id ? "on" : ""}`}>
               <input type="radio" name="table-format" value={f.id} checked={format === f.id} data-testid={`format-${f.id}`} onChange={() => {
                 // the default table name follows the format until the host names the table
-                if (name === `${FORMAT_NAME[format]} night`) setName(`${FORMAT_NAME[f.id]} night`);
+                const usual = (t: TableFormat) => (t === "sandbox" ? "Deck test" : `${FORMAT_NAME[t]} night`);
+                if (name === usual(format)) setName(usual(f.id));
+                // a deck test starts manual, free play (its level is still yours to choose); back to Commander: Full, as the pod plays
+                if (f.id !== format) setAutomation(f.id === "sandbox" ? "off" : "full");
                 setFormat(f.id);
               }} />
               <span className="pg-format-icon"><Icon name={f.icon} size={24} /></span>
@@ -311,7 +339,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <Icon name="pen" size={14} className="pg-title-pen" />
             </span>
           </label>
-          <div className="pg-decks">
+          {!sandbox && <div className="pg-decks">
             <span className="pg-setup-label" id="pg-decks-label">Decks</span>
             <span className="pg-segs" role="radiogroup" aria-labelledby="pg-decks-label">
               <label className={lobby ? "on" : ""} title="Everyone takes a seat in the lobby and brings their own deck">
@@ -321,10 +349,25 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 <input type="radio" name="table-decks" checked={!lobby} onChange={() => setLobby(false)} data-testid="decks-dealt" />You deal them
               </label>
             </span>
-          </div>
+          </div>}
         </div>
 
-        {useLobby ? (
+        {sandbox ? (
+          // -- Sandbox -- one seat: yours, with the deck you're testing
+          <ul className="pg-seats pg-lobby pg-solo" aria-label="Your seat" data-testid="sandbox-seat">
+            <li className="pg-seat host">
+              <div className="pg-plate">
+                <SeatChip color={COLORS[0]} text="1" />
+                <label className="pg-name-field">
+                  <span className="pg-name-label">Your name</span>
+                  <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
+                </label>
+              </div>
+              <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)}
+                note={decks.length ? "Choose the deck you want to test." : "No decks yet: import one on the Decks page."} />
+            </li>
+          </ul>
+        ) : useLobby ? (
           <ul className="pg-seats pg-lobby" aria-label="Seats">
             <li className="pg-seat host">
               <div className="pg-plate">
@@ -424,12 +467,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
-            {sandbox ? (
-              <div className="pg-rule pg-rule-fixed" title={SANDBOX_LOCK}>
-                <span>Automation</span>
-                <b data-testid="automation-level-fixed" aria-describedby="pg-auto-hint"><Icon name="lock" size={14} label="Locked" />Off</b>
-              </div>
-            ) : (
+            {(
               <label className="pg-rule">
                 <span>Automation</span>
                 <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
@@ -437,7 +475,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </select>
               </label>
             )}
-            {!useLobby && (
+            {!useLobby && !sandbox && (
               <label className="pg-rule">
                 <span>Who starts</span>
                 <select data-testid="first-player" value={first} onChange={(e) => setFirst(e.target.value)}>
@@ -446,7 +484,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </select>
               </label>
             )}
-            {useLobby && (
+            {useLobby && !sandbox && (
               <label className="pg-rule">
                 <span>Deck privacy</span>
                 <select value={privacy} onChange={(e) => setPrivacy(e.target.value as typeof privacy)} data-testid="deck-privacy">
@@ -468,11 +506,12 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           </div>
           <p className="pg-rail-note">
             <span id="pg-auto-hint">{sandbox ? <><b>Sandbox.</b> {SANDBOX_RAIL}</> : <><b>Automation {AUTOMATION_NAME[level]}.</b> {AUTOMATION_HINT[level]}</>}</span>{" "}
-            {useLobby ? "The pod brings decks in the lobby; you start from there."
+            {sandbox ? `Automation ${AUTOMATION_NAME[level]}: ${AUTOMATION_HINT[level]}` : useLobby ? "The pod brings decks in the lobby; you start from there."
               : `The pod joins with the room code.${mulligan === "none" ? " With “None” everyone draws by hand." : ""}`}
           </p>
-          <button className="pg-start" disabled={busy} onClick={() => void start()} data-testid="create-game">
-            {busy ? "Setting up…" : useLobby ? "Open the table" : "Deal and start"}
+          <button className="pg-start" disabled={busy || (sandbox && !hostDeck)} onClick={() => void start()} data-testid="create-game"
+            title={sandbox && !hostDeck ? "Choose the deck to test first" : undefined}>
+            {busy ? "Setting up…" : sandbox ? "Start testing" : useLobby ? "Open the table" : "Deal and start"}
           </button>
         </footer>
       </div>
@@ -490,7 +529,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 }
 
 /** The host's own lobby seat: the deck they bring (chosen here, or later in the lobby like everyone else). */
-function HostDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void }) {
+function HostDeck({ deck, canPick, onPick, onClear, note = "You host. Choose your deck here or in the lobby." }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void; note?: string }) {
   return (
     <>
       <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={onPick} disabled={!canPick} data-testid="host-deck"
@@ -510,7 +549,7 @@ function HostDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | unde
             <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
           </>
         ) : (
-          <p className="pg-note">You host. Choose your deck here or in the lobby.</p>
+          <p className="pg-note">{note}</p>
         )}
       </div>
       {canPick && deck && (

@@ -112,6 +112,9 @@ const seatHeaders = (gameId: string): Record<string, string> => {
   const token = seatToken(gameId);
   return token ? { "X-Seat-Token": token } : {};
 };
+/** A table action sent over HTTP as this seat (for a page that isn't at the table, as the Play page right after it creates one). */
+export const tableAction = (gameId: string, action: Record<string, unknown>) =>
+  api.post<unknown>(`/games/${encodeURIComponent(gameId)}/actions`, { action }, seatHeaders(gameId));
 const lobbyPath = (gameId: string, rest = "") => `/games/${encodeURIComponent(gameId)}/lobby${rest}`;
 
 export const getLobby = (gameId: string) => api.get<LobbyView | { phase: "playing" }>(lobbyPath(gameId), seatHeaders(gameId));
