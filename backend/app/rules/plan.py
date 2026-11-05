@@ -21,6 +21,7 @@ from app.game.rules_state import (
     ObjectSnapshot,
     PlayerPrefs,
     RulesState,
+    TurnLog,
     capture,
     track,
     wither_put_by,
@@ -28,6 +29,7 @@ from app.game.rules_state import (
 from app.game.state import CardInstance, GameState
 from app.game.visibility import publicly_visible
 from app.rules import characteristics as chars
+from app.rules import read_pass
 from app.rules.characteristics import CardInfo, Characteristics
 
 READ_REUSE_FROM = 40  # objects in the game from which ``Plan.reading`` keeps its pass between checks
@@ -37,6 +39,10 @@ MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m",  # rules fi
                 # out afresh in each check, never kept in a pass), and the two stamps ``_do`` writes on every step for ``emit`` (its only
                 # reader, inside a step). Each trigger of a big batch added one and every following scan derived the board again.
                 "pending_triggers", "cause110g", "craft110b"}
+# -- big boards round 3 -- the rules fields a kept read pass compares only if it read them (read_pass.WATCHED), read through a descriptor
+read_pass.watch(RulesState, TurnLog)
+MARK_EXCLUDES: dict[str, Any] = {**dict.fromkeys(MARK_IGNORES, True), **read_pass.MARK_EXCLUDE}
+_RULES_JSON = RulesState.__pydantic_serializer__  # (``to_json`` with warnings off: the same JSON as ``model_dump_json``, without the checks)
 # -- big boards (perf) -- table actions that don't count as a change of the table for a kept read pass (``Plan.writes``, ``_mark``): a
 # rules log line. Its handler (handlers/rules.rules_log) only appends to ``state.log`` and folds earlier log entries; no kept answer
 # reads the log (characteristics, the statics table, ``read_pass.once`` answers, ``read_pass.card_fact``: the log is read only by
@@ -300,8 +306,8 @@ class Plan:
         for cid in card_ids:
             snap = before.snaps[cid]
             snap.copy_recipe = copy_recipe_of(self.rules, snap.object_id)
-            snap.attached = [c for c, s in before.snaps.items() if s.attached_to == cid]
-            snap.attached_objects = {c: s.object_id for c, s in before.snaps.items() if s.attached_to == cid}
+            snap.attached = [c for c, s in before.fields() if s.attached_to == cid]
+            snap.attached_objects = {c: s.object_id for c, s in before.fields() if s.attached_to == cid}
             snap.attached_objects_known = True
             if (facts := layered.get(snap.object_id)) is not None:
                 pt, abilities, keywords, traits, base, goaded = facts
@@ -387,10 +393,12 @@ class Plan:
             return read_pass.enter(cur)
         mark = self._mark()
         kept = getattr(self, "_kept", None)
-        if mark is not None and kept is not None and kept[0] == mark and kept[1].state is self.state and kept[1].info is self.info:
+        if mark is not None and kept is not None and kept[0] == mark and kept[1].state is self.state and kept[1].info is self.info \
+                and read_pass.unchanged(kept[1]):  # (big boards round 3: and the WATCHED rules fields the pass read)
             return read_pass.enter(kept[1])
         sc = read_pass.ReadPass(self.state, self.info)
         if mark is not None:
+            sc.seen = {}  # (big boards round 3: it notes the WATCHED rules fields it reads)
             self._kept = (mark, sc)
         return read_pass.enter(sc)
 
@@ -398,11 +406,12 @@ class Plan:
         """What a kept read pass is good for: this table object, the number of table actions carried out on it (every change to the
         cards, zones, players and turn goes through ``do``), and the rules state, compared whole (it is changed in place throughout the
         engine; only who has priority, who passed and Grip of Chaos's look at the stack are left out: no characteristic and no question a
-        pass keeps reads them). None: a table too small for the comparison to pay."""
+        pass keeps reads them). None: a table too small for the comparison to pay. (-- big boards round 3 -- the WATCHED rules fields are
+        compared apart, only those the kept pass read: read_pass.unchanged.)"""
         r = self.state.rules
         if r is None or len(self.state.cards) < READ_REUSE_FROM:
             return None
-        return (id(self.state), getattr(self, "writes", None), r.model_dump_json(exclude=MARK_IGNORES),
+        return (id(self.state), getattr(self, "writes", None), _RULES_JSON.to_json(r, exclude=MARK_EXCLUDES, warnings=False),
                 tuple(p.model_dump_json() for p in self.state.players.values()))
 
     def prefs(self, player: str) -> PlayerPrefs:
