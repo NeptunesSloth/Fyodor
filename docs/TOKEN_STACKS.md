@@ -199,7 +199,10 @@ the controller orders triggers, `token_stacks.fold_pending`):
     many", Adrix and Nev, Primal Vigor, Doubling Season, Parallel Lives: 2·(N·k) = N·(2·k), and several multipliers commute, 616.1f).
     Additive replacements ("those tokens plus an additional Treasure token", Xorn: N·(k+1) ≠ N·k+1), first-time-each-turn ones (Esix,
     Fractal Bloom: only the first of N events) and Chatterfang (its "plus that many Squirrels" is linear, so a fold would be exact, but its
-    "Sacrifice X Squirrels" cost chooses several members of a stack: the audit refuses it) keep the triggers separate;
+    "Sacrifice X Squirrels" cost chooses several members of a stack: the audit refuses it) keep the triggers separate. (Review TS2R) So
+    does a one-shot effect of a resolved spell waiting for "the next time one or more creatures … enter this turn" (614.5, 614.12: Mystic
+    Reflection's copy effect, Storyweave's counters; `_next_entry_waiting`): only the first of the N events would get it. It lives in
+    the turn log or a continuous effect, not on a permanent, so the audit's reading of the table never saw it;
   * nothing public watches triggers or the stack (`_ability_readers`: "triggered ability", "ability", "stack" in a public ability's text,
     e.g. Strict Proctor). Trigger multipliers are read exactly and allowed. A hidden card can't be read (its refusal would leak it):
     a target choice naming a folded ability (Stifle, Strionic Resonator) splits one instance off instead (`single_out_fold`: the targeted

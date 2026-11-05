@@ -947,6 +947,7 @@ def fold_problems(plan: Plan, controller: str, d: dict[str, Any], source_card: s
             if "Legendary" in pch.supertypes and not any(dd.get("static") == "no_legend_rule" and dd.get("scope") in ("creatures", "all", "permanents", "tokens")
                                                          for dd in _defs(pch).values()):
                 out.append("its legendary tokens would follow the legend rule one at a time")  # 704.5j between the resolutions
+            out += _next_entry_waiting(plan, probe, pch)  # -- token stack folds review (wave TS2R) --
             pdefs = _defs(pch)
             for ab in pch.abilities:
                 if ab.kind == "triggered" and fold_shape(pdefs.get(ab.index)) is None:
@@ -957,6 +958,22 @@ def fold_problems(plan: Plan, controller: str, d: dict[str, Any], source_card: s
                 out.append(why)
             out += problems(plan, [probe.id], chs={probe.id: pch}, recipes={probe.id: recipe} if recipe is not None else None, fold=True)
     return list(dict.fromkeys(out))
+
+
+# -- token stack folds review (wave TS2R) --
+def _next_entry_waiting(plan: Plan, probe: CardInstance, pch: Characteristics) -> list[str]:
+    """One-shot replacement effects of resolved spells waiting for "the next time one or more … enter this turn" (614.5, 614.12): the
+    first of the N creation events uses one up, so one event of N·k tokens would give all of them what only the first k get. Mystic
+    Reflection (``TurnLog.mirror110b``: they enter as copies of the chosen creature), Storyweave (an ``entry_once110e`` effect: two
+    additional +1/+1 counters). Both are public (a resolved spell's effect)."""
+    out: list[str] = []
+    log = plan.rules.turn_log
+    if log.turn == plan.state.turn.number and log.mirror110b and (pch.is_creature or "Planeswalker" in pch.types):
+        out.append("Mystic Reflection waits for the next creatures to enter (only the first of the resolutions would be copies)")
+    for fx in plan.rules.effects:
+        if fx.entry_once110e and (not fx.who or _matches(plan, fx.who, probe, pch, fx.controller, fx.source_card)):
+            out.append(f"{fx.label or 'an effect'} waits for the next of these to enter (only the first of the resolutions would get it)")
+    return out
 
 
 def fold_problems_once(plan: Plan, controller: str, d: dict[str, Any], source_card: str | None, source_object: str | None, *,
