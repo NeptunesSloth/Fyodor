@@ -929,7 +929,8 @@ def _stack_formation(plan: Plan, pid: str, ev: Event, picks: list[dict[str, str]
     if left > token_stacks.INDIVIDUAL_LIMIT:
         name = str(ev["token"].get("name") or "token")
         raise ActionError(f"This would create {left:,} {name} tokens. That many can only be one stack, and the rules engine can't treat a "
-                          f"stack exactly here ({why}). Pause automation and create them by hand (the table makes one stack).")
+                          f"stack exactly here ({why}). Pause automation and make them by hand as one card ×{left:,} (Create tokens, or a card's "
+                          f"Create copy → Several copies…).")
     return False
 
 

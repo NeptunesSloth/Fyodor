@@ -142,3 +142,21 @@ menu offers "Split one off" and "Split off…" (engine-exact splits; a part of a
   known to interact; the risk is documented rather than guessed away.
 * Tokens with abilities (Treasure, Food, Forest Dryad lands) never stack: each activation would need a split; their big creations are
   refused above `INDIVIDUAL_LIMIT`.
+
+## 9. Big counts by hand (and the token math panel)
+
+When the engine refuses a creation (section 2), the players finish by hand with automation paused, and the table makes one card ×N:
+
+* `create_token` makes at most `MAX_SEPARATE_TOKENS` (100) separate tokens; more is one stack (`stacked`), up to 10^15. With automation on, tokens
+  made by hand stay separate objects, so more than 100 is refused with "Pause automation to make them as one card ×N".
+* `copy_card` with `stacked: true` makes one token copy standing for `count` copies ("Scute Swarm ×4,096"), keeping the copied card's text;
+  only on the battlefield and only with automation paused (with it on, each token copy of a card is its own object). Separate copies: at most
+  `MAX_SEPARATE_COPIES` (50). The card menu's "Create copy → Several copies…" sends a stack past 50 (or past the "Collapse identical tokens"
+  setting) when automation is paused.
+* The table's split/add/remove work on these stacks as on any other; `stack_adjust` now goes up to 10^15.
+
+**Token math** (`frontend/src/game/TokenMathDialog.tsx`, `tokenMath.ts`; Shift+T or the Bag of Extras) works the numbers out before a
+big turn: Scute Swarm and other landfall makers one land at a time or all at once (Lumra, Scapeshift: 603.2c, 603.10), landfall trigger
+doublers (Ancient Greenwarden, Traveling Chocobo, Yarok: 603.2d), token doublers (616.1), self-copiers (Biowaste Blob, Council of Reeds),
+Craterhoof swing totals and a count of the tokens on the board. It reads only the public board and sends nothing.
+
