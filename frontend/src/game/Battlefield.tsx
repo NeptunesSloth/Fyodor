@@ -54,7 +54,9 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   const arranged = usePrefs((s) => s.boardLayout) !== "free";
   useBoardBodyClass(arranged);
   const mine = player === me;
-  const keepOut = useTurnDialCorner(ref, arranged && mine);
+  const dialSpace = useTurnDialCorner(ref, mine ? (arranged ? "corner" : "reserve") : null);
+  const keepOut = arranged ? dialSpace : null;
+  const reserve = !arranged && dialSpace ? dialSpace.left : 0;
   const orderTick = useBoardOrderTick((s) => s.n);
   const facts = useMemo(() => {
     if (!arranged || !view) return null;
@@ -116,7 +118,7 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       ref={ref}
       className={`battlefield ${mirrored ? "mirrored" : ""} ${over ? "drop-over" : ""} ${layout ? "arranged" : ""} ${layout && layout.w < 44 ? "tiny" : ""}`}
       // --tw: the arranged board's tile width, which sizes the tiles' name bars, plates and chips (board.css)
-      style={{ ["--player-color" as string]: color, ...(layout ? { ["--tw" as string]: `${layout.w.toFixed(1)}px` } : {}) }}
+      style={{ ["--player-color" as string]: color, ...(layout ? { ["--tw" as string]: `${layout.w.toFixed(1)}px` } : {}), ...(reserve > 0 ? { marginRight: reserve } : {}) }}
       data-drop={key}
       data-battlefield=""
       data-cardh={cardH}
@@ -172,13 +174,15 @@ function MatBands({ layout }: { layout: BoardLayout }) {
 }
 
 /**
- * The turn dial sits over the bottom right of my mat: the corner it covers (px, in the mat's own coordinates), so the
- * arranged rows stop short of it. It keeps the tallest the dial has been, so the board doesn't reflow every step.
+ * The turn dial sits over the bottom right of my mat. Arranged (`mode` "corner"): the corner it covers (px, in the mat's
+ * own coordinates), so the rows stop short of it. Free placement (`mode` "reserve"): how much of the mat's row (px from
+ * its right edge) the dial takes, which the mat gives up, so no card can lie under it (the mat's own rect is still what
+ * drops measure, so positions stay true). It keeps the tallest the dial has been, so the board doesn't reflow every step.
  */
-function useTurnDialCorner(ref: React.RefObject<HTMLDivElement | null>, on: boolean): { top: number; left: number } | null {
+function useTurnDialCorner(ref: React.RefObject<HTMLDivElement | null>, mode: "corner" | "reserve" | null): { top: number; left: number } | null {
   const [corner, setCorner] = useState<{ top: number; left: number } | null>(null);
   useEffect(() => {
-    if (!on) {
+    if (!mode) {
       setCorner(null);
       return;
     }
@@ -188,27 +192,33 @@ function useTurnDialCorner(ref: React.RefObject<HTMLDivElement | null>, on: bool
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const el = ref.current;
+        const box = mode === "reserve" ? el?.parentElement : el; // (the mat itself shrinks for a reserve: measure its row)
         const dial = document.querySelector(".turn-dial-wrap");
-        if (!el || !dial) return setCorner(null);
-        const m = el.getBoundingClientRect();
+        if (!box || !dial) return setCorner(null);
+        const m = box.getBoundingClientRect();
         const d = dial.getBoundingClientRect();
         if (d.width === 0 || d.left >= m.right || d.top >= m.bottom || d.right <= m.left) return setCorner(null);
         tallest = Math.min(tallest, Math.round(d.top - m.top));
-        const next = { top: Math.max(0, tallest), left: Math.round(d.left - m.left) };
+        const next = mode === "reserve"
+          ? { top: 0, left: Math.round(m.right - d.left + 10) } // (left: the width given up)
+          : { top: Math.max(0, tallest), left: Math.round(d.left - m.left) };
         setCorner((c) => (c && c.top === next.top && c.left === next.left ? c : next));
       });
     };
     measure();
     const ro = new ResizeObserver(() => { tallest = Infinity; measure(); });
-    if (ref.current) ro.observe(ref.current);
+    const watched = mode === "reserve" ? ref.current?.parentElement : ref.current;
+    if (watched) ro.observe(watched);
+    const fold = () => { tallest = Infinity; measure(); };
+    window.addEventListener("fyodor:dial-fold", fold);
     const dialRo = new ResizeObserver(measure);
     const watch = () => { const d = document.querySelector(".turn-dial-wrap"); if (d) dialRo.observe(d); };
     watch();
     const mo = new MutationObserver(() => { watch(); measure(); });
     const screen = document.querySelector(".game-screen");
     if (screen) mo.observe(screen, { childList: true });
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); dialRo.disconnect(); mo.disconnect(); };
-  }, [on, ref]);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); dialRo.disconnect(); mo.disconnect(); window.removeEventListener("fyodor:dial-fold", fold); };
+  }, [mode, ref]);
   return corner;
 }
 

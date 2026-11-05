@@ -46,6 +46,8 @@ export interface Prefs {
   handSort: HandSort;
   /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
   boardLayout: "arranged" | "free";
+  /** The turn dial (bottom right): full, or folded to its step, status and pass button so it covers less of the table. */
+  turnDial: "full" | "folded";
   /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
   autoCenter: "off" | "important" | "on";
   showTokenSources: boolean;
@@ -94,6 +96,7 @@ export const DEFAULT_PREFS: Prefs = {
   choiceWheel: true,
   handSort: "drawn",
   boardLayout: "arranged",
+  turnDial: "full",
   autoCenter: "off",
   showTokenSources: false,
   cardPhysics: true,
