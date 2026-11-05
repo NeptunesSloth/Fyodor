@@ -235,8 +235,8 @@ def test_legacy_unknown_named_history_is_explicit_not_inferred(cards):
 
 def pending_loss(s):
     tyrant = put(s, "Blood Tyrant", "battlefield")
-    # Seven real identical replacements exceed the native order-exploration budget.
-    # This produces an honest native 616 chooser without inventing a replacement.
+    # Seven real identical replacements (Bloodletter of Aclazotz). Copies of one effect are interchangeable, so the affected player
+    # isn't asked to order them (616.1); trying all 5,040 orders used to run past the exploration budget and ask anyway.
     letters = [
         c.id for c in s.state.cards.values() if c.owner == "p1" and c.name == "Bloodletter of Aclazotz"
     ]
@@ -246,7 +246,8 @@ def pending_loss(s):
         act(s, pid, type="life", player=pid, delta=960)
     to_phase(s, "upkeep", turn=7)
     settle(s)
-    assert s.state.rules.decision and s.state.rules.decision.resume["step"] == "replace_order"
+    d = s.state.rules.decision
+    assert d is None or d.resume.get("step") != "replace_order"
     return tyrant
 
 
@@ -266,7 +267,7 @@ def complete_choices(s):
     raise AssertionError("choices did not finish")
 
 
-def test_tyrant_actual_replacement_bound_loss_saved_and_cold(cards, tmp_path):
+def test_tyrant_identical_replacements_need_no_order_saved_and_cold(cards, tmp_path):
     import subprocess
     import sys
 

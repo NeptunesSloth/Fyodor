@@ -260,6 +260,21 @@ class AskOptional(Ask):
     """The affected player chooses whether to apply an optional replacement effect, and which (dredge: one card each)."""
 
 
+def _kinds(found: list[Candidate]) -> list[Candidate]:
+    """One candidate of each kind, in order: candidates of one kind are copies of one effect (the same event, conditions, effect, controller
+    and stage, and nothing that names their own source), so applying one or another of them first reaches the same results (616.1)."""
+    seen: set[str] = set()
+    out: list[Candidate] = []
+    for c in found:
+        body = json.dumps([c.event, c.match, c.op, c.controller, c.self_repl, c.legacy], sort_keys=True, default=str)
+        own = [x for x in (c.source_oid, c.source_card) if x]
+        key = body if not any(x in body for x in own) else c.id  # (an effect that names its own source is its own kind)
+        if key not in seen:
+            seen.add(key)
+            out.append(c)
+    return out
+
+
 class _TooMany(Exception):
     pass
 
@@ -345,7 +360,9 @@ class Planner:
                 self.stopped = True
             return
         chosen = found[0]
-        if len(found) > 1:
+        # 616.1: copies of one effect (the same event, conditions, effect and controller, nothing tied to its own source) are
+        # interchangeable, so only the order of different effects can matter
+        if len(found) > 1 and len(_kinds(found)) > 1:
             outcomes = None if any(c.op.get("external_optional") for c in found) else self._by_first(ev, found, sim)
             if outcomes is None or len({o for os_ in outcomes.values() for o in os_}) > 1:
                 picked = self.choose(ev, found, sim, outcomes)
@@ -400,7 +417,7 @@ class Planner:
         budget = [_EXPLORE_BUDGET]
         out: dict[str, set[str]] = {}
         try:
-            for c in found:
+            for c in _kinds(found):  # (one of each kind: a copy applied first reaches what the first of its kind does)
                 s2 = copy.deepcopy(sim)
                 results: set[str] = set()
                 self._walk(self.apply(c, ev, s2), s2, [], results, budget)
@@ -423,7 +440,7 @@ class Planner:
             self.perform(ev, s2)
             self._walk(rest, s2, [*done, _canon(ev)], results, budget)
             return
-        for c in found:
+        for c in _kinds(found):
             s2 = copy.deepcopy(sim)
             self._walk([*self.apply(c, ev, s2), *rest], s2, done, results, budget)
 
