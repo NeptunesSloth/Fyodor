@@ -49,6 +49,9 @@ export function zonePileTops(view: GameView, zone: string): Map<string, number> 
   }));
 }
 
+/** "×65,536": a count mark with thousands separators (an engine token stack can stand for a huge number of tokens). */
+export const countText = (n: number): string => `×${n.toLocaleString("en-US")}`;
+
 /**
  * The ×N a battlefield card carries, in the 2D and 3D tables alike: the pile of identical lands it tops, or else the token stack it is
  * ("Goblin ×10": one card the server counts as `quantity` tokens, see game/tokenStacks.ts). Null: nothing to count.
@@ -61,5 +64,5 @@ export function countMark(card: GameCard | undefined, pile?: number): { n: numbe
   const n = card?.quantity ?? 1;
   if (n <= 1) return null;
   const what = card && isVisible(card) ? `${card.name} tokens` : "tokens";
-  return { n, title: `A stack of ${n} ${what} (one card for all of them)`, testId: "stack-count" };
+  return { n, title: `A stack of ${n.toLocaleString("en-US")} ${what} (one card for all of them)`, testId: "stack-count" };
 }

@@ -283,9 +283,10 @@ def test_multiple_connive_replacements_resume_remaining_convokers(cards):
     before = len(s.state.zones['p1:library'])
     cast_scheme(s, source, target, [bear, thopter])
     choose_conniver(s, thopter)
-    assert s.state.rules.decision.resume.get('step') == 'replace_order'
+    # (the two Leaders are copies of one effect: their order can't matter, so it isn't asked (616.1))
+    assert s.state.rules.decision.resume.get('step') != 'replace_order'
     discard(s, 'Murder')
-    assert s.state.rules.decision.resume.get('step') == 'replace_order'
+    assert s.state.rules.decision.resume.get('step') != 'replace_order'
     discard(s, 'Sol Ring')
     settle(s)
     assert len(s.state.zones['p1:library']) == before - 6

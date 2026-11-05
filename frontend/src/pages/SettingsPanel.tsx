@@ -507,6 +507,24 @@ function BackupSection() {
       setRestartNeeded(true);
     }, "Backup staged — restart Fyodor to finish restoring");
   };
+  const [restarting, setRestarting] = useState(false);
+  /** Finish a restore: Fyodor restarts in place (the launcher), and this page comes back on the restored data. */
+  const restartNow = async () => {
+    setRestarting(true);
+    try {
+      await api.post("/restart", {});
+    } catch (e) {
+      setRestarting(false);
+      toastError(e); // (not started by the launcher: it says to close and start Fyodor again)
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+    for (let i = 0; i < 120; i++) {
+      if (await fetch("/api/health").then((r) => r.ok, () => false)) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    window.location.reload();
+  };
   const shown = list ? (all ? list : list.slice(0, BACKUPS_SHOWN)) : [];
   return (
     <SettingsSection id="backups" testId="backups">
@@ -547,7 +565,16 @@ function BackupSection() {
             }} />
             <span className="st-note">The card database isn't in a backup; it is rebuilt from card data.</span>
           </div>
-          {restartNeeded && <p className="warn st-restart">Restart Fyodor (close the window running it and start it again) to finish restoring.</p>}
+          <p className="st-note" data-testid="move-computers">
+            <b>Taking your decks to another computer</b> (an offline one too): <i>Back up Fyodor now</i> here, copy the file
+            it saves onto a USB stick, then on the other computer open Settings → <i>Restore from a file…</i>, choose it, and
+            click <i>Restart Fyodor now</i>. Decks, saved games and pod stats all come along.
+          </p>
+          {restartNeeded && (
+            <p className="warn st-restart" data-testid="restore-restart">
+              {restarting ? "Restarting Fyodor…" : <>One more step: <button className="tt-btn brass" data-testid="restart-now" onClick={() => void restartNow()}>Restart Fyodor now</button></>}
+            </p>
+          )}
           {list && list.length > 0 && (
             <>
               <table className="backups" data-testid="backup-list">

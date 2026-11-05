@@ -81,6 +81,11 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
+    # -- engine token stacks (docs/TOKEN_STACKS.md) -- inside code that treats a stack as its N members; the audit watches new objects;
+    # this intent runs with every stack spread (compile_intent's retry)
+    stack_whole: int = 0
+    stack_watch: bool = False
+    force_spread: bool = False
     trigger_headroom: bool = False  # the step budget was raised once in this action for a big trigger batch (triggers.headroom)
     delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
@@ -158,6 +163,11 @@ class Plan:
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
+        from app.rules import (
+            token_stacks,  # -- engine token stacks -- a stack changes only as N identical members (docs/TOKEN_STACKS.md)
+        )
+
+        token_stacks.guard(self, payload)
         if payload.get("type") in ("tap", "rules_mana") and (payload.get("tapped") is not False or payload.get("type") == "rules_mana"):  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of becoming tapped
             from app.rules import wave110i_cards
 
@@ -213,6 +223,8 @@ class Plan:
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
+        if resolved.type in token_stacks.NEW_OBJECT_STEPS and getattr(self, "stack_watch", False):
+            token_stacks.check_new(self)  # -- engine token stacks -- an object that may see a stack appeared, or control changed
         if resolved.type not in UNREAD_STEPS:
             self.writes += 1
         if before is not None and self.began is not None:

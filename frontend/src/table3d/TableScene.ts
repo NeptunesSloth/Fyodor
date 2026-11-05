@@ -115,6 +115,8 @@ const MAT_NAP = "#40392f";
 export const FACE_LIFT = 0.0012;
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
+/** The pale core of a card, glimpsed now and then along a pile's edge. */
+const PILE_CORE = new THREE.Color("#bdb4a2");
 const LIFT = 0.55;
 /** How fast (world units a second) a card must still be moving when you let go for it to slide on (a flick). */
 const FLICK_SPEED = 4.5;
@@ -341,6 +343,9 @@ export class TableScene {
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
   /** Card stock: the pale core you see on a card's edge. */
   private bodyMat = new THREE.MeshStandardMaterial({ color: "#cdc6b8", roughness: 0.78 });
+  /** A pile's cards: their edges, near black (a card's border) with each one a little lighter or darker than the next, so a stack
+   * reads as so many cards rather than one pale block. Per-card shades come from the instances' colours. */
+  private pileMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.82 });
   private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -1032,6 +1037,7 @@ export class TableScene {
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
     this.bodyMat.dispose();
+    this.pileMat.dispose();
     this.post?.dispose();
     this.envMap.dispose();
     this.renderer.dispose();
@@ -1126,7 +1132,7 @@ export class TableScene {
         block.position.set(wx, 0, wz);
         block.visible = false;
         block.userData = { pile: zone, player: seat.player };
-        const layers = new THREE.InstancedMesh(this.cardBodyGeo, this.bodyMat, PILE_LAYERS);
+        const layers = new THREE.InstancedMesh(this.cardBodyGeo, this.pileMat, PILE_LAYERS);
         layers.count = 0;
         layers.castShadow = layers.receiveShadow = this.quality !== "low";
         layers.userData = { pile: zone, player: seat.player };
@@ -1848,12 +1854,19 @@ export class TableScene {
     const up = new THREE.Vector3(0, 1, 0);
     const one = new THREE.Vector3(1, 1, 1);
     const salt = zone.length + seat.rot;
+    const edge = new THREE.Color();
     for (let i = 0; i < shown; i++) {
       const y = shown <= 1 ? 0 : (i / shown) * h;
       q.setFromAxisAngle(up, seat.rot + jitter(i, salt) * 0.035);
       m.compose(new THREE.Vector3(wx + jitter(i, salt + 1) * 0.02, y, wz + jitter(i, salt + 2) * 0.02), q, one);
       pile.layers.setMatrixAt(i, m);
+      // its edge: a card's dark border, every other one a shade apart, now and then a pale card core showing
+      const k = jitter(i, salt + 3);
+      edge.setRGB(0.1 + (i % 2) * 0.05 + k * 0.03, 0.09 + (i % 2) * 0.045 + k * 0.03, 0.085 + (i % 2) * 0.04 + k * 0.03, THREE.SRGBColorSpace);
+      if (i % 7 === 3) edge.lerp(PILE_CORE, 0.35);
+      pile.layers.setColorAt(i, edge);
     }
+    if (pile.layers.instanceColor) pile.layers.instanceColor.needsUpdate = true;
     pile.layers.count = shown;
     pile.layers.instanceMatrix.needsUpdate = true;
     pile.layers.computeBoundingSphere();

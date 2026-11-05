@@ -4201,7 +4201,11 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
-        if not PRIMITIVES[e["do"]](plan, ctx, e):
+        from app.rules import token_stacks
+
+        with token_stacks.group_effect(plan, e):  # -- engine token stacks -- an all-at-once effect acts on every member of a stack alike
+            done = PRIMITIVES[e["do"]](plan, ctx, e)
+        if not done:
             return False  # waiting for a choice; the decision's resume continues from ctx["next"]
         if "after110e" in e:
             replace._one_batch(plan, e["after110e"])

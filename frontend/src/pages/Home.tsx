@@ -26,6 +26,7 @@ import "./home.css";
 import { Icon, type IconName } from "../components/Icon";
 import { isSandbox } from "../game/tableFormat";
 
+import { CrashScreen } from "../components/CrashScreen";
 const ShowcaseView = lazy(() => import("./ShowcaseView"));
 
 const MENU: { href: string; label: string; icon: IconName; testid: string; resume?: boolean; primary?: boolean }[] = [
@@ -72,9 +73,11 @@ export function Home() {
   return (
     <div className="home-launch">
       {three ? (
-        <Suspense fallback={null}>
-          <ShowcaseView planeId={p.id} />
-        </Suspense>
+        <CrashScreen quiet={<HomeScene decks={recent} />}>
+          <Suspense fallback={null}>
+            <ShowcaseView planeId={p.id} />
+          </Suspense>
+        </CrashScreen>
       ) : (
         <HomeScene decks={recent} />
       )}

@@ -59,7 +59,7 @@ def reconcile(plan: Plan, *, fresh: bool) -> None:
     # -- token stacks (gap 2) -- a stack made while automation was off: one object per token
     from app.rules import token_stacks
 
-    token_stacks.spread(plan)
+    token_stacks.spread(plan, limit=token_stacks.INDIVIDUAL_LIMIT)  # (-- engine token stacks -- a bigger one stays: engine.begin's gate)
     sync_step(plan)
     _derive(plan)
     questions = _questions(plan, unknown_history=unknown_history)

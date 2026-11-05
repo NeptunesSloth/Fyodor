@@ -191,3 +191,23 @@ def test_echocasting_symposium_for_an_opponent_isnt_doubled(cards):
     cast(s, "Echocasting Symposium", targets=["p2", card(s, "Adrix and Nev, Twincasters").id], target_counts=[1, 1])
     assert field(s, "p2")["Adrix and Nev, Twincasters"] == 1 and field(s)["Adrix and Nev, Twincasters"] == 1
     check(s)
+
+
+def test_identical_doublers_need_no_order_question(cards):
+    """616.1: the affected player picks the order of the replacement effects only when it can matter. Eight copies of one effect (Adrix and
+    seven Spark Doubles copying it) are interchangeable, so no order can differ from another: one Dryad becomes 2^8 = 256 without a question.
+    (Trying every order of eight, 40,320 of them, ran past the engine's exploration budget and asked "which applies first?" anyway.)"""
+    s = adrix(cards, *["Spark Double"] * 7, "Awaken the Woods")
+    doubles = [c.id for c in s.state.cards.values() if c.name == "Spark Double" and c.owner == "p1"]
+    assert len(doubles) == 7
+    for cid in doubles:
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "hand"})
+        mana(s, U=4)
+        act(s, "p1", type="cast_spell", card_id=cid)
+        settle(s, "Adrix and Nev")
+    assert sum(1 for c in s.state.cards.values() if c.zone == "p1:battlefield" and ch(s, c).name == "Adrix and Nev, Twincasters") == 8
+    mana(s, G=3)
+    asked = cast(s, "Awaken the Woods", x_value=1)
+    assert not [p for p in asked if "616.1" in p], asked
+    assert field(s)["Forest Dryad"] == 256
+    check(s)

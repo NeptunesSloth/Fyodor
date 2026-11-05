@@ -96,6 +96,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
 
@@ -260,6 +261,21 @@ class AskOptional(Ask):
     """The affected player chooses whether to apply an optional replacement effect, and which (dredge: one card each)."""
 
 
+def _kinds(found: list[Candidate]) -> list[Candidate]:
+    """One candidate of each kind, in order: candidates of one kind are copies of one effect (the same event, conditions, effect, controller
+    and stage, and nothing that names their own source), so applying one or another of them first reaches the same results (616.1)."""
+    seen: set[str] = set()
+    out: list[Candidate] = []
+    for c in found:
+        body = json.dumps([c.event, c.match, c.op, c.controller, c.self_repl, c.legacy], sort_keys=True, default=str)
+        own = [x for x in (c.source_oid, c.source_card) if x]
+        key = body if not any(x in body for x in own) else c.id  # (an effect that names its own source is its own kind)
+        if key not in seen:
+            seen.add(key)
+            out.append(c)
+    return out
+
+
 class _TooMany(Exception):
     pass
 
@@ -345,7 +361,9 @@ class Planner:
                 self.stopped = True
             return
         chosen = found[0]
-        if len(found) > 1:
+        # 616.1: copies of one effect (the same event, conditions, effect and controller, nothing tied to its own source) are
+        # interchangeable, so only the order of different effects can matter
+        if len(found) > 1 and len(_kinds(found)) > 1:
             outcomes = None if any(c.op.get("external_optional") for c in found) else self._by_first(ev, found, sim)
             if outcomes is None or len({o for os_ in outcomes.values() for o in os_}) > 1:
                 picked = self.choose(ev, found, sim, outcomes)
@@ -400,7 +418,7 @@ class Planner:
         budget = [_EXPLORE_BUDGET]
         out: dict[str, set[str]] = {}
         try:
-            for c in found:
+            for c in _kinds(found):  # (one of each kind: a copy applied first reaches what the first of its kind does)
                 s2 = copy.deepcopy(sim)
                 results: set[str] = set()
                 self._walk(self.apply(c, ev, s2), s2, [], results, budget)
@@ -423,7 +441,7 @@ class Planner:
             self.perform(ev, s2)
             self._walk(rest, s2, [*done, _canon(ev)], results, budget)
             return
-        for c in found:
+        for c in _kinds(found):
             s2 = copy.deepcopy(sim)
             self._walk([*self.apply(c, ev, s2), *rest], s2, done, results, budget)
 
@@ -882,6 +900,40 @@ def _one_batch(plan: Plan, start: int) -> None:
 
 
 def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str]:
+    depth = plan.stack_whole  # (-- engine token stacks -- a stack's creation and entry act on every member alike: token_stacks.whole)
+    try:
+        return _make_tokens_now(plan, ev, picks)
+    finally:
+        plan.stack_whole = depth
+
+
+# -- engine token stacks (docs/TOKEN_STACKS.md) --
+def _stack_formation(plan: Plan, pid: str, ev: Event, picks: list[dict[str, str]], left: int, individual: bool) -> bool:
+    """One instruction creating more than ``STACK_FROM`` identical tokens makes one stack object when the token and the board allow it
+    (the audit, token_stacks.may_stack). More than ``INDIVIDUAL_LIMIT`` that can't stack: refused (the server never makes that many objects)."""
+    from app.rules import token_stacks
+
+    if left <= token_stacks.STACK_FROM:
+        return False
+    why = None
+    if individual or any(picks) or ev["token"].get("_copy") or ev.get("embalmed") or ev.get("recipient_ref"):
+        why = "each of these tokens is made on its own"
+    elif plan.rules.specimens110f:
+        why = "Gather Specimens is waiting to act"
+    else:
+        why = token_stacks.may_stack(plan, pid, ev["token"])
+    if why is None:
+        plan.stack_whole += 1
+        plan.stack_watch = True
+        return True
+    if left > token_stacks.INDIVIDUAL_LIMIT:
+        name = str(ev["token"].get("name") or "token")
+        raise ActionError(f"This would create {left:,} {name} tokens. That many can only be one stack, and the rules engine can't treat a "
+                          f"stack exactly here ({why}). Pause automation and create them by hand (the table makes one stack).")
+    return False
+
+
+def _make_tokens_now(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str]:
     import json
 
     from app.rules import creature_entry_redirect, replacements, token_copy_entry
@@ -906,8 +958,11 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
     receipts: dict[str, dict[str, Any]] = {}
     diverted_ids: set[str] = set()
     pick_index = 0
+    stack_of = _stack_formation(plan, pid, ev, picks, left, individual)  # -- engine token stacks -- one object for N (docs/TOKEN_STACKS.md)
     while left > 0:
         k = 1 if individual else min(left, MAX_TOKENS_STEP)
+        if stack_of:
+            k = left
         left -= k
         pick = picks[pick_index] if pick_index < len(picks) else {}
         effective = token_copy_entry.effective(ev, pick)
@@ -918,7 +973,8 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         explicit_tapped = bool(ev.get('effect_tapped', ev.get('tapped'))) or bool(json.loads(pick.get(token_copy_entry.ENTRY, '{}')).get('tapped'))
         kira111r3 = wave111r3_enter.WHAT in pick or wave111r3_enter.token_applies(plan, pid, effective, ev)  # (judged before this batch enters)
         enters_tapped = (explicit_tapped or kira111r3 or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
-        created = plan.do({'type': 'create_token', 'player': pid, 'count': k, 'stacked': False, 'tapped': enters_tapped,
+        created = plan.do({'type': 'create_token', 'player': pid, 'count': 1 if stack_of else k, 'stacked': False, 'tapped': enters_tapped,
+                           **({'quantity': k} if stack_of else {}),
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
                            'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
                            'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)

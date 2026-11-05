@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -68,3 +69,15 @@ async def restore_upload(request: Request, services: ServicesDep) -> dict[str, A
         return stage_restore(services.settings.data_dir, b"".join(chunks))
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/restart", status_code=202)
+def restart(request: Request) -> dict[str, Any]:
+    """Restart Fyodor in place (to finish a restore): the launcher stops the server and starts it again in the same
+    program, so nobody has to find and close the window running it. Only when started by the launcher."""
+    require_local(request)
+    again = getattr(request.app.state, "request_restart", None)
+    if again is None:
+        raise HTTPException(409, "Restart Fyodor yourself: close the window running it and start it again.")
+    threading.Timer(0.4, again).start()  # after this answer has gone out
+    return {"restarting": True}

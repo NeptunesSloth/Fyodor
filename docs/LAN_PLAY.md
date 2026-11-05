@@ -29,8 +29,11 @@ commander damage and tax.
 - **Sandbox** is free play, as in Tabletop Simulator: no deck checks, rules automation starts **off** (the manual table:
   everything moved by hand), and test objects are allowed (*More → Solo tools → Spawn a card*). The host can turn the rules
   on at the table: the **Sandbox** tag in the top bar (where the automation level shows) opens the automation settings.
-- The host picks it on the Play page or in the lobby's **Table settings**; the lobby says *Sandbox LAN night: free play*, and
-  the Play page's table tiles show *Sandbox*. Changing it asks everyone to confirm Ready again.
+- On the Play page, **Sandbox** is where you test a deck on your own: one seat (yours), the deck you choose, and the
+  automation level you pick (Off by default); **Start testing** deals it and puts you at the table at once, with no lobby,
+  room code or other seats. A LAN night's host can also switch its table to Sandbox in the lobby's **Table settings**
+  (the lobby then says *Sandbox: free play*; changing it asks everyone to confirm Ready again). The Play page's table
+  tiles show *Sandbox*.
 
 **Deck checks (advisory, Commander tables):** after you choose a deck, the host checks it against Commander's rules:
 100 cards, singleton, color identity, commander count and the banned list. A Sandbox table checks nothing.

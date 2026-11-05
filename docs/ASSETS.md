@@ -68,3 +68,10 @@ under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
 They're tooled faintly into an empty well's leather on the 3D table, engraved on the wells' brass nameplates at three
 or more seats, and struck on the commander-tax coins. The paths are unchanged, apart from leaving out each icon's
 background square.
+
+## Shipped in the Windows installer (docs/OFFLINE.md)
+
+- **Chromium** (Fyodor's own window, `browser\`, and Chromium 109 in `browser-legacy\` for Windows 8.1): unmodified Chromium snapshot builds for Windows, open source under
+  the BSD licence and the licences of its components (listed in the window at `chrome://credits`).
+- **The card database** (`seed\cards.sqlite`): built from Scryfall's bulk card data, as the Settings download is; card
+  pictures are not included.

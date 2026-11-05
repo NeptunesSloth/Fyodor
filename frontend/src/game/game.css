@@ -596,6 +596,9 @@ body.picking .table-card, body.picking .player-panel, body.picking .chain-row { 
 main.table { position: relative; }
 .playmat-layer.table-mat { position: absolute; inset: 0; z-index: 0; }
 main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
+/* (the docked zone browser keeps its place over the table: the rule above, more specific than .zone-browser, put it in the
+   flow, where it could land off screen — the library search opened and logged but never showed) */
+main.table > .zone-browser { position: absolute; z-index: 60; }
 .battlefield:has(.playmat-layer.bare) { border-color: transparent; background: transparent; }
 .appearance { display: flex; flex-direction: column; gap: 18px; }
 .appearance h3 { font-size: 12px; letter-spacing: 0.02em; color: var(--room-bone-dim); margin: 0 0 6px; }

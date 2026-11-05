@@ -9,13 +9,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
 import urllib.request
 import webbrowser
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.config import FROZEN, Settings, load_settings
 
@@ -78,14 +81,122 @@ def preflight(settings: Settings) -> list[Check]:
     return checks
 
 
-def _open_when_ready(url: str) -> None:
+def _install_dir() -> Path:
+    """Where Fyodor is installed: beside Fyodor.exe (the installer's browser/ and seed/ folders sit there)."""
+    return Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2] / "dist" / "Fyodor"
+
+
+def _windows_major() -> int:
+    """10 for Windows 10 and 11, 6 for 8.1 (and 7, 8); 0 off Windows."""
+    get = getattr(sys, "getwindowsversion", None)
+    return int(get().major) if get else 0
+
+
+def bundled_browser() -> Path | None:
+    """Fyodor's own window: the Chromium the Windows installer ships, so an old, un-updatable system browser
+    (an offline computer's Edge) is never in the way. Current Chromium needs Windows 10; on 8.1 the installer's
+    Chromium 109 (the last for 8.1) is used instead. None when there isn't one (a source checkout)."""
+    root = _install_dir()
+    current, legacy = root / "browser" / "chrome.exe", root / "browser-legacy" / "chrome.exe"
+    order = [legacy, current] if 0 < _windows_major() < 10 else [current, legacy]
+    return next((exe for exe in order if exe.is_file()), None)
+
+
+def seed_card_database(settings: Settings) -> bool:
+    """The first start on a computer with no card database: copy in the one the installer carries. True if it did."""
+    seed = _install_dir() / "seed" / "cards.sqlite"
+    if settings.cards_db_path.exists() or not seed.is_file():
+        return False
+    settings.ensure_dirs()
+    part = settings.cards_db_path.with_suffix(".sqlite.part")
+    shutil.copyfile(seed, part)  # (a half-copied file never looks like a database: renamed only once whole)
+    part.replace(settings.cards_db_path)
+    return True
+
+
+def _running_fyodor(url: str) -> bool:
+    """Is a Fyodor already serving here? (Opening it twice brings the table back instead of failing on the port.)"""
+    try:
+        with urllib.request.urlopen(f"{url}/api/health", timeout=1.5) as r:  # noqa: S310 - our own local server
+            return b'"status"' in r.read(400)
+    except OSError:
+        return False
+
+
+PAGE_SEEN = threading.Event()  # set when a window has asked this server for the table's page (serve() watches)
+WINDOW_WAIT = 45.0  # seconds before the console says what to do if the window still shows nothing
+MODERN = 111  # Chrome/Edge from this version draw everything the table uses
+
+
+def _browser_version(exe: Path) -> int:
+    """The major version of an installed Chrome or Edge: its Application folder holds a folder per version."""
+    majors = [int(d.name.split(".")[0]) for d in exe.parent.iterdir() if d.is_dir() and d.name.count(".") == 3 and d.name.split(".")[0].isdigit()] \
+        if exe.parent.is_dir() else []
+    return max(majors, default=0)
+
+
+def installed_browsers() -> list[tuple[str, Path]]:
+    """Chrome and Edge already on this Windows computer, new enough for the table (signed and kept up to date by
+    their makers, so security software trusts them). An old one, like an offline computer's Edge, is skipped."""
+    if os.name != "nt":
+        return []
+    env = os.environ
+    roots = [env.get("PROGRAMFILES", r"C:\Program Files"), env.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"), env.get("LOCALAPPDATA", "")]
+    found: list[tuple[str, Path]] = []
+    for name, rel in (("Chrome", r"Google\Chrome\Application\chrome.exe"), ("Edge", r"Microsoft\Edge\Application\msedge.exe")):
+        for root in roots:
+            exe = Path(root) / rel if root else None
+            if exe is not None and exe.is_file() and _browser_version(exe) >= MODERN:
+                found.append((name, exe))
+                break
+    return found
+
+
+def windows_to_try() -> list[tuple[str, Path]]:
+    """In order: an up-to-date Chrome or Edge on this computer, then the Chromium the installer ships."""
+    own = bundled_browser()
+    return installed_browsers() + ([("Fyodor's own window", own)] if own else [])
+
+
+def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Popen[bytes] | None:
+    profile = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}")  # its own profile
+    try:
+        return subprocess.Popen(  # noqa: S603 - a browser opening our own local address
+            [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+             "--disable-background-networking", "--disable-component-update", "--disable-sync",
+             "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
+             "--enable-logging", f"--log-file={profile / 'browser.log'}",  # why, if it ever shows nothing
+             "--start-maximized"],
+            close_fds=True,
+        )
+    except OSError as exc:
+        print(f"  ({name} would not start: {exc})")
+        return None
+
+
+def open_table(url: str, settings: Settings, watch: bool = False) -> None:
+    """The table in a window of its own (the first of windows_to_try that starts), else the default browser. With
+    ``watch`` (this program is the server), a window that hasn't asked for the page after WINDOW_WAIT seconds gets a
+    note in this console. It isn't closed: a first start can be slow while security software scans the browser."""
+    for name, exe in windows_to_try():
+        if _launch(name, exe, url, settings) is None:
+            continue
+        if watch and not PAGE_SEEN.wait(WINDOW_WAIT):
+            log = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}") / "browser.log"
+            print(f"\n  The table hasn't appeared in {name} yet. A first start can take a minute. If it stays empty, close"
+                  f" the window and open Fyodor again, or open {url} in any up-to-date browser. (Its log: {log})\n")
+        return
+    webbrowser.open(url)
+
+
+def _open_when_ready(url: str, settings: Settings) -> None:
     for _ in range(100):
         try:
             with urllib.request.urlopen(f"{url}/api/health", timeout=1):  # noqa: S310 - our own local server
                 break
         except OSError:
             time.sleep(0.2)
-    webbrowser.open(url)
+    open_table(url, settings, watch=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -111,7 +222,16 @@ def main(argv: list[str] | None = None) -> int:
         env["FYODOR_PORT"] = str(args.port)
     settings = load_settings(env)
 
+    local = f"http://127.0.0.1:{settings.port}"
+    if not args.check and _running_fyodor(local):
+        print("Fyodor is already running on this computer: opening the table.")
+        if not args.no_browser:
+            open_table(local, settings)
+        return 0
+
     print("Fyodor — checking this computer\n")
+    if not args.check and seed_card_database(settings):
+        print("  First start: the card database that came with Fyodor is now in place (no Internet needed).")
     checks = preflight(settings)
     if not args.check and any(c.label == "Card database missing" for c in checks):
         print("  First run: downloading the Magic card database (one time, needs Internet, about 80 MB)…")
@@ -131,7 +251,6 @@ def main(argv: list[str] | None = None) -> int:
             input("Press Enter to close.")
         return 1
 
-    local = f"http://127.0.0.1:{settings.port}"
     print(f"\nOpen the table on this computer: {local}")
     if args.lan:
         addrs = lan_addresses()
@@ -151,14 +270,40 @@ def main(argv: list[str] | None = None) -> int:
     print("Press Ctrl+C to stop. Games are autosaved.\n")
 
     if not args.no_browser:
-        threading.Thread(target=_open_when_ready, args=(local,), daemon=True).start()
+        threading.Thread(target=_open_when_ready, args=(local, settings), daemon=True).start()
 
+    serve(settings)
+    return 0
+
+
+def serve(settings: Settings) -> None:
+    """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
+    which is when a staged restore is applied (app/storage/backup.py)."""
     import uvicorn
 
     from app.main import create_app
 
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port, log_level=settings.log_level.lower())
-    return 0
+    while True:
+        again = threading.Event()
+        app = create_app(settings)
+        server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port, log_level=settings.log_level.lower()))
+
+        def request_restart(server: uvicorn.Server = server, again: threading.Event = again) -> None:
+            again.set()
+            server.should_exit = True
+
+        app.state.request_restart = request_restart
+
+        @app.middleware("http")
+        async def note_the_page(request, call_next):  # type: ignore[no-untyped-def]
+            if request.url.path == "/" or request.url.path.startswith("/assets/"):
+                PAGE_SEEN.set()  # a window asked for the table (open_table watches for this)
+            return await call_next(request)
+
+        server.run()
+        if not again.is_set():
+            return
+        print("\nRestarting Fyodor…\n")
 
 
 if __name__ == "__main__":

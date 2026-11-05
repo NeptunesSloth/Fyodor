@@ -278,3 +278,12 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
   .turn-dial-wrap, .game-screen:has(.log-drawer.open) .turn-dial-wrap { right: 16px; left: 16px; width: auto; }
   .log-drawer.open { z-index: 56; } /* no room beside the full-width dial: the open log goes over it */
 }
+
+/* an open zone browser stops short of the turn dial, so its close button (top right) is never under it */
+.game-screen:has(.turn-dial-wrap) main.table > .zone-browser { right: calc(16px + 316px + 12px); }
+.game-screen:has(.turn-dial-wrap):has(.log-drawer.open) main.table > .zone-browser { right: calc(12px + 340px + 12px + 316px + 12px); }
+@media (max-width: 720px) {
+  /* no room beside the full-width dial at the bottom: the browser opens at the top of the table instead */
+  .game-screen:has(.turn-dial-wrap) main.table > .zone-browser,
+  .game-screen:has(.turn-dial-wrap):has(.log-drawer.open) main.table > .zone-browser { right: 8px; top: 8px; bottom: auto; }
+}

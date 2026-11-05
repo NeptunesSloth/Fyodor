@@ -1,8 +1,9 @@
 /**
  * Token stacks ("Goblin ×10"): one card on the table standing for N identical tokens, the server's `quantity`. Creating more tokens
  * than the "Collapse identical tokens above" setting makes one; the card shows ×N (game/piles.ts countMark) and its controller splits
- * it from the card menu. A sandbox convenience: with rules automation on, the server keeps every token its own object (the rules
- * count, tap and sacrifice them one at a time), so it never merges tokens there and spreads out any stack left from before.
+ * it from the card menu. With rules automation on, the server keeps tokens as separate objects, except that one instruction making more
+ * than 100 identical tokens makes one engine stack the rules treat as that many (docs/TOKEN_STACKS.md); there it never merges tokens,
+ * splitting off is exact, and a stack bigger than ENGINE_SPREAD_MAX can't be spread into one card per token.
  */
 import type { MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
@@ -11,6 +12,9 @@ import { send } from "./actions";
 
 /** How many tokens this card stands for (1 for anything that isn't a stack). */
 export const stackSize = (card: GameCard | undefined): number => Math.max(1, card?.quantity ?? 1);
+
+/** With automation on, the server spreads at most this many tokens into separate cards (app/rules/token_stacks.py INDIVIDUAL_LIMIT). */
+export const ENGINE_SPREAD_MAX = 256;
 
 /** The server merges at most this many objects at once (actions.MergeTokens). */
 const MERGE_MAX = 250;
@@ -49,7 +53,7 @@ export function tokenStackItems(card: GameCard, view: GameView, me: string, sele
   if (n > 1 && selection.length <= 1) {
     const split = (count: number) => void send({ type: "split_stack", card_id: card.id, count });
     items.push({
-      label: `Token stack ×${n}`,
+      label: `Token stack ×${n.toLocaleString("en-US")}`,
       submenu: [
         { label: "Split one off", onClick: () => split(1) },
         ...(n > 2
@@ -61,7 +65,9 @@ export function tokenStackItems(card: GameCard, view: GameView, me: string, sele
               },
             }]
           : []),
-        { label: `Split into ${n} tokens`, hint: "one card each", onClick: () => void send({ type: "expand_stack", card_id: card.id }) },
+        ...(sandbox || n <= ENGINE_SPREAD_MAX
+          ? [{ label: `Split into ${n} tokens`, hint: "one card each", onClick: () => void send({ type: "expand_stack", card_id: card.id }) }]
+          : []),
         ...(sandbox
           ? [
               "separator" as const,
