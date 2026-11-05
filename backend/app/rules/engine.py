@@ -122,6 +122,23 @@ def automation_on(state: GameState) -> bool:
 
 
 def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
+    """-- engine token stacks -- A step that would treat a token stack as one token (``token_stacks.StackGate``) stops the action: it
+    runs again with every stack spread into separate tokens, or, when a stack is too big to spread, is refused (docs/TOKEN_STACKS.md)."""
+    from app.rules import token_stacks
+
+    try:
+        return _compile_intent(state, intent, actor=actor, info=info, rng=rng, force_spread=False)
+    except token_stacks.StackGate as gate:
+        big = [state.cards[cid] for cid in token_stacks.stacks(state) if state.cards[cid].quantity > token_stacks.INDIVIDUAL_LIMIT]
+        if big:
+            raise ActionError(token_stacks.refusal(big, [gate.message])) from None
+    try:
+        return _compile_intent(state, intent, actor=actor, info=info, rng=rng, force_spread=True)
+    except token_stacks.StackGate as gate:
+        raise ActionError(f"The rules engine can't do this exactly: {gate.message} Pause automation and do it by hand.") from None
+
+
+def _compile_intent(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any, force_spread: bool) -> list[dict[str, Any]]:
     if not automation_on(state):
         raise ActionError("Rules automation is off at this table. Use the table tools, or ask the host to turn it on.")
     assert state.rules is not None
@@ -159,8 +176,12 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     # Restore unknown layer-3 source choices before any derived control sync.
     restoring_word71 = plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71'
     if not restoring_word71:
+        plan.force_spread = force_spread  # (-- engine token stacks -- read by begin)
         begin(plan)
         sync_step(plan)
+        from app.rules import token_stacks
+
+        token_stacks.single_out_intent(plan, intent)  # -- engine token stacks -- a card the intent names as one object is one member
     handler = INTENTS.get(intent.type)
     if handler is None:
         what = NOT_YET.get(intent.type, intent.type)
@@ -234,10 +255,11 @@ def begin(plan: Plan) -> None:
     linked_exile_look.refresh(plan)
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
     hideaway.refresh(plan.state)  # (-- hideaway (wave 29D) -- a permanent whose control was taken by hand since)
-    # -- token stacks (gap 2) -- the engine reads tokens one object each (109.1, 111.6)
+    # -- token stacks (gap 2; engine token stacks) -- the engine reads tokens one object each (109.1, 111.6), except a big stack the audit
+    # accepts (docs/TOKEN_STACKS.md)
     from app.rules import token_stacks
 
-    token_stacks.spread(plan)
+    token_stacks.gate(plan, force_spread=getattr(plan, "force_spread", False))
 
 
 def absorb_manual_events(plan: Plan) -> None:
@@ -1223,6 +1245,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
     top = plan.state.cards[top_id]
     entry = plan.rules.stack.get(top_id)
     if entry is not None:
+        from app.rules import token_stacks
+
+        token_stacks.check_targets(plan, entry)  # -- engine token stacks -- a target is one member, split off as it was chosen
         effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
         return
     ch = plan.ch(top)

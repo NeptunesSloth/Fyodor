@@ -1315,6 +1315,10 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
     for index, ev in enumerate(evs):
         pid, row = ev["player"], rows[index]
         for k in range(ev['count']):
+            from app.rules import token_stacks
+
+            if k == 1 and ev['count'] > token_stacks.STACK_FROM and not any(row):
+                break  # -- engine token stacks -- the first of identical tokens asks nothing and chooses nothing: nor does any other
             from app.rules import devour, wave110b_devour  # -- devour token (wave 110B) -- 702.82a
 
             taken = {c for r in rows for x in r for c in devour.picked(x.get(devour.WHAT))}

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MenuItem } from "../components/ContextMenu";
 import type { GameCard, GameView, RulesView, VisibleCard } from "../types/game";
-import { countMark, pileTops } from "./piles";
+import { countMark, countText, pileTops } from "./piles";
 import { identicalTokens, stackSize, tokenStackItems } from "./tokenStacks";
 
 const sent: Record<string, unknown>[] = [];
@@ -77,5 +77,13 @@ describe("token stack menu", () => {
     const items = tokenStackItems(stack, view([stack, token("t")], { paused: false }), "p1", ["s"]);
     expect(labels(items)).toEqual(["Token stack ×3"]);
     expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…", "Split into 3 tokens"]);
+  });
+  it("an engine stack too big to spread offers only splits, and reads its count with separators", () => {
+    const stack = token("s", { quantity: 65536 });
+    const items = tokenStackItems(stack, view([stack], { paused: false }), "p1", ["s"]);
+    expect(labels(items)).toEqual(["Token stack ×65,536"]);
+    expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…"]);
+    expect(countText(65536)).toBe("×65,536");
+    expect(countMark(stack)?.title).toContain("65,536 Goblin tokens");
   });
 });

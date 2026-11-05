@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.game.state import zone_key
+from app.rules import token_stacks
 from app.rules.plan import Plan
 
 Context = dict[str, Any]
@@ -41,6 +42,7 @@ def phase_out_cards(plan: Plan, ctx: Context, cards: list[str]) -> None:
         plan.do({"type": "phase_shift", "card_ids": out, "out": True}, actor=ctx["controller"])
 
 
+@token_stacks.whole_call  # -- engine token stacks -- 502.1: every member phases alike
 def untap_step(plan: Plan, player: str) -> None:
     """702.26a: before ``player`` untaps, their phased-in permanents with phasing phase out and, simultaneously, the
     permanents that phased out under their control phase in (the ones phased out indirectly come along with their host)."""

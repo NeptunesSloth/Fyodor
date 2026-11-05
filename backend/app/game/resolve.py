@@ -138,6 +138,10 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.stacked = a.stacked if a.stacked is not None else a.count > 3
         if a.stacked and state.rules is not None and state.settings.automation != "off":
             a.stacked = False  # -- token stacks (gap 2) -- the rules count, tap and sacrifice tokens one object each (app/rules/token_stacks.py)
+        if a.quantity is not None:  # -- engine token stacks -- only the rules engine makes one (docs/TOKEN_STACKS.md)
+            if not trusted:
+                raise ActionError("Only the rules engine makes a token stack this way")
+            a.stacked, a.count = True, 1
         a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
         a.resolved_token = _token_def(a.token, info)
         if a.x is None or a.y is None:
@@ -166,6 +170,13 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.ExpandStack):
         card = state.cards.get(a.card_id)
+        from app.rules.token_stacks import (
+            INDIVIDUAL_LIMIT,  # -- engine token stacks -- never one object per token for a huge stack
+        )
+
+        if card is not None and card.quantity > INDIVIDUAL_LIMIT and state.rules is not None and state.settings.automation != "off":
+            raise ActionError(f"{card.name} ×{card.quantity:,} is too big to spread into separate tokens with rules automation on "
+                              f"(at most {INDIVIDUAL_LIMIT}): split some off instead")
         a.r = A.NewIds(ids=[new_id() for _ in range(max(0, (card.quantity if card else 1) - 1))])
     elif isinstance(a, A.Roll):
         if not trusted:  # (only the rules engine ignores rolls: a player's own table roll is shown as rolled)
