@@ -121,7 +121,9 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   }
   const index = manaAbilityIndex(cardId, view);
   if (index == null) return false;
-  void send({ type: "activate_ability", card_id: cardId, ability: index });
+  // -- playtest fixes (nov 5) -- the server reads which mana ability a tap means: a Forest under Chromatic Lantern has two (305.6 + the
+  // granted one), so the player is asked which mana (backend app/rules/tap_gesture.py); `ability` is only this table's guess
+  void send({ type: "activate_ability", card_id: cardId, ability: index, tap_for_mana: true });
   return true;
 }
 

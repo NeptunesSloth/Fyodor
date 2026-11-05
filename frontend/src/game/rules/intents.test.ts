@@ -106,7 +106,7 @@ describe("automation intents", () => {
     useGame.setState({ view: v });
     expect(manaAbilityIndex("f1", v)).toBe(0);  // a basic land's intrinsic ability
     expect(tapForMana("f1", "p1")).toBe(true);
-    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0 }]);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true }]);  // the server reads which mana ability (Chromatic Lantern: playtest nov 5)
     expect(tapForMana("l1", "p1")).toBe(false);  // no mana ability: a plain tap
     expect(tapForMana("c4", "p1")).toBe(false);  // not yours
   });
@@ -123,7 +123,7 @@ describe("automation intents", () => {
     expect(sent).toEqual([
       { type: "activate_ability", card_id: "cr", ability: 0, convoke: true },
       { type: "activate_ability", card_id: "ar", ability: 0, improvise: true },
-      { type: "activate_ability", card_id: "f1", ability: 0 },
+      { type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true },
     ]);
   });
 
