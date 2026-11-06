@@ -7,6 +7,7 @@
  * override) keeps the old behaviour: the card just moves, logged as done by hand.
  */
 import { create } from "zustand";
+import { openMenu, type MenuItem } from "../../components/ContextMenu";
 import { perspective, useGame } from "../../state/gameStore";
 import { useCardCache } from "../../state/cardCache";
 import type { Action, GameView, ResponseMode } from "../../types/game";
@@ -79,6 +80,15 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
   }
   if ((to.zone === "battlefield" && to.player === me) || to.zone === "stack") {
     // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
+    // -- playtest nov 6 -- a card with kicker asks first (a drag never offered it; only the right-click menu did): cast plain, or kicked
+    const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
+    const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
+    if (kicker) {
+      const at = { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
+      openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true }) },
+        ...kickerItems(card.id, kicker)], `${data?.name ?? "Cast"}: kicker?`);
+      return true;
+    }
     void send({ type: "cast_spell", card_id: card.id, ask_optional: true });
     return true;
   }
@@ -186,3 +196,30 @@ export function abilityLines(oracle: string): string[] {
     .map((line) => line.replace(/\s*\([^()]*\)/g, "").trim())
     .filter(Boolean);
 }
+
+/** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
+const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
+/** Multikicker quick choices; Other uses the same platform numeric range as X. */
+export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
+
+/** -- playtest nov 6 -- the "Cast with Kicker {cost}" entries for a card with this kicker line (702.33): one cost, "{A} and/or {B}", or multikicker. */
+export function kickerItems(cardId: string, kicker: string, castable = true): MenuItem[] {
+  const cast = (times: number) => () => void send({ type: "cast_spell", card_id: cardId, kicker: times });
+  const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
+  if (two) {
+    // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
+    return [{ label: `Cast with ${kicker}`, disabled: !castable,
+      submenu: [{ label: `Kicked with ${two[1]}`, onClick: cast(1) }, { label: `Kicked with ${two[2]}`, onClick: cast(2) }, { label: "Kicked with both", onClick: cast(3) }] }];
+  }
+  if (/^multikicker/i.test(kicker)) {
+    // 702.33c: any number of times. The server checks the total cost when it's paid.
+    return [{ label: `Cast with ${kicker}`, disabled: !castable,
+      submenu: [...MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })),
+        { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId }, field: "kicker" }) }] }];
+  }
+  return [{ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) }];
+}
+
+/** The kicker line of a card's rules text, if it has one the table can offer (702.33, 702.42 entwine). */
+export const kickerLine = (oracle: string): string | undefined => abilityLines(oracle).find((l) => KICKER.test(l));
+

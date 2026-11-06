@@ -128,6 +128,11 @@ def _image_rows(settings: Settings, scope: str) -> list[sqlite3.Row]:
             return conn.execute(f"SELECT {cols} FROM printings p").fetchall()
         if scope == "default":
             return conn.execute(f"SELECT {cols} FROM oracle_defaults d JOIN printings p ON p.id = d.printing_id").fetchall()
+        if scope == "commander":  # the default printing of every Commander-legal card (no tokens): the pack for offline play
+            return conn.execute(
+                f"SELECT {cols} FROM oracle_defaults d JOIN printings p ON p.id = d.printing_id WHERE d.is_token = 0 "
+                "AND json_extract(p.legalities, '$.commander') IN ('legal', 'restricted')"
+            ).fetchall()
         if scope == "tokens":
             return conn.execute(
                 f"SELECT {cols} FROM oracle_defaults d JOIN printings p ON p.id = d.printing_id WHERE d.is_token = 1"
@@ -198,9 +203,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-data", action="store_true", help="do not download/import card data")
     parser.add_argument(
         "--images",
-        choices=("none", "decks", "tokens", "default", "all"),
+        choices=("none", "decks", "tokens", "commander", "default", "all"),
         default="none",
-        help="which card images to cache: none, decks (cards in saved decks), tokens, "
+        help="which card images to cache: none, decks (cards in saved decks), tokens, commander (every Commander-legal card), "
         "default (one printing per card, ~2.5 GB), all (every printing). Default: %(default)s",
     )
     parser.add_argument("--size", choices=IMAGE_SIZES, default="normal", help="image size (default: %(default)s)")

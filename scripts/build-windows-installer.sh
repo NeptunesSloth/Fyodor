@@ -37,18 +37,26 @@ if ! command -v makensis >/dev/null; then
 fi
 
 SRC="$ROOT/dist/Fyodor"
+# A Chromium snapshot carries programs a player never runs (its UI test suite alone is 375 MB, plus installers) and 200+ language packs:
+# only the window and English stay
+prune_browser() {
+  find "$1" -maxdepth 1 -type f \( -name '*_tests.exe' -o -name 'setup.exe' -o -name 'mini_installer.exe' -o -name 'chromedriver.exe' \) -delete
+  find "$1/locales" -type f ! -name 'en-US.pak' ! -name 'en-US.pak.info' -delete 2>/dev/null || true
+}
 rm -rf "$SRC/browser" "$SRC/browser-legacy" "$SRC/seed"
 if [ -n "${BROWSER_DIR:-}" ]; then
   [ -f "$BROWSER_DIR/chrome.exe" ] || { echo "BROWSER_DIR has no chrome.exe: $BROWSER_DIR" >&2; exit 1; }
   cp -r "$BROWSER_DIR" "$SRC/browser"
+  prune_browser "$SRC/browser"
 fi
 if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then
   [ -f "$LEGACY_BROWSER_DIR/chrome.exe" ] || { echo "LEGACY_BROWSER_DIR has no chrome.exe: $LEGACY_BROWSER_DIR" >&2; exit 1; }
   cp -r "$LEGACY_BROWSER_DIR" "$SRC/browser-legacy"
+  prune_browser "$SRC/browser-legacy"
 fi
 if [ -n "${TOKEN_IMAGES:-}" ]; then
   [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
-  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
+  mkdir -p "$SRC/seed/images/tokens" && cp -r "$TOKEN_IMAGES/." "$SRC/seed/images/tokens/"
 fi
 if [ -n "${CARDS_DB:-}" ]; then
   [ -f "$CARDS_DB" ] || { echo "no card database at $CARDS_DB" >&2; exit 1; }
@@ -79,11 +87,8 @@ if [ "${SMOKE:-0}" = "1" ] && [ "$WINDOWS" = 0 ]; then
     || { echo "no Start-menu shortcut for all users" >&2; exit 1; }
   if [ -n "${BROWSER_DIR:-}" ]; then [ -f "$APP/browser/chrome.exe" ] || { echo "the installer did not put Fyodor's window in" >&2; exit 1; }; fi
   if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then [ -f "$APP/browser-legacy/chrome.exe" ] || { echo "the installer did not put the Windows 8.1 window in" >&2; exit 1; }; fi
-  if [ -n "${TOKEN_IMAGES:-}" ]; then
-  [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
-  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
-fi
-if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the installer did not put the card database in" >&2; exit 1; }; fi
+  if [ -n "${TOKEN_IMAGES:-}" ]; then [ -d "$APP/seed/images/tokens" ] && [ ! -e "$APP/seed/images/tokens/tokens" ] || { echo "the installer did not put the token art in (or nested it)" >&2; exit 1; }; fi
+  if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the installer did not put the card database in" >&2; exit 1; }; fi
   wn 'C:\Fyodor\Fyodor.exe' --check || { echo "the installed app's checks failed" >&2; exit 1; }
   port="${SMOKE_PORT:-18766}"
   mkdir -p "$ROOT/build"
@@ -96,11 +101,7 @@ if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the i
   page="$(curl -fsS --noproxy '*' -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/" 2>/dev/null || true)"
   "$WINESERVER" -k 2>/dev/null || true
   [ "$ok" = 1 ] && [ "$page" = 200 ] || { echo "the installed app did not serve (see build/installer-smoke.log)" >&2; exit 1; }
-  if [ -n "${TOKEN_IMAGES:-}" ]; then
-  [ -d "$TOKEN_IMAGES" ] || { echo "no token images at $TOKEN_IMAGES" >&2; exit 1; }
-  mkdir -p "$SRC/seed/images" && cp -r "$TOKEN_IMAGES" "$SRC/seed/images/tokens"
-fi
-if [ -n "${CARDS_DB:-}" ]; then  # a fresh Windows: the first start put the shipped card database in place, no download
+  if [ -n "${CARDS_DB:-}" ]; then  # a fresh Windows: the first start put the shipped card database in place, no download
     grep -q '"available":true' "$ROOT/build/installer-health.json" || { echo "the first start did not put the card database in place" >&2; exit 1; }
   fi
   # _?= runs the uninstaller in place and waits for it (it can't delete itself then, so that one file stays)

@@ -2,14 +2,10 @@
 import type { MenuItem } from "../../components/ContextMenu";
 import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
-import { abilityLines, automationOn, isLand, send, setPrefs, useXPrompt } from "./intents";
+import { abilityLines, automationOn, isLand, kickerItems, kickerLine, send, setPrefs, useXPrompt } from "./intents";
 
-/** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
-const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
 /** -- Star Trek beam me up (wave 112T) -- the server's label of a beam me up cost: "<source>: beam me up {cost}". */
 const BEAM = /^(.*): beam me up ((?:\{[^}]+\})+)$/;
-/** Multikicker quick choices; Other uses the same platform numeric range as X. */
-export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
 /** -- pod audit -- 709.3, 715.3: a split card (not a Room) or an adventure, cast from the hand as the half the player chooses. */
 const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null }[] } =>
@@ -114,23 +110,9 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: `Cast with ${buyback}`, disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });
   }
-  const kicker = abilityLines(oracle).find((l) => KICKER.test(l));
+  const kicker = kickerLine(oracle);
   if (mine && (zone === "hand" || zone === "command") && kicker) {
-    const castable = !!hints.castable?.includes(card.id);
-    const cast = (times: number) => () => void send({ type: "cast_spell", card_id: card.id, kicker: times });
-    const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
-    if (two) {
-      // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
-      items.push({ label: `Cast with ${kicker}`, disabled: !castable,
-        submenu: [{ label: `Kicked with ${two[1]}`, onClick: cast(1) }, { label: `Kicked with ${two[2]}`, onClick: cast(2) }, { label: "Kicked with both", onClick: cast(3) }] });
-    } else if (/^multikicker/i.test(kicker)) {
-      // 702.33c: any number of times. The server checks the total cost when it's paid.
-      items.push({ label: `Cast with ${kicker}`, disabled: !castable,
-        submenu: [...MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })),
-          { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id }, field: "kicker" }) }] });
-    } else {
-      items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
-    }
+    items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
   }
   // -- granted replicate (wave 111R3) -- 702.56b: each replicate a permanent gives this spell (Hugh, First of Many) is paid
   // separately, in the order the server lists them (CastSpell.replicate); listed only for castable cards
