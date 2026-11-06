@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MenuItem } from "../components/ContextMenu";
 import type { GameCard, GameView, RulesView, VisibleCard } from "../types/game";
 import { countMark, countText, pileTops } from "./piles";
-import { identicalTokens, stackSize, tokenStackItems } from "./tokenStacks";
+import { attackSomeItem, identicalTokens, splitForPart, stackSize, tokenStackItems } from "./tokenStacks";
 
 const sent: Record<string, unknown>[] = [];
 vi.mock("./actions", () => ({ send: (a: Record<string, unknown>) => { sent.push(a); return Promise.resolve(true); } }));
+const asked = vi.hoisted(() => ({ answer: null as number | null, title: "" }));
+vi.mock("../components/Prompt", () => ({ askNumber: (title: string) => { asked.title = title; return Promise.resolve(asked.answer); }, askText: () => Promise.resolve(null) }));
 
 const GOBLIN = { name: "Goblin", card_id: null, power: "1", toughness: "1", colors: ["R"], type_line: "Token Creature — Goblin", text: "" };
 
@@ -45,7 +47,7 @@ describe("token stack menu", () => {
     const stack = token("s", { quantity: 10 });
     const items = tokenStackItems(stack, view([stack]), "p1", ["s"]);
     const sub = entry(items, "Token stack ×10")!.submenu!;
-    expect(labels(sub)).toEqual(["Split one off", "Split off…", "Split into 10 tokens", "—", "Add one", "Remove one"]);
+    expect(labels(sub)).toEqual(["Split one off", "Split off…", "Split into 10 tokens", "—", "Tap some…", "Sacrifice some…", "—", "Add one", "Remove one"]);
     entry(sub, "Split one off")!.onClick!();
     entry(sub, "Split into")!.onClick!();
     expect(sent).toEqual([{ type: "split_stack", card_id: "s", count: 1 }, { type: "expand_stack", card_id: "s" }]);
@@ -76,14 +78,64 @@ describe("token stack menu", () => {
     const stack = token("s", { quantity: 3 });
     const items = tokenStackItems(stack, view([stack, token("t")], { paused: false }), "p1", ["s"]);
     expect(labels(items)).toEqual(["Token stack ×3"]);
-    expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…", "Split into 3 tokens"]);
+    expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…", "Split into 3 tokens", "—", "Tap some…"]);
   });
   it("an engine stack too big to spread offers only splits, and reads its count with separators", () => {
     const stack = token("s", { quantity: 65536 });
     const items = tokenStackItems(stack, view([stack], { paused: false }), "p1", ["s"]);
     expect(labels(items)).toEqual(["Token stack ×65,536"]);
-    expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…"]);
+    expect(labels(entry(items, "Token stack")!.submenu!)).toEqual(["Split one off", "Split off…", "—", "Tap some…"]);
     expect(countText(65536)).toBe("×65,536");
     expect(countMark(stack)?.title).toContain("65,536 Goblin tokens");
+  });
+});
+
+describe("acting on part of a stack", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  it("splits the rest off, so the card itself stands for exactly k (its id is known before the split)", () => {
+    expect(splitForPart(10, 3)).toBe(7);
+    expect(splitForPart(10, 10)).toBe(0);
+    expect(splitForPart(10, 12)).toBe(0);
+    expect(splitForPart(10, 0)).toBe(9); // (at least one)
+  });
+  it("Tap some… splits n − k off, then taps the k-sized card", async () => {
+    const stack = token("s", { quantity: 10 });
+    const sub = entry(tokenStackItems(stack, view([stack]), "p1", ["s"]), "Token stack")!.submenu!;
+    asked.answer = 3;
+    entry(sub, "Tap some…")!.onClick!();
+    await flush();
+    expect(asked.title).toContain("Tap how many of the 10 Goblin tokens");
+    expect(sent).toEqual([{ type: "split_stack", card_id: "s", count: 7 }, { type: "tap", card_ids: ["s"], tapped: true }]);
+  });
+  it("all of them: no split; a tapped stack offers Untap some…", async () => {
+    const stack = token("s", { quantity: 5, tapped: true });
+    const sub = entry(tokenStackItems(stack, view([stack]), "p1", ["s"]), "Token stack")!.submenu!;
+    asked.answer = 5;
+    entry(sub, "Untap some…")!.onClick!();
+    await flush();
+    expect(sent).toEqual([{ type: "tap", card_ids: ["s"], tapped: false }]);
+  });
+  it("Sacrifice some… (by hand: automation off or paused) moves the k-sized card to its owner's graveyard; cancelling does nothing", async () => {
+    const stack = token("s", { quantity: 20 });
+    const sub = entry(tokenStackItems(stack, view([stack], { paused: true }), "p1", ["s"]), "Token stack")!.submenu!;
+    asked.answer = null;
+    entry(sub, "Sacrifice some…")!.onClick!();
+    await flush();
+    expect(sent).toEqual([]);
+    asked.answer = 4;
+    entry(sub, "Sacrifice some…")!.onClick!();
+    await flush();
+    expect(sent).toEqual([{ type: "split_stack", card_id: "s", count: 16 }, { type: "move", card_ids: ["s"], to: { zone: "graveyard", player: "p1" } }]);
+  });
+  it("Attack with some of the ×N: per target, then the table's attack with exactly k", async () => {
+    const stack = token("s", { quantity: 40 });
+    const item = attackSomeItem(stack, "p1", [{ label: "Bob", target: { kind: "player", id: "p2" } }])!;
+    expect(item.label).toBe("Attack with some of the ×40");
+    asked.answer = 25;
+    entry(item.submenu!, "Bob…")!.onClick!();
+    await flush();
+    expect(sent).toEqual([{ type: "split_stack", card_id: "s", count: 15 }, { type: "attack", card_ids: ["s"], target: { kind: "player", id: "p2" } }]);
+    expect(attackSomeItem(token("t"), "p1", [{ label: "Bob", target: { kind: "player", id: "p2" } }])).toBeNull();
+    expect(attackSomeItem(stack, "p2", [{ label: "Alice", target: { kind: "player", id: "p1" } }])).toBeNull();
   });
 });

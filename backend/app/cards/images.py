@@ -37,8 +37,11 @@ class InvalidImageRequest(ValueError):
 
 
 class ImageStore:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, bundled: Path | None = None) -> None:
         self.root = root
+        # -- offline token art -- read-only images the Windows installer carries (seed/images, same layout): found when the cache
+        # has none, never written to (docs/OFFLINE.md)
+        self.bundled = bundled
         self._symbols: tuple[int, dict[str, dict[str, str]]] | None = None  # the symbol list, by its file's mtime
 
     def path_for(self, card_id: str, *, face: int = 0, size: str = DEFAULT_SIZE, is_token: bool = False) -> Path:
@@ -59,6 +62,13 @@ class ImageStore:
                 path = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token)
                 if path.is_file():
                     return path
+        if self.bundled is not None:
+            for candidate_size in sizes:
+                for is_token in (True, False):
+                    rel = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token).relative_to(self.root)
+                    path = self.bundled / rel
+                    if path.is_file():
+                        return path
         return None
 
     def card_back_path(self) -> Path:

@@ -218,6 +218,8 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import attached_kindred_look
 
     definition = attached_kindred_look.capture(plan, definition, source_object)
+    if permanent and src is not None and src.is_token and src.quantity > 1:  # -- token stack folds (wave TS2) -- 603.2c: each member
+        definition = {**definition, "members": src.quantity}  # triggered, counted now (a split before the triggers go on the stack: token_stacks.fold_pending)
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
@@ -2941,6 +2943,9 @@ def flush(plan: Plan) -> bool:
     r.pending_triggers = [t for t in r.pending_triggers if t.controller in plan.live()]
     if not r.pending_triggers:
         return False
+    from app.rules import token_stacks
+
+    token_stacks.fold_pending(plan)  # -- token stack folds (wave TS2) -- N identical token-making triggers: one "Name (×N)"
     if not plan.options.auto_trigger_stacking and not getattr(plan, "triggers_confirmed", False):
         names = ", ".join(t.name for t in r.pending_triggers)
         decide(plan, player=plan.turn_player, kind="confirm", prompt=f"Triggered: {names}",

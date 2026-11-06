@@ -28,11 +28,15 @@ describe("arranged board: rows", () => {
     expect(otop("a1")).toBeGreaterThan(otop("l1"));
   });
 
-  it("puts a few other permanents beside the lands when that makes every card bigger", () => {
-    const l = arrangeBoard([card("land", "land"), card("art", "other"), card("cre", "creature")], { width: 900, height: 420, mirrored: false });
-    expect(l.place.get("art")!.top).toBe(l.place.get("land")!.top);
-    expect(l.place.get("art")!.left).toBeGreaterThan(l.place.get("land")!.left); // to the right of the lands, as on Arena
-    expect(l.place.get("cre")!.top).toBeLessThan(l.place.get("land")!.top);
+  it("keeps three rows even where a few artifacts would fit beside the lands (creatures; artifacts and enchantments; lands)", () => {
+    for (const [w, h] of [[900, 420], [600, 200], [1400, 260]] as const) {
+      const l = arrangeBoard([card("land", "land"), card("art", "other"), card("ench", "other"), card("cre", "creature")], { width: w, height: h, mirrored: false });
+      const top = (id: string) => l.place.get(id)!.top;
+      expect(top("cre")).toBeLessThan(top("art"));
+      expect(top("art")).toBe(top("ench"));
+      expect(top("art")).toBeLessThan(top("land"));
+      expect(l.rows.map((r) => r.kind)).toEqual(["creature", "other", "land"]);
+    }
   });
 
   it("sorts cards into rows by what they are", () => {

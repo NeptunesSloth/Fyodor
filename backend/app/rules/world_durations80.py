@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
 
+from pydantic_core import to_json
+
 from app.game.errors import ActionError
 from app.game.rules_state import WorldInterval80
 
@@ -25,15 +27,16 @@ def profile(plan: Plan) -> dict[str, str]:
     # actual member is still derived after each mutation. Native static grants
     # currently add Basic/Legendary/Snow; a resolved World grant takes the full
     # candidate set regardless of its selector or current conditions.
-    cards = [c for c in plan.state.cards.values() if c.zone.endswith((':battlefield', ':phased')) and plan.in_game(c)]
+    # -- big boards round 3 -- the players in the game read once (``Plan.in_game`` per card read them per card), and the signature
+    # serialised in one call: the same values (each token, copy and merged part serialised as its model; the rest as JSON values, which
+    # tell apart at least what the tuples of the old signature did), so it is equal exactly when the old one was or finer
+    live = set(plan.live())
+    cards = [c for c in plan.state.cards.values() if c.zone.endswith((':battlefield', ':phased')) and c.owner in live and c.controller in live]
     added = any('World' in e.add_supertypes for e in plan.rules.effects)
     signature = (
-        tuple((plan.oid(c), c.card_id, c.face, c.face_down, c.flipped,
-               c.token.model_dump_json() if c.token is not None else None,
-               c.copy_of.model_dump_json() if c.copy_of is not None else None,
-               tuple(p.model_dump_json() for p in c.merged), str(c.melded)) for c in cards),
-        tuple((e.id, e.timestamp, tuple(e.affected), e.copy_recipe.model_dump_json())
-              for e in plan.rules.effects if e.layer == '1' and e.copy_recipe is not None), added)
+        to_json([(plan.oid(c), c.card_id, c.face, c.face_down, c.flipped, c.token, c.copy_of, c.merged, str(c.melded)) for c in cards]),
+        to_json([(e.id, e.timestamp, e.affected, e.copy_recipe)
+                 for e in plan.rules.effects if e.layer == '1' and e.copy_recipe is not None]), added)
     cached = plan.world_candidates80
     if cached is None or cached[0] != signature:
         candidates = tuple(c.id for c in cards if added or 'World' in layers.copiable(plan.state, c, plan.info).supertypes)

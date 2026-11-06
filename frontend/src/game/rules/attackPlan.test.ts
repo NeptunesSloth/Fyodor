@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DecisionView, GameView } from "../../types/game";
-import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { DecisionPanel } from "./RulesHud";
 
 // Server rendering reads a zustand store's initial state, so the two stores the panel reads are plain values here.
@@ -86,5 +86,37 @@ describe("the declare-attackers decision offers what the server allows", () => {
     expect(attackTargetsFor(d, "a:alexios").map((t) => t.id)).toEqual(["t:p2", "t:p3"]);
     expect(initialAttackPlan(d)).toEqual({});
     expect(show(d)).toContain("No attack");
+  });
+});
+
+describe("attacking with part of a token stack", () => {
+  const plan = { "a:stack": "t:p2", "a:bear": "t:p3" };
+  const sizes = { "a:stack": 512, "a:bear": 1 };
+  it("a stack attacks with all its members unless a count names fewer (the server splits the rest off)", () => {
+    expect(attackDeclarations(plan, {}, sizes)).toEqual([{ card_id: "stack", target: "p2" }, { card_id: "bear", target: "p3" }]);
+    expect(attackDeclarations(plan, { "a:stack": 40 }, sizes)).toEqual([{ card_id: "stack", target: "p2", count: 40 }, { card_id: "bear", target: "p3" }]);
+    expect(attackingCount(plan, {}, sizes)).toBe(513);
+    expect(attackingCount(plan, { "a:stack": 40 }, sizes)).toBe(41);
+  });
+  it("a count of the whole stack, or nonsense, sends no count", () => {
+    for (const k of [512, 600, 0, -3, Number.NaN]) {
+      expect(attackDeclarations(plan, { "a:stack": k }, sizes)[0]).toEqual({ card_id: "stack", target: "p2" });
+    }
+    expect(attackDeclarations({ "a:bear": "t:p3" }, { "a:bear": 1 }, sizes)).toEqual([{ card_id: "bear", target: "p3" }]);
+  });
+  it("the declaration offers 'how many' for an attacking stack, and counts its members", () => {
+    vi.stubGlobal("window", { innerWidth: 1600, innerHeight: 900, addEventListener() {}, removeEventListener() {} });
+    vi.stubGlobal("document", { documentElement: {}, querySelector: () => null, activeElement: null });
+    vi.stubGlobal("getComputedStyle", () => ({ zoom: "1" }));
+    const d = declaration();
+    show(d); // (sets the view)
+    (state.game.view as GameView).cards = { kharn: { id: "kharn", quantity: 300 }, bears: { id: "bears" } } as unknown as GameView["cards"];
+    const html = renderToStaticMarkup(createElement(DecisionPanel));
+    vi.unstubAllGlobals();
+    // Khârn must attack, so it is in the plan: as a ×300 stack it gets a count, all 300 by default; the Bears (not attacking yet) don't
+    expect(html).toMatch(/data-testid="attack-count-kharn"[^>]*value="300"|value="300"[^>]*data-testid="attack-count-kharn"/);
+    expect(html).toContain("of 300");
+    expect(html).not.toContain("attack-count-bears");
+    expect(html).toContain("Attack with 300");
   });
 });

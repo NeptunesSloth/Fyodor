@@ -12,14 +12,15 @@ import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView
 import { autocomplete } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
-import { ChainRow, chainEntries } from "../StackChain";
+import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { wheelEligible } from "./wheel";
+import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { isOut } from "../outOfGame";
-import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
 import { useCardCache } from "../../state/cardCache";
@@ -258,6 +259,7 @@ export function dialState(view: GameView, me: string): { auto: boolean; watching
  */
 export function TurnDial() {
   const ctx = useRules();
+  const folded = usePrefs((s) => s.turnDial === "folded");
   if (!ctx || ctx.view.game.night?.result) return null; // game over: the rematch vote is the only next step
   const { view, rules, me } = ctx;
   const turn = view.turn;
@@ -276,14 +278,21 @@ export function TurnDial() {
   const deciding = auto && rules!.decision?.player === me;
   const blocked = deciding ? "Answer your decision first" : undefined;
   return (
-    <div className="turn-dial-wrap plaque-wrap">
-      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
+    <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
+      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
           <PhaseDial step={step} turn={turn.number} color={active?.color} />
           <div className="td-read">
             <header className="td-head" data-testid="turn-tracker">
               <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
               <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
+              {/* the playtest: the dial covered cards; folded, it keeps the step, the status and the pass button */}
+              <button type="button" className="td-fold" data-testid="dial-fold" aria-pressed={folded}
+                title={folded ? "Unfold the turn dial" : "Fold the turn dial (it covers less of the table)"}
+                aria-label={folded ? "Unfold the turn dial" : "Fold the turn dial"}
+                onClick={() => { usePrefs.getState().set({ turnDial: folded ? "full" : "folded" }); window.dispatchEvent(new Event("fyodor:dial-fold")); }}>
+                <Icon name={folded ? "plus" : "down"} size={14} />
+              </button>
             </header>
             <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
               onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
@@ -364,9 +373,10 @@ export function TurnDial() {
 export function RulesStack() {
   const ctx = useRules();
   const [responding, setResponding] = useState<string | null>(null);
+  const entries = ctx ? chainEntries(ctx.view) : [];
+  const { rows, more } = useChainRows(entries); // (a batch of identical triggers is one row; past ROW_LIMIT rows, "Show more")
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
-  const entries = chainEntries(view);
   const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
   const top = entries[0]?.id ?? "";
   return (
@@ -374,11 +384,14 @@ export function RulesStack() {
       <section className="rules-stack chain plaque" data-testid="rules-stack" aria-label="The stack">
         <div className="chain-head"><span className="chain-title">The stack<span className="chain-count"> · {view.stack.length}</span></span></div>
         <ol className="chain-list">
-          {entries.map((entry, i) => (
+          {rows.map((entry, i) => (
             <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
-              <button className="tt-btn ghost chain-hold" title="Stop and give me priority after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>Stop after</button>
+              {/* (a batch: after the last of it, the bottom-most) */}
+              <button className="tt-btn ghost chain-hold" title={entry.ids.length > 1 ? "Stop and give me priority after all of these resolve" : "Stop and give me priority after this resolves"}
+                onClick={() => void setPrefs({ stop_after: entry.ids[entry.ids.length - 1] })}>Stop after</button>
             </ChainRow>
           ))}
+          {more}
         </ol>
         {mine && (
           <div className="chain-actions">
@@ -635,6 +648,7 @@ function NumberChoice({ d }: { d: DecisionView }) {
 function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
+  const [filter, setFilter] = useState("");
   const options = d.options ?? [];
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
@@ -662,9 +676,18 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
             {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden>{playerName(view, g.player).slice(0, 1).toUpperCase()}</span>}
             {g.options.map((o) => <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>)}
           </div>
-        )) : options.filter((o) => o.group !== "seen").map((o) => (
-          <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
-        ))}
+        )) : (
+          <>
+            {d.kind === "choose_one" && options.length > FILTER_MIN && ( /* a long list (a creature type): type to narrow it, Enter takes the first match */
+              <input className="decision-name" data-testid="option-filter" autoFocus value={filter} placeholder="Type to filter…"
+                onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={(e) => { const m = filterOptions(options.filter((o) => o.group !== "seen"), filter)[0]; if (e.key === "Enter" && m) done([m.id]); }} />
+            )}
+            {filterOptions(options.filter((o) => o.group !== "seen"), filter).map((o) => (
+              <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
+            ))}
+          </>
+        )}
         {d.rememberable && (
           <select className="decision-remember" data-testid="remember" value={remember} onChange={(e) => setRemember(e.target.value)}>
             <option value="">Ask me every time</option>
@@ -778,6 +801,10 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const targets = opts.filter((o) => o.id.startsWith("t:"));
   const [plan, setPlan] = useState<Record<string, string>>(() => initialAttackPlan(d)); // (attackPlan.ts: what must attack, 508.1d)
   const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
+  // -- engine token stacks -- how many of a "Goblin ×512" attack (all unless lowered; the server splits the rest off)
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const cards = useGame((s) => s.view?.cards);
+  const sizes = Object.fromEntries(attackers.map((a) => [a.id, Math.max(1, cards?.[a.id.slice(2)]?.quantity ?? 1)]));
   const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
   const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
     holders: string[]; members: string[]; description: string;
@@ -803,7 +830,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   });
   const declare = () => void send({
     type: "declare_attackers",
-    attackers: Object.entries(plan).map(([a, t]) => ({ card_id: a.slice(2), target: t.slice(2) })),
+    attackers: attackDeclarations(plan, counts, sizes),
     bands: bands.map((members) => members.map((a) => a.slice(2))),
   });
   return (
@@ -816,6 +843,17 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
             <option value="">Doesn't attack</option>
             {attackTargetsFor(d, a.id).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
+          {(sizes[a.id] ?? 1) > 1 && plan[a.id] && (
+            <span className="combat-count">
+              <input type="number" min={1} max={sizes[a.id]} step={1} aria-label={`How many of the ${a.label} attack`}
+                data-testid={`attack-count-${a.id.slice(2)}`} value={counts[a.id] ?? sizes[a.id]}
+                onChange={(e) => {
+                  const k = Math.floor(Number(e.target.value));
+                  setCounts((c) => ({ ...c, [a.id]: Math.min(sizes[a.id] ?? 1, Math.max(1, Number.isFinite(k) ? k : 1)) }));
+                }} />
+              <span className="combat-count-of">of {(sizes[a.id] ?? 1).toLocaleString("en-US")}</span>
+            </span>
+          )}
           {leaders.size > 0 && plan[a.id] && (
             <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
               value={bandPlan[a.id] ?? ""} onChange={(e) => setBandPlan({ ...bandPlan, [a.id]: e.target.value })}>
@@ -834,7 +872,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
             .filter((a) => attackTargetsFor(d, a.id).some((t) => t.id === targets[0]!.id)).map((a) => [a.id, targets[0]!.id])))}>All attack</button>
         )}
         <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
-          {Object.keys(plan).length ? `Attack with ${Object.keys(plan).length}` : "No attack"}
+          {Object.keys(plan).length ? `Attack with ${attackingCount(plan, counts, sizes).toLocaleString("en-US")}` : "No attack"}
         </button>
       </div>
     </div>

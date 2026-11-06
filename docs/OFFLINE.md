@@ -30,7 +30,9 @@ then back up. A deck list can also be pasted in on the offline computer itself: 
 - **The card database.** On the first start Fyodor copies the database the installer carries (`seed\cards.sqlite`)
   into its data folder. It is never copied over a database that's already there. To refresh it later, connect once
   and use Settings → Card database, or install a newer Fyodor (the copy happens only when none is there yet).
-- **Card pictures** are not included: offline, cards are drawn as frames with their name, cost, type and text. Pictures
+- **Token pictures.** The installer can carry the art of every token (`seed\images\tokens`), and Fyodor reads it in place, so
+  tokens show their art offline. A picture the computer downloaded itself is used first.
+- **Other card pictures** are not included: offline, cards are drawn as frames with their name, cost, type and text. Pictures
   already saved on a computer stay there.
 
 Opening Fyodor again while it's running just brings the table back up.
@@ -43,7 +45,8 @@ on 10 and 11 it is a current Chromium. On anything older the installer says so a
 
 ## Building it
 
-`BROWSER_DIR=<unpacked Chromium for Windows> LEGACY_BROWSER_DIR=<unpacked Chromium 109> CARDS_DB=<cards.sqlite> REBUILD=1 SMOKE=1 bash scripts/build-windows-installer.sh`.
+`BROWSER_DIR=<unpacked Chromium for Windows> LEGACY_BROWSER_DIR=<unpacked Chromium 109> CARDS_DB=<cards.sqlite> TOKEN_IMAGES=<data>/images/tokens REBUILD=1 SMOKE=1 bash scripts/build-windows-installer.sh`
+(token pictures: `python -m tools.update_cards --images tokens` fills `<data>/images/tokens`).
 Chromium for Windows: a build from the Chromium snapshots
 (`commondatastorage.googleapis.com/chromium-browser-snapshots/Win_x64/<revision>/chrome-win.zip`), with the test and
 installer programs and the non-English locales removed. Chromium is open source (BSD licence, see its `LICENSE` notices);

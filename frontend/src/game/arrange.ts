@@ -73,7 +73,7 @@ const PAD = 8; // px around the mat's edge
 /** Front to back. */
 const ROW_ORDER: RowKind[] = ["creature", "other", "land"];
 
-interface Slot { ids: string[]; n: number; turned: boolean; forward: boolean; attach: string[]; merged?: boolean }
+interface Slot { ids: string[]; n: number; turned: boolean; forward: boolean; attach: string[] }
 
 /** Slot footprint in tile widths: [width, height]. */
 function slotSize(s: Slot): [number, number] {
@@ -123,8 +123,9 @@ function wrap(kind: RowKind, list: Slot[], n: number): Line[] {
 }
 
 /**
- * The ways this board could be laid out: each row in one line or wrapped in two or three, and the other permanents
- * either in their own row or beside the lands (MTG Arena's back row) when that leaves room for bigger cards.
+ * The ways this board could be laid out: each row in one line or wrapped in two or three. The three kinds always keep
+ * their own rows (creatures; artifacts, enchantments, planeswalkers and battles; lands), never sharing a line: the
+ * playtest asked for three rows a player reads at a glance, so where a card sits says what it is.
  */
 function layouts(slots: Record<RowKind, Slot[]>): Line[][] {
   const c = slots.creature;
@@ -138,10 +139,6 @@ function layouts(slots: Record<RowKind, Slot[]>): Line[][] {
       for (const ll of counts(l.length, 2)) {
         out.push([...front, ...(o.length ? wrap("other", o, lo) : []), ...(l.length ? wrap("land", l, ll) : [])]);
       }
-    }
-    if (o.length && l.length) {
-      const beside = o.map((sl) => ({ ...sl, merged: true }));
-      for (const lb of counts(o.length + l.length, 2)) out.push([...front, ...wrap("land", [...l, ...beside], lb)]);
     }
   }
   return out;
@@ -199,8 +196,8 @@ export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardL
     const score = r.wFit >= r.w ? r.w : r.wFit * (r.wFit / r.w);
     return { ...r, units, score };
   };
-  // each line, and putting the other permanents beside the lands, has to earn its place with clearly bigger cards
-  const cost = (option: Line[]) => 1.08 ** option.length * (option.some((ln) => ln.kind === "land" && ln.slots.some((sl) => sl.merged)) ? 1.15 : 1);
+  // each extra line has to earn its place with clearly bigger cards
+  const cost = (option: Line[]) => 1.08 ** option.length;
   let lines: Line[] = [];
   let best: (ReturnType<typeof fit> & { value: number }) | null = null;
   for (const option of layouts(slots)) {

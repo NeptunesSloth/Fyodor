@@ -24,7 +24,7 @@ from app.cards.images import ImageStore
 from app.cards.linked import LinkedAssets
 from app.cards.repository import CardDatabaseUnavailable, CardRepository
 from app.cards.token_art import TokenArt
-from app.config import Settings
+from app.config import Settings, bundled_images
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
 from app.game import engine
@@ -85,7 +85,7 @@ class Services:
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)
-        self.images = ImageStore(settings.images_dir)
+        self.images = ImageStore(settings.images_dir, bundled_images())  # (-- offline token art -- the installer's seed/images)
         self.cards = CardRepository(settings.cards_db_path, self.images)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)

@@ -7,6 +7,7 @@ import { EndGameDialog } from "./EndGameDialog";
 import { HistoryDialog } from "./HistoryDialog";
 import { MacroDialog } from "./MacroDialog";
 import { SpawnDialog } from "./SpawnDialog";
+import { TokenMathDialog } from "./TokenMathDialog";
 import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
 import { HOTKEYS, keyCap } from "./hotkeys";
@@ -46,6 +47,7 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "history" && <HistoryDialog onClose={close} />}
       {dialog === "macro" && <MacroDialog cardId={arg} onClose={close} />}
       {dialog === "spawn" && <SpawnDialog onClose={close} />}
+      {dialog === "token_math" && <TokenMathDialog onClose={close} />}
       {dialog === "settings" && <Modal title="Settings" onClose={close} wide><SettingsPanel /></Modal>}
       {inspect && <InspectDialog id={inspect} onClose={() => useGame.getState().setInspect(null)} />}
     </>
@@ -89,11 +91,13 @@ function TokenDialog({ me, sourceId, onClose }: { me: string; sourceId: string |
     };
   }, [debounced, tab]);
 
+  // -- big token counts -- 100 separate tokens at most; with automation paused, any number as one card ×N
+  const maxCount = view?.rules ? MAX_SEPARATE_TOKENS : 1e15;
   const create = async (token: Record<string, unknown>) => {
     const collapse = usePrefs.getState().tokenCollapse;
-    const stacked = collapse > 0 && count > collapse;
+    const stacked = count > MAX_SEPARATE_TOKENS || (collapse > 0 && count > collapse);
     if (await send({ type: "create_token", player: controller, token, count, stacked, ...(sourceId ? { source_id: sourceId } : {}) })) {
-      toast(`Created ${count} token${count > 1 ? "s" : ""}`);
+      toast(`Created ${count.toLocaleString("en-US")} token${count > 1 ? "s" : ""}${stacked && count > 1 ? " (one card ×N)" : ""}`);
       onClose();
     }
   };
@@ -106,7 +110,8 @@ function TokenDialog({ me, sourceId, onClose }: { me: string; sourceId: string |
       footer={
         <>
           <label className="field inline">
-            Count <input type="number" min={1} max={100} value={count} onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} />
+            Count <input type="number" min={1} max={maxCount} value={count} onChange={(e) => setCount(Math.max(1, Math.min(maxCount, Math.floor(Number(e.target.value)) || 1)))}
+              title={view?.rules ? "At most 100 separate tokens at a time while rules automation is on" : "More than 100 make one card ×N"} />
           </label>
           <label className="field inline">
             For
@@ -261,6 +266,9 @@ function SaveDialog({ onClose }: { onClose: () => void }) {
 }
 
 const keyLabel = keyCap;
+
+/** Tokens one action makes as separate objects (actions.MAX_SEPARATE_TOKENS). */
+const MAX_SEPARATE_TOKENS = 100;
 
 const SHORTCUTS: [string, string][] = [
   ["Double-click (battlefield)", "Tap / untap"],

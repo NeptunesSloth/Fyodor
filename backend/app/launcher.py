@@ -20,7 +20,7 @@ import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.config import FROZEN, Settings, load_settings
+from app.config import FROZEN, Settings, install_dir, load_settings
 
 
 @dataclass
@@ -83,7 +83,7 @@ def preflight(settings: Settings) -> list[Check]:
 
 def _install_dir() -> Path:
     """Where Fyodor is installed: beside Fyodor.exe (the installer's browser/ and seed/ folders sit there)."""
-    return Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2] / "dist" / "Fyodor"
+    return install_dir()
 
 
 def _windows_major() -> int:

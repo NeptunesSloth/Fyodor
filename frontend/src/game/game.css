@@ -345,6 +345,17 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .chain-tgt { font-size: 11.5px; color: var(--select); }
 .chain-notes { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 2px; font-size: 11.5px; }
 .chain-hold { flex: none; align-self: center; }
+.chain-more { list-style: none; display: flex; justify-content: center; }
+/* a batch of identical triggers ("Scute Swarm — landfall ×400"): opens to list each by chain number */
+.chain-batch-toggle { align-self: flex-start; margin-top: 2px; padding: 0; border: 0; background: none; font: 600 11.5px var(--font-ui); color: var(--accent-2); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.chain-batch-toggle:focus-visible { outline: 2px solid var(--frame-hi); outline-offset: 2px; }
+.chain-batch { list-style: none; margin: 5px 0 0; padding: 0; max-height: 132px; overflow: auto; display: flex; flex-wrap: wrap; gap: 3px; }
+.chain-batch-item { min-width: 4ch; padding: 1px 4px; text-align: center; border-radius: 2px; font: 600 11px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dim); background: rgba(255, 236, 200, 0.05); }
+.chain-batch-item.first { color: #231605; background: #d8ae62; }
+.chain-batch > li:not(.chain-batch-item) { flex-basis: 100%; }
+.chain-name-batch { display: flex; min-width: 0; }
+.chain-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.chain-batch-count { flex: none; margin-left: 0.3em; color: var(--accent-2); font-variant-numeric: tabular-nums; }
 .chain-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .chain-actions-hint { font-size: 11.5px; color: var(--text-dim); }
 /* narrower screens: every chain entry stays listed, just tighter (no hidden rows) */

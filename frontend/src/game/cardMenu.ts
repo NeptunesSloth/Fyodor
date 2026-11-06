@@ -10,7 +10,7 @@ import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
 import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
 import { rulesMenu } from "./rules/rulesMenu";
-import { stackSize, tokenStackItems } from "./tokenStacks";
+import { attackSomeItem, stackSize, tokenStackItems } from "./tokenStacks";
 import { cardEditRefusal } from "./cardPermissions";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
@@ -101,11 +101,16 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     items.push(effectsMenu(ids, card));
     items.push(damageMenu(ids, card));
     items.push("separator");
+    const attackTargets = [
+      ...opponents.map((p) => ({ label: players.find((x) => x.id === p)?.name ?? p, target: { kind: "player" as const, id: p } })),
+      ...attackableCards(view, me).map((c) => ({ label: c.name, target: { kind: "card" as const, id: c.id } })),
+    ];
+    const some = multi ? null : attackSomeItem(card, me, attackTargets); // a "Goblin ×40" stack: attack with part of it
     items.push({
       label: "Attack",
       submenu: [
-        ...opponents.map((p) => ({ label: players.find((x) => x.id === p)?.name ?? p, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "player", id: p } }) })),
-        ...attackableCards(view, me).map((c) => ({ label: `${c.name}`, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "card", id: c.id } }) })),
+        ...attackTargets.map((t) => ({ label: t.label, onClick: () => void send({ type: "attack", card_ids: ids, target: t.target }) })),
+        ...(some ? ["separator" as const, some] : []),
         ...(card.attacking || card.attacking_without_target ? ["separator" as const, { label: "Stop attacking", onClick: () => void send({ type: "attack", card_ids: ids, target: null }) }] : []),
       ],
     });
@@ -161,7 +166,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     else items.push({ label: "Turn face down", onClick: () => void send({ type: "face_down", card_ids: ids, face_down: true }) });
   }
   if ((zone === "battlefield" || zone === "stack") && visible && !multi) {
-    items.push(copyMenu(card, me));
+    items.push(copyMenu(card, me, !view.rules && zone === "battlefield"));
     items.push({ label: "Put ability on stack…", onClick: () => useGame.getState().openDialog("ability", card.id) });
   }
   if (zone === "battlefield" && visible) {
@@ -299,7 +304,17 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   return { title, items };
 }
 
-function copyMenu(card: GameCard, me: string): MenuItem {
+/** Separate copies one action makes (actions.MAX_SEPARATE_COPIES); more are one card ×N (a stack), only while automation is paused. */
+export const MAX_SEPARATE_COPIES = 50;
+const MAX_STACK = 1e15;
+
+/** The copy-card action for `n` copies: past the separate limit, or the "collapse identical tokens" setting, one stack card. */
+export function copiesAction(cardId: string, me: string, n: number, canStack: boolean, collapse: number): { type: "copy_card"; [k: string]: unknown } {
+  const stacked = canStack && (n > MAX_SEPARATE_COPIES || (collapse > 0 && n > collapse));
+  return { type: "copy_card", card_id: cardId, player: me, count: n, ...(stacked ? { stacked: true } : {}) };
+}
+
+function copyMenu(card: GameCard, me: string, canStack = false): MenuItem {
   return {
     label: "Create copy",
     submenu: [
@@ -316,8 +331,10 @@ function copyMenu(card: GameCard, me: string): MenuItem {
       {
         label: "Several copies…",
         onClick: async () => {
-          const n = await askNumber("How many copies?", 2, { min: 1, max: 50 });
-          if (n) void send({ type: "copy_card", card_id: card.id, player: me, count: n });
+          // -- big token counts -- automation paused: any number, as one card ×N (Scute Swarm ×4,096)
+          const n = await askNumber(canStack ? "How many copies? (more than 50 make one card ×N)" : "How many copies?", 2,
+            { min: 1, max: canStack ? MAX_STACK : MAX_SEPARATE_COPIES });
+          if (n) void send(copiesAction(card.id, me, n, canStack, usePrefs.getState().tokenCollapse));
         },
       },
     ],

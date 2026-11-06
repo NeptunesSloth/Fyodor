@@ -376,7 +376,8 @@ class CreateToken(Base):
     type: Literal["create_token"] = "create_token"
     player: Id | None = None  # controller
     token: TokenSpec
-    count: int = Field(default=1, ge=1, le=100)
+    # -- big token counts -- up to MAX_SEPARATE separate objects; more only as one stack ("Goblin ×5,000"), made while automation is paused
+    count: int = Field(default=1, ge=1, le=10 ** 15)
     x: Coord | None = None
     y: Coord | None = None
     tapped: bool = False
@@ -390,11 +391,18 @@ class CreateToken(Base):
     resolved_token: TokenDef | None = None
 
 
+MAX_SEPARATE_TOKENS = 100  # -- big token counts -- the most tokens one action makes as separate objects
+MAX_SEPARATE_COPIES = 50  # and the most separate copies of a card
+
+
 class CopyCard(Base):
     type: Literal["copy_card"] = "copy_card"
     card_id: Id
     player: Id | None = None  # controller of the copy (default: actor)
-    count: int = Field(default=1, ge=1, le=50)
+    count: int = Field(default=1, ge=1, le=10 ** 15)  # (-- big token counts -- more than MAX_SEPARATE_COPIES only ``stacked``)
+    # -- big token counts -- one card standing for ``count`` token copies ("Scute Swarm ×4,096"): the table's stack, made by hand while rules
+    # automation is paused (the engine keeps each token copy of a card its own object: docs/TOKEN_STACKS.md)
+    stacked: bool = False
     modifications: str = Field(default="", max_length=300)
     # the scripted tables' "exact copy": the copy also takes the original's counters, effect markers and choices
     # (a tabletop convenience; a rules copy, 707.2, copies none of them)
@@ -1214,6 +1222,9 @@ class CastSpell(_Intent):
     # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: a cast made as an effect resolves (cascade, discover, Gandalf …) asks its caster which optional
     # additional costs to pay (kicker, bargain, gift, casualty …); True once they were asked, so the answer "none" is not asked again
     optional_asked: bool = False
+    # -- playtest fixes (nov 5) -- a cast from the table (drag to the stack / battlefield): the optional additional costs the table offers for it
+    # (``optional_costs`` hints: Silverquill's casualty, Defiler of Vigor's life …) are asked (601.2b) instead of being taken as declined
+    ask_optional: bool = False
     # -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the Phyrexian symbols of the cost (their colors, "G/W" for {G/W/P}) paid with 2 life each; the
     # rest are paid with mana. None: not announced yet (asked when both ways can be paid); [] announces mana for every symbol
     life_symbols: list[str] | None = Field(default=None, max_length=20)
@@ -1278,6 +1289,9 @@ class ActivateAbility(_Intent):
     # lists one target per chosen mode that has one, in that order (as for a modal spell).
     modes: list[int] = Field(default_factory=list, max_length=10)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
+    # -- playtest fixes (nov 5) -- a tap gesture from the table: the engine reads which of the permanent's {T} mana abilities is meant
+    # (``ability`` is only the table's guess; several ⇒ the player picks the mana: app/rules/tap_gesture.py)
+    tap_for_mana: bool = False
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
     # While paying for a spell with that keyword: commit (or, again, release) this card to pay one
     # symbol of its cost — nothing is tapped or exiled until the whole cost is paid.
@@ -1295,6 +1309,9 @@ class AttackDeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid")
     card_id: Id
     target: Id  # a player id, or a planeswalker / battle card id
+    # -- engine token stacks -- attack with only this many members of a token stack ("Goblin ×512": attack with 40); the rest are split
+    # off first, in the same action (docs/TOKEN_STACKS.md §4). None: the whole object attacks.
+    count: int | None = Field(default=None, ge=1, le=10 ** 15)
 
 
 class DeclareAttackers(_Intent):

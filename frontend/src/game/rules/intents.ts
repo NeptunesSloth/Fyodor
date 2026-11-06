@@ -78,7 +78,8 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     return true;
   }
   if ((to.zone === "battlefield" && to.player === me) || to.zone === "stack") {
-    void send({ type: "cast_spell", card_id: card.id });
+    // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
+    void send({ type: "cast_spell", card_id: card.id, ask_optional: true });
     return true;
   }
   return false;
@@ -90,16 +91,17 @@ const BASIC_TYPES = /\b(Plains|Island|Swamp|Mountain|Forest)\b/;
  * land type's intrinsic "{T}: Add …" comes after the printed abilities). */
 export function manaAbilityIndex(cardId: string, view: GameView): number | null {
   const c = view.cards[cardId];
-  if (!c || c.hidden || !c.card_id) return null;
-  const data = useCardCache.getState().cards[c.card_id];
-  if (!data) return null;
+  if (!c || c.hidden) return null;
+  // -- playtest fixes (nov 6) -- a granted mana ability (Cryptolith Rite, Enduring Vitality) works on a token with no card data too
+  const granted = view.rules?.stats?.[cardId]?.abilities?.find((a) => a.kind === "mana" && /\{T\}/.test(a.text));
+  const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
+  if (!data) return granted ? granted.index : null;
   const face = data.faces?.[c.face ?? 0];
   const lines = abilityLines(face?.oracle_text ?? data.oracle_text ?? "");
   const i = lines.findIndex((l) => /^[^"]*\{T\}[^"]*: Add /.test(l));
   if (i >= 0) return i;
   const typeLine = face?.type_line ?? data.type_line ?? "";
   if (/\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "")) return lines.length;
-  const granted = view.rules?.stats?.[cardId]?.abilities?.find((a) => a.kind === "mana" && /\{T\}/.test(a.text));
   return granted ? granted.index : null;
 }
 
@@ -121,7 +123,9 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   }
   const index = manaAbilityIndex(cardId, view);
   if (index == null) return false;
-  void send({ type: "activate_ability", card_id: cardId, ability: index });
+  // -- playtest fixes (nov 5) -- the server reads which mana ability a tap means: a Forest under Chromatic Lantern has two (305.6 + the
+  // granted one), so the player is asked which mana (backend app/rules/tap_gesture.py); `ability` is only this table's guess
+  void send({ type: "activate_ability", card_id: cardId, ability: index, tap_for_mana: true });
   return true;
 }
 

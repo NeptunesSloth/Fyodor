@@ -182,7 +182,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
 
 def copy_card(state: GameState, a: A.CopyCard) -> None:
     src = state.cards.get(a.card_id) if a.saved_stack is not None else ops.card(state, a.card_id)
-    if a.r is None or len(a.r.ids) != a.count:
+    if a.r is None or len(a.r.ids) != (1 if a.stacked else a.count):  # (-- big token counts -- ``stacked``: one card ×count)
         raise ActionError("unresolved copy")
     snap = a.saved_stack
     if snap is not None:
@@ -215,7 +215,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             ability=src.ability.model_copy() if src and src.ability and a.saved_stack is None else None,
             copy_of=CopyInfo(source_id=a.card_id, source_name=snap.name if snap is not None else src.name if src else "",
                              modifications=a.modifications),
-            quantity=1,
+            quantity=a.count if a.stacked else 1,
         )
         if a.exact and src is not None and snap is None:
             c.counters = dict(src.counters)
@@ -223,9 +223,11 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             c.choices = dict(src.choices)
         state.cards[new_id] = c
         state.zone(key).append(new_id)
-    n = f"{a.count} copies" if a.count != 1 else "a copy"
+    n = f"{a.count:,} copies" if a.count != 1 else "a copy"
     if a.exact:
-        n = f"{a.count} exact copies" if a.count != 1 else "an exact copy"
+        n = f"{a.count:,} exact copies" if a.count != 1 else "an exact copy"
+    if a.stacked and a.count > 1:
+        n += f" (stack ×{a.count:,})"
     if snap is not None:
         source_part = text(snap.name)
     else:
