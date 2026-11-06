@@ -111,6 +111,16 @@ describe("automation intents", () => {
     expect(tapForMana("c4", "p1")).toBe(false);  // not yours
   });
 
+  it("taps a token given a mana ability (Cryptolith Rite) for mana, though it has no card data (playtest nov 6)", () => {
+    const base = view({ ...RULES, stats: { t1: { abilities: [{ index: 100, text: "{T}: Add one mana of any color.", kind: "mana" }] } } });
+    const insect = { ...card("t1", "p1:battlefield", "looter"), card_id: null, is_token: true, name: "Insect" };
+    const v = { ...base, cards: { ...base.cards, t1: insect } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(manaAbilityIndex("t1", v)).toBe(100);
+    expect(tapForMana("t1", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "t1", ability: 100, tap_for_mana: true }]);
+  });
+
   it("during a convoke / improvise payment, clicking a highlighted creature or artifact taps it for that", () => {
     const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
       display: { kind: "tap_mana", sources: ["f1"], convoke: ["cr"], improvise: ["ar"] }, options: [] } });

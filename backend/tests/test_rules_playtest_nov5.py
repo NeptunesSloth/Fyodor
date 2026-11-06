@@ -20,7 +20,8 @@ SILVERQUILL = real('Silverquill, the Disputant', '{2}{W}{B}', 4, 'Legendary Crea
 GINGERBRUTE = real('Gingerbrute', '{1}', 1, 'Artifact Creature — Food Golem',
                    "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{1}: This creature can't be blocked "
                    "this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life.", ("1", "1"))
-EXTRA = [LANTERN, SILVERQUILL, GINGERBRUTE]
+RITE = real('Cryptolith Rite', '{1}{G}', 2, 'Enchantment', 'Creatures you control have "{T}: Add one mana of any color."')
+EXTRA = [LANTERN, SILVERQUILL, GINGERBRUTE, RITE]
 
 
 @pytest.fixture()
@@ -269,3 +270,30 @@ def test_gingerbrute_abilities_are_offered_to_the_table(cards):
     mana(s, C=2)
     offered = {a["ability"] for a in activatable(s.state, "p1", s.cards, announce=True) if a["card_id"] == g.id}
     assert len(offered) == 2, offered
+
+
+
+# -- creatures turned into mana dorks ("creature not tapping": Cryptolith Rite) -----------------------------------------------------------
+def test_a_creature_granted_a_mana_ability_taps_for_mana_from_the_table(cards):
+    """The report: creatures given "{T}: Add one mana of any color." wouldn't tap for mana. The table finds the granted ability in the
+    view's stats (kind "mana", index >= 100) and sends a tap gesture; the engine adds the mana (605.1a; the creature isn't summoning sick)."""
+
+    s = table(cards, ["Cryptolith Rite", "Grizzly Bears"])
+    put(s, "Cryptolith Rite")
+    bears = put(s, "Grizzly Bears")
+    s.state.rules.controlled_since[bears.id].turn = 0  # there since an earlier turn: not summoning sick (302.6)
+    granted = [a for a in ch(s, bears).abilities if a.index >= 100]
+    assert [a.kind for a in granted] == ["mana"], granted
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=granted[0].index, tap_for_mana=True, mana_choice="B")
+    assert s.state.cards[bears.id].tapped
+    saved(s)
+
+
+def test_a_new_creature_granted_a_mana_ability_says_summoning_sickness(cards):
+    """Entered this turn: refused with the reason (302.6), not silently."""
+    s = table(cards, ["Cryptolith Rite", "Grizzly Bears"])
+    put(s, "Cryptolith Rite")
+    bears = put(s, "Grizzly Bears")
+    index = next(a.index for a in ch(s, bears).abilities if a.index >= 100)
+    with pytest.raises(Exception, match="summoning sickness"):
+        act(s, "p1", type="activate_ability", card_id=bears.id, ability=index, tap_for_mana=True)
