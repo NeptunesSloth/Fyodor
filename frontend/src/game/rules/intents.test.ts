@@ -42,6 +42,8 @@ beforeEach(() => {
     cards: {
       forest: { id: "forest", name: "Forest", type_line: "Basic Land — Forest", oracle_text: "({T}: Add {G}.)" } as CardData,
       bolt: { id: "bolt", name: "Lightning Bolt", type_line: "Instant", oracle_text: "Lightning Bolt deals 3 damage to any target." } as CardData,
+      rite: { id: "rite", name: "Rite of Replication", type_line: "Sorcery",
+        oracle_text: "Kicker {5} (You may pay an additional {5} as you cast this spell.)\nCreate a token that's a copy of target creature. If this spell was kicked, create five of those tokens instead." } as CardData,
       looter: { id: "looter", name: "Merfolk Looter", type_line: "Creature — Merfolk Rogue",
         oracle_text: "{T}: Draw a card, then discard a card." } as CardData,
     },
@@ -75,6 +77,20 @@ describe("automation intents", () => {
     expect(isLand("c1", v)).toBe(true);
     expect(isLand("c2", v)).toBe(false);
     expect(isLand("h", v)).toBe(false);
+  });
+
+  it("asks about kicker when a kicker card is dragged to cast (Rite of Replication): plain, or kicked (playtest nov 6)", async () => {
+    const { useMenu } = await import("../../components/ContextMenu");
+    const base = view(RULES);
+    const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(dropAsIntent(["r1"], { zone: "stack" })).toBe(true);
+    expect(sent).toEqual([]); // nothing cast yet: the player chooses
+    const items = useMenu.getState().menu!.items.map((i) => (i === "separator" ? "-" : i.label));
+    expect(items).toEqual(["Cast without kicker", "Cast with Kicker {5}"]);
+    const kicked = useMenu.getState().menu!.items[1] as { onClick: () => void };
+    kicked.onClick();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "r1", kicker: 1 }]);
   });
 
   it("turns a drop from hand into play_land or cast_spell", () => {
