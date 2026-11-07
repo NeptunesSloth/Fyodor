@@ -1010,3 +1010,10 @@ body.reduced-motion .focus-flash { animation: none; }
 }
 .insp-keywords { line-height: 1.5; color: var(--room-bone); }
 .insp-keywords b { color: var(--accent-2); font-weight: 600; }
+/* an ability with its source's art: the art window on top (the card image's art box, 7:5), the ability's words under it */
+.ability-card.with-art .ability-art {
+  position: absolute; left: 0; right: 0; top: 0; height: 46%;
+  background-size: 122% auto; background-position: 50% 14%; background-repeat: no-repeat;
+  box-shadow: inset 0 -18px 18px -10px #1a1826;
+}
+.ability-card.with-art .ability-inner { top: 44%; padding-top: 4%; }
