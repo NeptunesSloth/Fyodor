@@ -15,6 +15,7 @@ import { useCommanderPrinting } from "./CommanderArt";
 import { deckFolders, deckMatches, deckRecords, playedWhen, recordText, type DeckRecord } from "./deckBits";
 import { DeckArt, DeckMenu } from "./DeckParts";
 import { ImportDialog } from "./ImportDialog";
+import { PreconsDialog } from "./PreconsDialog";
 import "./decks.css";
 
 const NO_SEATS: LobbySeat[] = [];
@@ -44,6 +45,7 @@ export function DeckLibrary() {
   const [records, setRecords] = useState<Map<string, DeckRecord>>(() => new Map());
   const [importing, setImporting] = useState(false);
   const [bulkImporting, setBulkImporting] = useState(false);
+  const [precons, setPrecons] = useState(false);
   const [q, setQ] = useState("");
   const refresh = useCallback(() => listDecks().then(setDecks, toastError), []);
   useEffect(() => void refresh(), [refresh]);
@@ -145,6 +147,7 @@ export function DeckLibrary() {
         <div className="dk-head-acts">
           <button className="tt-btn ghost" onClick={onNew}><Icon name="plus" size={15} />New empty deck</button>
           <button className="tt-btn ghost" onClick={() => setBulkImporting(true)}><Icon name="cards" size={15} />Import multiple decks</button>
+          <button className="tt-btn ghost" data-testid="open-precons" onClick={() => setPrecons(true)}><Icon name="folder" size={15} />Add precons</button>
           {/* with no decks yet the empty shelf carries this button */}
           {!empty && <button className="tt-btn brass dk-import" onClick={() => setImporting(true)}><Icon name="download" size={16} />Import a deck</button>}
         </div>
@@ -202,6 +205,7 @@ export function DeckLibrary() {
       )}
       {q && shown?.length === 0 && <p className="dk-none">No deck or commander matches “{q.trim()}”.</p>}
 
+      {precons && <PreconsDialog onClose={() => setPrecons(false)} onAdded={() => void refresh()} />}
       {bulkImporting && <BulkImportDialog onClose={() => setBulkImporting(false)} onSaved={() => void refresh()} />}
       {importing && (
         <ImportDialog

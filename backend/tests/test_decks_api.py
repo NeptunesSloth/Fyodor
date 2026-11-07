@@ -134,3 +134,15 @@ def test_deck_folders(client):
     assert folders() == {a: "Retired", b: "", copy: "Retired"}
     client.post("/api/deck-folders/rename", json={"old": "Retired", "new": ""})
     assert set(folders().values()) == {""}
+
+
+def test_precons_are_bundled_and_added_once_into_their_folder(client):
+    precons = client.get("/api/decks/precons").json()
+    assert len(precons) >= 150 and all(p["commanders"] for p in precons)
+    first = precons[0]
+    assert not first["added"]
+    assert client.post("/api/decks/precons", json={"ids": [first["id"]]}).json()["added"] == 1
+    assert client.post("/api/decks/precons", json={"ids": [first["id"]]}).json()["added"] == 0  # already there
+    decks = client.get("/api/decks").json()
+    assert [(d["name"], d["folder"]) for d in decks] == [(first["name"], "Precons")]
+    assert next(p for p in client.get("/api/decks/precons").json() if p["id"] == first["id"])["added"]

@@ -18,6 +18,6 @@ cd "$ROOT/backend"
 "$PY" -m PyInstaller --noconfirm --clean --name Fyodor --console \
   --distpath "$ROOT/dist" --workpath "$ROOT/build/pyinstaller" --specpath "$ROOT/build" \
   --collect-submodules app --collect-submodules tools --collect-submodules uvicorn \
-  --add-data "$DATA_ROOT/frontend/dist${DATA_SEP}frontend/dist" ${ICON[@]+"${ICON[@]}"} \
+  --add-data "$DATA_ROOT/frontend/dist${DATA_SEP}frontend/dist" --add-data "$DATA_ROOT/backend/app/decks/precons.json${DATA_SEP}app/decks" ${ICON[@]+"${ICON[@]}"} \
   app/launcher.py
 echo "Built $ROOT/dist/Fyodor — double-click Fyodor (Fyodor.exe on Windows) inside it."

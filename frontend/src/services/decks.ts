@@ -18,6 +18,10 @@ export const duplicateDeck = (id: string) => api.post<Deck>(`/decks/${id}/duplic
 export const moveDeckToFolder = (id: string, folder: string) => api.put<{ id: string; folder: string }>(`/decks/${id}/folder`, { folder });
 /** Rename a folder; to "" removes it (its decks go back to the shelf). */
 export const renameDeckFolder = (old: string, name: string) => api.post<{ moved: number }>("/deck-folders/rename", { old, new: name });
+/** -- precons -- every Commander precon, bundled with the app. */
+export interface Precon { id: string; name: string; set: string; released: string; commanders: string[]; added: boolean }
+export const listPrecons = () => api.get<Precon[]>("/decks/precons");
+export const addPrecons = (ids: string[]) => api.post<{ added: number; ids: string[] }>("/decks/precons", { ids });
 export const deleteDeck = (id: string) => api.del<void>(`/decks/${id}`);
 export const exportDeck = async (id: string, format: "archidekt" | "plain" = "archidekt"): Promise<string> => {
   const res = await fetch(`/api/decks/${id}/export?format=${format}`);
