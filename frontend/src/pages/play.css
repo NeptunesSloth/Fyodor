@@ -529,3 +529,28 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
   .pg-tile { grid-template-columns: 92px minmax(0, 1fr); }
   .pg-tile .mosaic { width: 92px; }
 }
+/* the shelf's lists fold away (closed unless "Resume a game" opened the page on them) */
+.pg-shelf > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pg-shelf > summary::-webkit-details-marker { display: none; }
+.pg-shelf > summary h2 { margin: 0; display: inline-flex; align-items: center; gap: 8px; }
+.pg-shelf > summary h2::before { content: "›"; display: inline-block; width: 10px; transition: rotate 120ms ease-out; color: var(--accent-2); }
+.pg-shelf[open] > summary h2::before { rotate: 90deg; }
+.pg-shelf:not([open]) { gap: 0; }
+.pg-n { font: 500 12px/1 var(--font-ui); color: var(--text-faint); letter-spacing: 0; }
+/* a LAN night's open seats: a row of chairs and a stepper (no box per empty seat) */
+.pg-chairs { flex-direction: column; justify-content: center; gap: 12px; padding: 18px 22px; border: 1px dashed color-mix(in srgb, var(--frame) 40%, transparent); border-radius: 8px; }
+.pg-chair-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.pg-chair-dot {
+  position: relative; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  color: var(--room-bone-dim); background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--frame) 45%, transparent);
+}
+.pg-chair-dot.you { color: var(--accent-2); box-shadow: inset 0 0 0 2px var(--frame-hi); }
+.pg-chair-dot b { position: absolute; right: -2px; bottom: -2px; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center;
+  font: 700 11px/1 var(--font-ui); color: #1f1a15; background: var(--frame-hi); }
+.pg-stepper { display: inline-flex; align-items: center; gap: 12px; }
+.pg-stepper .tt-btn { width: 36px; height: 36px; padding: 0; font-size: 18px; }
+.pg-stepper b { min-width: 2ch; text-align: center; font: 600 22px/1 var(--font-display); color: var(--room-bone); font-variant-numeric: tabular-nums; }
+.pg-chairs .pg-note { margin: 0; font-size: 13px; color: var(--text-dim); }
+.play .pg-rule input[type="number"] { width: 7ch; }
+.play .pg-rule.pg-pass { display: flex; align-items: flex-start; gap: 3px; padding: 0; color: inherit; font-size: inherit; }
+.play .pg-rule.pg-pass input { width: 14ch; height: auto; padding: 0 0 2px; cursor: text; background: none; border: 0; border-bottom: 1px solid var(--line-2); border-radius: 0; box-shadow: none; color: var(--room-bone); }

@@ -645,7 +645,7 @@ export interface LobbyDeckSummary {
   report?: {
     cards_total?: number;
     exact_printings?: number;
-    unresolved: { line?: string; name?: string; reason?: string }[];
+    unresolved?: { line?: string; name?: string; reason?: string }[];
     notes?: string[];
     errors?: string[];
   };

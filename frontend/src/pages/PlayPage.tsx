@@ -113,7 +113,7 @@ export function PlayPage({ route }: { route: Route }) {
   }, [invite, games]);
 
   // "Resume a game" on the launcher opens the shelf
-  const shelf = useRef<HTMLElement>(null);
+  const shelf = useRef<HTMLDetailsElement>(null);
   const wantsShelf = route.query.get("tab") === "saves";
   useEffect(() => {
     if (!wantsShelf || host === null) return;
@@ -137,8 +137,8 @@ export function PlayPage({ route }: { route: Route }) {
         <aside className="pg-side">
           <JoinGame key={invite ? `${invite.code} ${invite.action}` : "door"} invite={invite} askPassword={askPassword} />
           {host && <NearbyGames deckCount={decks.length} />}
-          <section className="pg-shelf" ref={shelf} aria-labelledby="pg-shelf-title">
-            <h2 id="pg-shelf-title" tabIndex={-1}>Tables in progress</h2>
+          <details className="pg-shelf" ref={shelf} open={wantsShelf || host === false || undefined /* a guest joins from here: open */}>
+            <summary><h2 id="pg-shelf-title" tabIndex={-1}>Tables in progress <span className="pg-n">{games?.length ?? 0}</span></h2></summary>
             {!games?.length ? (
               <p className="pg-empty">No tables are open. A game shows up here while it's being played.</p>
             ) : (
@@ -146,10 +146,11 @@ export function PlayPage({ route }: { route: Route }) {
                 {orderGames(games).map((g) => <TableTile key={g.id} game={g} host={host} onClosed={refresh} />)}
               </ul>
             )}
-            {host && (
-              <>
-                <div className="pg-shelf-head">
-                  <h2>Saved games</h2>
+          </details>
+          {host && (
+            <details className="pg-shelf" open={wantsShelf || undefined}>
+              <summary className="pg-shelf-head">
+                  <h2>Saved games <span className="pg-n">{saves.length}</span></h2>
                   <label className="tt-btn ghost pg-import" title="Import a .fyodor.zip game package from another pod computer">
                     Import package…
                     <input type="file" accept=".zip,application/zip" hidden data-testid="package-import" onChange={async (e) => {
@@ -165,7 +166,7 @@ export function PlayPage({ route }: { route: Route }) {
                       }
                     }} />
                   </label>
-                </div>
+              </summary>
                 {saves.length === 0 ? (
                   <p className="pg-empty">Nothing saved yet. Games autosave while you play.</p>
                 ) : (
@@ -173,9 +174,8 @@ export function PlayPage({ route }: { route: Route }) {
                     {saves.map((s) => <SaveTile key={s.id} save={s} onDeleted={refresh} />)}
                   </ul>
                 )}
-              </>
-            )}
-          </section>
+            </details>
+          )}
           {host && <LanHint />}
         </aside>
       </div>
@@ -305,10 +305,6 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             <h1 id="pg-new-title">{sandbox ? "Test a deck" : "Host a LAN night"}</h1>
             <p>{sandbox ? "Just you and your deck at the table. Nobody joins; nothing is checked." : "The pod joins from their own computers with the room code."}</p>
           </div>
-          {!sandbox && <label className="pg-pass">
-            <span>Password</span>
-            <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="No password" autoComplete="new-password" />
-          </label>}
         </header>
 
         <div className="pg-formats" role="radiogroup" aria-label="Format" data-testid="table-format">
@@ -380,22 +376,21 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
             </li>
             <li className="pg-chairs">
-              <ul aria-label="Open seats" data-count={seats}>
-                {Array.from({ length: seats - 1 }, (_, k) => (
-                  <li key={k} className="pg-chair">
-                    <span className="pg-chair-seat"><Icon name="chair" size={22} /><b>{k + 2}</b></span>
-                    <span className="pg-chair-text"><b>Open seat</b><span>Joins with the room code</span></span>
-                    {seats > 1 && (
-                      <button className="tt-icon pg-remove" onClick={() => setSeats((n) => n - 1)} aria-label="Remove a seat" title="Remove a seat"><Icon name="close" size={14} /></button>
-                    )}
-                  </li>
+              {/* the open seats: a row of chairs and a stepper, not a box per empty seat */}
+              <span className="pg-setup-label">Players at the table</span>
+              <div className="pg-chair-row" aria-label="Open seats" data-count={seats}>
+                {Array.from({ length: seats }, (_, k) => (
+                  <span key={k} className={`pg-chair-dot ${k === 0 ? "you" : ""}`} title={k === 0 ? "You" : `Seat ${k + 1}: joins with the room code`}>
+                    <Icon name="chair" size={20} /><b>{k + 1}</b>
+                  </span>
                 ))}
-                {seats < 6 && (
-                  <li className="pg-add-wrap">
-                    <button className="pg-add" onClick={() => setSeats((n) => n + 1)}><Icon name="plus" size={18} />Add a seat</button>
-                  </li>
-                )}
-              </ul>
+              </div>
+              <div className="pg-stepper">
+                <button className="tt-btn" onClick={() => setSeats((n) => n - 1)} disabled={seats <= 1} aria-label="Remove a seat">−</button>
+                <b data-testid="seat-count">{seats}</b>
+                <button className="tt-btn" onClick={() => setSeats((n) => n + 1)} disabled={seats >= 6} aria-label="Add a seat">+</button>
+              </div>
+              <p className="pg-note">{seats === 1 ? "Just you: a solo table." : `${seats - 1} open seat${seats > 2 ? "s" : ""}. Friends join from their own computers with the room code and bring their own decks.`}</p>
             </li>
           </ul>
         ) : (
@@ -457,6 +452,10 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 
         <footer className="pg-rail">
           <div className="pg-rules">
+            {!sandbox && <label className="pg-rule pg-pass">
+              <span>Password</span>
+              <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" autoComplete="new-password" />
+            </label>}
             <label className="pg-rule">
               <span>Starting life</span>
               <input type="number" value={life} min={1} onChange={(e) => setLife(e.target.value)} placeholder="40" />

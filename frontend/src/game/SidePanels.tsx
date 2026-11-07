@@ -7,6 +7,7 @@ import { useCardView, useGame } from "../state/gameStore";
 import { isVisible, PHASE_LABEL, type LogEntryView, type LogPartView } from "../types/game";
 import { send } from "./actions";
 import { cardMenu } from "./cardMenu";
+import { isKeyword, keywordsNow } from "./counters";
 import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { moveCards } from "./actions";
@@ -25,6 +26,7 @@ export function Inspector({ id }: { id?: string | null } = {}) {
   const card = useCardView(!isPrint && hover ? hover : "");
   const printId = isPrint ? hover!.slice(6) : card && isVisible(card) ? card.card_id : null;
   const data = useCard(printId);
+  const stats = useGame((s) => (hover ? s.view?.rules?.stats?.[hover] : undefined));
   if (!hover) {
     return (
       <div className="inspector empty">
@@ -34,6 +36,7 @@ export function Inspector({ id }: { id?: string | null } = {}) {
   }
   const visibleCard = card && isVisible(card) ? card : null;
   const face = visibleCard?.face ?? 0;
+  const keywords = visibleCard?.zone.endsWith(":battlefield") ? keywordsNow(card?.counters, stats?.gained, stats?.lost) : [];
   const faceData = data && data.faces.length ? data.faces[Math.min(face, data.faces.length - 1)] : null;
   return (
     <div className="inspector">
@@ -60,8 +63,11 @@ export function Inspector({ id }: { id?: string | null } = {}) {
       {(card?.quantity ?? 1) > 1 && <div className="insp-note" data-testid="insp-stack">{countMark(card)!.title}</div>}
       {visibleCard?.note && <div className="insp-note">✎ {visibleCard.note}</div>}
       {visibleCard?.face_down && <div className="insp-note">Face down — only you (and anyone who saw it) know this card.</div>}
-      {card?.counters && Object.keys(card.counters).length > 0 && (
-        <div className="insp-note">{Object.entries(card.counters).map(([k, v]) => `${k}: ${v}`).join(" · ")}</div>
+      {card?.counters && Object.keys(card.counters).some((k) => !(keywords.length && isKeyword(k))) && (
+        <div className="insp-note">{Object.entries(card.counters).filter(([k]) => !(keywords.length && isKeyword(k))).map(([k, v]) => `${k}: ${v}`).join(" · ")}</div>
+      )}
+      {keywords.length > 0 && (
+        <div className="insp-note insp-keywords" data-testid="insp-keywords"><b>Has now:</b> {keywords.join(" · ")}</div>
       )}
       {commanderKeyOf(card) && <DealtNote commander={commanderKeyOf(card)!} />}
     </div>

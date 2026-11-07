@@ -692,7 +692,7 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
                 Next deck queued: <b>{deck.commanders?.length ? deck.commanders.join(" & ") : deck.name}</b>. Ready to use it, or change it.
               </p>
             )}
-            {mine && deck.report && deck.report.unresolved.length > 0 && (
+            {mine && !!deck.report?.unresolved?.length && (
               <p className="pl-warn" title={deck.report.unresolved.map((u) => u.name ?? u.line).join("\n")}>
                 <WarnGlyph />Not in this table's card database, so they play as text proxies:{" "}
                 {deck.report.unresolved.slice(0, 6).map((u) => u.name ?? u.line).join(", ")}{deck.report.unresolved.length > 6 ? ` and ${deck.report.unresolved.length - 6} more` : ""}
