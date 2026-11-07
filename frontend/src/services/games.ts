@@ -159,6 +159,8 @@ export interface MyDeck {
   companions?: PersonalDeck["companions"];
 }
 const MY_DECKS = "fyodor.myDecks";
+/** Mirror My decks to the host so automatic backups carry them (only the host's own browser may; others get 403, ignored). */
+export const syncMyDecks = () => void api.put("/browser-decks", { browser_decks: myDecks() }).catch(() => undefined);
 
 export function myDecks(): MyDeck[] {
   try {
@@ -185,7 +187,7 @@ export function rememberMyDeck(name: string, body: LobbyDeckBody, commanders: st
     entries: imported?.entries.map(({ name, quantity, section, printing_id, oracle_id }) => ({ name, quantity, section, printing_id, oracle_id })),
     companions: imported?.companions, savedAt: Date.now() });
   // Never silently drop old decks or report a save when browser storage is full.
-  try { localStorage.setItem(MY_DECKS, JSON.stringify(list)); }
+  try { localStorage.setItem(MY_DECKS, JSON.stringify(list)); syncMyDecks(); }
   catch { throw new Error("Could not save My decks on this device. Export a backup or free browser storage, then retry."); }
 }
 
@@ -222,13 +224,14 @@ export function adoptMyDecks(incoming: unknown[]): number {
     ids.add(id);
     added++;
   }
-  if (added) localStorage.setItem(MY_DECKS, JSON.stringify(list));
+  if (added) { localStorage.setItem(MY_DECKS, JSON.stringify(list)); syncMyDecks(); }
   return added;
 }
 
 export function forgetMyDeck(id: string): void {
   try {
     localStorage.setItem(MY_DECKS, JSON.stringify(myDecks().filter((d) => d.id !== id)));
+    syncMyDecks();
   } catch {
     /* ignore */
   }

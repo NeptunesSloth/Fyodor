@@ -181,7 +181,8 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
   const shownNote = twins > 1 ? `${twins} alike` : note || (where && where !== "battlefield" ? (where === "stack" ? "on the stack" : `in ${where}`) : "");
   return (
     <button ref={selfRef} className="tgt-thumb" data-kind={kind} data-testid={`option-${opt}`} data-ref={refId}
-      data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined} data-live={live ? "" : undefined}
+      data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined}
+      data-whole={card && where && where !== "battlefield" && where !== "stack" ? "" : undefined /* a card you're searching for: the whole face, not the art crop */} data-live={live ? "" : undefined}
       aria-label={label} aria-describedby={shownNote ? noteId : undefined} aria-pressed={multi ? n > 0 : undefined}
       title={note ? `${label} · ${note}` : label}
       onClick={choose1}

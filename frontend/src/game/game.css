@@ -403,13 +403,12 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 /* blackened steel with a brass edge (the decks page's menus), the card or seat it acts on named in Cinzel at the top */
 .ctx-menu {
   position: fixed; z-index: 2500; width: max-content; min-width: 220px; max-width: min(400px, calc(100vw - 8px)); padding: 5px;
-  max-height: calc(100vh - 8px); overflow-y: auto; scrollbar-width: thin;
   background: var(--hud-surface);
   border: 1px solid var(--hud-edge); border-radius: 7px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.5), 4px 16px 32px rgba(0, 0, 0, 0.72);
   transform-origin: top left; animation: pop calc(90ms * var(--anim-scale, 1)) var(--ease-out);
 }
-.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; animation: none; } /* a submenu is there at once, where it will stay */
+.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; scrollbar-width: thin; animation: none; } /* a submenu is there at once, where it will stay */
 .ctx-title {
   padding: 7px 10px 8px; margin: 0 0 4px; border-bottom: 1px solid color-mix(in srgb, var(--frame) 45%, var(--line));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -788,6 +787,10 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 }
 .selection-bar.anchored, .selection-bar { border-radius: 5px; padding: 3px 4px 3px 12px; gap: 2px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 26px rgba(0, 0, 0, 0.55); }
 /* the toolbar's buttons are words on the steel, lit on hover (the card's name leads, in Cinzel, as in its menu) */
+.selection-bar .sel-ability { gap: 5px; border-color: color-mix(in srgb, var(--frame) 45%, transparent); }
+.selection-bar .sel-ability .mana { width: 14px; height: 14px; }
+.selection-bar .sel-ability:disabled { opacity: 0.45; }
+.sel-ab-what { color: var(--text-dim); }
 .selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; background: transparent; border-color: transparent; box-shadow: none; }
 .selection-bar .tt-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: transparent; }
 /* the shortcut, printed where the action is (Arena-quiet: small, dim, never the loudest thing on the bar) */

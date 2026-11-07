@@ -15,21 +15,16 @@ test("Commander London: simultaneous decisions, exact bottom selection, private 
     await expect(bob.getByTestId("mulligan")).toContainText(`Mulligan #${i}`);
   }
   await expect(alice.getByTestId("mull-seat-p2")).toContainText("Deciding · 3 mulligans");
-  await bob.getByTestId("mull-keep").click();
-  await expect(bob.getByTestId("mull-count")).toHaveText("Selected 0 / 2");
-  await expect(bob.getByTestId("mull-confirm")).toBeDisabled();
+  // he picks exactly 2 for the bottom, then keeps: one step
+  await expect(bob.getByTestId("mull-keep")).toBeDisabled();
   await bob.getByTestId("mull-card").nth(0).click();
-  await expect(bob.getByTestId("mull-count")).toHaveText("Selected 1 / 2");
-  await expect(bob.getByTestId("mull-confirm")).toBeDisabled();
+  await expect(bob.getByTestId("mull-keep")).toBeDisabled();
   await bob.getByTestId("mull-card").nth(1).click();
-  await bob.getByTestId("mull-card").nth(2).click(); // a third pick: still not exact
-  await expect(bob.getByTestId("mull-count")).toHaveText("Selected 3 / 2");
-  await expect(bob.getByTestId("mull-confirm")).toBeDisabled();
+  await bob.getByTestId("mull-card").nth(2).click(); // a third pick: not exact
+  await expect(bob.getByTestId("mull-keep")).toBeDisabled();
   await bob.getByTestId("mull-card").nth(2).click();
-  await expect(bob.getByTestId("mull-confirm")).toBeEnabled();
-  // Alice independently sees Bob choosing, while she is still deciding herself.
-  await expect(alice.getByTestId("mull-seat-p2")).toContainText("Choosing 2 for the bottom");
-  await bob.getByTestId("mull-confirm").click();
+  await expect(bob.getByTestId("mull-keep")).toHaveText("Keep 5, bottom 2");
+  await bob.getByTestId("mull-keep").click();
   await expect(bob.getByTestId("mulligan")).toContainText("You kept 5 cards");
   await expect(alice.getByTestId("mull-seat-p2")).toContainText("Kept 5");
 

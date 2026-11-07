@@ -23,7 +23,7 @@ test("effects, damage, targeting arrows, choices, selection filters and cleanup 
 
   // targeting arrow: card → Bob's player plate (pick mode)
   await onAlice.click({ button: "right" });
-  await menuPath(alice, "Target / point to…");
+  await menuPath(alice, "Table tools", "Target / point to…");
   await expect(alice.getByTestId("pick-bar")).toBeVisible();
   await alice.locator('[data-player-id="p2"]').first().click();
   await alice.getByTestId("pick-done").click();

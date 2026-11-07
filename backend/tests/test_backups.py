@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import sqlite3
 import zipfile
 
@@ -107,3 +108,13 @@ def test_backup_carries_the_browsers_my_decks(settings, card_db):
         assert c.get("/api/restored-decks").json()["decks"] == mine
         assert c.delete("/api/restored-decks").status_code == 204
         assert c.get("/api/restored-decks").json()["decks"] == []
+
+
+def test_automatic_backups_carry_the_synced_my_decks(settings, card_db):
+    """The host browser mirrors My decks to the server, so a backup made without a browser (automatic) carries them too."""
+    mine = [{"id": "x", "name": "Atraxa", "body": {"text": "1 Atraxa, Praetors' Voice"}}]
+    with TestClient(create_app(settings)) as c:
+        assert c.put("/api/browser-decks", json={"browser_decks": mine}).status_code == 204
+        made = c.app.state.services.backup(reason="test")
+        blob = (settings.data_dir / "backups" / made["name"]).read_bytes()
+        assert json.loads(zipfile.ZipFile(io.BytesIO(blob)).read("browser-decks.json")) == mine

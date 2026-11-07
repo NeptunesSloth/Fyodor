@@ -36,7 +36,8 @@ log = logging.getLogger(__name__)
 BACKUP_NAME = re.compile(r"^fyodor-(auto)?backup-\d{8}-\d{6}(-\d+)?\.zip$")
 AUTO_PREFIX = "fyodor-autobackup-"
 BROWSER_DECKS = "browser-decks.json"  # the host browser's "My decks" (kept in browser storage, not app.sqlite)
-RESTORED_BROWSER_DECKS = "restored-browser-decks.json"  # after a restore: waiting for the host's browser to take them back
+RESTORED_BROWSER_DECKS = "restored-browser-decks.json"
+SYNCED_BROWSER_DECKS = "browser-decks.json"  # the host browser's latest copy, so automatic backups carry My decks too  # after a restore: waiting for the host's browser to take them back
 MAX_BROWSER_DECKS_BYTES = 32 * 1024 * 1024
 ASSET_NAME = re.compile(r"^assets/[0-9a-f]{64}\.(png|jpg|jpeg|webp)$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
@@ -135,7 +136,8 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
     """A backup made by hand, or an automatic one when ``reason`` says why ("start-up", "after a recorded game" …).
     ``browser_decks``: the "My decks" of the browser that asked for the backup (they live in browser storage, so the
     database alone would leave them behind when the pod moves to another computer)."""
-    decks_blob = browser_decks_blob(browser_decks) if browser_decks is not None else None
+    synced = data_dir / SYNCED_BROWSER_DECKS
+    decks_blob = browser_decks_blob(browser_decks) if browser_decks is not None else synced.read_bytes() if synced.is_file() else None
     out_dir = backups_dir(data_dir)
     prefix = AUTO_PREFIX if reason else "fyodor-backup-"
     dest = _unique(out_dir / f"{prefix}{time.strftime('%Y%m%d-%H%M%S')}.zip")
@@ -155,7 +157,7 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
                         files += 1
             manifest = {"format": "fyodor-backup", "version": 1, "app_version": __version__,
                         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "schema_version": schema_version(tmp_db),
-                        "assets": files, "browser_decks": len(browser_decks or []), **({"reason": reason} if reason else {})}
+                        "assets": files, "browser_decks": len(json.loads(decks_blob)) if decks_blob else 0, **({"reason": reason} if reason else {})}
             zf.writestr("manifest.json", json.dumps(manifest, indent=2))
     finally:
         tmp_db.unlink(missing_ok=True)

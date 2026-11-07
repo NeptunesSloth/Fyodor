@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "./components/Toasts";
 import { adoptRestoredDecks } from "./services/backups";
+import { syncMyDecks } from "./services/games";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { PromptHost } from "./components/Prompt";
 import { Toasts } from "./components/Toasts";
@@ -29,7 +30,7 @@ export function App() {
   const route = useHashRoute();
   useApplyPrefs();
   useEffect(() => {
-    void adoptRestoredDecks().then((n) => { if (n) toast(`Restored ${n} deck${n > 1 ? "s" : ""} to My decks`); });
+    void adoptRestoredDecks().then((n) => { if (n) toast(`Restored ${n} deck${n > 1 ? "s" : ""} to My decks`); syncMyDecks(); });
   }, []);
   const [section, sub] = route.path;
 

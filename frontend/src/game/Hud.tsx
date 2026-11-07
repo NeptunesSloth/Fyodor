@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
+import { ManaText } from "../cards/ManaText";
 import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
@@ -263,10 +264,18 @@ export function SelectionBar() {
   const counters = sub("Add counter");
   const damage = damageMenu(onTable, first) as Exclude<MenuItem, "separator">;
   const keymap = usePrefs.getState().keymap;
+  // one click per activated ability (the card menu's Abilities rows): cost in symbols, the effect and any reason in the tooltip
+  const abilities = onTable.length === 1 ? full.items.filter((i): i is Exclude<MenuItem, "separator"> => i !== "separator" && !!i.ability) : [];
   const chip = (id: Parameters<typeof keyLabel>[0]) => { const k = keyLabel(id, keymap); return k ? <kbd className="key-chip" aria-hidden>{k}</kbd> : null; };
   return (
     <div className="selection-bar anchored" data-testid="selection-bar" ref={ref} role="toolbar" aria-label="Selected card actions">
       <span className="sel-count">{onTable.length === 1 && isVisible(first) ? first.name : `${onTable.length} selected`}</span>
+      {abilities.map((a, i) => (
+        <button key={i} className="tt-btn sel-ability" data-testid="sel-ability" disabled={a.disabled} onClick={() => a.onClick?.()}
+          title={`${a.ability!.effect}${a.disabled && a.ability!.why ? `\n${a.ability!.why}` : ""}`} aria-label={a.label}>
+          <ManaText text={a.ability!.cost} /> <span className="sel-ab-what">{a.ability!.effect.length > 22 ? `${a.ability!.effect.slice(0, 20)}…` : a.ability!.effect}</span>
+        </button>
+      ))}
       {kept ? <span className="hint" title={kept}>{kept.split(":")[0]}</span> : (<>
       <button className="tt-btn" title="Tap or untap (or double-click the card)" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}{chip("tap")}</button>
       {creatures ? (

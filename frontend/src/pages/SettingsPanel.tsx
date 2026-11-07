@@ -571,7 +571,7 @@ function BackupSection() {
             <b>Taking your decks to another computer</b> (an offline one too): <i>Back up Fyodor now</i> here, copy the file
             it saves onto a USB stick, then on the other computer open Settings → <i>Restore from a file…</i>, choose it, and
             click <i>Restart Fyodor now</i>. Decks, saved games, pod stats and this browser's <i>My decks</i> all come along.
-            Automatic backups can't see <i>My decks</i> (they're kept in this browser), so make this one by hand.
+            (Automatic backups include the <i>My decks</i> of the browser on this computer.)
           </p>
           {restartNeeded && (
             <p className="warn st-restart" data-testid="restore-restart">

@@ -205,3 +205,10 @@ body.perf-low .tgt-bar, body.perf-low .tgt-source { box-shadow: none; }
   .tgt-what { font-size: 14.5px; }
   .tgt-head { flex-wrap: wrap; gap: 6px 10px; }
 }
+
+/* a card from a library, graveyard, hand or exile (a tutor, a reanimation): the whole card, readable without its art */
+.tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-thumb[data-whole] { width: 96px; }
+.tgt-thumb[data-whole] .tgt-art, .tgt-tray[data-dense] .tgt-thumb[data-whole] .tgt-art { width: 96px; height: 134px; }
+.tgt-thumb[data-whole] .tgt-art > :is(.card-face, .face-down-known) { left: 0; width: 100%; margin-top: 0; border-radius: 4px; }
+.tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole] { margin-left: -84px; }
+.tgt-thumb[data-whole] .tgt-label { font-size: 12px; }

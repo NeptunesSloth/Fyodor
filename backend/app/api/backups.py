@@ -13,8 +13,10 @@ from app.api.deps import get_services, require_local
 from app.services import Services
 from app.storage.backup import (
     MAX_BACKUP_BYTES,
+    SYNCED_BROWSER_DECKS,
     BackupError,
     backup_path,
+    browser_decks_blob,
     list_backups,
     restore_pending,
     stage_restore,
@@ -43,6 +45,17 @@ def make_backup(request: Request, services: ServicesDep, body: BackupBody | None
         return services.backup(browser_decks=body.browser_decks if body else None)
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.put("/browser-decks", status_code=204)
+def sync_browser_decks(body: BackupBody, request: Request, services: ServicesDep) -> None:
+    """The host browser's "My decks", kept so automatic backups carry them too (the last copy wins)."""
+    require_local(request)
+    try:
+        blob = browser_decks_blob(body.browser_decks or [])
+    except BackupError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    (services.settings.data_dir / SYNCED_BROWSER_DECKS).write_bytes(blob)
 
 
 @router.get("/restored-decks")
