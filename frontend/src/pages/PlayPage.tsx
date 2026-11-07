@@ -377,13 +377,18 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             </li>
             <li className="pg-chairs">
               {/* the open seats: a row of chairs and a stepper, not a box per empty seat */}
-              <span className="pg-setup-label">Players at the table</span>
-              <div className="pg-chair-row" aria-label="Open seats" data-count={seats}>
-                {Array.from({ length: seats }, (_, k) => (
-                  <span key={k} className={`pg-chair-dot ${k === 0 ? "you" : ""}`} title={k === 0 ? "You" : `Seat ${k + 1}: joins with the room code`}>
-                    <Icon name="chair" size={20} /><b>{k + 1}</b>
-                  </span>
-                ))}
+              {/* the table seen from above: you at the near edge, the open chairs around the felt in turn order */}
+              <div className="pg-round" aria-label={`${seats} seat${seats > 1 ? "s" : ""}: you and ${seats - 1} open`} role="img" data-count={seats}>
+                <span className="pg-round-felt" aria-hidden />
+                {Array.from({ length: seats }, (_, k) => {
+                  const a = (k / seats) * 2 * Math.PI; // seat 1 at the bottom, then clockwise
+                  return (
+                    <span key={k} className={`pg-chair-dot ${k === 0 ? "you" : ""}`} title={k === 0 ? "You" : `Seat ${k + 1}: joins with the room code`}
+                      style={{ left: `${50 - 46 * Math.sin(a)}%`, top: `${50 + 40 * Math.cos(a)}%` }}>
+                      <Icon name="chair" size={20} /><b>{k + 1}</b>
+                    </span>
+                  );
+                })}
               </div>
               <div className="pg-stepper">
                 <button className="tt-btn" onClick={() => setSeats((n) => n - 1)} disabled={seats <= 1} aria-label="Remove a seat">−</button>
