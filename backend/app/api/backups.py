@@ -55,7 +55,11 @@ def sync_browser_decks(body: BackupBody, request: Request, services: ServicesDep
         blob = browser_decks_blob(body.browser_decks or [])
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
-    (services.settings.data_dir / SYNCED_BROWSER_DECKS).write_bytes(blob)
+    target = services.settings.data_dir / SYNCED_BROWSER_DECKS
+    tmp = target.with_suffix(".tmp")
+    tmp.write_bytes(blob)
+    tmp.replace(target)  # atomic: a backup reading it meanwhile sees the old list or the new one, never half of one
+    services.browser_decks_saved += 1
 
 
 @router.get("/restored-decks")

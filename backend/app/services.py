@@ -39,6 +39,7 @@ from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
 from app.storage.app_db import open_app_db
 from app.storage.autobackup import AutoBackups
 from app.storage.backup import (
+    SYNCED_BROWSER_DECKS,
     RecoveryInfo,
     apply_pending_restore,
     create_backup,
@@ -108,7 +109,7 @@ class Services:
         self.recovered: list[dict[str, Any]] = self.recover_rooms()
         self.autobackups = AutoBackups(
             data_dir=settings.data_dir, interval_minutes=settings.auto_backup_minutes, copy_dir=settings.backup_copy_dir,
-            make=lambda reason: self.backup(reason=reason), changes=lambda: self.app_db.total_changes, has_data=self._has_data)
+            make=lambda reason: self.backup(reason=reason), changes=lambda: self.app_db.total_changes + self.browser_decks_saved, has_data=self._has_data)
 
     def recover_rooms(self) -> list[dict[str, Any]]:
         """Bring back every table that was live when Fyodor stopped (crash or restart)."""
@@ -163,7 +164,12 @@ class Services:
         return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
                              copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks)
 
+    browser_decks_saved = 0  # times the host browser's My decks mirror was rewritten: a change automatic backups count
+
     def _has_data(self) -> bool:
+        synced = self.settings.data_dir / SYNCED_BROWSER_DECKS
+        if synced.is_file() and synced.stat().st_size > 2:  # My decks alone are worth a backup ("[]" is none)
+            return True
         with self.app_db_lock:
             return any(self.app_db.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone()  # noqa: S608 - fixed names
                        for t in ("decks", "saves", "game_results"))

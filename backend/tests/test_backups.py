@@ -114,7 +114,11 @@ def test_automatic_backups_carry_the_synced_my_decks(settings, card_db):
     """The host browser mirrors My decks to the server, so a backup made without a browser (automatic) carries them too."""
     mine = [{"id": "x", "name": "Atraxa", "body": {"text": "1 Atraxa, Praetors' Voice"}}]
     with TestClient(create_app(settings)) as c:
+        services = c.app.state.services
+        before = services.autobackups._changes()
         assert c.put("/api/browser-decks", json={"browser_decks": mine}).status_code == 204
-        made = c.app.state.services.backup(reason="test")
+        assert services.autobackups._changes() > before  # an automatic backup is due (no database write needed)
+        assert services._has_data()
+        made = services.backup(reason="test")
         blob = (settings.data_dir / "backups" / made["name"]).read_bytes()
         assert json.loads(zipfile.ZipFile(io.BytesIO(blob)).read("browser-decks.json")) == mine
