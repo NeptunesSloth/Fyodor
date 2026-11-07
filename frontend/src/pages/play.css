@@ -522,3 +522,4 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-you-deck-text .tt-link { font-size: 13.5px; text-align: left; }
 .pg-you-deck-acts { display: inline-flex; gap: 14px; }
 .pg-you-note { margin: 0 0 0 auto; max-width: 34ch; font-size: 13px; line-height: 1.45; color: var(--text-dim); }
+.pg-same { margin-left: auto; align-self: flex-start; }
