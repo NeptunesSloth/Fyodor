@@ -364,21 +364,16 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             </li>
           </ul>
         ) : useLobby ? (
-          <ul className="pg-seats pg-lobby pg-solo" aria-label="Your seat">
-            <li className="pg-seat host">
-              <div className="pg-plate">
-                <SeatChip color={COLORS[0]} text="1" />
-                <label className="pg-name-field">
-                  <span className="pg-name-label">Your name</span>
-                  <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
-                </label>
-              </div>
-              <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
-            </li>
-            <li className="pg-seats-later">
-              <p>The other seats open with the room. Friends take one from their own computers with the room code; you change how many in the room's Table settings.</p>
-            </li>
-          </ul>
+          // only your own seat until the room opens: one compact row (the others take theirs with the room code)
+          <div className="pg-you" aria-label="Your seat">
+            <SeatChip color={COLORS[0]} text="1" />
+            <label className="pg-name-field">
+              <span className="pg-name-label">Your name</span>
+              <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
+            </label>
+            <YouDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
+            <p className="pg-you-note">Friends take the other seats with the room code once it's open.</p>
+          </div>
         ) : (
           <ul className="pg-seats pg-dealt" aria-label="Seats">
             {players.map((p, i) => {
@@ -514,6 +509,23 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 }
 
 /** The host's own lobby seat: the deck they bring (chosen here, or later in the lobby like everyone else). */
+/** Your deck on a LAN night, in one row: its commander's art small, its name, Change. */
+function YouDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void }) {
+  return (
+    <span className="pg-you-deck">
+      <button className={`pg-you-art ${deck ? "" : "no-deck"}`} onClick={onPick} disabled={!canPick} aria-label={deck ? `Your deck: ${deckTitle(deck)}. Change it` : "Choose your deck"}>
+        {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : <CardFace faceDown />}
+      </button>
+      <span className="pg-you-deck-text">
+        <span className="pg-name-label">Your deck</span>
+        {deck ? <b title={deckTitle(deck)}>{deckTitle(deck)}</b>
+          : canPick ? <button className="tt-link" onClick={onPick}>Choose a deck</button> : <span className="pg-note">Bring one in the room</span>}
+        {deck && <span className="pg-you-deck-acts"><button className="tt-link" onClick={onPick}>Change</button><button className="tt-link" onClick={onClear}>Bring one in the room instead</button></span>}
+      </span>
+    </span>
+  );
+}
+
 function HostDeck({ deck, canPick, onPick, onClear, note = "You host. Choose your deck here or in the lobby." }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void; note?: string }) {
   return (
     <>

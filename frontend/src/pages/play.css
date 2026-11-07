@@ -506,5 +506,19 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .play .pg-rule.pg-pass { display: flex; align-items: flex-start; gap: 3px; padding: 0; color: inherit; font-size: inherit; }
 .play .pg-rail .pg-rule.pg-pass input[type="password"] { width: 14ch; height: auto; padding: 0 0 2px; cursor: text; background: none; border: 0; border-bottom: 1px solid var(--line-2); border-radius: 0; box-shadow: none; color: var(--room-bone); }
 .pg-lobby > .pg-seat.host { align-self: start; } /* the host's plinth keeps its own height beside the felt */
-.pg-seats-later { display: grid; place-items: center; padding: 24px; }
-.pg-seats-later p { max-width: 44ch; margin: 0; text-align: center; font-size: 14px; line-height: 1.5; color: var(--text-dim); }
+/* a LAN night before the room opens: only your seat, one compact row */
+.pg-you {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; padding: 14px 18px; margin: 4px 0 18px;
+  border-radius: 8px; background: var(--dk-plinth, linear-gradient(180deg, #1b1c1e, #0c0d0f)); border: 1px solid #2d2b27;
+}
+.pg-you .pg-name-field { flex: 0 1 260px; min-width: 160px; }
+.pg-you-deck { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.pg-you-art { flex: none; width: 74px; aspect-ratio: 1.385; padding: 0; border: 0; border-radius: 4px; overflow: hidden; background: #050506; cursor: pointer;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--frame) 45%, transparent); }
+.pg-you-art.no-deck { width: 40px; aspect-ratio: 0.716; }
+.pg-you-art:focus-visible { outline: 2px solid var(--room-brass-hi, #e2c27a); outline-offset: 2px; }
+.pg-you-deck-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pg-you-deck-text b { font: 600 15px/1.25 var(--font-display); color: var(--room-bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30ch; }
+.pg-you-deck-text .tt-link { font-size: 13.5px; text-align: left; }
+.pg-you-deck-acts { display: inline-flex; gap: 14px; }
+.pg-you-note { margin: 0 0 0 auto; max-width: 34ch; font-size: 13px; line-height: 1.45; color: var(--text-dim); }
