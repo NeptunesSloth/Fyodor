@@ -157,10 +157,11 @@ class Services:
                                          backups=[b["name"] for b in list_backups(self.settings.data_dir)])
             return open_app_db(path)
 
-    def backup(self, *, reason: str | None = None) -> dict[str, Any]:
-        """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set."""
+    def backup(self, *, reason: str | None = None, browser_decks: list[Any] | None = None) -> dict[str, Any]:
+        """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set.
+        ``browser_decks``: the asking browser's "My decks", carried in the backup too."""
         return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
-                             copy_dir=self.settings.backup_copy_dir)
+                             copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks)
 
     def _has_data(self) -> bool:
         with self.app_db_lock:

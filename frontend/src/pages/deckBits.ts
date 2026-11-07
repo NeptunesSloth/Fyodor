@@ -104,3 +104,11 @@ export function groupGlyph(label: string): GlyphKind | null {
   return kind in GLYPH_KINDS ? (kind as GlyphKind) : null;
 }
 const GLYPH_KINDS = { creature: 1, planeswalker: 1, battle: 1, land: 1, instant: 1, sorcery: 1, artifact: 1, enchantment: 1, other: 1 };
+
+/** -- deck folders -- the shelf's folders, A→Z, with how many decks each holds; ``made`` adds folders made here that hold none yet. */
+export function deckFolders(decks: { folder?: string }[], made: string[] = []): { name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const name of made) if (name) counts.set(name, 0);
+  for (const d of decks) if (d.folder) counts.set(d.folder, (counts.get(d.folder) ?? 0) + 1);
+  return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }));
+}

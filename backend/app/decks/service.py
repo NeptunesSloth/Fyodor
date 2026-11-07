@@ -463,6 +463,7 @@ def summarize(deck: Deck, data: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "name": deck.name,
         "format": deck.format,
         "updated_at": deck.updated_at,
+        "folder": deck.folder,
         "counts": dict(counts),
         "commanders": [e.name for e in commanders],
         "color_identity": [c for c in COLOR_ORDER if c in identity],

@@ -11,9 +11,11 @@ from app.game.state import MulliganPolicy
 
 LONDON = MulliganPolicy(id="london", display_name="London")
 COMMANDER_LONDON = MulliganPolicy(id="commander_london", display_name="Commander London", free_mulligans=1)
-# Placeholder for our pod's "Boston mulligan". It is NOT an official rule and its mechanics are not
-# defined here: until the host fills in the fields, a game can't start with it.
-BOSTON_CUSTOM = MulliganPolicy(id="boston_custom", display_name="Boston (Custom Pod)", needs_definition=True)
+# Our pod's "Boston mulligan" (NOT an official rule), as the pod plays it: every hand is 10 cards, you keep 7 and put
+# 3 on the bottom; a mulligan deals 10 again. As in Commander (103.5c) the first mulligan is free and each later one puts
+# one more card on the bottom. The host can still change any field (Table settings → Mulligan).
+BOSTON_CUSTOM = MulliganPolicy(id="boston_custom", display_name="Boston (Custom Pod)", starting_hand_size=10, draw_count=10,
+                               keep_bottom=3, free_mulligans=1, cards_to_bottom=1)
 CUSTOM = MulliganPolicy(id="custom", display_name="Custom")
 
 PRESETS: dict[str, MulliganPolicy] = {p.id: p for p in (COMMANDER_LONDON, LONDON, BOSTON_CUSTOM, CUSTOM)}
@@ -36,4 +38,4 @@ def resolve_policy(rule: str, custom: MulliganPolicy | None = None) -> MulliganP
 
 def to_bottom(policy: MulliganPolicy, mulligans: int) -> int:
     """How many cards a player puts on the bottom after taking ``mulligans`` mulligans."""
-    return max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom
+    return policy.keep_bottom + max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom

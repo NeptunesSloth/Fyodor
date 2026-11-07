@@ -72,6 +72,18 @@ class DeckRepository:
             if cur.rowcount == 0:
                 raise DeckNotFound(deck_id)
 
+    def set_folder(self, deck_id: str, folder: str) -> None:
+        """Move a deck into a shelf folder ('' = out of every folder). Not an edit of the deck: ``updated_at`` stays."""
+        with self.lock, transaction(self.conn):
+            cur = self.conn.execute("UPDATE decks SET folder = ? WHERE id = ?", (folder, deck_id))
+            if cur.rowcount == 0:
+                raise DeckNotFound(deck_id)
+
+    def rename_folder(self, old: str, new: str) -> int:
+        """Rename a folder (or, with ``new`` '', empty it: its decks go back to the shelf). Returns the decks moved."""
+        with self.lock, transaction(self.conn):
+            return self.conn.execute("UPDATE decks SET folder = ? WHERE folder = ?", (new, old)).rowcount
+
     def delete(self, deck_id: str) -> None:
         with self.lock, transaction(self.conn):
             cur = self.conn.execute("DELETE FROM decks WHERE id = ?", (deck_id,))
@@ -106,6 +118,7 @@ class DeckRepository:
             source=DeckSource.model_validate_json(row["source"]) if row["source"] else None,
             source_snapshot=[DeckEntry(**e) for e in json.loads(row["source_snapshot"])] if row["source_snapshot"] else None,
             entries=[_entry(c) for c in cards],
+            folder=row["folder"],
         )
 
 

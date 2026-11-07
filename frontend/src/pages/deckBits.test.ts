@@ -86,3 +86,11 @@ describe("the editor's numbers", () => {
     expect(groupGlyph("Ramp")).toBeNull();
   });
 });
+
+describe("deckFolders", () => {
+  it("lists folders A to Z with counts, including empty ones made here", async () => {
+    const { deckFolders } = await import("./deckBits");
+    expect(deckFolders([{ folder: "Pod" }, { folder: "" }, { folder: "Pod" }, { folder: "alpha" }], ["New", "Pod"]))
+      .toEqual([{ name: "alpha", count: 1 }, { name: "New", count: 0 }, { name: "Pod", count: 2 }]);
+  });
+});

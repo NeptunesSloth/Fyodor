@@ -33,6 +33,8 @@ const PATHS = {
   pen: "M4.5 19.5l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3l-10 10zM13.5 7l3 3",
   download: "M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 16.5v3h15v-3",
   trash: "M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 10.5v6M14 10.5v6",
+  // a folder: the deck shelf's folders
+  folder: "M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z",
   // a padlock: a table with a password
   lock: "M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9.5H6zM12 14.5v2.5",
 } as const;

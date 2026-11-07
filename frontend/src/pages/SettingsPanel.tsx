@@ -6,6 +6,7 @@ import { play } from "../game/sound";
 import { DICE_LOOKS } from "../game/dice";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
+import { myDecks } from "../services/games";
 import { CardDataSection } from "./CardDataPanel";
 import { HAND_SORTS, HAND_SORT_LABEL } from "../game/handSort";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
@@ -481,9 +482,10 @@ function BackupSection() {
   const [restartNeeded, setRestartNeeded] = useState(false);
   const [all, setAll] = useState(false);
   const file = useRef<HTMLInputElement>(null);
-  const load = () => api.get<{ backups: BackupInfo[]; auto: AutoBackupStatus }>("/backups").then((r) => {
+  const load = () => api.get<{ backups: BackupInfo[]; auto: AutoBackupStatus; restore_pending?: boolean }>("/backups").then((r) => {
     setList(r.backups);
     setAuto(r.auto);
+    if (r.restore_pending) setRestartNeeded(true); // staged earlier and never finished (the page was closed before restarting)
   }, (e: unknown) => {
     if (e instanceof ApiError && e.status === 403) setDenied(true);
   });
@@ -552,7 +554,7 @@ function BackupSection() {
           <div className="st-backup-acts">
             <button className="tt-btn brass" disabled={busy} data-testid="backup-now"
               onClick={() => void run(async () => {
-                const made = await api.post<BackupInfo>("/backups", {});
+                const made = await api.post<BackupInfo>("/backups", { browser_decks: myDecks() }); // "My decks" live in this browser, not the database
                 window.location.href = `/api/backups/${encodeURIComponent(made.name)}`;
               }, "Backup saved")}>Back up Fyodor now</button>
             <button className="tt-btn" disabled={busy} onClick={() => file.current?.click()}>Restore from a file…</button>
@@ -568,11 +570,12 @@ function BackupSection() {
           <p className="st-note" data-testid="move-computers">
             <b>Taking your decks to another computer</b> (an offline one too): <i>Back up Fyodor now</i> here, copy the file
             it saves onto a USB stick, then on the other computer open Settings → <i>Restore from a file…</i>, choose it, and
-            click <i>Restart Fyodor now</i>. Decks, saved games and pod stats all come along.
+            click <i>Restart Fyodor now</i>. Decks, saved games, pod stats and this browser's <i>My decks</i> all come along.
+            Automatic backups can't see <i>My decks</i> (they're kept in this browser), so make this one by hand.
           </p>
           {restartNeeded && (
             <p className="warn st-restart" data-testid="restore-restart">
-              {restarting ? "Restarting Fyodor…" : <>One more step: <button className="tt-btn brass" data-testid="restart-now" onClick={() => void restartNow()}>Restart Fyodor now</button></>}
+              {restarting ? "Restarting Fyodor…" : <>A restore is waiting: nothing changes until Fyodor restarts. <button className="tt-btn brass" data-testid="restart-now" onClick={() => void restartNow()}>Restart Fyodor now</button></>}
             </p>
           )}
           {list && list.length > 0 && (

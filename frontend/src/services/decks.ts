@@ -14,6 +14,10 @@ export const updateDeck = (id: string, body: { name: string; format: DeckFormat;
 export const importIntoDeck = (id: string, text: string, mode: "replace" | "append") =>
   api.post<Deck>(`/decks/${id}/import`, { text, mode });
 export const duplicateDeck = (id: string) => api.post<Deck>(`/decks/${id}/duplicate`);
+/** -- deck folders -- "" takes the deck out of every folder. */
+export const moveDeckToFolder = (id: string, folder: string) => api.put<{ id: string; folder: string }>(`/decks/${id}/folder`, { folder });
+/** Rename a folder; to "" removes it (its decks go back to the shelf). */
+export const renameDeckFolder = (old: string, name: string) => api.post<{ moved: number }>("/deck-folders/rename", { old, new: name });
 export const deleteDeck = (id: string) => api.del<void>(`/decks/${id}`);
 export const exportDeck = async (id: string, format: "archidekt" | "plain" = "archidekt"): Promise<string> => {
   const res = await fetch(`/api/decks/${id}/export?format=${format}`);

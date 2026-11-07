@@ -206,6 +206,26 @@ export function personalCollection(): PersonalEntry[] {
   });
 }
 
+/** Merge decks brought back by a restore into "My decks" (skipping any already here). Returns how many were added. */
+export function adoptMyDecks(incoming: unknown[]): number {
+  const list = myDecks();
+  const have = new Set(list.map((d) => JSON.stringify(d.body)));
+  const ids = new Set(list.map((d) => d.id));
+  let added = 0;
+  for (const d of incoming) {
+    if (!d || typeof d !== "object") continue;
+    const deck = d as MyDeck;
+    if (typeof deck.name !== "string" || !deck.body || typeof deck.body !== "object" || have.has(JSON.stringify(deck.body))) continue;
+    const id = typeof deck.id === "string" && !ids.has(deck.id) ? deck.id : Math.random().toString(36).slice(2, 10);
+    list.push({ ...deck, id, commanders: Array.isArray(deck.commanders) ? deck.commanders : [], savedAt: Number(deck.savedAt) || Date.now() });
+    have.add(JSON.stringify(deck.body));
+    ids.add(id);
+    added++;
+  }
+  if (added) localStorage.setItem(MY_DECKS, JSON.stringify(list));
+  return added;
+}
+
 export function forgetMyDeck(id: string): void {
   try {
     localStorage.setItem(MY_DECKS, JSON.stringify(myDecks().filter((d) => d.id !== id)));

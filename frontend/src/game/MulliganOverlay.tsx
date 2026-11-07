@@ -5,7 +5,7 @@ import { send } from "./actions";
 import { GameCardFace } from "./GameCardFace";
 import { useHoverCard } from "./hoverCard";
 
-const toBottom = (policy: MulliganPolicy, mulligans: number) => Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
+const toBottom = (policy: MulliganPolicy, mulligans: number) => (policy.keep_bottom ?? 0) + Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
 
 const nameOf = (card: GameView["cards"][string] | undefined): string => (card && "name" in card && card.name ? card.name : "Exile hand");
 
@@ -43,7 +43,7 @@ export function MulliganOverlay() {
         <header className="mull-head">
           <div>
             <h2>Opening hand</h2>
-            <span className="hint">{policy.display_name}{policy.free_mulligans ? ` · first ${policy.free_mulligans > 1 ? `${policy.free_mulligans} mulligans are` : "mulligan is"} free` : ""}</span>
+            <span className="hint">{policy.display_name}{policy.keep_bottom ? ` · draw ${policy.starting_hand_size}, keep ${policy.starting_hand_size - policy.keep_bottom}` : ""}{policy.free_mulligans ? ` · first ${policy.free_mulligans > 1 ? `${policy.free_mulligans} mulligans are` : "mulligan is"} free` : ""}</span>
           </div>
           <span className="spacer" />
           <button className="tt-btn ghost" onClick={() => setCollapsed(true)} title="Look at the table">Hide</button>
@@ -112,7 +112,8 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
         {bottoming ? (
           <>Choose <b>exactly {need}</b> card{need > 1 ? "s" : ""} to put on the bottom of your library. The last one you pick goes to the very bottom.</>
         ) : seat.mulligans === 0 ? (
-          <>Keep these {hand.length} or take a mulligan.</>
+          keepNow < hand.length ? <>Keep {keepNow} of these {hand.length} (you choose {hand.length - keepNow} for the bottom), or take a mulligan.</>
+          : <>Keep these {hand.length} or take a mulligan.</>
         ) : (
           <>Mulligan #{seat.mulligans}. Keep {hand.length === keepNow ? hand.length : `${hand.length} and bottom ${hand.length - keepNow}`}, or go again.</>
         )}
@@ -166,7 +167,7 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
             ))}
             <span className="spacer" />
             <button className="tt-btn brass" data-testid="mull-keep" disabled={busy || picked.length > 0} onClick={() => void act({ type: "mulligan_keep" })}>
-              Keep {hand.length}
+              {keepNow < hand.length ? `Keep ${keepNow}…` : `Keep ${hand.length}`}
             </button>
           </>
         )}

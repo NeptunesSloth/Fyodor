@@ -1,5 +1,5 @@
 /** Card-menu entries when automation is on: play / cast / activate, per-card automation, mana sources. */
-import type { MenuItem } from "../../components/ContextMenu";
+import type { AbilityRow, MenuItem } from "../../components/ContextMenu";
 import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
 import { abilityLines, automationOn, isLand, kickerItems, kickerLine, send, setPrefs, useXPrompt } from "./intents";
@@ -14,6 +14,31 @@ const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: s
 /** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
 const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
   data?.layout === "split" && data.faces.length === 2 && data.faces.every((f) => /\bRoom\b/.test(f.type_line ?? ""));
+
+/**
+ * An activated ability as a menu row: cost and effect split at the first ": " outside quotes (602.1), shown whole with mana
+ * symbols, and when it can't be activated now, the likeliest plain reason (only facts the client sees; the server decides).
+ */
+export function abilityRow(line: string, card: GameCard, view: GameView, ready: boolean): AbilityRow {
+  const text = line.replace(/\s*\([^)]*\)\s*$/, "").trim(); // reminder text
+  const m = /^([^:"]*?):\s+([\s\S]+)$/.exec(text);
+  const [cost, effect] = m ? [m[1]!, m[2]!] : ["", text];
+  if (ready) return { cost, effect };
+  const hints = view.rules?.hints;
+  const stack = (view.zones?.["stack"] as string[] | undefined)?.length ?? 0;
+  const mine = view.turn?.active_player === card.controller;
+  const main = view.turn?.phase === "main1" || view.turn?.phase === "main2";
+  let why = "Can't be activated right now";
+  if (!hints?.has_priority) why = "Wait for priority";
+  else if (/\{T\}/.test(cost) && card.tapped) why = "Already tapped";
+  else if (/\{[TQ]\}/.test(cost) && hints?.summoning_sick?.includes(card.id)) why = "Summoning sick: it came under your control this turn";
+  else if (/\{Q\}/.test(cost) && !card.tapped) why = "Needs to be tapped first";
+  else if (/activate only as a sorcery/i.test(effect) && (!mine || !main || stack > 0)) why = "Sorcery speed: your main phase, empty stack";
+  else if (/activate only during your turn/i.test(effect) && !mine) why = "Only during your turn";
+  else if (/activate only once each turn/i.test(effect)) why = "Once each turn (maybe used)";
+  else why = "Can't pay the cost, or no legal target";
+  return { cost, effect, why };
+}
 
 export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[] {
   const rules = view.rules;
@@ -168,7 +193,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
         items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure(?: |—)/i, "").replace(/\.$/, "")})`, disabled: !ready(unattach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: unattach }) });
       } else if (/^craft with /i.test(line)) {
         const ready = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
-        items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+        items.push({ label: `Activate: ${line}`, section: "Abilities", ability: abilityRow(line, card, view, ready), disabled: !ready, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
       }
     });
   }
@@ -183,7 +208,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       const listed = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
       const cost = /^([^:"]*):\s/.exec(line)?.[1];
       if (!listed && !(cost && /\bfrom (?:your|a|its owner's) graveyard\b/i.test(cost))) return;
-      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !listed,
+      items.push({ label: `Activate: ${line}`, section: "Abilities", ability: abilityRow(line, card, view, listed), disabled: !listed,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     });
   }
@@ -197,7 +222,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       // (review 111R: only activated abilities — a triggered one given in exile, Uvilda's "if this card is exiled, remove a refine counter", isn't activated)
       if (ability.kind !== "activated" || (!now && !/\bif this card is exiled\b/i.test(ability.text))) continue;
       const line = ability.text.replace(/\s*\(.*$/, "");
-      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !now,
+      items.push({ label: `Activate: ${line}`, section: "Abilities", ability: abilityRow(line, card, view, !!now), disabled: !now,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
     }
   }
@@ -260,13 +285,14 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       // Equip (702.6a) is checked by the server (sorcery speed, a creature you control): offered with priority.
       const ready = hints.activatable?.some((a) => a.card_id === card.id && a.ability === i) || /: Add /.test(line)
         || (/^Equip(?: |—)/.test(line) && !!hints.has_priority);
-      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready,
+      items.push({ label: `Activate: ${line}`, section: "Abilities", ability: abilityRow(line, card, view, !!ready), disabled: !ready,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     }
     for (const g of rules.stats?.[card.id]?.abilities ?? []) {
       if (g.kind !== "activated" && g.kind !== "mana") continue;
       const ready = g.kind === "mana" || hints.activatable?.some((a) => a.card_id === card.id && a.ability === g.index);
-      items.push({ label: `Activate (granted): ${g.text.length > 50 ? g.text.slice(0, 47) + "…" : g.text}`, disabled: !ready,
+      const row = abilityRow(g.text, card, view, !!ready);
+      items.push({ label: `Activate (granted): ${g.text}`, section: "Abilities", ability: { ...row, effect: `${row.effect} (granted)` }, disabled: !ready,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: g.index }) });
     }
     if (abilities.some(({ line }) => /: Add /.test(line))) {

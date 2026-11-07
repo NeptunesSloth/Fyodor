@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.api.deps import get_services, require_local
 from app.services import Services
@@ -15,7 +16,9 @@ from app.storage.backup import (
     BackupError,
     backup_path,
     list_backups,
+    restore_pending,
     stage_restore,
+    take_restored_browser_decks,
 )
 
 router = APIRouter(tags=["backups"])
@@ -26,13 +29,33 @@ ServicesDep = Annotated[Services, Depends(get_services)]
 def get_backups(request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
     return {"backups": list_backups(services.settings.data_dir), "recovery": services.health().get("recovery"),
-            "auto": services.autobackups.status()}
+            "auto": services.autobackups.status(), "restore_pending": restore_pending(services.settings.data_dir)}
+
+
+class BackupBody(BaseModel):
+    browser_decks: list[dict[str, Any]] | None = None  # this browser's "My decks" (browser storage), carried along
 
 
 @router.post("/backups", status_code=201)
-def make_backup(request: Request, services: ServicesDep) -> dict[str, Any]:
+def make_backup(request: Request, services: ServicesDep, body: BackupBody | None = None) -> dict[str, Any]:
     require_local(request)
-    return services.backup()
+    try:
+        return services.backup(browser_decks=body.browser_decks if body else None)
+    except BackupError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/restored-decks")
+def restored_decks(request: Request, services: ServicesDep) -> dict[str, Any]:
+    """The "My decks" a restore brought back, for the host's browser to merge in (then forgotten)."""
+    require_local(request)
+    return {"decks": take_restored_browser_decks(services.settings.data_dir, consume=False)}
+
+
+@router.delete("/restored-decks", status_code=204)
+def forget_restored_decks(request: Request, services: ServicesDep) -> None:
+    require_local(request)
+    take_restored_browser_decks(services.settings.data_dir, consume=True)
 
 
 @router.get("/backups/{name}")

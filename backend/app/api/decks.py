@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
 from app.decks import archidekt, service, sites
@@ -180,7 +180,38 @@ def duplicate_deck(deck_id: str, services: ServicesDep) -> dict[str, Any]:
         DeckIn(name=f"{deck.name} (copy)"[:120], format=deck.format, notes=deck.notes, entries=deck.entries,
                categories=deck.categories)
     )
+    if deck.folder:
+        services.decks.set_folder(copy.id, deck.folder)
     return _full(services, copy.id)
+
+
+class FolderIn(BaseModel):
+    folder: str = Field(default="", max_length=60)
+
+
+def _folder_name(raw: str) -> str:
+    return " ".join(raw.split())  # trimmed, single spaces: "  Pod  decks " and "Pod decks" are one folder
+
+
+@router.put("/decks/{deck_id}/folder")
+def move_deck_to_folder(deck_id: str, body: FolderIn, services: ServicesDep) -> dict[str, Any]:
+    """-- deck folders -- put a deck in a shelf folder ('' takes it out of every folder)."""
+    try:
+        services.decks.set_folder(deck_id, _folder_name(body.folder))
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "folder": _folder_name(body.folder)}
+
+
+class FolderRename(BaseModel):
+    old: str = Field(min_length=1, max_length=60)
+    new: str = Field(default="", max_length=60)
+
+
+@router.post("/deck-folders/rename")
+def rename_folder(body: FolderRename, services: ServicesDep) -> dict[str, Any]:
+    """Rename a folder; renaming to '' removes the folder (its decks stay, back on the shelf)."""
+    return {"moved": services.decks.rename_folder(_folder_name(body.old), _folder_name(body.new))}
 
 
 @router.delete("/decks/{deck_id}", status_code=204)

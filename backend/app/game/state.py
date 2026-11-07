@@ -381,6 +381,7 @@ class MulliganPolicy(BaseModel):
     draw_count: int = Field(default=7, ge=0, le=20)  # cards drawn for each new hand
     shuffle_between_mulligans: bool = True
     cards_to_bottom: int = Field(default=1, ge=0, le=10)  # per counted mulligan, chosen when keeping
+    keep_bottom: int = Field(default=0, ge=0, le=10)  # put on the bottom of every kept hand, mulligan or not (Boston: draw 10, keep 7)
     partial_hand_selection: bool = False  # choose which cards of the hand to send back (and draw that many)
     set_aside_rejected_hands: bool = False  # rejected cards go to a private set-aside zone, not the library
     final_shuffle: bool = False  # after keeping, set-aside cards are shuffled into the library
