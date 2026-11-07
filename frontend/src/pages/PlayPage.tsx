@@ -195,7 +195,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [first, setFirst] = useState<string>("random");
   const [life, setLife] = useState<string>("40");
   const [lobby, setLobby] = useState(true);
-  const [seats, setSeats] = useState(4);
+  const seats = 4; // open seats: the room sets them (Table settings, once it is open)
   const [privacy, setPrivacy] = useState<"private" | "commander_only" | "public">("commander_only");
   const [mulligan, setMulligan] = useState("commander_london");
   const [policy, setPolicy] = useState<MulliganPolicy | null>(null);
@@ -364,7 +364,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             </li>
           </ul>
         ) : useLobby ? (
-          <ul className="pg-seats pg-lobby" aria-label="Seats">
+          <ul className="pg-seats pg-lobby pg-solo" aria-label="Your seat">
             <li className="pg-seat host">
               <div className="pg-plate">
                 <SeatChip color={COLORS[0]} text="1" />
@@ -375,27 +375,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               </div>
               <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
             </li>
-            <li className="pg-chairs">
-              {/* the open seats: a row of chairs and a stepper, not a box per empty seat */}
-              {/* the table seen from above: you at the near edge, the open chairs around the felt in turn order */}
-              <div className="pg-round" aria-label={`${seats} seat${seats > 1 ? "s" : ""}: you and ${seats - 1} open`} role="img" data-count={seats}>
-                <span className="pg-round-felt" aria-hidden />
-                {Array.from({ length: seats }, (_, k) => {
-                  const a = (k / seats) * 2 * Math.PI; // seat 1 at the bottom, then clockwise
-                  return (
-                    <span key={k} className={`pg-chair-dot ${k === 0 ? "you" : ""}`} title={k === 0 ? "You" : `Seat ${k + 1}: joins with the room code`}
-                      style={{ left: `${50 - 46 * Math.sin(a)}%`, top: `${50 + 40 * Math.cos(a)}%` }}>
-                      <Icon name="chair" size={20} /><b>{k + 1}</b>
-                    </span>
-                  );
-                })}
-              </div>
-              <div className="pg-stepper">
-                <button className="tt-btn" onClick={() => setSeats((n) => n - 1)} disabled={seats <= 1} aria-label="Remove a seat">−</button>
-                <b data-testid="seat-count">{seats}</b>
-                <button className="tt-btn" onClick={() => setSeats((n) => n + 1)} disabled={seats >= 6} aria-label="Add a seat">+</button>
-              </div>
-              <p className="pg-note">{seats === 1 ? "Just you: a solo table." : `${seats - 1} open seat${seats > 2 ? "s" : ""}. Friends join from their own computers with the room code and bring their own decks.`}</p>
+            <li className="pg-seats-later">
+              <p>The other seats open with the room. Friends take one from their own computers with the room code; you change how many in the room's Table settings.</p>
             </li>
           </ul>
         ) : (

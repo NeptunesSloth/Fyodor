@@ -137,7 +137,6 @@ test("2x crops: the format placards, the lobby's Format choice, the table's Sand
   await page.goto("/#/play");
   await settled(page, 600);
   await page.locator(".pg-formats").screenshot({ path: `${OUT}/${PREFIX}-crop2x-formats.png` });
-  await page.locator(".pg-chairs").screenshot({ path: `${OUT}/${PREFIX}-crop2x-chairs.png` }); // the table glyph by each open seat
   await page.getByTestId("format-sandbox").focus(); // the keyboard focus ring on a placard
   await page.keyboard.press("ArrowLeft");
   await settled(page, 200);
