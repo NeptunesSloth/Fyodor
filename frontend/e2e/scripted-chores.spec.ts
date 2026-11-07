@@ -70,7 +70,7 @@ test("library and hand chores, seat buttons, counter steppers, owner gem, exact 
 
   // exact copy keeps the counter; a borrowed card wears its owner's gem
   await island.click({ button: "right" });
-  await menuPath(page, "Create copy", "Exact copy");
+  await menuPath(page, "Table tools", "Create copy", "Exact copy");
   await expect.poll(async () => Object.values((await view()).cards).filter((c) => c.zone === "p1:battlefield" && c.counters?.charge === 1).length).toBe(2);
   await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "set_controller", card_ids: [islandId], player: "p2" } } });
   await expect(page.locator(`[data-card-id="${islandId}"] [data-testid="owner-gem"]`)).toHaveText("A");

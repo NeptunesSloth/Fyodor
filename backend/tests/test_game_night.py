@@ -253,6 +253,10 @@ def test_nudge_reaches_only_the_player_the_game_waits_on_and_is_rate_limited(tab
 def test_reactions_are_for_spectators_and_players_who_are_out(table):
     client, gid, alice, bob = table
     assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "👍"}, headers=h(alice)).status_code == 403
+    # emotes (fixed table talk) are for everyone at the table, players still in the game too; nothing else is free text
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "Nice!"}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "GG"}, headers=h(alice)).status_code == 429
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "Hello"}, headers=h(alice)).status_code == 422
     code = client.get(f"/api/games/{gid}").json()["code"]
     spectator = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
     assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "🔥"}, headers=h(spectator)).status_code == 200

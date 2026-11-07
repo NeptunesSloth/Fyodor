@@ -154,6 +154,10 @@ MIGRATIONS: list[str] = [
     ALTER TABLE game_results ADD COLUMN eliminations TEXT NOT NULL DEFAULT '[]';
     ALTER TABLE game_results ADD COLUMN final_board TEXT NOT NULL DEFAULT '[]';
     """,
+    # 10: -- deck folders -- the shelf groups decks into folders ('' = not in a folder)
+    """
+    ALTER TABLE decks ADD COLUMN folder TEXT NOT NULL DEFAULT '';
+    """,
 ]
 
 

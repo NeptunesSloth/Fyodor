@@ -17,6 +17,7 @@ const BASE: MulliganPolicy = {
   draw_count: 7,
   shuffle_between_mulligans: true,
   cards_to_bottom: 1,
+  keep_bottom: 0,
   partial_hand_selection: false,
   set_aside_rejected_hands: false,
   final_shuffle: false,
@@ -31,7 +32,7 @@ const storeKey = (rule: string) => `fyodor.mulligan.${rule}`;
 export function savedPolicy(rule: string): MulliganPolicy | null {
   try {
     const raw = localStorage.getItem(storeKey(rule));
-    return raw ? { ...BASE, ...(JSON.parse(raw) as Partial<MulliganPolicy>), id: rule, needs_definition: false } : null;
+    return raw ? { ...(rule === "boston_custom" ? BOSTON : BASE), ...(JSON.parse(raw) as Partial<MulliganPolicy>), id: rule, needs_definition: false } : null;
   } catch {
     return null;
   }
@@ -45,8 +46,12 @@ export function rememberPolicy(rule: string, policy: MulliganPolicy): void {
   }
 }
 
+/** The pod's Boston mulligan as the server presets it: every hand is 10 cards, keep 7 (3 to the bottom), first mulligan free. */
+export const BOSTON: MulliganPolicy = { ...BASE, id: "boston_custom", display_name: "Boston (Custom Pod)", starting_hand_size: 10, draw_count: 10,
+  keep_bottom: 3, free_mulligans: 1 };
+
 export function draftPolicy(rule: string): MulliganPolicy {
-  return savedPolicy(rule) ?? { ...BASE, id: rule, display_name: rule === "boston_custom" ? "Boston (Custom Pod)" : "Custom" };
+  return savedPolicy(rule) ?? (rule === "boston_custom" ? { ...BOSTON } : { ...BASE, id: rule, display_name: "Custom" });
 }
 
 /**
@@ -76,6 +81,7 @@ export function MulliganEditor({ value, onChange }: { value: MulliganPolicy; onC
         {num("starting_hand_size", "Opening hand", "Cards in the first hand")}
         {num("draw_count", "Cards per new hand", "Cards drawn for each hand after a mulligan")}
         {num("free_mulligans", "Free mulligans", "Mulligans that don't count toward cards put on the bottom", 0, 10)}
+        {num("keep_bottom", "Bottom every hand", "Cards put on the bottom of every kept hand, mulligan or not (Boston: draw 10, keep 7 → 3)", 0, 10)}
         {num("cards_to_bottom", "Bottom per mulligan", "Cards put on the bottom for each counted mulligan, chosen after keeping", 0, 10)}
         {num("minimum_hand_size", "Minimum kept hand", "A mulligan may not leave a smaller hand")}
         {num("max_mulligans", "Max mulligans", "Leave empty for no limit")}

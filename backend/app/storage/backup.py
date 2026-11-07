@@ -35,6 +35,10 @@ log = logging.getLogger(__name__)
 
 BACKUP_NAME = re.compile(r"^fyodor-(auto)?backup-\d{8}-\d{6}(-\d+)?\.zip$")
 AUTO_PREFIX = "fyodor-autobackup-"
+BROWSER_DECKS = "browser-decks.json"  # the host browser's "My decks" (kept in browser storage, not app.sqlite)
+RESTORED_BROWSER_DECKS = "restored-browser-decks.json"
+SYNCED_BROWSER_DECKS = "browser-decks.json"  # the host browser's latest copy, so automatic backups carry My decks too  # after a restore: waiting for the host's browser to take them back
+MAX_BROWSER_DECKS_BYTES = 32 * 1024 * 1024
 ASSET_NAME = re.compile(r"^assets/[0-9a-f]{64}\.(png|jpg|jpeg|webp)$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
 KEEP_BACKUPS = 12  # backups the host made by hand
@@ -117,9 +121,23 @@ def _unique(path: Path) -> Path:
     raise BackupError("Too many backups with the same name")
 
 
+def browser_decks_blob(decks: Any) -> bytes:
+    """The host browser's "My decks", checked: a JSON list of objects, within the size limit."""
+    if not isinstance(decks, list) or not all(isinstance(d, dict) for d in decks):
+        raise BackupError("My decks must be a list")
+    blob = json.dumps(decks).encode()
+    if len(blob) > MAX_BROWSER_DECKS_BYTES:
+        raise BackupError("My decks are too large to back up")
+    return blob
+
+
 def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_dir: Path, *, reason: str | None = None,
-                  copy_dir: Path | None = None) -> dict[str, Any]:
-    """A backup made by hand, or an automatic one when ``reason`` says why ("start-up", "after a recorded game" …)."""
+                  copy_dir: Path | None = None, browser_decks: list[Any] | None = None) -> dict[str, Any]:
+    """A backup made by hand, or an automatic one when ``reason`` says why ("start-up", "after a recorded game" …).
+    ``browser_decks``: the "My decks" of the browser that asked for the backup (they live in browser storage, so the
+    database alone would leave them behind when the pod moves to another computer)."""
+    synced = data_dir / SYNCED_BROWSER_DECKS
+    decks_blob = browser_decks_blob(browser_decks) if browser_decks is not None else synced.read_bytes() if synced.is_file() else None
     out_dir = backups_dir(data_dir)
     prefix = AUTO_PREFIX if reason else "fyodor-backup-"
     dest = _unique(out_dir / f"{prefix}{time.strftime('%Y%m%d-%H%M%S')}.zip")
@@ -130,6 +148,8 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
     try:
         with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.write(tmp_db, "app.sqlite")
+            if decks_blob is not None:
+                zf.writestr(BROWSER_DECKS, decks_blob)
             if assets_dir.is_dir():
                 for f in sorted(assets_dir.iterdir()):
                     if f.is_file() and ASSET_NAME.match(f"assets/{f.name}"):
@@ -137,7 +157,7 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
                         files += 1
             manifest = {"format": "fyodor-backup", "version": 1, "app_version": __version__,
                         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "schema_version": schema_version(tmp_db),
-                        "assets": files, **({"reason": reason} if reason else {})}
+                        "assets": files, "browser_decks": len(json.loads(decks_blob)) if decks_blob else 0, **({"reason": reason} if reason else {})}
             zf.writestr("manifest.json", json.dumps(manifest, indent=2))
     finally:
         tmp_db.unlink(missing_ok=True)
@@ -239,7 +259,7 @@ def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
         for info in zf.infolist():
             if info.is_dir():
                 continue
-            if info.filename not in ("manifest.json", "app.sqlite") and not ASSET_NAME.match(info.filename):
+            if info.filename not in ("manifest.json", "app.sqlite", BROWSER_DECKS) and not ASSET_NAME.match(info.filename):
                 raise BackupError(f"Unexpected file in backup: {info.filename[:80]}")
         if sum(i.file_size for i in zf.infolist()) > MAX_BACKUP_BYTES:
             raise BackupError("Backup is too large when unpacked")
@@ -273,8 +293,34 @@ def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
     if ok != "ok":
         shutil.rmtree(pending, ignore_errors=True)
         raise BackupError("The database in this backup is damaged")
+    decks = pending / BROWSER_DECKS
+    if decks.is_file():
+        try:
+            browser_decks_blob(json.loads(decks.read_bytes()))
+        except (ValueError, BackupError) as exc:
+            shutil.rmtree(pending, ignore_errors=True)
+            raise BackupError("The decks list in this backup is damaged") from exc
     return {"staged": True, "created_at": manifest.get("created_at"), "app_version": manifest.get("app_version"),
-            "restart_required": True}
+            "restart_required": True, "browser_decks": decks.is_file()}
+
+
+def restore_pending(data_dir: Path) -> bool:
+    """A restore is staged and waits for Fyodor to restart."""
+    return (_pending_dir(data_dir) / "app.sqlite").is_file()
+
+
+def take_restored_browser_decks(data_dir: Path, *, consume: bool) -> list[Any]:
+    """The "My decks" that came with the last restore, for the host's browser to merge in (``consume``: then forget them)."""
+    path = data_dir / RESTORED_BROWSER_DECKS
+    if not path.is_file():
+        return []
+    try:
+        decks = json.loads(path.read_bytes())
+    except ValueError:
+        decks = []
+    if consume:
+        path.unlink(missing_ok=True)
+    return decks if isinstance(decks, list) else []
 
 
 def apply_pending_restore(data_dir: Path, app_db: Path, assets_dir: Path) -> bool:
@@ -296,6 +342,9 @@ def apply_pending_restore(data_dir: Path, app_db: Path, assets_dir: Path) -> boo
     for f in (pending / "assets").iterdir():
         if f.is_file() and not (assets_dir / f.name).exists():
             shutil.move(str(f), assets_dir / f.name)
+    decks = pending / BROWSER_DECKS
+    if decks.is_file():
+        shutil.move(str(decks), data_dir / RESTORED_BROWSER_DECKS)
     shutil.rmtree(pending, ignore_errors=True)
     log.warning("Restored the database from a backup")
     return True

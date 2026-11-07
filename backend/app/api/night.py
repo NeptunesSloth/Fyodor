@@ -272,6 +272,7 @@ async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer
 # --------------------------------------------------------------------------- nudges, reactions and pings
 
 REACTIONS = ("👍", "😂", "😮", "🔥", "💀", "👏")
+EMOTES = ("Nice!", "GG", "Ouch", "Thinking…", "Hold on", "Well played", "Oops")  # short table talk from players still in the game
 NUDGE_COOLDOWN = 30.0  # seconds between nudges from one player, and to one player
 REACT_COOLDOWN = 3.0
 PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
@@ -279,7 +280,7 @@ PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
 
 class SignalIn(BaseModel):
     kind: Literal["nudge", "react", "ping"]
-    emoji: str | None = Field(default=None, max_length=8)
+    emoji: str | None = Field(default=None, max_length=16)
     as_player: str | None = Field(default=None, max_length=8)
     # a ping points at a card everyone can see, or at a spot on someone's battlefield (virtual units, as card x/y)
     card: str | None = Field(default=None, max_length=80)
@@ -341,12 +342,13 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
         last[f"ping:{actor}"] = now
         await _to_everyone(services, room, ping)
         return {"sent": True}
-    # reactions: from spectators and players already out of the game
-    if body.emoji not in REACTIONS:
+    # reactions: from spectators and players already out of the game; emotes (fixed table talk): from anyone at the table
+    emote = body.emoji in EMOTES
+    if body.emoji not in REACTIONS and not emote:
         raise HTTPException(422, "Unknown reaction")
     if not room.night.reactions:  # (spectator activities) the host's table-wide switch
         raise HTTPException(409, "The host has turned reactions off at this table")
-    if actor is not None and actor in remaining(state):
+    if actor is not None and actor in remaining(state) and not emote:
         raise HTTPException(403, "Reactions are for players who are out and spectators")
     if now - last.get(f"react:{who}", -1e9) < REACT_COOLDOWN:
         raise HTTPException(429, "One reaction every few seconds")

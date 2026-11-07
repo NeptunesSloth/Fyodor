@@ -55,6 +55,11 @@ def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
+    # 701.23a / 401.2: a rules decision that offers hidden cards (a search's legal finds) shows them to the one choosing, while
+    # they choose; the options already name them to that player only, and the search shuffles them away again afterwards
+    d = state.rules.decision if state.rules is not None else None
+    if d is not None and d.player == viewer and any(o.card_id == card.id for o in d.options):
+        return True
     return (zone == "library" and top_revealed(state, card, viewer)) or (zone == "hand" and hand_revealed(state, card))
 
 

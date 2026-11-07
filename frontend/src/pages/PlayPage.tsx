@@ -113,7 +113,7 @@ export function PlayPage({ route }: { route: Route }) {
   }, [invite, games]);
 
   // "Resume a game" on the launcher opens the shelf
-  const shelf = useRef<HTMLElement>(null);
+  const shelf = useRef<HTMLDetailsElement>(null);
   const wantsShelf = route.query.get("tab") === "saves";
   useEffect(() => {
     if (!wantsShelf || host === null) return;
@@ -137,8 +137,8 @@ export function PlayPage({ route }: { route: Route }) {
         <aside className="pg-side">
           <JoinGame key={invite ? `${invite.code} ${invite.action}` : "door"} invite={invite} askPassword={askPassword} />
           {host && <NearbyGames deckCount={decks.length} />}
-          <section className="pg-shelf" ref={shelf} aria-labelledby="pg-shelf-title">
-            <h2 id="pg-shelf-title" tabIndex={-1}>Tables in progress</h2>
+          <details className="pg-shelf" ref={shelf} open={wantsShelf || host === false || undefined /* a guest joins from here: open */}>
+            <summary><h2 id="pg-shelf-title" tabIndex={-1}>Tables in progress <span className="pg-n">{games?.length ?? 0}</span></h2></summary>
             {!games?.length ? (
               <p className="pg-empty">No tables are open. A game shows up here while it's being played.</p>
             ) : (
@@ -146,10 +146,11 @@ export function PlayPage({ route }: { route: Route }) {
                 {orderGames(games).map((g) => <TableTile key={g.id} game={g} host={host} onClosed={refresh} />)}
               </ul>
             )}
-            {host && (
-              <>
-                <div className="pg-shelf-head">
-                  <h2>Saved games</h2>
+          </details>
+          {host && (
+            <details className="pg-shelf" open={wantsShelf || undefined}>
+              <summary className="pg-shelf-head">
+                  <h2>Saved games <span className="pg-n">{saves.length}</span></h2>
                   <label className="tt-btn ghost pg-import" title="Import a .fyodor.zip game package from another pod computer">
                     Import package…
                     <input type="file" accept=".zip,application/zip" hidden data-testid="package-import" onChange={async (e) => {
@@ -165,7 +166,7 @@ export function PlayPage({ route }: { route: Route }) {
                       }
                     }} />
                   </label>
-                </div>
+              </summary>
                 {saves.length === 0 ? (
                   <p className="pg-empty">Nothing saved yet. Games autosave while you play.</p>
                 ) : (
@@ -173,9 +174,8 @@ export function PlayPage({ route }: { route: Route }) {
                     {saves.map((s) => <SaveTile key={s.id} save={s} onDeleted={refresh} />)}
                   </ul>
                 )}
-              </>
-            )}
-          </section>
+            </details>
+          )}
           {host && <LanHint />}
         </aside>
       </div>
@@ -187,6 +187,16 @@ export function PlayPage({ route }: { route: Route }) {
  * A new game is a LAN night: the pod joins from their own computers with the room code (the host alone at the table is solo
  * testing). Its format is Commander, or Sandbox: free play with the same Commander decks.
  */
+/** -- same as last time -- the host's last table setup (this browser only; never the password). */
+const LAST_NIGHT = "fyodor.lastNight";
+interface LastNight {
+  name: string; format: TableFormat; life: string; lobby: boolean; privacy: "private" | "commander_only" | "public"; mulligan: string;
+  policy: MulliganPolicy | null; helper: "off" | "simple"; automation: AutomationLevel; hostDeck: string | null; players: CreatePlayer[];
+}
+const lastNight = (): LastNight | null => {
+  try { return JSON.parse(localStorage.getItem(LAST_NIGHT) ?? "null") as LastNight | null; } catch { return null; }
+};
+
 function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string | null }) {
   const [name, setName] = useState("Commander night");
   const [format, setFormat] = useState<TableFormat>("commander");
@@ -195,7 +205,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [first, setFirst] = useState<string>("random");
   const [life, setLife] = useState<string>("40");
   const [lobby, setLobby] = useState(true);
-  const [seats, setSeats] = useState(4);
+  const seats = 4; // open seats: the room sets them (Table settings, once it is open)
   const [privacy, setPrivacy] = useState<"private" | "commander_only" | "public">("commander_only");
   const [mulligan, setMulligan] = useState("commander_london");
   const [policy, setPolicy] = useState<MulliganPolicy | null>(null);
@@ -238,6 +248,21 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     return m;
   }, [players, picking]);
 
+  const remember = () => {
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players };
+    try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
+  };
+  const [last] = useState(lastNight);
+  const sameAsLast = () => {
+    if (!last) return;
+    const known = (id: string | null) => (id && decks.some((d) => d.id === id) ? id : null); // a deck deleted since: none
+    setName(last.name); setFormat(last.format); setLife(last.life); setLobby(last.lobby); setPrivacy(last.privacy);
+    setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
+    setHostDeck(known(last.hostDeck));
+    if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
+    toast("Set up as last time");
+  };
+
   const start = async () => {
     setBusy(true);
     try {
@@ -262,6 +287,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
         if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
+        remember();
         navigate(`/game/${res.game.id}`);
         return;
       }
@@ -287,6 +313,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
       if (configurable && policy) rememberPolicy(mulligan, policy);
       if (res.seat) rememberSeat(res.game.id, res.seat.token);
       if (useLobby && hostDeck && res.seat) await submitLobbyDeck(res.game.id, { deck_id: hostDeck }).catch(toastError);
+      remember();
       navigate(`/game/${res.game.id}`);
     } catch (e) {
       toastError(e);
@@ -305,10 +332,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             <h1 id="pg-new-title">{sandbox ? "Test a deck" : "Host a LAN night"}</h1>
             <p>{sandbox ? "Just you and your deck at the table. Nobody joins; nothing is checked." : "The pod joins from their own computers with the room code."}</p>
           </div>
-          {!sandbox && <label className="pg-pass">
-            <span>Password</span>
-            <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="No password" autoComplete="new-password" />
-          </label>}
+          {last && <button className="tt-btn ghost pg-same" data-testid="same-as-last" onClick={sameAsLast}
+            title={`${last.name}: ${last.format === "sandbox" ? "Sandbox" : "Commander"}, ${last.mulligan.replace(/_/g, " ")}, ${last.automation} automation`}>Same as last time</button>}
         </header>
 
         <div className="pg-formats" role="radiogroup" aria-label="Format" data-testid="table-format">
@@ -368,36 +393,16 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             </li>
           </ul>
         ) : useLobby ? (
-          <ul className="pg-seats pg-lobby" aria-label="Seats">
-            <li className="pg-seat host">
-              <div className="pg-plate">
-                <SeatChip color={COLORS[0]} text="1" />
-                <label className="pg-name-field">
-                  <span className="pg-name-label">Your name</span>
-                  <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
-                </label>
-              </div>
-              <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
-            </li>
-            <li className="pg-chairs">
-              <ul aria-label="Open seats" data-count={seats}>
-                {Array.from({ length: seats - 1 }, (_, k) => (
-                  <li key={k} className="pg-chair">
-                    <span className="pg-chair-seat"><Icon name="chair" size={22} /><b>{k + 2}</b></span>
-                    <span className="pg-chair-text"><b>Open seat</b><span>Joins with the room code</span></span>
-                    {seats > 1 && (
-                      <button className="tt-icon pg-remove" onClick={() => setSeats((n) => n - 1)} aria-label="Remove a seat" title="Remove a seat"><Icon name="close" size={14} /></button>
-                    )}
-                  </li>
-                ))}
-                {seats < 6 && (
-                  <li className="pg-add-wrap">
-                    <button className="pg-add" onClick={() => setSeats((n) => n + 1)}><Icon name="plus" size={18} />Add a seat</button>
-                  </li>
-                )}
-              </ul>
-            </li>
-          </ul>
+          // only your own seat until the room opens: one compact row (the others take theirs with the room code)
+          <div className="pg-you" aria-label="Your seat">
+            <SeatChip color={COLORS[0]} text="1" />
+            <label className="pg-name-field">
+              <span className="pg-name-label">Your name</span>
+              <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
+            </label>
+            <YouDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
+            <p className="pg-you-note">Friends take the other seats with the room code once it's open.</p>
+          </div>
         ) : (
           <ul className="pg-seats pg-dealt" aria-label="Seats">
             {players.map((p, i) => {
@@ -457,6 +462,10 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 
         <footer className="pg-rail">
           <div className="pg-rules">
+            {!sandbox && <label className="pg-rule pg-pass">
+              <span>Password</span>
+              <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" autoComplete="new-password" />
+            </label>}
             <label className="pg-rule">
               <span>Starting life</span>
               <input type="number" value={life} min={1} onChange={(e) => setLife(e.target.value)} placeholder="40" />
@@ -529,6 +538,23 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 }
 
 /** The host's own lobby seat: the deck they bring (chosen here, or later in the lobby like everyone else). */
+/** Your deck on a LAN night, in one row: its commander's art small, its name, Change. */
+function YouDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void }) {
+  return (
+    <span className="pg-you-deck">
+      <button className={`pg-you-art ${deck ? "" : "no-deck"}`} onClick={onPick} disabled={!canPick} aria-label={deck ? `Your deck: ${deckTitle(deck)}. Change it` : "Choose your deck"}>
+        {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : <CardFace faceDown />}
+      </button>
+      <span className="pg-you-deck-text">
+        <span className="pg-name-label">Your deck</span>
+        {deck ? <b title={deckTitle(deck)}>{deckTitle(deck)}</b>
+          : canPick ? <button className="tt-link" onClick={onPick}>Choose a deck</button> : <span className="pg-note">Bring one in the room</span>}
+        {deck && <span className="pg-you-deck-acts"><button className="tt-link" onClick={onPick}>Change</button><button className="tt-link" onClick={onClear}>Bring one in the room instead</button></span>}
+      </span>
+    </span>
+  );
+}
+
 function HostDeck({ deck, canPick, onPick, onClear, note = "You host. Choose your deck here or in the lobby." }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void; note?: string }) {
   return (
     <>

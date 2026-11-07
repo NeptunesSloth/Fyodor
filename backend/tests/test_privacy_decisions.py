@@ -107,6 +107,10 @@ def test_library_search(cards):
     bob = json.dumps(s.view("p2"))
     assert not any(cid in bob for cid in options)
     assert s.view("p2")["rules"]["decision"]["kind"] == "waiting"
+    # the one searching sees the cards they may find (the tray draws them), and only while choosing
+    finds = [o["card_id"] for o in alice_decision(s)["options"] if o.get("card_id")]
+    assert finds and all(s.view("p1")["cards"][cid].get("name") for cid in finds)
+    assert not any(cid in json.dumps(s.view("p2")) for cid in finds)
 
 
 def test_look_at_the_top_cards(cards):

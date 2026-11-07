@@ -301,7 +301,19 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     const label = card.ability ? "Remove ability" : card.copy_of && !card.is_token ? "Remove copy" : stackSize(card) > 1 ? `Remove all ${stackSize(card)} tokens` : "Remove token";
     items.push({ label, danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
   }
-  return { title, items };
+  return { title, items: zone === "battlefield" ? tucked(items) : items };
+}
+
+/** Rarely used table rows, tucked into one submenu so a permanent's menu stays short. */
+const TUCKED = new Set(["Flip 180°", "Put ability on stack…", "Set power/toughness…", "Target / point to…", "Arrange", "Choices",
+  "Create tokens from this…", "Create copy"]);
+function tucked(items: MenuItem[]): MenuItem[] {
+  const isTucked = (i: MenuItem) => i !== "separator" && TUCKED.has(i.label);
+  const at = items.findIndex(isTucked);
+  if (at < 0) return items;
+  const rest = items.filter((i) => !isTucked(i));
+  rest.splice(at, 0, { label: "Table tools", submenu: items.filter(isTucked) });
+  return rest;
 }
 
 /** Separate copies one action makes (actions.MAX_SEPARATE_COPIES); more are one card ×N (a stack), only while automation is paused. */

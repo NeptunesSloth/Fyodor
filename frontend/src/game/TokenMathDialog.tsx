@@ -91,6 +91,18 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
   const apply: ApplyMode = automation ? "engine" : player !== me || view.viewer === SPECTATOR ? "other" : "yours";
   const key = keyLabel("token_math", keymap);
   const name = view.players.find((p) => p.id === player)?.name ?? "";
+  const fields = <>
+    {tab === "landfall" && <>
+      <NumberField label="Lands" value={board.lands} onChange={(n) => set({ lands: n })} testId="tm-lands"
+        title={read.creaturesAreLands ? "Lands you control, counting your nontoken creatures (Ashaya)" : "Lands you control"} />
+      <NumberField label="Scute Swarms" value={board.swarms} onChange={(n) => set({ swarms: n })} testId="tm-swarms" />
+      <NumberField label="Triggers per land" value={board.triggers} min={1} max={64} onChange={(n) => set({ triggers: n })} testId="tm-triggers"
+        title="1, plus one for each Ancient Greenwarden, Traveling Chocobo or Yarok (603.2d)" />
+    </>}
+    <NumberField label="Extra doublers" value={over.doublers ?? 0} max={20} onChange={(n) => set({ doublers: n })} testId="tm-doublers"
+      title="Try it with more token doublers (each ×2), e.g. a Parallel Lives still in your hand" />
+    {edited && <button className="btn" onClick={() => setOver({})}>Back to the board</button>}
+  </>;
 
   return (
     <Modal title="Token math" wide onClose={onClose}
@@ -114,26 +126,14 @@ export function TokenMathDialog({ onClose }: { onClose: () => void }) {
         </label>
       </div>
 
-      <Multipliers board={board} read={read} factorC={factorC} factorO={factorO} />
-      <LoadLine load={load} />
+      {tab !== "landfall" && <Multipliers board={board} read={read} factorC={factorC} factorO={factorO} />}
+      {tab !== "landfall" && <LoadLine load={load} />}
 
-      {tab !== "board" && (
-        <div className="tm-row">
-          {tab === "landfall" && <>
-            <NumberField label="Lands" value={board.lands} onChange={(n) => set({ lands: n })} testId="tm-lands"
-              title={read.creaturesAreLands ? "Lands you control, counting your nontoken creatures (Ashaya)" : "Lands you control"} />
-            <NumberField label="Scute Swarms" value={board.swarms} onChange={(n) => set({ swarms: n })} testId="tm-swarms" />
-            <NumberField label="Triggers per land" value={board.triggers} min={1} max={64} onChange={(n) => set({ triggers: n })} testId="tm-triggers"
-              title="1, plus one for each Ancient Greenwarden, Traveling Chocobo or Yarok (603.2d)" />
-          </>}
-          <NumberField label="Extra doublers" value={over.doublers ?? 0} max={20} onChange={(n) => set({ doublers: n })} testId="tm-doublers"
-            title="Try it with more token doublers (each ×2), e.g. a Parallel Lives still in your hand" />
-          {edited && <button className="btn" onClick={() => setOver({})}>Back to the board</button>}
-        </div>
-      )}
+      {tab !== "board" && tab !== "landfall" && <div className="tm-row">{fields}</div>}
 
       {tab === "landfall" && (
-        <LandfallTab board={board} enter={enter} setEnter={setEnter} together={together} setTogether={setTogether}
+        <LandfallTab fields={fields} edited={edited} mult={<Multipliers board={board} read={read} factorC={factorC} factorO={factorO} />}
+          load={<LoadLine load={load} />} name={name} board={board} enter={enter} setEnter={setEnter} together={together} setTogether={setTogether}
           skip={skip} setSkip={setSkip} target={target} setTarget={setTarget} automation={automation}
           setLandNames={(n) => set({ landNames: n })} sacrificed={sacrificed} setSacrificed={setSacrificed}
           graveyard={graveyardLands(view, player, (id) => cache[id])} apply={apply} me={me}
@@ -233,8 +233,8 @@ function Multipliers({ board, read, factorC, factorO }: { board: Board; read: Bo
   ];
   return (
     <div className="tm-mult" data-testid="tm-multipliers">
-      <span className="tm-mult-head">Each creation: <b>×{fmt(factorC)}</b> creature tokens{factorO !== factorC ? <>, <b>×{fmt(factorO)}</b> other tokens</> : null}</span>
-      {chips.length === 0 && <span className="hint">No token or trigger doublers on this board.</span>}
+      {chips.length === 0 ? <span className="hint">No token or trigger doublers on this board.</span>
+        : <span className="tm-mult-head">Each creation: <b>×{fmt(factorC)}</b> creature tokens{factorO !== factorC ? <>, <b>×{fmt(factorO)}</b> other tokens</> : null}</span>}
       {chips.map((c) => <span key={c.k} className="tm-chip" title={c.what}>{c.label} <small>{c.what}</small></span>)}
     </div>
   );
@@ -250,8 +250,9 @@ function SlowNote({ triggers, objects, automation }: { triggers: number; objects
   );
 }
 
-function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setSkip, target, setTarget, automation, setLandNames, sacrificed, setSacrificed,
+function LandfallTab({ fields, edited, mult, load, name, board, enter, setEnter, together, setTogether, skip, setSkip, target, setTarget, automation, setLandNames, sacrificed, setSacrificed,
   graveyard, apply, me, related }: {
+  fields: React.ReactNode; edited: boolean; mult: React.ReactNode; load: React.ReactNode; name: string;
   board: Board; enter: number; setEnter: (n: number) => void; together: boolean; setTogether: (b: boolean) => void;
   skip: string[]; setSkip: (s: string[]) => void; target: number; setTarget: (n: number) => void; automation: boolean; setLandNames: (n: number) => void;
   sacrificed: number; setSacrificed: (n: number) => void; graveyard: number; apply: ApplyMode; me: string;
@@ -269,105 +270,155 @@ function LandfallTab({ board, enter, setEnter, together, setTogether, skip, setS
   const hasPlants = board.makers.some((m) => m.kind === "plant_counters");
   const hasTifa = board.makers.some((m) => m.kind === "double_power");
   const shown = steps.length > 40 ? [...steps.slice(0, 20), null, ...steps.slice(-19)] : steps;
+  const nothing = board.swarms === 0 && board.makers.length === 0 && Object.keys(sum.tokens).length === 0 && sum.mana === 0;
+  const how = together ? `${enter} land${enter === 1 ? "" : "s"} at once` : `${enter} land${enter === 1 ? "" : "s"}, one at a time`;
+  const tiles: { k: string; n: string; label: string; plus?: string }[] = [
+    ...(board.swarms > 0 ? [{ k: "sw", n: fmt(last?.swarms ?? board.swarms), label: "Scute Swarms", plus: `+${fmt(sum.newSwarms)}` }] : []),
+    ...(sum.insects > 0 ? [{ k: "in", n: `+${fmt(sum.insects)}`, label: "Insects" }] : []),
+    ...Object.entries(sum.tokens).map(([l, n]) => ({ k: `t-${l}`, n: `+${fmt(n)}`, label: l })),
+    ...(sum.extra > 0 ? [{ k: "ex", n: `+${fmt(sum.extra)}`, label: "extra tokens" }] : []),
+    ...(sum.mana > 0 ? [{ k: "mana", n: `+${fmt(sum.mana)}`, label: "mana" }] : []),
+    { k: "tr", n: fmt(sum.triggers), label: sum.triggers === 1 ? "trigger" : "triggers" },
+  ];
   return (
     <>
-      <div className="tm-row">
-        <NumberField label="Lands entering" value={enter} min={1} max={together ? 500 : 60} onChange={setEnter} testId="tm-enter" />
-        <div className="seg" role="group" aria-label="How they enter">
-          <button className={!together ? "on" : ""} onClick={() => setTogether(false)} data-testid="tm-one-at-a-time" title="Land drops, fetch lands, Azusa: each land resolves before the next">One at a time</button>
-          <button className={together ? "on" : ""} onClick={() => setTogether(true)} data-testid="tm-all-at-once" title="Lumra, Scapeshift, Splendid Reclamation: every land enters in one event">All at once</button>
-        </div>
-        {together && (
-          <NumberField label="Sacrificed first" value={sacrificed} max={board.lands} onChange={setSacrificed} testId="tm-sacrificed"
-            title="Scapeshift: the lands you sacrifice leave before the new ones enter, so the lands you control end where they started" />
+      {/* the answer first: what this many lands makes */}
+      <section className={`tm-result ${nothing ? "quiet" : ""}`} aria-live="polite">
+        <p className="tm-result-head">Play <b>{how}</b>{nothing ? null : <> and you get</>}</p>
+        {nothing ? (
+          <p className="tm-result-none">Nothing on {name ? `${name}'s` : "this"} board makes tokens on landfall. Type a number of Scute Swarms
+            below to try a line before you play it.</p>
+        ) : (
+          <div className="tm-tiles">
+            {tiles.map((t) => (
+              <div key={t.k} className={`tm-tile ${t.k === "sw" ? "main" : ""} ${t.k === "tr" ? "dim" : ""}`}>
+                <span className="tm-tile-n">{t.n}</span>
+                <span className="tm-tile-l">{t.label}{t.plus && <small> ({t.plus})</small>}</span>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
-      <div className="tm-quick" role="group" aria-label="Quick setups">
-        <button className="btn" disabled={graveyard === 0} onClick={() => allAtOnce(graveyard, 0)} data-testid="tm-graveyard"
-          title="Land cards in this player's graveyard (public), returned all at once">
-          Lands in graveyard: <b>{graveyard}</b> — all at once <small>(Lumra, Splendid Reclamation)</small>
-        </button>
-        <span className="tm-quick-scape">
-          <button className="btn" disabled={shift < 1 || board.lands < 1} onClick={() => allAtOnce(Math.min(shift, board.lands), Math.min(shift, board.lands))} data-testid="tm-scapeshift"
-            title="Sacrifice that many lands, then that many enter at once: the lands you control end where they started">
-            Scapeshift
-          </button>
-          <label className="tm-inline-num">sacrificing
-            <input type="number" min={1} max={Math.max(1, board.lands)} value={shift} aria-label="Lands sacrificed to Scapeshift"
-              onChange={(e) => setShift(num(e.target.value, 1, Math.max(1, board.lands)))} data-testid="tm-scapeshift-n" />
-          </label>
-        </span>
-      </div>
-      {board.makers.length > 0 && (
-        <div className="tm-makers">
-          {board.makers.map((m) => (
-            <label key={m.name} className="tm-maker" title={m.needsSevenNames ? "Needs seven or more lands with different names" : m.optional ? "A \"you may\": counted as yes" : undefined}>
-              <input type="checkbox" checked={!skip.includes(m.name)} onChange={(e) => setSkip(e.target.checked ? skip.filter((s) => s !== m.name) : [...skip, m.name])} />
-              {m.name}{m.count > 1 ? ` ×${m.count}` : ""} <small>{m.kind === "tokens" ? `${m.amount > 1 ? `${m.amount} ` : ""}${m.label}` : m.label}</small>
-              {m.needsSevenNames && (
-                <span className="tm-names" onClick={(e) => e.preventDefault()}>
-                  — {board.landNames} names{board.landNames < 7 ? " (off)" : ""}
-                  <input type="number" min={0} max={99} value={board.landNames} aria-label="Lands with different names" onChange={(e) => setLandNames(num(e.target.value, 0, 99))} />
-                </span>
-              )}
-            </label>
-          ))}
-        </div>
-      )}
-      <table className="shortcuts tm-table" data-testid="tm-steps">
-        <thead>
-          <tr>
-            <th>{together ? "Event" : "Land"}</th><th>Lands</th><th>Triggers</th><th>Scute Swarms</th>
-            {sum.insects > 0 && <th>Insects</th>}
-            {otherLabels.map((l) => <th key={l}>{l}</th>)}
-            {sum.extra > 0 && <th>Extra</th>}
-            {sum.mana > 0 && <th>Mana</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((s, i) => s === null ? (
-            <tr key="gap"><td colSpan={8} className="hint">…</td></tr>
-          ) : (
-            <tr key={i}>
-              <td>{together ? `${s.entered} land${s.entered === 1 ? "" : "s"}${sacrificed ? ` (${Math.min(sacrificed, board.lands)} sacrificed first)` : ""}` : `#${steps.indexOf(s) + 1}`}</td>
-              <td>{fmt(s.lands)}</td>
-              <td>{fmt(s.triggers)}</td>
-              <td><b>{fmt(s.swarms)}</b>{s.newSwarms ? <small> (+{fmt(s.newSwarms)})</small> : null}</td>
-              {sum.insects > 0 && <td>{s.insects ? `+${fmt(s.insects)}` : ""}</td>}
-              {otherLabels.map((l) => <td key={l}>{s.tokens[l] ? `+${fmt(s.tokens[l]!)}` : ""}</td>)}
-              {sum.extra > 0 && <td>{s.extra ? `+${fmt(s.extra)}` : ""}</td>}
-              {sum.mana > 0 && <td>{s.mana ? `+${fmt(s.mana)}` : ""}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="tm-sum" data-testid="tm-total">
-        In all: <b>{fmt(sum.triggers)}</b> triggers
-        {board.swarms > 0 && <>, <b>{fmt(last?.swarms ?? board.swarms)}</b> Scute Swarms (+{fmt(sum.newSwarms)})</>}
-        {sum.insects > 0 && <>, {fmt(sum.insects)} Insects</>}
-        {Object.entries(sum.tokens).map(([l, n]) => <span key={l}>, {fmt(n)} {l}</span>)}
-        {sum.extra > 0 && <>, {fmt(sum.extra)} extra tokens</>}
-        {sum.mana > 0 && <>, {fmt(sum.mana)} mana</>}
-        {hasPlants && <>, +{fmt(steps.reduce((a, s) => a + s.plantCounters, 0))} counters on each Plant ({board.plants} now)</>}
-        {hasTifa && <>, power doubled {fmt(steps.reduce((a, s) => a + s.doublings, 0))} times (×{fmt(2 ** steps.reduce((a, s) => a + s.doublings, 0))})</>}
-        .
-      </p>
-      <ApplyBar mode={apply} label="Put this on the table" testId="tm-apply" disabled={!plan.steps.length}
-        why={plan.steps.length ? "Play the lands yourself; mana and counters are yours to add." : plan.skipped[0] ? `Nothing to make here: ${plan.skipped[0]}.` : "No tokens in this projection."}
-        onApply={() => void putOnTable(`Put on your battlefield (${together ? `${enter} land${enter === 1 ? "" : "s"} at once` : `${enter} land${enter === 1 ? "" : "s"}, one at a time`}):`,
-          plan.steps, plan.skipped)} />
-      {board.swarms > 0 && (
-        <div className="tm-row">
-          <NumberField label="Swarms wanted" value={target} min={1} onChange={setTarget} testId="tm-target" />
-          <span data-testid="tm-until">{until === null ? "Out of reach one land at a time." : until === 0 ? "You're there." : `${until} more land${until > 1 ? "s" : ""}, one at a time.`}</span>
-        </div>
-      )}
+        {/* (a plain sentence too: screen readers and the browser tests read this one) */}
+        <p className={`tm-sum ${hasPlants || hasTifa ? "" : "tm-sr"}`} data-testid="tm-total">
+          {fmt(sum.triggers)} triggers
+          {board.swarms > 0 && <>, <b>{fmt(last?.swarms ?? board.swarms)}</b> Scute Swarms (+{fmt(sum.newSwarms)})</>}
+          {sum.insects > 0 && <>, {fmt(sum.insects)} Insects</>}
+          {Object.entries(sum.tokens).map(([l, n]) => <span key={l}>, {fmt(n)} {l}</span>)}
+          {sum.extra > 0 && <>, {fmt(sum.extra)} extra tokens</>}
+          {sum.mana > 0 && <>, {fmt(sum.mana)} mana</>}
+          {hasPlants && <>, +{fmt(steps.reduce((a, s) => a + s.plantCounters, 0))} counters on each Plant ({board.plants} now)</>}
+          {hasTifa && <>, power doubled {fmt(steps.reduce((a, s) => a + s.doublings, 0))} times (×{fmt(2 ** steps.reduce((a, s) => a + s.doublings, 0))})</>}
+          .
+        </p>
+        {board.swarms > 0 && (
+          <p className="tm-until">
+            <label className="tm-inline-num">Want
+              <input type="number" min={1} value={target} onChange={(e) => setTarget(num(e.target.value, 1))} data-testid="tm-target" aria-label="Swarms wanted" />
+              Swarms?</label>
+            <span data-testid="tm-until">{until === null ? "Out of reach one land at a time." : until === 0 ? "You're there." : `${until} more land${until > 1 ? "s" : ""}, one at a time.`}</span>
+          </p>
+        )}
+        <ApplyBar mode={apply} label="Put this on the table" testId="tm-apply" disabled={!plan.steps.length}
+          why={plan.steps.length ? "Play the lands yourself; mana and counters are yours to add." : plan.skipped[0] ? `Nothing to make here: ${plan.skipped[0]}.` : "No tokens in this projection."}
+          onApply={() => void putOnTable(`Put on your battlefield (${how}):`, plan.steps, plan.skipped)} />
+      </section>
       <SlowNote triggers={Math.max(0, ...steps.map((s) => s.triggers))} objects={objects} automation={automation} />
-      <p className="hint">
-        Each land is one landfall event (603.2c): lands entering together trigger every Scute Swarm once per land, but the copies they make
-        weren't there yet and don't trigger (603.10). One at a time, the copies trigger on the next land, so the count grows exponentially.
-        Six lands is checked as each trigger resolves; Scapeshift sacrifices before the new lands enter, so the check sees the count you started with.
-      </p>
+
+      <div className="tm-cols">
+        <fieldset className="tm-card">
+          <legend>1 · The lands you play</legend>
+          <div className="tm-row">
+            <NumberField label="How many" value={enter} min={1} max={together ? 500 : 60} onChange={setEnter} testId="tm-enter" />
+            <div className="seg" role="group" aria-label="How they enter">
+              <button className={!together ? "on" : ""} onClick={() => setTogether(false)} data-testid="tm-one-at-a-time" title="Land drops, fetch lands, Azusa: each land resolves before the next">One at a time</button>
+              <button className={together ? "on" : ""} onClick={() => setTogether(true)} data-testid="tm-all-at-once" title="Lumra, Scapeshift, Splendid Reclamation: every land enters in one event">All at once</button>
+            </div>
+            {together && (
+              <NumberField label="Sacrificed first" value={sacrificed} max={board.lands} onChange={setSacrificed} testId="tm-sacrificed"
+                title="Scapeshift: the lands you sacrifice leave before the new ones enter, so the lands you control end where they started" />
+            )}
+          </div>
+          <p className="tm-card-sub">Or set it up as:</p>
+          <div className="tm-quick" role="group" aria-label="Quick setups">
+            <button className="btn" disabled={graveyard === 0} onClick={() => allAtOnce(graveyard, 0)} data-testid="tm-graveyard"
+              title="Lumra, Splendid Reclamation: every land card in this player's graveyard (public) returns at once">
+              {graveyard ? `Return ${graveyard} from graveyard` : "No lands in graveyard"}
+            </button>
+            <span className="tm-quick-scape">
+              <button className="btn" disabled={shift < 1 || board.lands < 1} onClick={() => allAtOnce(Math.min(shift, board.lands), Math.min(shift, board.lands))} data-testid="tm-scapeshift"
+                title="Sacrifice that many lands, then that many enter at once: the lands you control end where they started">
+                Scapeshift
+              </button>
+              <input type="number" min={1} max={Math.max(1, board.lands)} value={shift} aria-label="Lands sacrificed to Scapeshift"
+                onChange={(e) => setShift(num(e.target.value, 1, Math.max(1, board.lands)))} data-testid="tm-scapeshift-n" />
+            </span>
+          </div>
+        </fieldset>
+        <fieldset className="tm-card">
+          <legend>2 · {name ? `${name}'s board` : "The board"} <small>{edited ? "(edited)" : "(read from the table)"}</small></legend>
+          <div className="tm-row">{fields}</div>
+          {mult}
+          {board.makers.length > 0 && (
+            <div className="tm-makers">
+              {board.makers.map((m) => (
+                <label key={m.name} className="tm-maker" title={m.needsSevenNames ? "Needs seven or more lands with different names" : m.optional ? "A \"you may\": counted as yes" : undefined}>
+                  <input type="checkbox" checked={!skip.includes(m.name)} onChange={(e) => setSkip(e.target.checked ? skip.filter((s) => s !== m.name) : [...skip, m.name])} />
+                  {m.name}{m.count > 1 ? ` ×${m.count}` : ""} <small>{m.kind === "tokens" ? `${m.amount > 1 ? `${m.amount} ` : ""}${m.label}` : m.label}</small>
+                  {m.needsSevenNames && (
+                    <span className="tm-names" onClick={(e) => e.preventDefault()}>
+                      — {board.landNames} names{board.landNames < 7 ? " (off)" : ""}
+                      <input type="number" min={0} max={99} value={board.landNames} aria-label="Lands with different names" onChange={(e) => setLandNames(num(e.target.value, 0, 99))} />
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+          {load}
+        </fieldset>
+      </div>
+
+      {!nothing && (
+        <details className="tm-more">
+          <summary>Land by land ({steps.length} step{steps.length === 1 ? "" : "s"})</summary>
+          <table className="shortcuts tm-table" data-testid="tm-steps">
+            <thead>
+              <tr>
+                <th>{together ? "Event" : "Land"}</th><th>Lands</th><th>Triggers</th><th>Scute Swarms</th>
+                {sum.insects > 0 && <th>Insects</th>}
+                {otherLabels.map((l) => <th key={l}>{l}</th>)}
+                {sum.extra > 0 && <th>Extra</th>}
+                {sum.mana > 0 && <th>Mana</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((s, i) => s === null ? (
+                <tr key="gap"><td colSpan={8} className="hint">…</td></tr>
+              ) : (
+                <tr key={i}>
+                  <td>{together ? `${s.entered} land${s.entered === 1 ? "" : "s"}${sacrificed ? ` (${Math.min(sacrificed, board.lands)} sacrificed first)` : ""}` : `#${steps.indexOf(s) + 1}`}</td>
+                  <td>{fmt(s.lands)}</td>
+                  <td>{fmt(s.triggers)}</td>
+                  <td><b>{fmt(s.swarms)}</b>{s.newSwarms ? <small> (+{fmt(s.newSwarms)})</small> : null}</td>
+                  {sum.insects > 0 && <td>{s.insects ? `+${fmt(s.insects)}` : ""}</td>}
+                  {otherLabels.map((l) => <td key={l}>{s.tokens[l] ? `+${fmt(s.tokens[l]!)}` : ""}</td>)}
+                  {sum.extra > 0 && <td>{s.extra ? `+${fmt(s.extra)}` : ""}</td>}
+                  {sum.mana > 0 && <td>{s.mana ? `+${fmt(s.mana)}` : ""}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+      <details className="tm-more">
+        <summary>Why one at a time grows faster</summary>
+        <p className="hint">
+          Each land is one landfall event (603.2c). Lands entering together trigger every Scute Swarm once per land, but the copies they make
+          weren't there yet, so they don't trigger (603.10). One at a time, the new copies trigger on the next land, so the count doubles each land.
+          The "six or more lands" check happens as each trigger resolves; Scapeshift sacrifices before the new lands enter, so the check sees the
+          count you started with.
+        </p>
+      </details>
     </>
   );
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast, toastError } from "../components/Toasts";
 import type { Signal } from "../services/gameSocket";
-import { REACTIONS, sendSignal } from "../services/night";
+import { openMenu } from "../components/ContextMenu";
+import { EMOTES, REACTIONS, sendSignal } from "../services/night";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView } from "../types/game";
@@ -86,11 +87,25 @@ export function SignalLayer() {
     <>
       {bubbles.length > 0 && (
         <ul className="signal-feed" aria-live="polite" aria-label="Reactions">
-          {bubbles.map((b) => <li key={b.id}><span className="signal-emoji" aria-hidden>{b.emoji}</span>{b.name}</li>)}
+          {bubbles.map((b) => (EMOTES as readonly string[]).includes(b.emoji)
+            ? <li key={b.id} className="signal-said">{b.name}: <b>“{b.emoji}”</b></li>
+            : <li key={b.id}><span className="signal-emoji" aria-hidden>{b.emoji}</span>{b.name}</li>)}
         </ul>
       )}
       {out && view.game.mode === "lan" && !tableOff && <ReactionBar gameId={view.game.id} />}
+      {!out && view.game.mode === "lan" && !tableOff && <EmoteButton gameId={view.game.id} />}
     </>
+  );
+}
+
+/** Table talk for players still in the game: a fixed set, shown to everyone like a reaction (rate limited by the server). */
+function EmoteButton({ gameId }: { gameId: string }) {
+  const send = (text: string) => void sendSignal(gameId, "react", text).catch(toastError);
+  return (
+    <button className="signal-bar signal-emote tt-btn ghost" data-testid="emote" title="Say something to the table"
+      onClick={(e) => openMenu(e, EMOTES.map((t) => ({ label: t, onClick: () => send(t) })), "Say to the table")}>
+      Emote
+    </button>
   );
 }
 

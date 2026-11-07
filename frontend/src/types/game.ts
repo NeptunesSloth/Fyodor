@@ -383,6 +383,7 @@ export interface MulliganPolicy {
   draw_count: number;
   shuffle_between_mulligans: boolean;
   cards_to_bottom: number;
+  keep_bottom: number;
   partial_hand_selection: boolean;
   set_aside_rejected_hands: boolean;
   final_shuffle: boolean;
@@ -504,6 +505,7 @@ export interface RulesHints {
   chorus?: string[]; // castable creature cards whose cast may set `chorus` (Chorus of the Conclave, 601.2b, wave 110C)
   replicate111r3?: Record<string, string[]>; // castable card → one label per replicate a permanent gives it (Hugh), in CastSpell.replicate's order (702.56b, wave 111R3)
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
+  summoning_sick?: string[]; // your untapped permanents that can't use {T} abilities yet (302.6)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
   cost_now?: Record<string, string>; // castable card → what it costs to cast now, when that differs from its mana cost (601.2f)
@@ -643,7 +645,7 @@ export interface LobbyDeckSummary {
   report?: {
     cards_total?: number;
     exact_printings?: number;
-    unresolved: { line?: string; name?: string; reason?: string }[];
+    unresolved?: { line?: string; name?: string; reason?: string }[];
     notes?: string[];
     errors?: string[];
   };

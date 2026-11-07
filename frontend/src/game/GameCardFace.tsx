@@ -1,6 +1,7 @@
 import { sleeveStyle, useSleeve } from "./appearance";
 import { memo } from "react";
 import { CardFace } from "../cards/CardFace";
+import { imageUrl } from "../services/cards";
 import { useCard } from "../state/cardCache";
 import { isVisible, type GameCard } from "../types/game";
 import { counterName, counterShort } from "./counters";
@@ -11,6 +12,8 @@ export const GameCardFace = memo(function GameCardFace({ card, size = "normal", 
   const visible = isVisible(card);
   const data = useCard(visible ? card.card_id : null);
   const sleeve = sleeveStyle(useSleeve(card.owner));
+  // a triggered or activated ability on the stack shows its source's art (the printing the server names; fetched with the view)
+  const source = useCard(visible && card.ability ? card.ability.source_card_id : null);
   if (!visible) return <CardFace faceDown backStyle={sleeve} />;
   if (card.face_down && !peek) {
     return (
@@ -22,7 +25,10 @@ export const GameCardFace = memo(function GameCardFace({ card, size = "normal", 
   }
   if (card.ability) {
     return (
-      <div className="card-face ability-card">
+      <div className={`card-face ability-card ${source?.has_image ? "with-art" : ""}`}>
+        {source?.has_image && (
+          <div className="ability-art" aria-hidden style={{ backgroundImage: `url(${imageUrl(source.id, 0, size === "small" ? "small" : "normal")})` }} />
+        )}
         <div className="ability-inner">
           <div className="ability-kind">{card.ability.kind === "other" ? "ability" : `${card.ability.kind} ability`}</div>
           {card.ability.source_name && <div className="ability-source">{card.ability.source_name}</div>}

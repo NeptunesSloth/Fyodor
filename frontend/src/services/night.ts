@@ -25,6 +25,8 @@ export const ownDeck = (gameId: string, viewer?: string) =>
   api.get<{ name: string | null; cards: OwnDeckCard[] }>(`/games/${gameId}/night/deck${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ""}`, seat(gameId));
 
 export const REACTIONS = ["👍", "😂", "😮", "🔥", "💀", "👏"] as const;
+/** Short table talk any player at the table may send (the server's EMOTES: nothing else is accepted). */
+export const EMOTES = ["Nice!", "GG", "Ouch", "Thinking…", "Hold on", "Well played", "Oops"] as const;
 
 export const sendSignal = (gameId: string, kind: "nudge" | "react", emoji?: string, as?: string) =>
   api.post(`/games/${gameId}/night/signal`, { kind, emoji: emoji ?? null, as_player: as ?? null }, seat(gameId));

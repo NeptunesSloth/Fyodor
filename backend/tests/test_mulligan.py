@@ -35,7 +35,9 @@ def test_policies_are_data():
     assert to_bottom(LONDON, 0) == 0 and to_bottom(LONDON, 2) == 2
     assert to_bottom(COMMANDER_LONDON, 1) == 0 and to_bottom(COMMANDER_LONDON, 3) == 2
     assert resolve_policy("none") is None
-    assert resolve_policy("boston_custom").needs_definition
+    boston = resolve_policy("boston_custom")
+    assert not boston.needs_definition and boston.starting_hand_size == boston.draw_count == 10
+    assert [to_bottom(boston, m) for m in range(4)] == [3, 3, 4, 5]  # draw 10, keep 7; the first mulligan is free
     defined = resolve_policy("boston_custom", MulliganPolicy(display_name="Boston", set_aside_rejected_hands=True))
     assert defined.id == "boston_custom" and not defined.needs_definition and defined.set_aside_rejected_hands
     with pytest.raises(ValueError):
@@ -119,12 +121,25 @@ def test_undo_and_redo_replay_the_same_hands(cards):
     assert [s.state.cards[i].name for i in zone(s.state, "p1", "hand")] == hand
 
 
-def test_undefined_boston_slot_refuses_to_guess(cards):
+def test_boston_draw_ten_keep_seven(cards):
+    """The pod's Boston mulligan: every hand is 10 cards; keep 7 and put exactly 3 on the bottom."""
     s = session_with(cards, BOSTON_CUSTOM)
-    assert "not defined yet" in json.dumps(s.view("p1")["log"])
-    with pytest.raises(ActionError, match="isn't defined yet"):
-        act(s, "p1", type="mulligan_take")
-    act(s, "p1", type="mulligan_keep")  # keeping 7 is always possible
+    assert all(len(zone(s.state, p, "hand")) == 10 for p in ("p1", "p2"))
+    assert "Mulligan rule: Boston (Custom Pod)." in json.dumps(s.view("p1")["log"])
+    act(s, "p1", type="mulligan_keep")
+    assert seat(s, "p1").status == "bottoming" and seat(s, "p1").to_bottom == 3
+    hand = list(zone(s.state, "p1", "hand"))
+    with pytest.raises(ActionError, match="exactly 3"):
+        act(s, "p1", type="mulligan_bottom", card_ids=hand[:2])
+    act(s, "p1", type="mulligan_bottom", card_ids=hand[:3])
+    assert len(zone(s.state, "p1", "hand")) == 7 and zone(s.state, "p1", "library")[-3:] == hand[:3]
+    act(s, "p2", type="mulligan_take")  # deals 10 again; the first mulligan is free
+    assert len(zone(s.state, "p2", "hand")) == 10
+    act(s, "p2", type="mulligan_take")
+    act(s, "p2", type="mulligan_keep")
+    assert seat(s, "p2").to_bottom == 4
+    act(s, "p2", type="mulligan_bottom", card_ids=list(zone(s.state, "p2", "hand"))[:4])
+    assert len(zone(s.state, "p2", "hand")) == 6 and s.state.pregame.finished
 
 
 def test_configured_custom_policy_set_aside_partial_and_final_shuffle(cards):
@@ -190,7 +205,7 @@ def test_no_policy_means_sandbox(cards):
 
 def test_api_mulligan_rules_and_host_only_override(client):
     res = client.post("/api/games", json={"mode": "local", "players": [{"name": "A"}], "mulligan_rule": "boston_custom"})
-    assert res.status_code == 422 and "Define" in res.json()["detail"]
+    assert res.status_code in (200, 201)
     res = client.post("/api/games", json={"mode": "local", "players": [{"name": "A"}], "mulligan_rule": "nope"})
     assert res.status_code == 422
 
@@ -199,8 +214,7 @@ def test_api_mulligan_rules_and_host_only_override(client):
     gid, code, alice = body["game"]["id"], body["game"]["code"], body["seat"]["token"]
     bob = client.post("/api/join", json={"code": code, "name": "Bob"}).json()["token"]
     lobby = client.get(f"/api/games/{gid}/lobby", headers={"X-Seat-Token": alice}).json()
-    assert lobby["mulligan"]["needs_definition"]
-    assert any("Boston (Custom Pod) mulligan isn't defined" in b for b in lobby["start_blockers"])
+    assert not lobby["mulligan"]["needs_definition"] and lobby["mulligan"]["keep_bottom"] == 3
     definition = {"display_name": "Boston (Custom Pod)", "free_mulligans": 1, "set_aside_rejected_hands": True}
     res = client.post(f"/api/games/{gid}/lobby/settings", json={"mulligan_policy": definition}, headers={"X-Seat-Token": alice})
     assert res.status_code == 200 and not res.json()["mulligan"]["needs_definition"]

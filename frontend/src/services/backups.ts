@@ -1,3 +1,6 @@
+import { api } from "./api";
+import { adoptMyDecks } from "./games";
+
 /** Backups made on the host: by hand or automatically (see backend app/storage/autobackup.py). */
 
 export interface BackupInfo { name: string; size: number; created_at: string; mtime: number; auto: boolean; reason: string | null }
@@ -18,4 +21,18 @@ export function whenMade(mtime: number, now = Date.now() / 1000): string {
   if (days === 0) return `today ${time}`;
   if (days === 1) return `yesterday ${time}`;
   return `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${time}`;
+}
+
+/** After a restore on this (host) computer: take back the "My decks" the backup carried, once. Quiet when there are none
+ * or this browser isn't on the host (403). Returns how many decks were added. */
+export async function adoptRestoredDecks(): Promise<number> {
+  try {
+    const { decks } = await api.get<{ decks: unknown[] }>("/restored-decks");
+    if (!decks.length) return 0;
+    const added = adoptMyDecks(decks);
+    await api.del("/restored-decks");
+    return added;
+  } catch {
+    return 0;
+  }
 }

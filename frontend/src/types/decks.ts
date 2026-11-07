@@ -96,6 +96,8 @@ export interface DeckSummary {
   color_identity: string[];
   cover_id: string | null;
   unresolved: number;
+  /** The shelf folder it sits in ("" = none). */
+  folder?: string;
 }
 
 export interface UnresolvedLine {

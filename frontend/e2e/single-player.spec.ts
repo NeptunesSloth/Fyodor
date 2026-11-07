@@ -42,7 +42,7 @@ test("a saved game loads as a LAN night: the host back in their seat, a room cod
   const saved = await page.request.post(`/api/games/${gameId}/save`, { data: { name: "Solo shelf" }, headers: { "X-Seat-Token": token! } });
   expect(saved.ok(), await saved.text()).toBeTruthy();
 
-  await page.goto("/#/play");
+  await page.goto("/#/play?tab=saves");
   const tile = page.locator(".pg-shelf .pg-tile", { hasText: "Solo shelf" });
   await expect(tile.getByRole("button", { name: "Load as LAN" })).toHaveCount(0); // Load is a LAN night already
   await tile.getByRole("button", { name: "Load", exact: true }).click();

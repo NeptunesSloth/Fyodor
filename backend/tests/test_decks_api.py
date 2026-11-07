@@ -113,3 +113,36 @@ def test_stored_constructed_decks_become_commander_decks(tmp_path):
     conn.close()
     conn = open_app_db(path)
     assert [r[0] for r in conn.execute("SELECT format FROM decks ORDER BY id")] == ["commander", "commander"]
+
+
+def test_deck_folders(client):
+    """-- deck folders -- a deck sits in at most one folder; saving the list never moves it; a folder renames or empties."""
+    a = client.post("/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n1 Mountain", "name": "A"}).json()["id"]
+    b = client.post("/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n1 Mountain", "name": "B"}).json()["id"]
+    folders = lambda: {d["id"]: d["folder"] for d in client.get("/api/decks").json()}  # noqa: E731
+    assert folders() == {a: "", b: ""}
+    assert client.put(f"/api/decks/{a}/folder", json={"folder": "  Pod   decks "}).json()["folder"] == "Pod decks"
+    assert client.put(f"/api/decks/{b}/folder", json={"folder": "Pod decks"}).status_code == 200
+    assert client.put("/api/decks/nope/folder", json={"folder": "X"}).status_code == 404
+    deck = client.get(f"/api/decks/{a}").json()
+    assert client.put(f"/api/decks/{a}", json={k: deck[k] for k in ("name", "format", "notes", "entries", "categories")}).status_code == 200
+    assert folders() == {a: "Pod decks", b: "Pod decks"}
+    copy = client.post(f"/api/decks/{a}/duplicate").json()["id"]
+    assert folders()[copy] == "Pod decks"
+    assert client.post("/api/deck-folders/rename", json={"old": "Pod decks", "new": "Retired"}).json()["moved"] == 3
+    client.put(f"/api/decks/{b}/folder", json={"folder": ""})
+    assert folders() == {a: "Retired", b: "", copy: "Retired"}
+    client.post("/api/deck-folders/rename", json={"old": "Retired", "new": ""})
+    assert set(folders().values()) == {""}
+
+
+def test_precons_are_bundled_and_added_once_into_their_folder(client):
+    precons = client.get("/api/decks/precons").json()
+    assert len(precons) >= 150 and all(p["commanders"] for p in precons)
+    first = precons[0]
+    assert not first["added"]
+    assert client.post("/api/decks/precons", json={"ids": [first["id"]]}).json()["added"] == 1
+    assert client.post("/api/decks/precons", json={"ids": [first["id"]]}).json()["added"] == 0  # already there
+    decks = client.get("/api/decks").json()
+    assert [(d["name"], d["folder"]) for d in decks] == [(first["name"], "Precons")]
+    assert next(p for p in client.get("/api/decks/precons").json() if p["id"] == first["id"])["added"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import sqlite3
 import zipfile
 
@@ -85,3 +86,39 @@ def test_the_database_is_backed_up_before_a_migration(tmp_path):
     copy = pre_migration_backup(db, 7)
     assert copy is not None and copy.exists() and "before-v7" in copy.name
     assert pre_migration_backup(db, 3) is None  # already current: nothing to do
+
+
+def test_backup_carries_the_browsers_my_decks(settings, card_db):
+    """"My decks" live in the host browser's storage, not app.sqlite: a backup made from Settings carries them, and after
+    the restore the browser on the other computer takes them back (once)."""
+    mine = [{"id": "abc", "name": "Krenko", "body": {"name": "Krenko", "text": "1 Krenko, Mob Boss"}, "commanders": ["Krenko, Mob Boss"],
+             "savedAt": 1}]
+    with TestClient(create_app(settings)) as c:
+        assert c.post("/api/backups", json={"browser_decks": "nope"}).status_code == 422
+        made = c.post("/api/backups", json={"browser_decks": mine})
+        assert made.status_code == 201, made.text
+        name = made.json()["name"]
+        blob = c.get(f"/api/backups/{name}").content
+        assert "browser-decks.json" in zipfile.ZipFile(io.BytesIO(blob)).namelist()
+        assert c.get("/api/backups").json()["restore_pending"] is False
+        assert c.post("/api/backups/restore", content=blob).json()["browser_decks"] is True
+        assert c.get("/api/backups").json()["restore_pending"] is True
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/api/backups").json()["restore_pending"] is False
+        assert c.get("/api/restored-decks").json()["decks"] == mine
+        assert c.delete("/api/restored-decks").status_code == 204
+        assert c.get("/api/restored-decks").json()["decks"] == []
+
+
+def test_automatic_backups_carry_the_synced_my_decks(settings, card_db):
+    """The host browser mirrors My decks to the server, so a backup made without a browser (automatic) carries them too."""
+    mine = [{"id": "x", "name": "Atraxa", "body": {"text": "1 Atraxa, Praetors' Voice"}}]
+    with TestClient(create_app(settings)) as c:
+        services = c.app.state.services
+        before = services.autobackups._changes()
+        assert c.put("/api/browser-decks", json={"browser_decks": mine}).status_code == 204
+        assert services.autobackups._changes() > before  # an automatic backup is due (no database write needed)
+        assert services._has_data()
+        made = services.backup(reason="test")
+        blob = (settings.data_dir / "backups" / made["name"]).read_bytes()
+        assert json.loads(zipfile.ZipFile(io.BytesIO(blob)).read("browser-decks.json")) == mine

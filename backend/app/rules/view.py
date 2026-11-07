@@ -23,9 +23,11 @@ from app.rules.casting import (
     alt_castable,
     announces_kicker_x,
     announces_x,
+    can_use_tap_abilities,
     castable,
     free_castable,
     optional_castable,
+    summoning_sick,
 )
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
@@ -329,6 +331,12 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
             playable.append(cid)
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info, announce=True)  # (soak: targets too)
+    # -- ability menu -- the viewer's untapped permanents that can't use {T} abilities now (302.6 summoning sickness), so the card
+    # menu can say why a {T} ability is greyed out. Public facts only: what entered or changed control this turn is on the table.
+    out["summoning_sick"] = [cid for cid in state.zones.get(zone_key(viewer, "battlefield"), [])
+                             if not state.cards[cid].tapped and state.cards[cid].controller == viewer
+                             and summoning_sick(state, state.cards[cid])  # (cheap first: big boards)
+                             and not can_use_tap_abilities(state, state.cards[cid], chars.of(state.cards[cid], info), info)]
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info, announce=True)]  # (soak: modes and targets too)
     # -- exile markers -- which card exiled each exiled card this viewer may cast or play now ("Exiled with Ian Malcolm", 607.2a): the
     # source's name only, and only while the viewer can see the source (everyone saw it exile them); never its id

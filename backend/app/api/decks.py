@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import functools
+import json
 import time
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
 from app.decks import archidekt, service, sites
@@ -70,6 +73,44 @@ def list_decks(services: ServicesDep) -> list[dict[str, Any]]:
     ids += [next((e.printing_id for e in d.entries if e.printing_id), "") for d in decks]
     data = services.cards.get_many([i for i in ids if i]) if services.cards.available else {}
     return [service.summarize(d, data) for d in decks]
+
+
+# -- precons -- every Commander precon's list, bundled (tools/update_precons.py), to add to the library offline
+PRECON_FOLDER = "Precons"
+
+
+@functools.cache
+def _precons() -> list[dict[str, Any]]:
+    path = Path(__file__).resolve().parents[1] / "decks" / "precons.json"
+    return json.loads(path.read_text("utf-8")) if path.is_file() else []
+
+
+@router.get("/decks/precons")
+def list_precons(services: ServicesDep) -> list[dict[str, Any]]:
+    """Every Commander precon (newest first), and whether the library already has it (by name, in the Precons folder)."""
+    have = {d.name for d in services.decks.list_all() if d.folder == PRECON_FOLDER}
+    return [{k: p[k] for k in ("id", "name", "set", "released", "commanders")} | {"added": p["name"] in have}
+            for p in reversed(_precons())]
+
+
+class PreconsIn(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=500)
+
+
+@router.post("/decks/precons")
+def add_precons(body: PreconsIn, services: ServicesDep) -> dict[str, Any]:
+    """Add precons to the library, in the Precons folder; ones already there are skipped."""
+    have = {d.name for d in services.decks.list_all() if d.folder == PRECON_FOLDER}
+    wanted = set(body.ids)
+    added = []
+    for p in _precons():
+        if p["id"] not in wanted or p["name"] in have:
+            continue
+        deck = create_deck(DeckImportRequest(text=p["text"], name=p["name"][:120]), services)
+        services.decks.set_folder(deck["id"], PRECON_FOLDER)
+        have.add(p["name"])
+        added.append(deck["id"])
+    return {"added": len(added), "ids": added}
 
 
 @router.get("/decks/import-options")
@@ -180,7 +221,38 @@ def duplicate_deck(deck_id: str, services: ServicesDep) -> dict[str, Any]:
         DeckIn(name=f"{deck.name} (copy)"[:120], format=deck.format, notes=deck.notes, entries=deck.entries,
                categories=deck.categories)
     )
+    if deck.folder:
+        services.decks.set_folder(copy.id, deck.folder)
     return _full(services, copy.id)
+
+
+class FolderIn(BaseModel):
+    folder: str = Field(default="", max_length=60)
+
+
+def _folder_name(raw: str) -> str:
+    return " ".join(raw.split())  # trimmed, single spaces: "  Pod  decks " and "Pod decks" are one folder
+
+
+@router.put("/decks/{deck_id}/folder")
+def move_deck_to_folder(deck_id: str, body: FolderIn, services: ServicesDep) -> dict[str, Any]:
+    """-- deck folders -- put a deck in a shelf folder ('' takes it out of every folder)."""
+    try:
+        services.decks.set_folder(deck_id, _folder_name(body.folder))
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "folder": _folder_name(body.folder)}
+
+
+class FolderRename(BaseModel):
+    old: str = Field(min_length=1, max_length=60)
+    new: str = Field(default="", max_length=60)
+
+
+@router.post("/deck-folders/rename")
+def rename_folder(body: FolderRename, services: ServicesDep) -> dict[str, Any]:
+    """Rename a folder; renaming to '' removes the folder (its decks stay, back on the shelf)."""
+    return {"moved": services.decks.rename_folder(_folder_name(body.old), _folder_name(body.new))}
 
 
 @router.delete("/decks/{deck_id}", status_code=204)

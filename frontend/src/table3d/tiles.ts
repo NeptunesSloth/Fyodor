@@ -14,6 +14,7 @@ import { GLYPHS, PALETTE, proxyColours, proxyFace, type CustomProxy } from "../c
 import { proxyFontsReady, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 import { countText } from "../game/piles";
+import { keywordCode } from "../game/counters";
 import type { CardOverlay } from "./textures";
 
 /** Tile canvas width (px); its height is 1.12 times that (game/arrange.ts TILE_RATIO). */
@@ -419,8 +420,9 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
     g.lineWidth = Math.max(2, W * 0.01);
     g.stroke();
     g.fillStyle = NAME_INK;
-    g.font = `800 ${Math.round(R * (n > 1 ? 0.8 : 1))}px ${UI}`;
-    g.fillText(`${kind.slice(0, 2).replace(/^./, (ch) => ch.toUpperCase())}${n > 1 ? n : ""}`, cx, cy + 1);
+    const code = `${keywordCode(kind)}${n > 1 ? n : ""}`;
+    g.font = `800 ${Math.round(R * (code.length > 2 ? 0.72 : 0.95))}px ${UI}`;
+    g.fillText(code, cx, cy + 1);
   });
   if (kw.length > shown.length) {
     const cx = W * 0.05 + R + shown.length * (R * 2 + W * 0.02);

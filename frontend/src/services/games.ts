@@ -159,6 +159,8 @@ export interface MyDeck {
   companions?: PersonalDeck["companions"];
 }
 const MY_DECKS = "fyodor.myDecks";
+/** Mirror My decks to the host so automatic backups carry them (only the host's own browser may; others get 403, ignored). */
+export const syncMyDecks = () => void api.put("/browser-decks", { browser_decks: myDecks() }).catch(() => undefined);
 
 export function myDecks(): MyDeck[] {
   try {
@@ -185,7 +187,7 @@ export function rememberMyDeck(name: string, body: LobbyDeckBody, commanders: st
     entries: imported?.entries.map(({ name, quantity, section, printing_id, oracle_id }) => ({ name, quantity, section, printing_id, oracle_id })),
     companions: imported?.companions, savedAt: Date.now() });
   // Never silently drop old decks or report a save when browser storage is full.
-  try { localStorage.setItem(MY_DECKS, JSON.stringify(list)); }
+  try { localStorage.setItem(MY_DECKS, JSON.stringify(list)); syncMyDecks(); }
   catch { throw new Error("Could not save My decks on this device. Export a backup or free browser storage, then retry."); }
 }
 
@@ -206,9 +208,30 @@ export function personalCollection(): PersonalEntry[] {
   });
 }
 
+/** Merge decks brought back by a restore into "My decks" (skipping any already here). Returns how many were added. */
+export function adoptMyDecks(incoming: unknown[]): number {
+  const list = myDecks();
+  const have = new Set(list.map((d) => JSON.stringify(d.body)));
+  const ids = new Set(list.map((d) => d.id));
+  let added = 0;
+  for (const d of incoming) {
+    if (!d || typeof d !== "object") continue;
+    const deck = d as MyDeck;
+    if (typeof deck.name !== "string" || !deck.body || typeof deck.body !== "object" || have.has(JSON.stringify(deck.body))) continue;
+    const id = typeof deck.id === "string" && !ids.has(deck.id) ? deck.id : Math.random().toString(36).slice(2, 10);
+    list.push({ ...deck, id, commanders: Array.isArray(deck.commanders) ? deck.commanders : [], savedAt: Number(deck.savedAt) || Date.now() });
+    have.add(JSON.stringify(deck.body));
+    ids.add(id);
+    added++;
+  }
+  if (added) { localStorage.setItem(MY_DECKS, JSON.stringify(list)); syncMyDecks(); }
+  return added;
+}
+
 export function forgetMyDeck(id: string): void {
   try {
     localStorage.setItem(MY_DECKS, JSON.stringify(myDecks().filter((d) => d.id !== id)));
+    syncMyDecks();
   } catch {
     /* ignore */
   }

@@ -74,7 +74,6 @@ test("a deck test can start with the rules engine on", async ({ page }) => {
 test("a LAN night's host can still switch the table to Sandbox in Table settings", async ({ page }) => {
   await page.goto("/#/play");
   await page.getByTestId("host-name").fill("Alice");
-  for (let n = 3; n > 0; n--) await page.getByRole("button", { name: "Remove a seat" }).first().click(); // one seat: the host's
   await page.getByTestId("create-game").click();
   const lobby = page.getByTestId("lobby");
   await expect(lobby).toBeVisible();
