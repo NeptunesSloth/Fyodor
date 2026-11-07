@@ -77,7 +77,7 @@ rm -rf "$ROOT/dist/Fyodor"
 (cd "$ROOT/backend" && wn "$VPY" -m PyInstaller --noconfirm --clean --name Fyodor --console \
   --distpath "$WROOT\\dist" --workpath "$WROOT\\build\\pyinstaller" --specpath "$WROOT\\build" \
   --collect-submodules app --collect-submodules tools --collect-submodules uvicorn \
-  --add-data "$WROOT\\frontend\\dist;frontend/dist" --icon "$WROOT\\packaging\\windows\\fyodor.ico" \
+  --add-data "$WROOT\\frontend\\dist;frontend/dist" --add-data "$WROOT\\backend\\app\\decks\\precons.json;app/decks" --icon "$WROOT\\packaging\\windows\\fyodor.ico" \
   "$WROOT\\backend\\app\\launcher.py")
 [ -f "$ROOT/dist/Fyodor/Fyodor.exe" ] || { echo "PyInstaller did not produce dist/Fyodor/Fyodor.exe" >&2; exit 1; }
 
