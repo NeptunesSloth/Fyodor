@@ -95,9 +95,9 @@ def resolve(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
             seen.add(label)
             options.append(DecisionOption(id=f"{i}:{k}", label=label))
     if len(options) == 1:
-        i, _, k = options[0].id.partition(":")
-        only = next(p for j, p, _ in found if j == int(i))
-        return _intent(a, int(i), only.options[int(k)] if k else None)
+        si, _, sk = options[0].id.partition(":")
+        only = next(p for j, p, _ in found if j == int(si))
+        return _intent(a, int(si), only.options[int(sk)] if sk else None)
     options.append(DecisionOption(id="cancel", label="Cancel"))
     if paying:  # nested in the payment prompt, which comes back afterwards (app/rules/engine.py: resume_outer)
         plan.rules.payment_outer, plan.rules.decision = plan.rules.decision, None
