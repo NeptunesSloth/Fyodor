@@ -27,7 +27,7 @@ test("hide and show a folder's decks", async ({ page }) => {
   await expect(group.locator(".dk-grid")).toBeVisible();
   await toggle.click();
   await expect(page.getByRole("button", { name: "Show Shelved" })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(".dk-group").filter({ has: page.getByRole("button", { name: "Show Shelved" }) }).locator(".dk-grid")).toHaveCount(0);
+  await expect(page.locator(".dk-group").filter({ has: page.getByRole("button", { name: "Show Shelved" }) }).locator(".dk-grid")).toBeHidden();
   await page.reload();
   await expect(page.getByRole("button", { name: "Show Shelved" })).toBeVisible();
   await page.getByRole("button", { name: "Show Shelved" }).click();

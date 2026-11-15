@@ -101,14 +101,13 @@ class ArtKeeper:
             self._thread.start()
 
     def _work(self) -> None:
-        with self._lock:
-            todo = list(self.pending)
-        for deck_id in todo:  # each waiting deck once per pass: one whose art came only in part waits for the next pass
-            if self._stop.is_set():
+        tried: set[str] = set()  # each waiting deck once per pass: one whose art came only in part waits for the next pass
+        while not self._stop.is_set():
+            with self._lock:  # (re-read: decks saved meanwhile, a batch of precons, join this pass)
+                deck_id = next((d for d in self.pending if d not in tried), None) if self.enabled else None
+            if deck_id is None:
                 break
-            with self._lock:
-                if not self.enabled:
-                    break
+            tried.add(deck_id)
             done = self._keep(deck_id)
             if done is None:
                 break  # offline (or turned off): the deck waits for the next try

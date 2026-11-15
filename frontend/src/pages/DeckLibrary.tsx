@@ -191,11 +191,11 @@ export function DeckLibrary() {
         </nav>
       )}
       {grouped && shown ? (
-        [...folders.map((f) => f.name), ""].map((name) => {
+        [...folders.map((f) => f.name), ""].map((name, gi) => {
           const inside = shown.filter((d) => (d.folder ?? "") === name);
           if (!inside.length) return null;
           const isShut = shut.includes(name);
-          const gridId = `dk-group-${name || "-"}`;
+          const gridId = `dk-group-${gi}`;
           return (
             <section key={name || "-"} className={`dk-group ${dropOn === name ? "drop" : ""} ${isShut ? "shut" : ""}`} {...dropProps(name)}>
               <h2 className="dk-group-head">
@@ -209,7 +209,7 @@ export function DeckLibrary() {
                 </button>
                 <span className="n">{inside.length}</span>
               </h2>
-              {!isShut && <ul className="dk-grid" id={gridId}>{inside.map(tile)}</ul>}
+              <ul className="dk-grid" id={gridId} hidden={isShut}>{isShut ? null : inside.map(tile)}</ul>
             </section>
           );
         })

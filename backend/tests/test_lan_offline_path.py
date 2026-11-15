@@ -12,6 +12,7 @@ import json
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -238,12 +239,14 @@ def test_art_is_fetched_with_caps_and_only_real_jpegs(tmp_path, cards):
 @pytest.fixture()
 def keeper_client(tmp_path, card_db, monkeypatch):
     calls: list[list[str]] = []
-    outcome = {"offline": False, "fail": 0}
+    outcome: dict[str, Any] = {"offline": False, "fail": 0}
 
     def fake_fetch(self, printing_ids, progress, *, tokens=True):
         if outcome["offline"]:
             raise httpx.ConnectError("no internet")
         calls.append(list(printing_ids))
+        if "during" in outcome:
+            outcome.pop("during")()
         failed = min(outcome["fail"], len(printing_ids))
         return SimpleNamespace(requested=len(printing_ids), downloaded=len(printing_ids) - failed, skipped=0, failed=failed)
 
@@ -276,6 +279,19 @@ def test_a_deck_whose_art_came_only_in_part_is_tried_again(keeper_client):
     outcome["fail"] = 0
     keeper.kick()
     assert len(calls) == 2 and client.get("/api/decks/art-keeper").json()["pending"] == 0
+
+
+def test_decks_saved_while_the_keeper_works_join_the_same_pass(keeper_client):
+    """Adding several precons saves them one after another while the first one's art downloads: none waits for the retry timer."""
+    client, keeper, calls, outcome = keeper_client
+    outcome["offline"] = True  # both decks wait on the list
+    first = client.post("/api/decks", json={"name": "A", "text": "1 Sol Ring\n"}).json()["id"]
+    second = client.post("/api/decks", json={"name": "B", "text": "1 Krenko, Mob Boss\n"}).json()["id"]
+    outcome["offline"] = False
+    keeper.pending = [first]
+    outcome["during"] = lambda: keeper.pending.append(second)  # saved while the first deck's art downloads
+    keeper.kick()
+    assert len(calls) == 2 and keeper.pending == []
 
 
 def test_offline_the_keeper_waits_and_retries_when_back_online(keeper_client):
