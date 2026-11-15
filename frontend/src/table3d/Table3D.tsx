@@ -45,7 +45,7 @@ declare global {
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
       motionFreeze?: (ms: number | null) => void;
-      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
+      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; clips: number; lunges: number };
       /** -- framing -- the canvas size, the chrome the table is framed clear of, and the seat view's elevation. */
       framing?: () => ReturnType<TableScene["framingState"]>;
       /** Hold the room's own motion (candles, dust, beams' flow), to compare frames. */

@@ -18,6 +18,7 @@ import {
   arcHeight, arcLift, easeOut, flightMs, floaterAt, lungeAt, otherHandSpot, planMotion, riffleAt, standInOpacity, turnAt,
   type FlightPlan, type FloaterPlan, type Look, type Place, type StrikePlan,
 } from "./flights3d";
+import { endRifflePlay, playRiffle, poseRifflePlay, riffleClip, type RifflePlay } from "./riffleClip";
 
 /** What motion needs of a card on the table (TableScene's card object). */
 export interface MotionCard {
@@ -96,7 +97,8 @@ interface Flight {
   skipped: boolean;
 }
 
-interface Riffle { zone: string; cards: StandIn[]; base: Xform; t0: number; dur: number; skipped: boolean }
+/** play: the Blender-authored clip (riffleClip.ts) rather than the drawn stand-ins. */
+interface Riffle { zone: string; cards: StandIn[]; base: Xform; t0: number; dur: number; skipped: boolean; play?: RifflePlay }
 interface Lunge { card: MotionCard; dir: THREE.Vector3; reach: number; t0: number; dur: number; applied: THREE.Vector3; skipped: boolean }
 interface Floater { sprite: THREE.Sprite; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; at: THREE.Vector3; key: string; size: number; t0: number; dur: number; busy: boolean }
 
@@ -148,6 +150,7 @@ export class TableMotion {
 
   constructor(host: MotionHost) {
     this.host = host;
+    riffleClip(); // (starts loading the shuffle clip, so it's there by the first shuffle)
   }
 
   /** Anything to step this frame (the frame loop does nothing else for motion while this is false). */
@@ -156,8 +159,9 @@ export class TableMotion {
   }
 
   /** What is running (tests and diagnostics). */
-  state(): { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number } {
-    return { busy: this.active, flights: this.flights.length, floaters: this.floating, riffles: this.riffles.length, lunges: this.lunges.length };
+  state(): { busy: boolean; flights: number; floaters: number; riffles: number; clips: number; lunges: number } {
+    return { busy: this.active, flights: this.flights.length, floaters: this.floating, riffles: this.riffles.length,
+      clips: this.riffles.filter((r) => r.play).length, lunges: this.lunges.length };
   }
 
   freeze(ms: number | null): void {
@@ -434,6 +438,17 @@ export class TableMotion {
     base.pos.y -= 0.02;
     const owner = zoneOwner(zone) ?? this.host.me();
     const map = this.host.back(owner).map;
+    // the Blender riffle (bent cards, a bridge), unless motion is reduced: then the plain drawn one, shortened
+    const clip = motionPrefs().reduced || reducedNow() ? null : riffleClip();
+    if (clip) {
+      const play = playRiffle(clip, map);
+      play.group.position.copy(base.pos);
+      play.group.rotation.y = base.rot;
+      this.host.world.add(play.group);
+      // a riffle and a bridge take longer than the drawn riffle's quick split (still never waited on)
+      this.riffles.push({ zone, cards: [], base, t0: now, dur: Math.max(1, travelMs(MOTION.shuffle * 2)), skipped: false, play });
+      return;
+    }
     const cards: StandIn[] = [];
     for (let i = 0; i < Math.min(RIFFLE_CARDS, count); i++) {
       const s = this.take();
@@ -451,6 +466,10 @@ export class TableMotion {
   }
 
   private poseRiffle(r: Riffle, p: number): void {
+    if (r.play) {
+      poseRifflePlay(r.play, p);
+      return;
+    }
     const cos = Math.cos(r.base.rot);
     const sin = Math.sin(r.base.rot);
     for (let i = 0; i < r.cards.length; i++) {
@@ -584,6 +603,7 @@ export class TableMotion {
       if (p >= 1) {
         this.riffles.splice(i, 1);
         for (const s of r.cards) this.give(s);
+        if (r.play) endRifflePlay(r.play);
         continue;
       }
       this.poseRiffle(r, p);
@@ -604,7 +624,10 @@ export class TableMotion {
   dispose(): void {
     for (const f of this.flights) this.land(f);
     this.flights = [];
-    for (const r of this.riffles) for (const s of r.cards) this.give(s);
+    for (const r of this.riffles) {
+      for (const s of r.cards) this.give(s);
+      if (r.play) endRifflePlay(r.play);
+    }
     this.riffles = [];
     for (const l of this.lunges) l.card.struck = false;
     this.lunges = [];
