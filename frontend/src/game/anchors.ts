@@ -25,7 +25,8 @@ function fixedControls(): ClientBox[] {
 }
 const overlaps = (a: ClientBox, b: ClientBox) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
-export function placeAnchored(node: HTMLElement, box: ClientBox | null): void {
+/** `avoid`: more boxes it should keep off (the 3D table's stack cards, which no DOM selector finds). */
+export function placeAnchored(node: HTMLElement, box: ClientBox | null, avoid: ClientBox[] = []): void {
   // off screen (the 3D camera turned away): hide rather than point at nothing from the edge
   if (!box || box.right < 0 || box.bottom < TOP_CHROME || box.left > window.innerWidth || box.top > window.innerHeight) {
     node.style.visibility = "hidden";
@@ -36,7 +37,7 @@ export function placeAnchored(node: HTMLElement, box: ClientBox | null): void {
   const cx = (box.left + box.right) / 2;
   const x = Math.max(8, Math.min(window.innerWidth - w - 8, cx - w / 2));
   const fit = (top: number) => Math.max(TOP_CHROME, Math.min(window.innerHeight - h - 8, top));
-  const clear = (top: number) => !fixedControls().some((o) => overlaps({ left: x, top, right: x + w, bottom: top + h }, o));
+  const clear = (top: number) => ![...fixedControls(), ...avoid].some((o) => overlaps({ left: x, top, right: x + w, bottom: top + h }, o));
   const above = fit(box.top - h - GAP);
   const under = fit(box.bottom + GAP);
   const below = box.top - h - GAP < TOP_CHROME || (!clear(above) && clear(under));

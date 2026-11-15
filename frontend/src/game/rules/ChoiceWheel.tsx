@@ -133,7 +133,7 @@ export function ChoiceWheel({ d, view, onList }: { d: DecisionView; view: GameVi
         const key = numbers ? null : <kbd aria-hidden>{i + 1}</kbd>;
         return (
           <button key={o.id} type="button" role="menuitem" data-testid={`wheel-option-${o.id}`}
-            className={`wheel-opt ${f.kind} ${b.disc ? "disc" : "pill"} ${keys.index === i ? "on" : ""} ${sent === i ? "sent" : ""}`}
+            className={`wheel-opt k-${f.kind} ${b.disc ? "disc" : "pill"} ${keys.index === i ? "on" : ""} ${sent === i ? "sent" : ""}`}
             style={{ left: p.x, top: p.y, width: b.w, height: b.h, ...(f.kind === "player" ? { ["--seat" as string]: f.color } : {}) }}
             tabIndex={keys.index === i || (keys.index < 0 && i === 0) ? 0 : -1}
             aria-label={numbers ? spoken(o.label) : `${spoken(o.label)} (${i + 1})`}

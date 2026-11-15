@@ -791,7 +791,7 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 .selection-bar .sel-ability .mana { width: 14px; height: 14px; }
 .selection-bar .sel-ability:disabled { opacity: 0.45; }
 .sel-ab-what { color: var(--text-dim); }
-.selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; background: transparent; border-color: transparent; box-shadow: none; }
+.selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; white-space: nowrap; flex: none; background: transparent; border-color: transparent; box-shadow: none; }
 .selection-bar .tt-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: transparent; }
 /* the shortcut, printed where the action is (Arena-quiet: small, dim, never the loudest thing on the bar) */
 /* Arena-style ×N on the top card of a pile of identical lands (display only) */
@@ -813,7 +813,7 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 .selection-bar.anchored[data-side="below"]::after { top: -6px; border-bottom: 0; border-right: 0; }
 body.dragging .selection-bar.anchored { display: none; }
 .sel-count {
-  margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--line); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--line); max-width: 180px; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);
 }
 

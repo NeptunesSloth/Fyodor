@@ -58,6 +58,17 @@ describe("arranged 3D mats", () => {
     expect(m.spots.get("bear")!.rank).toBeGreaterThan(m.spots.get("eq")!.rank); // tucked under its host
   });
 
+  it("lays a big token pile low, with only its top card labelled and shadowed", () => {
+    const swarm = Array.from({ length: 80 }, (_, i) => card(`s${i}`, "creature", { key: "Swarm" }));
+    const m = arrangeMat(swarm, false);
+    const top = m.spots.get("s79")!;
+    expect(top.pile).toBe(80);
+    expect(top.under).toBeUndefined();
+    expect(swarm.slice(0, 79).every((c) => m.spots.get(c.id)!.under)).toBe(true);
+    // the buried cards share one height: the top lies a few layers up, not 80
+    expect(top.rank - m.spots.get("s0")!.rank).toBeLessThanOrEqual(4);
+  });
+
   it("squashes a card to a tile's proportions", () => {
     expect((CARD_H * TILE_SQUASH) / CARD_W).toBeCloseTo(TILE_RATIO);
   });

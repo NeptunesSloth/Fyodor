@@ -33,7 +33,8 @@ export interface ArrangeCard {
   host: string | null;
 }
 
-export interface Placement { left: number; top: number; z: number; pile?: number }
+/** under: a stack member beneath its top card (it casts no shadow of its own); buried: one hidden under the first edge. */
+export interface Placement { left: number; top: number; z: number; pile?: number; under?: true; buried?: true }
 
 export interface BoardRow { kind: RowKind; top: number; height: number; left: number; right: number; slots: string[][] }
 
@@ -241,7 +242,8 @@ export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardL
         const step = Math.max(0, shown - slot.ids.length + m); // the hidden ones sit under the first edge
         const cx = x + footW / 2 + step * PILE_STEP * w;
         const top = m === slot.ids.length - 1;
-        place.set(id, { left: cx - w / 2, top: cy - h / 2, z: z0 + ATT_SHOWN + 1 + m, ...(top && slot.ids.length > 1 ? { pile: slot.n } : {}) });
+        place.set(id, { left: cx - w / 2, top: cy - h / 2, z: z0 + ATT_SHOWN + 1 + m, ...(top && slot.ids.length > 1 ? { pile: slot.n } : {}),
+          ...(top ? {} : { under: true as const }), ...(m < slot.ids.length - shown ? { buried: true as const } : {}) });
       });
       x += (sizes[si]! + GAP * w) * squeeze;
     });

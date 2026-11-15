@@ -231,8 +231,12 @@ export function Table3D({ me }: { me: string }) {
       if (measure) scene.setPlateBoxes(boxes); // (its heart is fitted to it: TableScene fitHearts)
       // the selection toolbar rides above the card it acts on (the camera can move every frame)
       if (selectionAnchor.node && selectionAnchor.card) {
+        const toClient = (b: { left: number; top: number; right: number; bottom: number }) =>
+          ({ left: host.left + b.left, top: host.top + b.top, right: host.left + b.right, bottom: host.top + b.bottom });
         const r = scene.cardRect(selectionAnchor.card, w, h);
-        placeAnchored(selectionAnchor.node, r && { left: host.left + r.left, top: host.top + r.top, right: host.left + r.right, bottom: host.top + r.bottom });
+        // the stack's standing cards are drawn in 3D, so the toolbar is told where they are (it flips to the card's other side)
+        const stack = (useGame.getState().view?.stack ?? []).map((id) => scene.cardRect(id, w, h)).filter((b) => !!b).map(toClient);
+        placeAnchored(selectionAnchor.node, r && toClient(r), stack);
       }
       // name tags under the selected cards (the card faces are too small to read at seat distance)
       for (const [cid, node] of Object.entries(tags.current)) {

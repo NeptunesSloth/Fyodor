@@ -1313,7 +1313,8 @@ export class TableScene {
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
       const l = this.tileLookFor(card.id);
-      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${t}${card.tapped ? "|tapped" : ""}`;
+      const bare = this.placed.get(card.id)?.under ? 1 : 0;
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${bare}:${t}${card.tapped ? "|tapped" : ""}`;
     }
     return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
@@ -1356,7 +1357,7 @@ export class TableScene {
       const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
       const t = vis.token;
       const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
-      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id) },
+      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id), bare: !!this.placed.get(card.id)?.under },
         this.quality === "low" ? 224 : TILE_PX, this.renderer.capabilities.getMaxAnisotropy());
       this.textures.set(base, tex);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
@@ -1505,7 +1506,8 @@ export class TableScene {
         const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
         if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
-        const overlay = overlayFor(card, view.rules?.stats?.[id], c.tile);
+        // a stack member under its top card wears no badges (the top card carries the ×N and speaks for the stack)
+        const overlay = c.tile && this.placed.get(id)?.under ? null : overlayFor(card, view.rules?.stats?.[id], c.tile);
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
@@ -2610,7 +2612,7 @@ export class TableScene {
   // ------------------------------------------------------------------ frame loop
 
   /** One card's body and contact shadow into the instanced draws (a fading stand-in keeps only its shadow). */
-  private writeBody(obj: THREE.Object3D, n: number, opacity = 1): number {
+  private writeBody(obj: THREE.Object3D, n: number, opacity = 1, shadow = true): number {
     if (n >= 1024) return n;
     obj.updateMatrix();
     this.bodies.setMatrixAt(n, opacity >= 0.99 ? obj.matrix : NO_BODY);
@@ -2622,7 +2624,7 @@ export class TableScene {
     shadowScale.set(spread, 1, spread * (obj.scale.z / (obj.scale.x || 1)));
     shadowM.compose(shadowPos, shadowQ, shadowScale);
     this.shadows.setMatrixAt(n, shadowM);
-    const strength = opacity / (1 + lift * 2.5);
+    const strength = shadow ? opacity / (1 + lift * 2.5) : 0;
     shadowColor.setRGB(strength, strength, strength);
     this.shadows.setColorAt(n, shadowColor);
     return n + 1;
@@ -2702,7 +2704,7 @@ export class TableScene {
       const sq = c.squash ?? 1;
       c.sq = c.sq === undefined || Math.abs(sq - c.sq) < 1e-3 ? sq : c.sq + (sq - c.sq) * k;
       if (c.sq !== 1) c.group.scale.z = c.group.scale.x * c.sq;
-      n = this.writeBody(c.group, n);
+      n = this.writeBody(c.group, n, 1, !(c.tile && this.placed.get(c.id)?.under));
     }
     if (moving) {
       this.bodyN = n;

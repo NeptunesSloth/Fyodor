@@ -48,7 +48,7 @@
   transition: transform var(--dur-hover, 140ms) var(--ease-out), border-color var(--dur-hover, 140ms), box-shadow var(--dur-hover, 140ms);
 }
 .wheel-opt.disc { padding: 0; }
-.wheel-opt.player { border-color: color-mix(in srgb, var(--seat, var(--frame)) 55%, var(--hud-edge)); }
+.wheel-opt.k-player { border-color: color-mix(in srgb, var(--seat, var(--frame)) 55%, var(--hud-edge)); }
 .wheel-opt.on {
   transform: translate(-50%, -50%) scale(1.07); border-color: var(--select);
   box-shadow: 0 0 0 1px var(--select), 0 0 16px var(--select-glow), 0 6px 14px rgba(0, 0, 0, 0.6);
