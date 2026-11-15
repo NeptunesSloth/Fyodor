@@ -1582,19 +1582,27 @@ export class TableScene {
       const b = this.stackBox ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
       this.stackBox = { minX: Math.min(b.minX, x - r), maxX: Math.max(b.maxX, x + r), minZ: Math.min(b.minZ, z - r), maxZ: Math.max(b.maxZ, z + r) };
     };
-    // toward my side of the centre, so the standing cards don't hide the far player's front row
-    const nearMe = 1.6;
+    // laid nearly flat in the aisle between the rows, so no stack card stands up over anyone's front row: centred and
+    // sized to fit a pod's wide aisle; a duel's aisle is too narrow for a readable card, so there the stack lies at the
+    // aisle's left end (the arranged rows are centred, so that corner is the last to fill)
+    const aisle = aisleOf(this.seatList) * 2 - 0.25;
+    const tilt = 0.3; // far edge raised a little: the face turns toward my seat
+    const fit = aisle / (CARD_H * Math.cos(tilt));
+    const narrow = fit < 1.7;
+    const topScale = narrow ? 1.7 : Math.min(2.25, fit);
+    const restScale = topScale * 0.82;
+    const spacing = step * (topScale / 2.25);
+    const x0 = narrow ? -(MAT_W / 2 - (CARD_W * topScale) / 2 - 0.3) + ((n - 1) / 2) * spacing : 0;
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
       const top = i === n - 1;
-      const x = (i - (n - 1) / 2) * step;
-      const z = nearMe + (top ? 0.15 : 0);
+      const x = x0 + (i - (n - 1) / 2) * spacing;
+      const z = 0;
       const wx = x * Math.cos(myRot) + z * Math.sin(myRot);
       const wz = -x * Math.sin(myRot) + z * Math.cos(myRot);
-      const scale = top ? 2.25 : 1.85;
-      const tilt = 0.75; // far edge up: the face turns toward my seat
-      const y = (top ? 1.45 : 1.3) + i * 0.02;
+      const scale = top ? topScale : restScale;
+      const y = (top ? 0.42 : 0.3) + i * 0.02;
       this.place(c, undefined, wx, wz, y, myRot);
       c.scale = scale;
       grow(wx, wz, (CARD_H / 2) * scale + 0.45);
