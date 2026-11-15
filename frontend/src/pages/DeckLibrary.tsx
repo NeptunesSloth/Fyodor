@@ -21,6 +21,7 @@ import "./decks.css";
 const NO_SEATS: LobbySeat[] = [];
 const OPEN_FOLDER = "fyodor.deckFolder"; // the folder the shelf was showing (this browser only)
 const EMPTY_FOLDERS = "fyodor.deckFolders.empty"; // folders made here that hold no deck yet
+const SHUT_FOLDERS = "fyodor.deckFolders.shut"; // folders whose decks are hidden on the all-decks shelf (this browser only)
 const DRAG_TYPE = "application/x-fyodor-deck";
 
 function stored<T>(key: string, fallback: T): T {
@@ -75,6 +76,12 @@ export function DeckLibrary() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const setOpen = (f: string | null) => { setOpenRaw(f); store(OPEN_FOLDER, f); };
   const setMade = (list: string[]) => { setMadeRaw(list); store(EMPTY_FOLDERS, list); };
+  const [shut, setShutRaw] = useState<string[]>(() => stored<string[]>(SHUT_FOLDERS, []));
+  const toggleShut = (name: string) => {
+    const next = shut.includes(name) ? shut.filter((f) => f !== name) : [...shut, name];
+    setShutRaw(next);
+    store(SHUT_FOLDERS, next);
+  };
   const folders = useMemo(() => deckFolders(decks ?? [], made), [decks, made]);
   useEffect(() => { // a folder that no longer exists (renamed on another device): back to every deck
     if (decks && open && !folders.some((f) => f.name === open)) setOpen(null);
@@ -187,15 +194,22 @@ export function DeckLibrary() {
         [...folders.map((f) => f.name), ""].map((name) => {
           const inside = shown.filter((d) => (d.folder ?? "") === name);
           if (!inside.length) return null;
+          const isShut = shut.includes(name);
+          const gridId = `dk-group-${name || "-"}`;
           return (
-            <section key={name || "-"} className={`dk-group ${dropOn === name ? "drop" : ""}`} {...dropProps(name)}>
+            <section key={name || "-"} className={`dk-group ${dropOn === name ? "drop" : ""} ${isShut ? "shut" : ""}`} {...dropProps(name)}>
               <h2 className="dk-group-head">
+                <button className="dk-group-toggle" aria-expanded={!isShut} aria-controls={gridId} data-testid="deck-folder-toggle"
+                  aria-label={`${isShut ? "Show" : "Hide"} ${name || "the decks not in a folder"}`}
+                  title={isShut ? "Show this folder's decks" : "Hide this folder's decks"} onClick={() => toggleShut(name)}>
+                  <Icon name={isShut ? "right" : "down"} size={16} />
+                </button>
                 <button className="tt-link" onClick={() => setOpen(name)}>
                   {name ? <><Icon name="folder" size={16} />{name}</> : "Not in a folder"}
                 </button>
                 <span className="n">{inside.length}</span>
               </h2>
-              <ul className="dk-grid">{inside.map(tile)}</ul>
+              {!isShut && <ul className="dk-grid" id={gridId}>{inside.map(tile)}</ul>}
             </section>
           );
         })

@@ -97,6 +97,15 @@
 .dk-group-head .tt-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-2); font: inherit; text-decoration: none; }
 .dk-group-head .tt-link:hover { color: var(--room-bone); }
 .dk-group-head .n { font: 400 13px/1 var(--font-body, inherit); color: var(--text-faint); }
+/* hide or show a folder's decks on the all-decks shelf (remembered on this device) */
+.dk-group-toggle {
+  align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;
+  margin-right: -4px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--text-dim); cursor: pointer;
+}
+.dk-group-toggle:hover { color: var(--room-bone); border-color: var(--line); }
+.dk-group-toggle:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.dk-group.shut { margin-bottom: 10px; }
+.dk-group.shut .dk-group-head { margin-bottom: 0; }
 .dk-deck[draggable="true"] { cursor: grab; }
 @media (prefers-reduced-motion: reduce) { .dk-folder, .dk-group { transition: none; } }
 
