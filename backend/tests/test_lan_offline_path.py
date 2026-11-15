@@ -238,13 +238,14 @@ def test_art_is_fetched_with_caps_and_only_real_jpegs(tmp_path, cards):
 @pytest.fixture()
 def keeper_client(tmp_path, card_db, monkeypatch):
     calls: list[list[str]] = []
-    outcome = {"offline": False}
+    outcome = {"offline": False, "fail": 0}
 
     def fake_fetch(self, printing_ids, progress, *, tokens=True):
         if outcome["offline"]:
             raise httpx.ConnectError("no internet")
         calls.append(list(printing_ids))
-        return SimpleNamespace(requested=len(printing_ids), downloaded=len(printing_ids), skipped=0, failed=0)
+        failed = min(outcome["fail"], len(printing_ids))
+        return SimpleNamespace(requested=len(printing_ids), downloaded=len(printing_ids) - failed, skipped=0, failed=failed)
 
     from app.services import Services
 
@@ -264,6 +265,17 @@ def test_saving_a_deck_keeps_its_art_for_offline_play(keeper_client):
     assert len(calls) == 1 and len(calls[0]) == 3  # the deck's own printings and Krenko's Goblin token, quietly
     status = client.get("/api/decks/art-keeper").json()
     assert status["enabled"] is True and status["pending"] == 0
+
+
+def test_a_deck_whose_art_came_only_in_part_is_tried_again(keeper_client):
+    """One image timing out mustn't leave that card a text proxy for good: the deck stays on the list for the next try."""
+    client, keeper, calls, outcome = keeper_client
+    outcome["fail"] = 1
+    client.post("/api/decks", json={"name": "Goblins", "text": "1 Krenko, Mob Boss\n1 Sol Ring\n"})
+    assert len(calls) == 1 and client.get("/api/decks/art-keeper").json()["pending"] == 1
+    outcome["fail"] = 0
+    keeper.kick()
+    assert len(calls) == 2 and client.get("/api/decks/art-keeper").json()["pending"] == 0
 
 
 def test_offline_the_keeper_waits_and_retries_when_back_online(keeper_client):

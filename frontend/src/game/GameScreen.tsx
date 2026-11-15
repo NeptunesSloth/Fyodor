@@ -35,7 +35,7 @@ import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
 import { TableImporter } from "./TableImporter";
-import { ExileCastables } from "./ExileCastables";
+import { ExileCastables } from "./ExileCastablesRow";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";

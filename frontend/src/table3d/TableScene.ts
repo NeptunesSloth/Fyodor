@@ -62,7 +62,7 @@ import {
 } from "./layout";
 import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
+import { abilityCardTexture, backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
 import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
 import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
@@ -1302,6 +1302,11 @@ export class TableScene {
 
   private faceKeyFor(card: GameCard): string {
     if (!isVisible(card) || card.face_down) return `back:${card.owner}`;
+    if (card.ability) {
+      // a triggered or activated ability: its source's art and its text (as the 2D table's GameCardFace)
+      const src = card.ability.source_card_id ? useCardCache.getState().cards[card.ability.source_card_id] : undefined;
+      return `ability:${card.ability.source_card_id ?? ""}:${src?.has_image ? "img" : "txt"}:${card.ability.kind}:${card.ability.source_name ?? ""}:${card.ability.text}`;
+    }
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
     const look = data ? (data.has_image ? "img" : "txt") : "pending";
     // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
@@ -1318,6 +1323,13 @@ export class TableScene {
     let m = this.materials.get(key);
     if (m) return m;
     if (key.startsWith("tile:")) return this.tileMaterial(card, key);
+    if (key.startsWith("ability:") && isVisible(card) && card.ability) {
+      const id = card.ability.source_card_id;
+      const art = id && useCardCache.getState().cards[id]?.has_image ? imageUrl(id, 0, "normal") : null;
+      m = new THREE.MeshStandardMaterial({ map: abilityCardTexture(card.ability, art), roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
+      this.materials.set(key, m);
+      return m;
+    }
     const vis = card as Extract<GameCard, { hidden?: undefined }>;
     const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
     const text = () => textCardTexture(data, vis.face ?? 0, vis.name);
@@ -1463,6 +1475,8 @@ export class TableScene {
       const c = this.cards.get(id) ?? this.makeCard(id);
       c.seen = true;
       if (isVisible(card) && card.card_id && !useCardCache.getState().cards[card.card_id]) need.push(card.card_id);
+      const src = isVisible(card) ? card.ability?.source_card_id : null;
+      if (src && !useCardCache.getState().cards[src]) need.push(src);
       const key = this.faceKeyFor(card);
       if (key !== c.faceKey) {
         c.faceKey = key;

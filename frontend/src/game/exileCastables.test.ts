@@ -35,7 +35,7 @@ describe("castable from exile (the Ian Malcolm exile markers)", () => {
   it("renders the row with whose card it is and what exiled it", async () => {
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
-    const { ExileCastablesRow } = await import("./ExileCastables");
+    const { ExileCastablesRow } = await import("./ExileCastablesRow");
     const withPlayers = (v: GameView) => Object.assign(v, { players: [{ id: "p1", name: "Alice" }, { id: "p2", name: "Bob" }] });
     const html = renderToStaticMarkup(createElement(ExileCastablesRow, { view: withPlayers(view()), me: "p1" }));
     expect(html).toContain('data-testid="exile-castables"');

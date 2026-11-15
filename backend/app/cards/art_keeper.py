@@ -101,22 +101,28 @@ class ArtKeeper:
             self._thread.start()
 
     def _work(self) -> None:
-        while not self._stop.is_set():
+        with self._lock:
+            todo = list(self.pending)
+        for deck_id in todo:  # each waiting deck once per pass: one whose art came only in part waits for the next pass
+            if self._stop.is_set():
+                break
             with self._lock:
-                if not self.pending or not self.enabled:
+                if not self.enabled:
                     break
-                deck_id = self.pending[0]
-            if not self._keep(deck_id):
+            done = self._keep(deck_id)
+            if done is None:
                 break  # offline (or turned off): the deck waits for the next try
-            with self._lock:
-                if deck_id in self.pending:
-                    self.pending.remove(deck_id)
-                self._save()
+            if done:
+                with self._lock:
+                    if deck_id in self.pending:
+                        self.pending.remove(deck_id)
+                    self._save()
         with self._lock:
             self.progress = {}
 
-    def _keep(self, deck_id: str) -> bool:
-        """Download the deck's missing art. False when the network isn't there (try again later)."""
+    def _keep(self, deck_id: str) -> bool | None:
+        """Download the deck's missing art. True when it's all here; False when some of it failed (try that again later);
+        None when the network isn't there (stop: try again later)."""
         from app.cards.repository import CardDatabaseUnavailable
         from app.decks.repository import DeckNotFound
 
@@ -133,21 +139,25 @@ class ArtKeeper:
         missing = [pid for pid in ids if not services.images.has(pid)]
         with self._lock:
             self.progress = {"deck": deck.name, "done": 0, "total": len(missing)}
+        failed = 0
         for start in range(0, len(missing), BATCH):
             if self._stop.is_set() or not self.enabled:
-                return False
+                return None
             batch = missing[start : start + BATCH]
             try:
                 report = services.fetch_artwork(batch, lambda *_: None, tokens=False)
             except (httpx.HTTPError, OSError) as exc:
                 log.info("Deck art for %s waits until this computer is online (%s)", deck.name, exc)
-                return False
+                return None
             if report.requested and report.failed >= report.requested:
                 log.info("Deck art for %s waits until this computer is online", deck.name)
-                return False
+                return None
+            failed += report.failed
             with self._lock:
                 self.progress = {"deck": deck.name, "done": min(len(missing), start + len(batch)), "total": len(missing)}
-        return True
+        if failed:
+            log.info("Deck art for %s: %d image(s) failed; tried again later", deck.name, failed)
+        return not failed
 
     # -- while Fyodor runs ---------------------------------------------------------------
     def start(self) -> None:

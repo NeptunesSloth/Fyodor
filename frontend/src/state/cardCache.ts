@@ -89,3 +89,32 @@ export function refreshImageless(): void {
   const ids = Object.values(useCardCache.getState().cards).filter((c) => !c.has_image).map((c) => c.id);
   if (ids.length) refreshCards(ids);
 }
+
+/**
+ * Art arrives in the background (the host's deck art keeper after an import or a precon, a token linked on first show), but
+ * card data is cached for the session: so the cards still drawn as proxies are asked about again now and then, and only the
+ * ones whose art has arrived are replaced (nothing else re-renders or flickers).
+ */
+export async function recheckImageless(): Promise<number> {
+  const ids = Object.values(useCardCache.getState().cards).filter((c) => !c.has_image).map((c) => c.id);
+  let found = 0;
+  for (let i = 0; i < ids.length; i += 1000) {
+    const got = Object.values(await getCardsBatch(ids.slice(i, i + 1000))).filter((c) => c.has_image);
+    if (got.length) useCardCache.getState().put(got);
+    found += got.length;
+  }
+  return found;
+}
+
+const RECHECK_MS = 30_000;
+let recheckTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Start looking again for art every half minute while the page is visible (once; the app calls it at start). */
+export function startImagelessRecheck(): void {
+  if (recheckTimer || typeof window === "undefined") return;
+  const tick = () => {
+    if (document.visibilityState === "visible") recheckImageless().catch(() => undefined);
+  };
+  recheckTimer = setInterval(tick, RECHECK_MS);
+  document.addEventListener("visibilitychange", tick);
+}
