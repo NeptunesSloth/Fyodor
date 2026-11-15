@@ -89,3 +89,37 @@ test("arranged 3D table: a ×80 token pile, a land pile, the stack and the toolb
     await page.screenshot({ path: `${OUT}/ui-pass-toolbar.png` });
   }
 });
+
+test("3D stack: an activated ability stands as its own card (kind, source and text), not a blank proxy", async ({ page }) => {
+  test.skip(!OUT, "set SHOT_DIR to capture the screenshots");
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fyodor.renderer", "3d");
+    localStorage.setItem("fyodor.welcomeDone", "1");
+  });
+  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
+  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
+  const res = await page.request.post("/api/games", { data: { name: "Ability", mode: "local", automation: "full", shuffle: false, first_player: 0,
+    mulligan_rule: "none", players: [{ name: "Alice", deck_id: decks[0]!.id }, { name: "Bob", deck_id: decks[1]!.id }] } });
+  const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+  type V = { turn: { phase: string }; stack: string[]; cards: Record<string, { name: string; ability?: unknown }> };
+  const view = async () => (await (await page.request.get(`/api/games/${gameId}/view?viewer=p1`)).json()) as V;
+  const act = async (action: Record<string, unknown>) => {
+    const r = await page.request.post(`/api/games/${gameId}/actions`, { data: { action, as: "p1" } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+  };
+  for (let i = 0; i < 6 && (await view()).turn.phase !== "main1"; i++) await act({ type: "pass_priority" });
+  await act({ type: "create_token", player: "p1", token: { name: "Healing Well", type_line: "Token Artifact", text: "{0}: You gain 1 life." } });
+  const well = Object.entries((await view()).cards).find(([, c]) => c.name === "Healing Well")![0];
+  await act({ type: "set_stops", hold_priority: true, smart_pass: false }); // keep priority: the ability stays on the stack
+  await act({ type: "activate_ability", card_id: well, ability: 0 });
+  const v = await view();
+  expect(v.stack.length).toBe(1);
+  expect(v.cards[v.stack[0]!]!.ability).toBeTruthy();
+  await page.goto(`/#/game/${gameId}`);
+  await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(3500);
+  await page.evaluate(() => window.__fyodor3d?.camera({ stack: true }));
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${OUT}/ui-pass-ability.png` });
+});
