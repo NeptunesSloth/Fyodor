@@ -381,6 +381,11 @@ async def game_view(  # (review 29A: on the event loop, between actions — a th
     return services.hub.view(room, v)
 
 
+async def _broadcast_view(services: Services, room: Room, viewer: str) -> dict[str, Any]:
+    """Broadcast the change, and reply with ``viewer``'s view of it, built in the broadcast's own pass (-- big boards (views) --)."""
+    return await services.hub.broadcast(room, viewer=viewer) or services.hub.view(room, viewer)
+
+
 @router.post("/games/{game_id}/actions")
 async def post_action(
     game_id: str, body: ActionIn, request: Request, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
@@ -412,8 +417,7 @@ async def post_action(
             services.hub.remember_action(room, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
-    await services.hub.broadcast(room)
-    return {**services.hub.view(room, viewer), "status": "ACCEPTED"}
+    return {**await _broadcast_view(services, room, viewer), "status": "ACCEPTED"}
 
 
 @router.post("/games/{game_id}/undo")
@@ -444,8 +448,7 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
-    await services.hub.broadcast(room)
-    return services.hub.view(room, viewer)
+    return await _broadcast_view(services, room, viewer)
 
 
 class UndoAskIn(MetaIn):

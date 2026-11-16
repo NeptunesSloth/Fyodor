@@ -16,6 +16,7 @@ import logging
 import secrets
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -561,18 +562,27 @@ class GameHub:
             if seat.connections == 0:
                 seat.last_seen = time.time()
 
-    async def broadcast(self, room: Room, *, resync: bool = False) -> None:
-        """Send each connection a fresh view built for its own viewer (a new revision)."""
+    async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None) -> dict[str, Any] | None:
+        """Send each connection a fresh view built for its own viewer (a new revision). ``viewer``: also build (or reuse) that
+        viewer's view in the same pass and return it, for the HTTP reply to whoever acted (built after the sends, it would be the
+        table worked out a second time)."""
         room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
-        for conn in list(room.connections.values()):
-            key = f"{conn.viewer}:{conn.host}"
-            message = cache.get(key)
-            if message is None:
-                message = cache[key] = self.message(room, conn.viewer, host=conn.host)
-                if resync:
-                    message = cache[key] = {**message, "resync": True}
+        conns = list(room.connections.values())
+        reply: dict[str, Any] | None = None
+        # -- big boards (views) -- every view is built before any is sent (no await in between: all of the same table), in one read pass:
+        # what each view derives, every permanent's characteristics, is worked out once for the table, not once per viewer
+        with room.session.reading() if room.started else nullcontext():
+            for conn in conns:
+                key = f"{conn.viewer}:{conn.host}"
+                if key not in cache:
+                    message = self.message(room, conn.viewer, host=conn.host)
+                    cache[key] = {**message, "resync": True} if resync else message
+            if viewer is not None and room.started:
+                reply = next((m["view"] for k, m in cache.items() if k.split(":", 1)[0] == viewer), None) or self.view(room, viewer)
+        for conn in conns:
+            message = cache[f"{conn.viewer}:{conn.host}"]
             try:
                 await conn.send(message)
             except Exception as exc:  # noqa: BLE001 - a dead socket must not break the table for others
@@ -580,6 +590,7 @@ class GameHub:
                 stale.append(conn)
         for conn in stale:
             self.disconnect(room, conn)
+        return reply
 
     async def send_to(self, room: Room, viewer: str, message: dict[str, Any]) -> None:
         for conn in [c for c in room.connections.values() if c.viewer == viewer]:

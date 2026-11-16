@@ -773,8 +773,13 @@ def _saddlebrutes(state: Any, info: Any) -> list[str]:
     from app.rules import characteristics as chars
     from app.rules import scripts
 
-    return [c.controller for c in state.cards.values() if c.zone.endswith(":battlefield") and not c.phased_indirect
-            and any(d.get("static") == "saddlebrute110k" for d in scripts.definitions(chars.of(c, info)).values())]
+    # (-- big boards -- read for every creature that could attack: only an ability with exactly the Saddlebrute's text gives the static,
+    # ``definition`` above, so the cards without it are passed over before their definitions are read)
+    def gives(ch: Any) -> bool:
+        return any(a.text.strip() == _SADDLEBRUTE for a in ch.abilities) \
+            and any(d.get("static") == "saddlebrute110k" for d in scripts.definitions(ch).values())
+
+    return [c.controller for c in state.cards.values() if c.zone.endswith(":battlefield") and not c.phased_indirect and gives(chars.of(c, info))]
 
 
 def sick_may_attack(state: Any, card: Any, info: Any) -> bool:

@@ -49,7 +49,8 @@ def untap_step(plan: Plan, player: str) -> None:
     from app.rules import phase_lifetimes43, wave110k_cards
 
     state = plan.state
-    out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords and not _held(plan, c)]
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords and not _held(plan, c)]
     from app.rules import (
         cast_limits,  # -- (wave 110O) -- "Permanents can't phase in." (Disciple of Caelus Nin)
     )

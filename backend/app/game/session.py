@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from pydantic import ValidationError
@@ -152,6 +154,19 @@ class GameSession:
         self.updated_at = time.time()
 
     # -- views -----------------------------------------------------------------------
+    @contextmanager
+    def reading(self) -> Iterator[None]:
+        """-- big boards (views) -- one read pass for several views of the table as it is now (a broadcast builds one per viewer): the
+        characteristics every view derives are worked out once, not once per viewer. What a pass keeps is the table's (a player's own
+        answers are kept under that player), and the block must not change the table."""
+        if self.state.rules is None or self.cards is None:
+            yield
+            return
+        from app.rules import read_pass
+
+        with read_pass.scope(self.state, self.cards):
+            yield
+
     def view(self, viewer: str, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:
         info = {
             "can_undo": self.history.can_undo,

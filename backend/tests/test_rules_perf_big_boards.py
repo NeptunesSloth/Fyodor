@@ -233,3 +233,27 @@ def test_a_big_land_drop_derives_each_permanent_a_bounded_number_of_times(real_c
     # 24 triggers on a board growing to 80: about 2.8 derivations per permanent per trigger (4.4 before the big-board work, which
     # derived the whole board again for each Strict Proctor check, log line and waiting trigger); a regression to that shows here
     assert calls[0] / 24 / board < 3.5, calls[0]
+
+
+def test_passing_through_the_steps_derives_each_permanent_a_bounded_number_of_times(cards, monkeypatch):
+    """-- big boards (step scans) -- every step's start scans the whole battlefield (step triggers, skipped steps, what can be
+    attacked): each scan derives the board once in a read pass, not each permanent from scratch, which rebuilt the statics key over
+    every card per derivation (a 360-card table took 8-12 s to pass priority into the next turn)."""
+    s = big_table(cards)
+    board = sum(len(ids) for z, ids in s.state.zones.items() if z.endswith(":battlefield"))
+    assert board >= READ_REUSE_FROM
+    calls = [0]
+    real = layers._derive
+
+    def counted(*args, **kw):  # type: ignore[no-untyped-def]
+        calls[0] += 1
+        return real(*args, **kw)
+
+    monkeypatch.setattr(layers, "_derive", counted)
+    steps = [s.state.turn.phase]
+    for _ in range(3):  # main 1 → combat → main 2 → end → the next player's turn
+        act(s, s.state.rules.priority, type="pass_priority")
+        steps.append(s.state.turn.phase)
+    assert steps[-1] == "main2" and s.state.turn.active_player == "p2"
+    # about 10 derivations per permanent per pass (16 before: the scans derived every permanent outside a read pass); a count, not a time
+    assert calls[0] / board / 3 < 13, calls[0]

@@ -348,19 +348,20 @@ def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | No
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
     """Opponents, planeswalkers they control, and battles they protect (506.2, 508.1b; 310.9b: a
     Siege can be attacked by its own controller, never by its protector)."""
-    from app.rules import battles
+    from app.rules import battles, read_pass
     from app.rules.layers import derive
 
     out = [p for p in live_players(state) if p != attacker]
     defenders = list(out)
-    for pid in defenders:
-        for cid in state.zones.get(zone_key(pid, "battlefield"), []):
-            card = state.cards[cid]
-            current = derive(state, card, chars.of(card, info), info)
-            if card.controller == pid and "Planeswalker" in current.types and "cant_be_attacked" not in scripts.statics(current):
-                out.append(cid)
-    out += [cid for cid in battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
-            if "cant_be_attacked" not in scripts.statics(derive(state, state.cards[cid], chars.of(state.cards[cid], info), info))]
+    with read_pass.adopted(state, info):  # -- big boards (step scans) -- read-only: each permanent derived once, not from scratch
+        for pid in defenders:
+            for cid in state.zones.get(zone_key(pid, "battlefield"), []):
+                card = state.cards[cid]
+                current = derive(state, card, chars.of(card, info), info)
+                if card.controller == pid and "Planeswalker" in current.types and "cant_be_attacked" not in scripts.statics(current):
+                    out.append(cid)
+        out += [cid for cid in battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
+                if "cant_be_attacked" not in scripts.statics(derive(state, state.cards[cid], chars.of(state.cards[cid], info), info))]
     return out
 
 
@@ -390,8 +391,9 @@ def start_declare_attackers(plan: Plan) -> None:
     r.blockers_pending = []
     r.combat_round = ""
     ap = plan.active
-    eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
-                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
+                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
     targets = attack_targets(plan.state, ap, plan.info)
     if r.could_attack_turn110g != plan.state.turn.number:  # -- wave 110G -- 508.1a: who could attack this turn ("creatures that couldn't attack")
         r.could_attack110g, r.could_attack_turn110g = [], plan.state.turn.number

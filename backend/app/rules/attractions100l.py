@@ -59,8 +59,9 @@ def astrotorium(plan: Plan, card: CardInstance) -> bool:
 
 def _yours(plan: Plan, pid: str) -> list[CardInstance]:
     """The Attractions ``pid`` controls (the battlefield zone a card is in is its controller's)."""
-    return [c for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])
-            if plan.in_game(c := plan.state.cards[cid]) and "Attraction" in plan.ch(c).subtypes]
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        return [c for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])
+                if plan.in_game(c := plan.state.cards[cid]) and "Attraction" in plan.ch(c).subtypes]
 
 
 def precombat_main(plan: Plan) -> None:

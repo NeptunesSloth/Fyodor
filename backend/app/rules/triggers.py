@@ -2253,6 +2253,15 @@ def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
                  definition=MONARCH_STEAL)
 
 
+@reads
+def _active_field(plan: Plan, *, emblems: bool = False) -> list[tuple[CardInstance, Characteristics]]:
+    """-- big boards (step scans) -- the active player's permanents (and with ``emblems``, their emblems) that aren't taken out of
+    automation, with their characteristics, read in one pass before the upkeep and end step scans add any trigger."""
+    return [(c, plan.ch(c)) for c in list(plan.state.cards.values())
+            if (c.zone.endswith(":battlefield") or emblems and designations.emblem_card(c)) and c.controller == plan.active
+            and not plan.manual(c)]
+
+
 def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
     # delayed triggers "at the beginning of the next end step / your next upkeep" (603.7): they join
@@ -2263,6 +2272,7 @@ def at_step(plan: Plan, trigger: str) -> None:
         _suspend(plan)
         _cumulative_upkeep(plan)
         _rebound(plan)
+    field = dict((card.id, ch) for card, ch in _active_field(plan, emblems=True))
     for card in list(plan.state.cards.values()):
         if card.zone.endswith(":graveyard") and card.owner == plan.active:  # -- refused zones/sized (wave 3R4) --
             for _, ch, i, d in graveyard_abilities(plan, card, trigger):
@@ -2273,13 +2283,12 @@ def at_step(plan: Plan, trigger: str) -> None:
             for _, ch, i, d in command_zone_abilities(plan, card, trigger):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
             continue
-        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or card.controller != plan.active or plan.manual(card):
+        if (now := field.get(card.id)) is None:
             continue
-        ch = plan.ch(card)
-        for i, d in abilities(plan, ch, trigger):
+        for i, d in abilities(plan, now, trigger):
             if graveyard_ability(d) and not d.get("gy_bf110b"):  # (-- wave 110B --)
                 continue  # (113.6m: it functions only in the graveyard)
-            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=now.name, index=i,
                  definition=d)
 
 
@@ -2290,6 +2299,18 @@ def at_step_generic(plan: Plan) -> None:
     prefix = f"step:{phase}:"
     prefixes = (prefix, "step:main:") if phase in ("main1", "main2") else (prefix,)  # -- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege)
     ap = plan.active
+    for card, ch, i, d in _step_abilities(plan, prefixes):
+        if _whose_step(plan, card, d["trigger"].rsplit(":", 1)[-1], ap):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=i, definition=d, event=_step_event(plan, card, d))
+
+
+@reads
+def _step_abilities(plan: Plan, prefixes: tuple[str, ...]) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    """-- big boards (step scans) -- at_step_generic's abilities for this step, read in one pass at the start of every step (each
+    permanent derived once, not from scratch); they are put on the waiting list after it, as _watchers' are."""
+    phase = plan.state.turn.phase
+    out = []
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
         cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
@@ -2308,9 +2329,8 @@ def at_step_generic(plan: Plan) -> None:
                 continue
             if d.get("first_step") and plan.rules.step_counts.get(phase, 0) != 1:
                 continue
-            if _whose_step(plan, card, d["trigger"].rsplit(":", 1)[-1], ap):
-                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                     index=i, definition=d, event=_step_event(plan, card, d))
+            out.append((card, ch, i, d))
+    return out
 
 
 # -- sagas & attached-object triggers (wave 3S) --
@@ -2449,10 +2469,7 @@ def _cumulative_upkeep(plan: Plan) -> None:
     of the age counters)"""
     age = {"counters": "age", "on": "self"}
     sacrifice = [{"do": "sacrifice", "who": "self"}]
-    for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
-            continue
-        ch = plan.ch(card)
+    for card, ch in _active_field(plan):
         for k, (kind, cost) in enumerate(cumulative_costs(ch)):
             if kind == "mana":
                 pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
@@ -2542,10 +2559,7 @@ def _echo(plan: Plan) -> None:
     since the beginning of your last upkeep, sacrifice it unless you pay [cost]." Each permanent
     gets this once per controller (a new object, or a new controller, is due again)."""
     r = plan.rules
-    for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
-            continue
-        ch = plan.ch(card)
+    for card, ch in _active_field(plan):
         found = echo_cost(ch)
         key = f"{plan.oid(card)}:{card.controller}"
         if found is None or key in r.echo_done:

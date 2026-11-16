@@ -153,11 +153,12 @@ def precombat_main(plan: Plan) -> None:
 
     ap = plan.active
     puts = []
-    for card in plan.state.cards.values():
-        if card.controller != ap or not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
-            continue
-        if final_chapter(plan.ch(card)) > 0:
-            puts.append((card.id, LORE, 1))
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        for card in plan.state.cards.values():
+            if card.controller != ap or not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
+                continue
+            if final_chapter(plan.ch(card)) > 0:
+                puts.append((card.id, LORE, 1))
     if puts:
         replace.put_counters(plan, puts, by=ap, effect=False)  # (not an effect: 714.3c, 614.16)
 

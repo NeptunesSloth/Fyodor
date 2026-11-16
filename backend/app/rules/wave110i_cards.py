@@ -1025,15 +1025,15 @@ def ask_skip(plan: Plan, done: list[str]) -> bool:
 
     if skips._static(plan, plan.active, "draw") is not None:
         return False  # a mandatory skip replaces the step first
-    for c in plan.state.cards.values():
-        if c.id in done or c.controller != plan.active or not c.zone.endswith(":battlefield") or c.face_down:
-            continue
-        if any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values()):
-            decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
-                   options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
-                   resume={"step": "skip_may110i", "src": c.id, "done": done})
-            return True
-    return False
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        c = next((c for c in plan.state.cards.values() if c.id not in done and c.controller == plan.active and c.zone.endswith(":battlefield")
+                  and not c.face_down and any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values())), None)
+    if c is None:
+        return False
+    decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
+           options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
+           resume={"step": "skip_may110i", "src": c.id, "done": done})
+    return True
 
 
 def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
