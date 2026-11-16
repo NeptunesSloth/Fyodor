@@ -19,7 +19,7 @@ import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableSc
 import { startAmbience } from "./ambience";
 import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
-import { offMat } from "./framing";
+import { offDice, offMat } from "./framing";
 import { PLATE } from "./layout";
 import "./table3d.css";
 
@@ -184,6 +184,8 @@ export function Table3D({ me }: { me: string }) {
       const most = ppus.length ? Math.max(...ppus) : 0;
       const spread = ppus.length ? 1 - Math.min(...ppus) / most : 0;
       const own = Math.max(0, Math.min(1, (spread - 0.16) / 0.1)); // 0: one scale (the seat view's ~0.14 spread) … 1: each its own
+      // the dice at rest (page px → this host's), which the plates keep clear of
+      const dice = scene.diceOnScreen(true).map((d) => ({ x: d.x - host.left, y: d.y - host.top }));
       for (const [node, pt, pid] of seatPts) {
         if (!node || !pt) continue;
         // (sizes are measured in each form, so the compact switch doesn't flicker)
@@ -211,6 +213,8 @@ export function Table3D({ me }: { me: string }) {
         const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
         // never over its own mat (seen low, a plate standing past the mat's edge would cover the nearest tiles)
         y = offMat({ x, y, w: pw, h: ph }, pt.matEdge, pt.matAbove);
+        // nor over thrown dice (a die that rolled toward its mat's edge, seen low): it steps on, away from its mat
+        if (dice.length) y = offDice({ x, y, w: pw, h: ph }, dice.map((d) => ({ ...d, r: DIE_R * (ppu || pt.pxPerUnit) })), pt.matAbove);
         x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
         y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
         // the fixed panels (camera strip, dial, stack panels): a plate is never hidden under one
@@ -378,6 +382,8 @@ const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: 
  * and the scale below which it shows the portrait alone (at the farthest zoom on every screen).
  */
 const PLATE_REF = 168;
+/** A die's reach on the table (world units, a d20's bounding radius and its contact shadow): a plate keeps this clear of it. */
+const DIE_R = 0.75;
 const PLATE_MIN = 0.62;
 const PLATE_MAX = 1.3;
 const PLATE_COMPACT = 0.62;

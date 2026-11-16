@@ -766,9 +766,9 @@ export class TableScene {
     return this.motion.state();
   }
 
-  /** The dice on the table, in screen coordinates (tests and diagnostics). */
-  diceOnScreen(): { x: number; y: number }[] {
-    return this.dice.positions().map((p) => this.project(p));
+  /** The dice on the table, in screen coordinates (tests and diagnostics; `resting`: only those at rest, which the plates keep clear of). */
+  diceOnScreen(resting = false): { x: number; y: number }[] {
+    return this.dice.positions(resting).map((p) => this.project(p));
   }
 
   /**
