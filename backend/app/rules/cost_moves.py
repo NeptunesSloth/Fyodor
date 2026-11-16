@@ -61,7 +61,7 @@ def validate(plan: Plan, events: list[CostEvent]) -> None:
     for event in events:
         _check(probe, event)
         if event.kind == 'tap':
-            probe.do({'type': 'tap', 'card_ids': list(event.objects), 'tapped': True})
+            probe.do({'type': 'tap', 'card_ids': list(event.objects), 'tapped': True, 'cost': True})
         else:
             # All native replacements of these battlefield costs remove the same
             # original permanent. Project its departure before validating later
@@ -102,7 +102,7 @@ def _run(plan: Plan, frame: CostMoves, payment: M.Payment | None) -> None:
         if event.kind == 'tap':
             if any(plan.state.cards[cid].tapped for cid in ids):
                 raise ActionError(f'Choose untapped creatures to pay {event.text}')
-            plan.do({'type': 'tap', 'card_ids': ids, 'tapped': True})
+            plan.do({'type': 'tap', 'card_ids': ids, 'tapped': True, 'cost': True})
             frame.next += 1
             continue
         dest = 'graveyard' if event.kind == 'sacrifice' else 'hand'

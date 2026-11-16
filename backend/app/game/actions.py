@@ -316,6 +316,7 @@ class Tap(Base):
     card_ids: IdList
     tapped: bool | None = None  # None = toggle each
     declared: bool = False  # -- tap events (wave 45C) -- 508.1f: tapped as attackers are declared (rules/combat.py)
+    cost: bool = False  # -- planechase G2 -- tapped to pay a cost (601.2h, 602.2b; crew, enlist): a restriction refuses it, never skips it
 
 
 class UntapAll(Base):

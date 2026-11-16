@@ -89,6 +89,10 @@ def global_changes(state: GameState, card: CardInstance, info: CardInfo | None) 
 
 def prospective(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
     """601.2a/601.3: read the prospective spell's text before target/cost choices."""
+    if state.planechase is not None and "Sorcery" in ch.types:  # -- planechase more 4 (wave G2) -- Deceptive Divination: the sorcery spell it would be
+        from app.rules import planar_more4
+
+        ch = planar_more4.prospective(state, card, ch, info)
     if ch.is_land or state.rules is None or not state.rules.color_words71:
         return ch
     from app.rules import text_word_changes71

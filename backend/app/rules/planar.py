@@ -232,6 +232,9 @@ from app.rules import planar_more3 as _planar_more3  # noqa: E402  -- planechase
 
 STATIC_KINDS = STATIC_KINDS | _planar_more3.STATIC_KINDS
 TRIGGER_KINDS = TRIGGER_KINDS | _planar_more3.TRIGGER_KINDS
+from app.rules import planar_more4 as _planar_more4  # noqa: E402  -- planechase more 4 (wave G2) -- its static kinds
+
+STATIC_KINDS = STATIC_KINDS | _planar_more4.STATIC_KINDS
 
 
 def _trigger_ok(trigger: str) -> bool:

@@ -5063,7 +5063,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     if loyalty:
         plan.do({"type": "counter", "card_ids": chosen, "kind": "loyalty", "delta": -1})
     else:
-        plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
+        plan.do({"type": "tap", "card_ids": chosen, "tapped": True, "cost": True})
         crew_saddle.tapped_to_pay(plan, kind, chosen, card)  # (702.122b, 702.171c)
     if restrictions.limited(limits):
         restrictions.record_use(plan.rules, oid, a.ability, plan.state.turn.number)
@@ -6893,7 +6893,7 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
     ability_id = new_ids.ids[0] if new_ids is not None else None
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
     if cost.tap:
-        plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
+        plan.do({"type": "tap", "card_ids": [card.id], "tapped": True, "cost": True})
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
 
     plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
@@ -7544,6 +7544,10 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     for cid in candidates:
         card = state.cards[cid]
         ch = chars.of(card, info)
+        if state.planechase is not None and "Sorcery" in ch.types:  # -- planechase more 4 (wave G2) -- Deceptive Divination: an instant card now
+            from app.rules import planar_more4
+
+            ch = planar_more4.divination(state, card, ch, info)
         if required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None:
             for option in alt_castable(state, player, card, info, check_priority=False):
                 selected_grant = cast_grant(state, player, card, ch, info, alternative_key=option['id'])
@@ -7579,7 +7583,7 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
     face-down permanent up (116.2b: any time they have priority), end an effect of theirs that lets them (a Licid, 116.2c: likewise), unlock a door of a Room
     (116.2m) or pay {3} for the companion (116.2g): those two in their main phase with the stack empty (``instant``: only the first two, a response).
     For the auto-pass (``can_act``, ``has_responses``): a player who can must not be passed over. A morph cost that isn't mana is counted without checking it can be paid (a stop too many,
-    never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
+    never one too few; suspend, foretell and Talon Gates from the hand: ``_hand_special``; ponytail: plot, 116.2k, isn't read)."""
     from app.rules import deferred_payment82, licids
     from app.rules.copying import room_printing
 
@@ -7615,7 +7619,59 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
             if card.owner == player and any("companion" in ab.keywords for ab in chars.of(card, info).abilities) \
                     and companion_problem(state, player, card, info) is None and can_pay(state, player, M.parse_cost("{3}"), info, purpose=Purpose()):
                 return True
+    return r is not None and _hand_special(state, player, info, main)  # -- planechase more 4 (wave G2) -- 116.2f, h: suspend, foretell, Talon Gates
+
+
+def _hand_special(state: GameState, player: str, info: CardInfo, main: bool) -> bool:
+    """-- planechase more 4 (wave G2) -- a special action from the hand that ``player`` could take now and pay for: suspend (116.2f, 702.62a: any time
+    they could begin to cast the card — its own timing, read as the spell it would be, 601.3), foretell (116.2h, 702.143a: during their turn, {2}; Cosmos
+    Charger, Ranar as ``foretell`` reads them) and Talon Gates' exile (ruling 2012-06-01: a special action any time they could cast a sorcery; no cost).
+    Granted lines are read through the table's zone grants (zone_grants.apply: Talon Gates, Singing Towers' or Dream Devourer's foretell)."""
+    from app.rules import cast_limits, planar_more2, text_global_word71, zone_grants
+
+    hand = state.zones.get(zone_key(player, "hand"), [])
+    if not hand:
+        return False
+    granted = any(src.controller == player and d.get("keyword") in ("foretell", "suspend", planar_more2.TALON)
+                  for src, d in cast_limits._statics(state, info, "zone_grant"))
+    fore: str | None = None  # (the foretell cost now, worked out once)
+    for cid in hand:
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        if granted:
+            ch = zone_grants.apply(state, card, ch, info)
+        for ab in ch.abilities:
+            if main and planar_more2.talon_ability(ab) and "Land" not in ch.types:
+                return True
+            if ab.kind != "keywords":
+                continue
+            if (sus := suspend_info(ch, ab.index)) is not None:
+                cost = M.parse_cost(sus[1])
+                cost = cost.with_x(1) if sus[0] is None else cost
+                timing = text_global_word71.prospective(state, card, chars.as_cast(card, info, None), info)
+                if cast_problem(state, player, card, timing, check_priority=False, info=info) is None \
+                        and can_pay(state, player, cost, info, purpose=Purpose(selected_cost_has_x=bool(cost.x))):
+                    return True
+            elif keyword_cost(ch, "foretell", FORETELL, ab.index) is not None:
+                if fore is None:
+                    fore = _foretell_cost_now(state, player, info)
+                if fore and can_pay(state, player, M.parse_cost(fore), info, purpose=Purpose(special="foretell")):
+                    return True
     return False
+
+
+def _foretell_cost_now(state: GameState, player: str, info: CardInfo) -> str:
+    """What foretelling a card costs ``player`` now ("" when they can't: not their turn and no Cosmos Charger), as ``foretell`` works it out."""
+    from app.rules import static_perm100d
+    from app.rules.plan import Plan
+
+    view = Plan.view(state, player, info)
+    chargers = static_perm100d.yours(view, static_perm100d.FORETELL, player)
+    if state.turn.active_player != player and not chargers:
+        return ""
+    r = state.rules
+    first = r is not None and r.foretell_action_turn.get(player) != state.turn.number
+    return "{0}" if first and static_perm100d.yours(view, static_perm100d.RANAR, player) else f"{{{max(0, 2 - chargers)}}}"
 
 
 def can_act(state: GameState, player: str, info: CardInfo) -> bool:

@@ -389,11 +389,27 @@ def test_singing_towers_foretell_survives_a_planeswalk(cards):
 def test_amys_home_suspends_a_card_from_hand(cards):
     s = table(cards, ["Krosa", "Amy's Home"])
     bear = to_zone(s, named(s, "Runeclaw Bear"), "hand")
-    act(s, "p1", type="planeswalk")  # (to Amy's Home by hand: no planeswalk trigger; its upkeep half works)
-    to_turn(s, 3)  # Alice's upkeep: she may exile a card; the first nonland card offered is her Runeclaw Bear
+    act(s, "p1", type="planeswalk")  # (its planeswalk trigger: the first nonland card offered is her Runeclaw Bear)
+    act(s, "p1", type="pass_priority")
+    settle(s)
+    assert bear.zone == "p1:exile" and bear.counters.get("time") == 2 and bear.id in s.state.rules.suspended  # (mana value 2)
+    to_turn(s, 3)  # Alice's next upkeep: suspended as it began, the card's own trigger removes one (702.62b)
+    assert bear.counters.get("time") == 1
+    check(s)
 
-    # (exiled with 2 time counters; the suspend tick of this same upkeep then removed one: 702.62b)
-    assert bear.zone == "p1:exile" and bear.counters.get("time") in (1, 2) and bear.id in s.state.rules.suspended
+
+def test_amys_home_upkeep_suspension_is_not_ticked_in_that_upkeep(cards):
+    """The card exiled by Amy's Home's upkeep trigger wasn't suspended as that upkeep began, so its "At the beginning of your upkeep, if this
+    card is suspended, remove a time counter" didn't trigger then (603.2, 603.6a, 702.62b): it keeps all its counters until the next upkeep."""
+    s = table(cards, ["Krosa", "Amy's Home"])
+    act(s, "p1", type="planeswalk")
+    act(s, "p1", type="pass_priority")
+    settle(s)  # (the planeswalk trigger: nothing in hand to exile)
+    bear = to_zone(s, named(s, "Runeclaw Bear"), "hand")
+    to_turn(s, 3)  # Alice's upkeep: Amy's Home exiles the bear with 2 time counters
+    assert bear.zone == "p1:exile" and bear.counters.get("time") == 2 and bear.id in s.state.rules.suspended
+    to_turn(s, 5)
+    assert bear.counters.get("time") == 1
     check(s)
 
 

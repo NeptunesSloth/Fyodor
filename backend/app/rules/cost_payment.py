@@ -923,7 +923,7 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
             plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
         elif comp.kind in (C.TAP_OTHER, C.WATERBEND, "TAP_POWER"):  # (wave 17B: waterbend 701.67a — tapped to help pay; 17C teamwork)
             if ids:
-                plan.do({"type": "tap", "card_ids": ids, "tapped": True})
+                plan.do({"type": "tap", "card_ids": ids, "tapped": True, "cost": True})
             record.tapped_for_cost += ids
             record.tapped_objects += [plan.oid(c) for c in ids]  # (review 26C: last known information, 608.2h)
             if comp.kind == "TAP_POWER":  # -- (wave 110J) -- "becomes tapped to pay a teamwork cost"

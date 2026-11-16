@@ -1101,6 +1101,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
     ch = name_changes(ch, effects, attached45, info, state, card)
+    if state.planechase is not None and "Sorcery" in ch.types:  # -- planechase more 4 (wave G2) -- Deceptive Divination: layer 3 in every zone (612.1, 613.1c)
+        from app.rules import planar_more4
+
+        ch = planar_more4.divination(state, card, ch, info)
     start = ch  # Abilities after layers 1-3, before layers 4-6 take any away.
     # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
     # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)

@@ -55,7 +55,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = _permanent(plan, ctx)
     paid = chosen[0] == 'tap' and cid is not None
     if paid:
-        plan.do({'type': 'tap', 'card_ids': [cid], 'tapped': True}, actor=d.player)
+        plan.do({'type': 'tap', 'card_ids': [cid], 'tapped': True, 'cost': True}, actor=d.player)  # ("you may tap … If you do": refused, not skipped)
     context.bind_payment(ctx, d.resume['bind'], paid)
     effects.continue_effects(plan, ctx)
 

@@ -36,7 +36,8 @@ can be chosen as it goes on the stack, public — the Umaro ruling), "Each mode 
 player." (every mode targets a player of one kind), "Choose one. If [condition], [you may] choose both
 instead." (checked as it goes on the stack — the Prophetic Titan ruling), reflexive "When you do, choose …"
 (603.12: the modes belong to the reflexive ability, announced as IT goes on the stack). Refused (never
-guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", and a division.
+guessed): "choose X" / "up to X", "choose two at random", a "you may" inside a mode other than its opening "You may …" (wave G2:
+that one is the mode's own optional instruction, 608.2d), and a division.
 Fixed-size target groups work for triggered and activated modes: the chosen modes' groups join into
 one list before targets are announced. X-sized groups and totals are supported only for triggered
 modes, using the triggering object's X; activated X-sized groups and totals remain refused.
@@ -222,6 +223,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if if_mode and d is not None and d.get("if") is not None and d["effects"] and d["effects"][0].get("do") == "only_if" \
                 and d["effects"][0].get("cond") == d["if"]:
             d = {k: v for k, v in d.items() if k != "if"}  # (not an intervening "if" of the trigger, 603.4: the mode's own only_if effect checks it)
+        if d is not None and d.get("optional") and body.startswith("You may ") and not rest and d["effects"]:
+            # -- planechase more 4 (wave G2) -- "• You may …": the mode's instruction is optional, chosen by its controller as the ability resolves
+            # (608.2d) after its targets were chosen with the mode (601.2c, 603.3c); not an optional trigger (603.5): only this mode's effects are skipped
+            d = {**d, "optional": False, "effects": [{"do": "may_rest", "skip": len(d["effects"])}, *d["effects"]]}
         if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or (d.get("targets") and not _plain_groups(ab, d["targets"])) \
                 or d.get("limit") == "do_once" or d.get("if") is not None or not d["effects"]:
             return {}  # ("you may", a division, "Do this only once each turn": not in a mode)

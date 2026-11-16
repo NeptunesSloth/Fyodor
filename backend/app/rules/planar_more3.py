@@ -555,10 +555,11 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.planar_more3_f2 = {**{k: v for k, v in r.planar_more3_f2.items() if k != "ood"}, **({"ood": left} if left else {})}
 
 
-def tap_guard(plan: Plan, payload: Def, actor: str | None) -> Def:
+def tap_guard(plan: Plan, payload: Def) -> Def:
     """Ood Sphere's goaded creatures can't become tapped (ruling 2023-10-13: not by effects, not to pay costs) unless declared as attackers
-    (combat's ``declared`` tap, 508.1f). A tap an effect makes (its controller is the actor) leaves them untapped; a cost (an untargeted tap
-    action with no actor: {T}, crew, convoke, "tap an untapped creature you control") or a mana ability's {T} can't be paid with them."""
+    (combat's ``declared`` tap, 508.1f). A tap an effect makes leaves them untapped (Oubliette's phase-in tap too); a cost — a tap action
+    flagged ``cost`` ({T}, crew, enlist, "tap an untapped creature you control", "you may tap … If you do") or a mana payment's taps (convoke,
+    a mana ability's {T}) — can't be paid with them (601.2h, 602.2b: the action is refused)."""
     from app.game.errors import ActionError
 
     held = {o for x in plan.rules.planar_more3_f2.get("ood") or [] for o in x["objects"]}
@@ -572,7 +573,7 @@ def tap_guard(plan: Plan, payload: Def, actor: str | None) -> Def:
     if not bad:
         return payload
     names = ", ".join(cards[c].name or "It" for c in bad)
-    if payload.get("type") == "rules_mana" or actor is None:
+    if payload.get("type") == "rules_mana" or payload.get("cost"):
         raise ActionError(f"{names} can't become tapped unless it's being declared as an attacker (Ood Sphere)")
     keep = [c for c in payload.get("card_ids") or () if c not in bad]
     if keep:

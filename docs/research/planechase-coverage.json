@@ -1,7 +1,7 @@
 {
  "levels": {
-  "FULL": 160,
-  "PARTIAL": 46
+  "FULL": 171,
+  "PARTIAL": 35
  },
  "cards": [
   {
@@ -350,7 +350,7 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "Cards in each player's hand have cycling {2}.\nChaos: Until end of turn, creatures you control have \"This creature gets +1/+1 for each card you've discarded this turn.\"",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Cards in each player's hand have cycling {2}.",
@@ -363,8 +363,8 @@
      "text": "Chaos: Until end of turn, creatures you control have \"This creature gets +1/+1 for each card you've discarded this turn.\"",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -387,8 +387,8 @@
      "text": "Whenever Chaos ensues, each player draws a card for each artifact token they control.",
      "family": "chaos",
      "shape": "draw / discard / mill",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -510,8 +510,8 @@
      "text": "Whenever you planeswalk here or at the beginning of your upkeep, create two 1/1 red performer creature tokens with flying and haste.",
      "family": "planeswalk to",
      "shape": "and upkeep",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever one or more creatures you control with flying deal combat damage to a player, you may return it to your hand. If you do, draw cards equal to its power.",
@@ -535,7 +535,7 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "When you planeswalk here, you become the Monarch.\nWhenever Chaos ensues, each player may create two tapped treasure tokens. Each player who does can't attack you during their next turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk here, you become the Monarch.",
@@ -548,8 +548,8 @@
      "text": "Whenever Chaos ensues, each player may create two tapped treasure tokens. Each player who does can't attack you during their next turn.",
      "family": "chaos",
      "shape": "create tokens",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -679,21 +679,21 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "Change the text of each sorcery spell and sorcery card not on the stack by replacing \"sorcery\" with \"instant.\"\nWhenever chaos ensues, choose two target players. Each of them searches their library for a card, then shuffles and puts that card on top.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Change the text of each sorcery spell and sorcery card not on the stack by replacing \"sorcery\" with \"instant.\"",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, choose two target players. Each of them searches their library for a card, then shuffles and puts that card on top.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -843,29 +843,29 @@
      "text": "Whenever chaos ensues, choose one —",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "• Draw four cards.",
      "family": "chaos",
      "shape": "mode bullet",
      "supported": false,
-     "gap": "grammar"
+     "gap": "collector (mode None)"
     },
     {
      "text": "• Destroy target permanent.",
      "family": "chaos",
      "shape": "mode bullet",
      "supported": false,
-     "gap": "grammar"
+     "gap": "collector (mode None)"
     },
     {
      "text": "• You may return target creature card from your graveyard to the battlefield.",
      "family": "chaos",
      "shape": "mode bullet",
      "supported": false,
-     "gap": "grammar"
+     "gap": "collector (mode None)"
     }
    ]
   },
@@ -1046,8 +1046,8 @@
      "text": "Whenever chaos ensues, commanders you control can't be blocked this turn and gain \"Whenever this creature deals combat damage to a player, draw a card\" until end of turn.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1149,8 +1149,8 @@
      "text": "When you planeswalk away from Ghirapur Grand Prix, each player with the highest speed among players creates three Treasure tokens.",
      "family": "planeswalk away",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1304,21 +1304,21 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "At the beginning of each player's end step, if that player doesn't control a creature named Yargle, Glutton of Urborg, that player puts a bargle counter on a creature they control. It becomes a copy of Yargle, Glutton of Urborg, except it isn't legendary.\nWhenever chaos ensues, choose Swords to Plowshares, Opt, Fatal Push, Anger of the Gods, or Explore at random. Copy the chosen card. You may cast the copy without paying its mana cost.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of each player's end step, if that player doesn't control a creature named Yargle, Glutton of Urborg, that player puts a bargle counter on a creature they control. It becomes a copy of Yargle, Glutton of Urborg, except it isn't legendary.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, choose Swords to Plowshares, Opt, Fatal Push, Anger of the Gods, or Explore at random. Copy the chosen card. You may cast the copy without paying its mana cost.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1623,7 +1623,7 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "Whenever you attack, create a 1/1 red Performer creature token with flying.\nWhenever you planeswalk here or chaos ensues, destroy up to one target creature. When you do, its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield, then puts the rest on the bottom of their library in a random order.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you attack, create a 1/1 red Performer creature token with flying.",
@@ -1636,8 +1636,8 @@
      "text": "Whenever you planeswalk here or chaos ensues, destroy up to one target creature. When you do, its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield, then puts the rest on the bottom of their library in a random order.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2092,8 +2092,8 @@
      "text": "Whenever you planeswalk here, each player searches their library for up to two basic land or Desert cards and puts them onto the battlefield tapped, then shuffles their library. If a Desert entered the battlefield under a player's control this way, they create a 1/1 black Snake creature token with deathtouch.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever Chaos ensues, create X 1/1 black Snake creature token with deathtouch, where X is 1 plus the number of nonbasic land types among lands that player controls.",
@@ -3033,7 +3033,7 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "At the beginning of your second main phase, if you control a tapped creature, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)\nWhenever Chaos ensues, exile target creature. If it's an instant or sorcery, cast it without paying its mana cost. Otherwise put it onto the battlefield under its owner's control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of your second main phase, if you control a tapped creature, manifest dread.",
@@ -3046,8 +3046,8 @@
      "text": "Whenever Chaos ensues, exile target creature. If it's an instant or sorcery, cast it without paying its mana cost. Otherwise put it onto the battlefield under its owner's control.",
      "family": "chaos",
      "shape": "destroy / exile / bounce",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3081,28 +3081,28 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "Raid — At the beginning of your second main phase, for each player dealt combat damage this turn, you get a point counter and create a 2/2 black Pirate creature token with menace.\nWhenever you planeswalk away from here, each player with the most point counters or tied for the most point counters creates three Treasure tokens and draws three cards. Then remove all point counters from each player.\nWhenever Chaos ensues, proliferate for each Pirate you control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Raid — At the beginning of your second main phase, for each player dealt combat damage this turn, you get a point counter and create a 2/2 black Pirate creature token with menace.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever you planeswalk away from here, each player with the most point counters or tied for the most point counters creates three Treasure tokens and draws three cards. Then remove all point counters from each player.",
      "family": "planeswalk away",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever Chaos ensues, proliferate for each Pirate you control.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3335,14 +3335,14 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "Whenever you planeswalk here and whenever chaos ensues, for each opponent, put a shy counter on up to one target creature they control. That creature becomes a Coward in addition to its other types.\nAt the beginning of your upkeep, create a 2/2 red Warrior creature token with haste and \"Cowards can't block Warriors.\"",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you planeswalk here and whenever chaos ensues, for each opponent, put a shy counter on up to one target creature they control. That creature becomes a Coward in addition to its other types.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "At the beginning of your upkeep, create a 2/2 red Warrior creature token with haste and \"Cowards can't block Warriors.\"",
@@ -3468,8 +3468,8 @@
      "text": "When you planeswalk here and at the beginning your upkeep, put a spooky counter on target creature you control.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Spooky creatures you control have +1/+1 and menace.",
@@ -3764,14 +3764,14 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "Whenever a player commits a crime, they may draw a card. (Targeting opponents, anything they control, and/or cards in their graveyards is a crime.)\nWhenever chaos ensues, Tarnation deals 1 damage to any target.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player commits a crime, they may draw a card.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, Tarnation deals 1 damage to any target.",
@@ -3925,14 +3925,14 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "When you planeswalk here, each player chooses a creature they control and creates a token that's a copy of it, except it's a Reflection in addition to its other types.\nAll Reflections have shadow. (They can block or be blocked only by creatures with shadow.)\nWhenever chaos ensues, create a token that's a copy of a creature you control, except it's a Reflection in addition to its other types.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk here, each player chooses a creature they control and creates a token that's a copy of it, except it's a Reflection in addition to its other types.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "All Reflections have shadow.",
@@ -3945,8 +3945,8 @@
      "text": "Whenever chaos ensues, create a token that's a copy of a creature you control, except it's a Reflection in addition to its other types.",
      "family": "chaos",
      "shape": "create tokens",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4034,8 +4034,8 @@
      "text": "When you planeswalk here, each player who controls their commander draws a card. Other players may put their commander from the command zone onto the battlefield.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "If an ability of your commander would trigger during your turn, that ability triggers an additional time.",
@@ -4048,8 +4048,8 @@
      "text": "Whenever chaos ensues, the number of times each commander has been cast from the command zone becomes 0.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4653,7 +4653,7 @@
    "phenomenon": false,
    "set": "punk",
    "oracle_text": "When you planeswalk here and at the beginning of your upkeep, put a flying counter on target nontoken creature you control without flying.\nWhenever chaos ensues, exile target creature with flying. For as long as it remains exiled, its owner may cast it by paying {2} rather than paying its mana cost.\nWhen you planeswalk away from The Windy City, remove all flying counters from all creatures.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk here and at the beginning of your upkeep, put a flying counter on target nontoken creature you control without flying.",
@@ -4666,8 +4666,8 @@
      "text": "Whenever chaos ensues, exile target creature with flying. For as long as it remains exiled, its owner may cast it by paying {2} rather than paying its mana cost.",
      "family": "chaos",
      "shape": "destroy / exile / bounce",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "When you planeswalk away from The Windy City, remove all flying counters from all creatures.",
@@ -5057,8 +5057,8 @@
      "text": "Whenever Chaos ensues, create a token that's a copy of target creature you control, except it's a 1/1.",
      "family": "chaos",
      "shape": "create tokens",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
