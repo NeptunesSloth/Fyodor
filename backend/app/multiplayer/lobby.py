@@ -52,6 +52,10 @@ class LobbySettings(BaseModel):
     turn_order: TurnOrder = "random"
     # -- table permissions -- "Who may change a player's cards" (app/game/table_rights.py); copied into the game's settings at the start
     card_permissions: CardPermissions = "everyone"
+    # -- planechase -- (app/game/handlers/planechase.py) a shared planar deck of distinct planes, dealt at the start; off by default
+    planechase: bool = False
+    planar_deck_size: int = Field(default=10, ge=2, le=60)
+    planar_phenomena: bool = True
 
     @field_validator("name")
     @classmethod

@@ -109,10 +109,37 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
         <UndoSetting />
+        <PlanechaseHostSetting />
         {lan && <CardPermissionsSetting />}
         {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}
       </div>
     </Modal>
+  );
+}
+
+/** -- planechase -- deal the table a planar deck, or put it away, mid-game (the server deals and shuffles: app/game/handlers/planechase.py). */
+function PlanechaseHostSetting() {
+  const settings = useGame((s) => s.view?.game.settings);
+  const on = useGame((s) => !!s.view?.planechase);
+  const [count, setCount] = useState(settings?.planar_deck_size ?? 10);
+  const [phenomena, setPhenomena] = useState(settings?.planar_phenomena !== false);
+  const deal = () => {
+    if (on && !window.confirm("Deal a new planar deck? The current plane and the planes visited go away (Undo brings them back).")) return;
+    void send({ type: "planar_start", count, phenomena });
+  };
+  return (
+    <section data-testid="host-planechase">
+      <h3>Planechase</h3>
+      <div className="row wrap">
+        <label className="field inline">Planar deck
+          <input type="number" min={2} max={60} value={count} style={{ width: 56 }} onChange={(e) => setCount(Math.max(2, Math.min(60, Number(e.target.value) || 10)))} /> cards
+        </label>
+        <label><input type="checkbox" checked={phenomena} onChange={(e) => setPhenomena(e.target.checked)} /> Include phenomena</label>
+        <button className="tt-btn" onClick={deal}>{on ? "Deal a new planar deck" : "Deal a planar deck"}</button>
+        {on && <button className="tt-btn ghost" onClick={() => void send({ type: "planar_end" })}>Put the planar deck away</button>}
+      </div>
+      <p className="hint">One shared deck of distinct planes. The die, its cost and planeswalking are automatic; players apply each plane's effects.</p>
+    </section>
   );
 }
 

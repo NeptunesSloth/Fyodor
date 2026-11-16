@@ -15,7 +15,16 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 
 from app.game.macros import MacroDef
 from app.game.rules_state import EntryCharacteristics, ObjectSnapshot
-from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, BattlefieldRow, Playmat, TokenDef
+from app.game.state import (
+    PHASES,
+    PLAYER_ZONES,
+    STACK,
+    AttackTarget,
+    BattlefieldRow,
+    PlanarCard,
+    Playmat,
+    TokenDef,
+)
 from app.textutil import clean_text
 
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
@@ -678,6 +687,19 @@ class ResetDeck(Base):
     r: ShuffleData | None = None
 
 
+class AddDummy(Base):
+    """-- target dummy -- Sandbox: seat a "Target Dummy" opponent with no deck (app/game/dummy.py)."""
+
+    type: Literal["add_dummy"] = "add_dummy"
+
+
+class ResetDummy(Base):
+    """-- target dummy -- its life back to the start, its poison, counters and commander damage cleared, its permanents gone (a
+    card it was given goes back to its owner), and back in the game if it lost."""
+
+    type: Literal["reset_dummy"] = "reset_dummy"
+
+
 class RestartGame(Base):
     """Everyone resets their deck (as above) and play goes back to turn 1 (host on LAN)."""
 
@@ -896,6 +918,44 @@ class BagEmpty(Base):
     """Empty the bag (its chits and the drawn ones)."""
 
     type: Literal["bag_empty"] = "bag_empty"
+
+
+# -- planechase (901, Commander's single planar deck) -- the planar die, its cost and planeswalking are the table's; what a plane or
+# phenomenon does is applied by the players (app/game/handlers/planechase.py).
+class PlanarDeckData(BaseModel):
+    cards: list[PlanarCard]  # the dealt deck in order, top (face up) first
+
+
+class PlanarStart(Base):
+    """Deal a new planar deck (host): ``count`` distinct planes, with or without phenomena, shuffled on the server."""
+
+    type: Literal["planar_start"] = "planar_start"
+    count: int = Field(default=10, ge=2, le=60)
+    phenomena: bool = True
+    r: PlanarDeckData | None = None
+
+
+class PlanarEnd(Base):
+    """Put the planar deck away (host): the table stops planechasing."""
+
+    type: Literal["planar_end"] = "planar_end"
+
+
+class PlanarRollData(BaseModel):
+    face: Literal["planeswalker", "chaos", "blank"]
+
+
+class PlanarRollAction(Base):
+    """The active player rolls the planar die (901.9): planeswalker, chaos or blank, decided on the server."""
+
+    type: Literal["planar_roll"] = "planar_roll"
+    r: PlanarRollData | None = None
+
+
+class Planeswalk(Base):
+    """Planeswalk: the face-up plane goes to the bottom of the planar deck and the next card is turned face up."""
+
+    type: Literal["planeswalk"] = "planeswalk"
 
 
 class Chat(Base):
@@ -1626,6 +1686,8 @@ Action = Annotated[
     | SpawnCard
     | LoadDeck
     | ResetDeck
+    | AddDummy
+    | ResetDummy
     | RestartGame
     | RunMacro
     | SetAppearance
@@ -1661,6 +1723,10 @@ Action = Annotated[
     | BagShow
     | BagReturn
     | BagEmpty
+    | PlanarStart
+    | PlanarEnd
+    | PlanarRollAction
+    | Planeswalk
     | Chat
     | Phase
     | NextTurn

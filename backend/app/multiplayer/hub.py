@@ -202,7 +202,7 @@ class Room:
                 {
                     "id": pid,
                     "name": st.players[pid].name,
-                    "claimed": self.seats[pid].token is not None,
+                    "claimed": self.seats[pid].token is not None or st.players[pid].dummy,  # (-- target dummy -- not a seat to join)
                     "connected": self.seats[pid].connections > 0,
                     **({"color": st.players[pid].color, "commanders": player_commanders(st, pid)} if commanders else {}),
                 }
@@ -557,11 +557,15 @@ class GameHub:
             room.spectator_tokens.add(token)
             self.persist(room)
             return SPECTATOR, token
-        free = [s for s in room.seats.values() if s.token is None]
+        state = room.game.state if room.game is not None else None
+        nobody = {pid for pid, p in state.players.items() if p.dummy} if state is not None else set()  # -- target dummy -- nobody sits there
+        free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody]
         if seat is not None:
             chosen = room.seats.get(seat)
             if chosen is None:
                 raise LookupError("No such seat")
+            if seat in nobody:
+                raise PermissionError("That seat is the target dummy's")
             if chosen.token is not None:
                 raise PermissionError("That seat is already taken")
         elif free:
@@ -669,6 +673,12 @@ class GameHub:
         return room.session.view(viewer, meta=meta)
 
     def after_change(self, room: Room) -> None:
+        if room.game is not None:  # -- target dummy -- a seat added mid-game (or taken back by an undo) has its room seat
+            state = room.game.state
+            for pid in state.seat_order:
+                room.seats.setdefault(pid, Seat(player_id=pid))
+            for pid in [pid for pid, seat in room.seats.items() if pid not in state.players and seat.token is None]:
+                del room.seats[pid]
         follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         self.persist(room)
         self.save_rows(room)

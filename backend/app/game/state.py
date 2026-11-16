@@ -325,6 +325,9 @@ class PlayerState(BaseModel):
     mana_units: list[ManaUnit] = Field(default_factory=list)  # -- mana provenance (wave 18B) -- restricted / remembered mana
     mana_seq: int = 0  # -- mana provenance (wave 18B) -- the next unit id
     left: bool = False  # removed from the table by the host (kept for names in the log)
+    # -- target dummy -- a seat nobody sits in (Sandbox: "Add a target dummy"): no deck, never takes a turn, and the server answers
+    # its priority and decisions at once (app/game/dummy.py)
+    dummy: bool = False
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
     playmat: Playmat | None = None
@@ -444,6 +447,11 @@ class GameSettings(BaseModel):
     automation: AutomationLevel = "off"
     automation_options: AutomationOptions = Field(default_factory=AutomationOptions)
     mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
+    # -- planechase -- (901, one shared planar deck; app/game/handlers/planechase.py): off unless the host turns it on. The deck is
+    # dealt when the game is created (or by the host's ``planar_start``); the planes' effects are applied by the players.
+    planechase: bool = False
+    planar_deck_size: int = Field(default=10, ge=2, le=60)
+    planar_phenomena: bool = True  # False: planes only
 
 
 class LogPart(BaseModel):
@@ -503,6 +511,34 @@ class DrawBag(BaseModel):
 
     chits: list[str] = Field(default_factory=list)
     drawn: list[DrawnChit] = Field(default_factory=list)  # what came out, oldest first (a hidden one only to its drawer)
+
+
+class PlanarCard(BaseModel):
+    """-- planechase -- a plane or phenomenon of the planar deck: its printing (art and text come from the card database)."""
+
+    printing_id: str
+    name: str
+    phenomenon: bool = False
+
+
+class PlanarRoll(BaseModel):
+    player: str
+    face: Literal["planeswalker", "chaos", "blank"]
+    cost: int = 0  # generic mana it cost (901.9b: {0}, then one more for each further roll this turn)
+    seq: int = 0
+
+
+class Planechase(BaseModel):
+    """-- planechase -- the table's single planar deck (901.15): ``deck[0]`` is the face-up plane (or phenomenon), the rest in order,
+    kept on the server only. A view holds the face-up card, how many are in the deck and the planes already visited (public: they
+    went to the bottom face up), never the order of the rest (``views.planechase_view``)."""
+
+    deck: list[PlanarCard] = Field(default_factory=list)
+    visited: list[PlanarCard] = Field(default_factory=list)  # planes planeswalked away from, oldest first
+    walks: int = 0  # planeswalks so far (the tables animate a change)
+    roll_turn: int = 0  # the turn ``rolls`` counts for
+    rolls: int = 0  # planar die rolls the active player made this turn
+    last_roll: PlanarRoll | None = None
 
 
 class DigLog(BaseModel):
@@ -582,6 +618,7 @@ class GameState(BaseModel):
     rules: RulesState | None = None  # rules bookkeeping; kept (dormant) when automation is turned off
     eliminations: list[Elimination] = Field(default_factory=list)  # -- pod history -- who went out, in order (public)
     bag: DrawBag = Field(default_factory=DrawBag)  # -- table toys -- the hidden draw bag (never in a view: views.py bag_view)
+    planechase: Planechase | None = None  # -- planechase -- the planar deck (its order never in a view: views.py planechase_view)
     # Where cards that ceased to exist during the step being applied were headed (a token "dies":
     # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
     _departed: dict[str, str] = PrivateAttr(default_factory=dict)

@@ -190,7 +190,8 @@ def set_table_playmat(state: GameState, a: A.SetTablePlaymat) -> None:
         kind="minor")
 
 
-RESTORE_FIELDS = ("players", "seat_order", "cards", "zones", "turn", "table", "arrows", "pregame", "settings", "auto_pass")
+RESTORE_FIELDS = ("players", "seat_order", "cards", "zones", "turn", "table", "arrows", "pregame", "settings", "auto_pass",
+                  "planechase")  # (-- planechase -- the planar deck goes back with the settings that say whether there is one)
 
 
 def restore_state(state: GameState, a: A.RestoreState) -> None:

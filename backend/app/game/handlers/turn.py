@@ -67,7 +67,11 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
     if a.player:
         nxt = ops.player(state, a.player, a.actor)
     else:
-        nxt = order[(order.index(state.turn.active_player) + 1) % len(order)]
+        start = order.index(state.turn.active_player)
+        for step in range(1, len(order) + 1):  # -- target dummy -- it never takes a turn (app/game/handlers/dummy.py)
+            nxt = order[(start + step) % len(order)]
+            if not state.players[nxt].dummy:
+                break
     if state.settings.auto_clear_combat:
         clear_combat_markers(state)
     state.turn.number += 1

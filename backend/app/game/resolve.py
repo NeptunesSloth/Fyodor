@@ -203,6 +203,16 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         if not state.bag.chits:
             raise ActionError("The draw bag is empty")
         a.r = A.BagDrawData(index=_rng_int(rng, 0, len(state.bag.chits) - 1))
+    elif isinstance(a, A.PlanarRollAction):  # -- planechase -- the planar die's face (app/game/handlers/planechase.py)
+        from app.game.handlers import planechase
+
+        if (why := planechase.roll_refusal(state, actor)) is not None:
+            raise ActionError(why)
+        a.r = A.PlanarRollData(face=planechase.face_of(_rng_int(rng, 1, planechase.DIE_FACES)))
+    elif isinstance(a, A.PlanarStart):  # -- planechase -- a new planar deck, dealt from the card database's planes
+        from app.game.handlers import planechase
+
+        a.r = A.PlanarDeckData(cards=planechase.deal(planechase.pool_of(info), a.count, a.phenomena, rng))
     elif isinstance(a, A.Merge | A.Meld):
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):

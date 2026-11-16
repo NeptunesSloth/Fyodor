@@ -279,6 +279,11 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
   border-bottom: 1px dashed color-mix(in srgb, var(--frame) 45%, transparent); cursor: help;
 }
 .pg-rule-fixed .icon { color: var(--frame-hi); }
+/* -- target dummy -- a yes/no rule (Sandbox): a real checkbox with its value beside it */
+.pg-rule-check > span + span { display: flex; align-items: center; gap: 8px; height: 30px; font: 600 15px/1 var(--font-ui); color: var(--room-bone); cursor: pointer; }
+.play .pg-rule-check input[type="checkbox"] {
+  appearance: auto; width: 16px; height: 16px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; accent-color: var(--frame-hi);
+}
 .pg-rail-note { grid-area: note; max-width: 86ch; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
 .pg-rail-note b { color: var(--room-bone); font-weight: 600; }
 .pg-start {

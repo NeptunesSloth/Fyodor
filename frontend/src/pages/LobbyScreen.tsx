@@ -39,6 +39,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
+import { PlanechaseSetting } from "./PlanechaseSetting";
 import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
@@ -1110,6 +1111,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           <span className="hint">{draft.priority_helper === "simple" ? "Asks the table before resolving or moving on (with automation off)." : "Nobody is asked: play moves on."}</span>
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
+        <PlanechaseSetting value={draft} onChange={set} />
       </div>
       {configurable && draft.mulligan_policy && (
         <>

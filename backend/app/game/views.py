@@ -220,6 +220,30 @@ def bag_view(state: GameState, viewer: str) -> dict[str, Any]:
     }
 
 
+VISITED_SHOWN = 12  # -- planechase -- the latest planes visited a view lists
+
+
+def planechase_view(state: GameState) -> dict[str, Any] | None:
+    """-- planechase -- what every viewer sees of the planar deck (app/game/handlers/planechase.py): the face-up plane or phenomenon,
+    how many cards are in the deck, the planes visited (public: they went to the bottom face up) and the die. Never the order or
+    names of the cards below the face-up one, for anyone (the hot-seat open view included): nobody at the table knows them."""
+    pc = state.planechase
+    if pc is None or not pc.deck:
+        return None
+    from app.game.handlers.planechase import roll_cost
+
+    return {
+        "current": pc.deck[0].model_dump(),
+        "count": len(pc.deck),
+        "visited": [c.model_dump() for c in pc.visited[-VISITED_SHOWN:]],
+        "visited_count": len(pc.visited),
+        "walks": pc.walks,
+        "cost": roll_cost(state),
+        "rolls": pc.rolls if pc.roll_turn == state.turn.number else 0,
+        "last_roll": pc.last_roll.model_dump() if pc.last_roll else None,
+    }
+
+
 def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
     return [
         {
@@ -354,4 +378,5 @@ def build_view(
         "stack": list(state.zones.get(STACK, [])),
         "log": render_log(log[-log_limit:], viewer),
         "bag": bag_view(state, viewer),  # -- table toys -- how many chits, and the drawn ones this viewer may see
+        "planechase": planechase_view(state),  # -- planechase -- the face-up plane, never the deck's order
     }

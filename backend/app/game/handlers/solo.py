@@ -87,7 +87,8 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
     policy = state.settings.mulligan if rules_restart else None
     keep = set(a.keep)
     for pid in players:
-        _reset(state, pid, a.r.get(pid), reset_life=True, draw=0 if policy is not None else a.draw, keep=keep)
+        draw = 0 if policy is not None or state.players[pid].dummy else a.draw  # (-- target dummy -- no deck to draw from)
+        _reset(state, pid, a.r.get(pid), reset_life=True, draw=draw, keep=keep)
     state.turn.number = 1
     state.turn.phase = "untap"
     state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}

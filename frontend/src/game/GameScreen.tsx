@@ -41,6 +41,7 @@ import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
 import { BagDraws } from "./BagDraws";
+import { PlanechasePlaque } from "./PlanechasePlaque";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -126,6 +127,8 @@ export function GameScreen() {
       <DigDialog me={me} />
       <TableImporter />
       <StackWidget me={me} />
+      {/* -- planechase -- the face-up plane and the planar die (both tables: over the 3D view too) */}
+      <PlanechasePlaque me={me} />
       <LogDrawer />
       <ToolTray />
       <SelectionBar />

@@ -192,6 +192,7 @@ const LAST_NIGHT = "fyodor.lastNight";
 interface LastNight {
   name: string; format: TableFormat; life: string; lobby: boolean; privacy: "private" | "commander_only" | "public"; mulligan: string;
   policy: MulliganPolicy | null; helper: "off" | "simple"; automation: AutomationLevel; hostDeck: string | null; players: CreatePlayer[];
+  dummy?: boolean; // -- target dummy -- (Sandbox)
 }
 const lastNight = (): LastNight | null => {
   try { return JSON.parse(localStorage.getItem(LAST_NIGHT) ?? "null") as LastNight | null; } catch { return null; }
@@ -228,6 +229,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   // never a default; everyone else, and a host who chose none, brings a deck in the lobby
   const [hostDeck, setHostDeck] = useState<string | null>(preselect);
   const [pickingHost, setPickingHost] = useState(false);
+  const [dummy, setDummy] = useState(false); // -- target dummy -- Sandbox: an opponent with no deck to aim damage at
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
@@ -249,7 +251,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   }, [players, picking]);
 
   const remember = () => {
-    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players };
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummy };
     try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
   };
   const [last] = useState(lastNight);
@@ -259,6 +261,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setName(last.name); setFormat(last.format); setLife(last.life); setLobby(last.lobby); setPrivacy(last.privacy);
     setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
     setHostDeck(known(last.hostDeck));
+    setDummy(!!last.dummy);
     if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
     toast("Set up as last time");
   };
@@ -286,6 +289,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         });
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
+        if (dummy) await tableAction(res.game.id, { type: "add_dummy" }).catch(toastError); // (seated before the rules start)
         if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
         remember();
         navigate(`/game/${res.game.id}`);
@@ -482,6 +486,12 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
                   {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
                 </select>
+              </label>
+            )}
+            {sandbox && (
+              <label className="pg-rule pg-rule-check" title="An opponent with no deck and the starting life: it never takes a turn or blocks; Solo tools resets it">
+                <span>Target dummy</span>
+                <span><input type="checkbox" checked={dummy} onChange={(e) => setDummy(e.target.checked)} data-testid="target-dummy" /> Add one</span>
               </label>
             )}
             {!useLobby && !sandbox && (

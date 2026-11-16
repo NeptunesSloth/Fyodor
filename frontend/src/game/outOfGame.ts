@@ -32,6 +32,7 @@ const OUT_MAY = new Set([
   ...RULES_INTENTS, "chat", "roll", "coin", "rename_player", "set_appearance", "end_view", "response_pass", "response_auto", "configure",
   "remove_player", "set_table_playmat", "restart_game", "mulligan_finish",
   "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty", // -- table toys -- like the dice (not the Bag of Extras)
+  "planar_start", "planar_end", // -- planechase -- the host's planar deck (rolling and planeswalking: not theirs)
 ]);
 
 /** Why the server would refuse this action from `actor` (the seat it is sent as), or null: it may be sent. */

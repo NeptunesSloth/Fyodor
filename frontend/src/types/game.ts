@@ -189,6 +189,8 @@ export interface PlayerView {
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
   left?: boolean;
+  /** -- target dummy -- Sandbox's practice opponent: no deck, never takes a turn, the server answers for it. */
+  dummy?: boolean;
   sleeve?: string | null;
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
@@ -233,6 +235,22 @@ export interface BagLogView { player: string; hidden: boolean; left: number; chi
 /** -- table toys -- the draw bag as this viewer sees it: how many chits inside (never which), the latest drawn ones. */
 export interface DrawBagView { count: number; drawn: { player: string; chit: string | null; shown: boolean }[]; drawn_count: number }
 
+/** -- planechase -- a plane or phenomenon of the planar deck (its art and text come from the card cache, by printing). */
+export interface PlanarCardView { printing_id: string; name: string; phenomenon: boolean }
+export type PlanarFace = "planeswalker" | "chaos" | "blank";
+/** -- planechase -- the shared planar deck as every viewer sees it: the face-up card, never the order of the rest
+ * (server: app/game/views.py planechase_view). `cost`: generic mana the active player's next roll costs this turn. */
+export interface PlanechaseView {
+  current: PlanarCardView;
+  count: number;
+  visited: PlanarCardView[];
+  visited_count: number;
+  walks: number;
+  cost: number;
+  rolls: number;
+  last_roll: { player: string; face: PlanarFace; cost: number; seq: number } | null;
+}
+
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
 export type UndoPolicy = "everyone" | "own" | "host";
@@ -264,6 +282,10 @@ export interface GameMeta {
     undo_policy?: UndoPolicy;
     /** Who may change a player's cards (the host's setting; the server enforces it, see game/cardPermissions.ts). */
     card_permissions?: CardPermissions;
+    /** -- planechase -- the table plays with a shared planar deck (absent from an older server: off). */
+    planechase?: boolean;
+    planar_deck_size?: number;
+    planar_phenomena?: boolean;
   };
   /** The history has an action to undo / redo (whether this viewer may: game/undoPolicy.ts). */
   can_undo: boolean;
@@ -433,6 +455,8 @@ export interface GameView {
   arrows?: TableArrow[];
   /** -- table toys -- the table's draw bag (older servers: absent). */
   bag?: DrawBagView;
+  /** -- planechase -- the planar deck (null or absent: the table isn't planechasing). */
+  planechase?: PlanechaseView | null;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];
@@ -627,6 +651,10 @@ export interface LobbySettings {
   turn_order?: "pod" | "random" | "seats";
   /** -- table permissions -- who may change a player's cards (absent from an older server: everyone). */
   card_permissions?: CardPermissions;
+  /** -- planechase -- a shared planar deck dealt at the start (absent from an older server: off). */
+  planechase?: boolean;
+  planar_deck_size?: number;
+  planar_phenomena?: boolean;
 }
 
 export interface LobbyDeckSummary {

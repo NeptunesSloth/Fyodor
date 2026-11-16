@@ -8,7 +8,20 @@ from typing import Any
 from app.game import actions as A
 from app.game import eliminations
 from app.game.errors import ActionError
-from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
+from app.game.handlers import (
+    cards,
+    dummy,
+    marks,
+    mulligan,
+    objects,
+    planechase,
+    players,
+    response,
+    rules,
+    solo,
+    turn,
+    zones,
+)
 from app.game.handlers import toys as table_toys
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
@@ -81,6 +94,9 @@ HANDLERS: dict[str, Handler] = {
     "load_deck": solo.load_deck,
     "reset_deck": solo.reset_deck,
     "restart_game": solo.restart_game,
+    # -- target dummy -- Sandbox's practice opponent (app/game/handlers/dummy.py)
+    "add_dummy": dummy.add_dummy,
+    "reset_dummy": dummy.reset_dummy,
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,
@@ -102,6 +118,11 @@ HANDLERS: dict[str, Handler] = {
     "bag_show": table_toys.bag_show,
     "bag_return": table_toys.bag_return,
     "bag_empty": table_toys.bag_empty,
+    # -- planechase -- the planar deck, the planar die and planeswalking (app/game/handlers/planechase.py)
+    "planar_start": planechase.start,
+    "planar_end": planechase.end,
+    "planar_roll": planechase.roll,
+    "planeswalk": planechase.planeswalk,
     "chat": turn.chat,
     "phase": turn.phase,
     "next_turn": turn.next_turn,
@@ -147,6 +168,7 @@ NOT_OVERRIDES = A.INTENT_TYPES | A.SERVER_ONLY_TYPES | frozenset({
     "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_powder", "mulligan_finish", "response_open", "response_pass",
     "response_respond", "response_auto", "response_close", "restore_state", "end_view",
     "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",  # -- table toys -- like the dice
+    "planar_start", "planar_end", "planar_roll", "planeswalk",  # -- planechase -- the table's procedure, not a card's
 })
 
 

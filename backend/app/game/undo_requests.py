@@ -76,6 +76,8 @@ STEP_KINDS: dict[str, Shown] = {
     "reset_deck": "random", "restart_game": "random", "load_deck": "random",
     # -- table toys -- a dice cannon volley and a draw from the draw bag are random outcomes; showing a hidden chit is a reveal
     "cannon": "random", "bag_draw": "random", "bag_show": "reveal",
+    # -- planechase -- a planar die roll and a newly dealt planar deck are random outcomes (planeswalking is not: the deck's order is set)
+    "planar_roll": "random", "planar_start": "random", "planeswalk": "reveal",  # (planeswalking turns the next card face up)
 }
 # These shuffle only when they carry a shuffle (``r``): ending a search with "shuffle", a mulligan's final shuffle.
 SHUFFLE_IF_RESOLVED = frozenset({"search_end", "mulligan_keep", "mulligan_bottom"})

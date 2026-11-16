@@ -333,6 +333,15 @@ class CardRepository:
                 self._names_for = conn
             return self._names
 
+    def planar_cards(self) -> list[dict[str, Any]]:
+        """-- planechase -- every plane and phenomenon (one printing each, the default): the pool a planar deck is dealt from
+        (app/game/handlers/planechase.py)."""
+        rows = self._query(
+            "SELECT p.id, p.name, p.type_line FROM oracle_defaults d JOIN printings p ON p.id = d.printing_id "
+            "WHERE p.type_line LIKE 'Plane %' OR p.type_line = 'Plane' OR p.type_line LIKE 'Phenomenon%' ORDER BY p.name"
+        )
+        return [{"id": r["id"], "name": r["name"], "type_line": r["type_line"]} for r in rows]
+
     def related_tokens(self, card_id: str) -> list[dict[str, Any]]:
         card = self.get(card_id)
         if not card:

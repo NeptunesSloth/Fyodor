@@ -7,6 +7,7 @@ import json
 import logging
 import secrets
 import time
+from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
 from fastapi import (
@@ -34,6 +35,7 @@ from pydantic import (
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
+from app.cards.repository import CardDatabaseUnavailable
 from app.decks import archidekt, sites
 from app.decks import service as deck_service
 from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
@@ -43,10 +45,11 @@ from app.game import actions as A
 from app.game import placement, undo_requests
 from app.game.errors import ActionError
 from app.game.factory import STARTING_LIFE, DeckCard, PlayerSetup, new_game
+from app.game.handlers import planechase
 from app.game.mulligan import resolve_policy
 from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
-from app.game.state import CollectionCard, GameSettings, MulliganPolicy
+from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarCard
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art
@@ -104,7 +107,23 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     return seat, (seat if seat != SPECTATOR else None)
 
 
-HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat", "restart_game", "configure"}
+HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat", "restart_game", "configure",
+                     "planar_start", "planar_end"}  # -- planechase -- dealing or putting away the planar deck: a table setting
+HOST_ONLY_ACTIONS |= {"add_dummy", "reset_dummy"}  # -- target dummy -- the host seats it and resets it
+
+
+def _planar_pool(services: Services, settings: GameSettings) -> Callable[[], list[PlanarCard]] | None:
+    """-- planechase -- the planes and phenomena a new game's planar deck is dealt from (none when the table doesn't planechase).
+    A table that wants Planechase without a card database that has planes is refused, rather than started without a deck."""
+    if not settings.planechase:
+        return None
+    try:
+        pool = planechase.pool_of(services.cards)
+    except CardDatabaseUnavailable:
+        pool = []
+    if all(c.phenomenon for c in pool):
+        raise HTTPException(422, "Planechase needs the planes from the card database: update the card database, or turn Planechase off")
+    return lambda: pool
 
 
 def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
@@ -198,6 +217,10 @@ class CreateGameIn(BaseModel):
     # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2); "seats" = seat 1 first.
     turn_order: TurnOrder = "random"
     card_permissions: CardPermissions = "everyone"  # -- table permissions -- who may change a player's cards (LAN)
+    # -- planechase -- a shared planar deck dealt at the start (app/game/handlers/planechase.py); off by default
+    planechase: bool = False
+    planar_deck_size: int = Field(default=10, ge=2, le=60)
+    planar_phenomena: bool = True
 
     @field_validator("name")
     @classmethod
@@ -281,7 +304,8 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              mulligan_rule=body.mulligan_rule or "commander_london",
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
                              auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order,
-                             card_permissions=body.card_permissions)
+                             card_permissions=body.card_permissions, planechase=body.planechase,
+                             planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -346,9 +370,11 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
                             # test objects: a hot-seat table (one person testing) and a Sandbox table (free play)
                             allow_test_objects=body.mode == "local" or body.format == "sandbox", automation=body.automation,
-                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
+                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions,
+                            planechase=body.planechase, planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first,
-                     related_tokens=services.related_tokens, deck_rows=services.decks.row_overrides)
+                     related_tokens=services.related_tokens, deck_rows=services.decks.row_overrides,
+                     planar_pool=_planar_pool(services, settings))
     if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
@@ -711,6 +737,9 @@ class LobbySettingsIn(BaseModel):
     automation: AutomationLevel | None = None
     turn_order: TurnOrder | None = None
     card_permissions: CardPermissions | None = None  # -- table permissions -- (no Ready reset: it's how the table plays, not the deck rules)
+    planechase: bool | None = None  # -- planechase -- a shared planar deck (no Ready reset either)
+    planar_deck_size: int | None = Field(default=None, ge=2, le=60)
+    planar_phenomena: bool | None = None
 
 
 class ArrangeIn(BaseModel):
@@ -1209,6 +1238,9 @@ async def start_game(
             automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
             card_permissions=lobby.card_permissions,  # -- table permissions --
             allow_test_objects=lobby.format == "sandbox",  # free play: Spawn a card is on
+            planechase=lobby.planechase,  # -- planechase --
+            planar_deck_size=lobby.planar_deck_size,
+            planar_phenomena=lobby.planar_phenomena,
         )
         state = new_game(
             setups,
@@ -1219,6 +1251,7 @@ async def start_game(
             first_player=first,
             related_tokens=services.related_tokens,
             deck_rows=services.decks.row_overrides,  # -- saved rows -- (a deck from the host's library)
+            planar_pool=_planar_pool(services, settings),  # -- planechase --
         )
         state.id = room.game_id  # same URL before and after the start
         if lobby.automation != "off":

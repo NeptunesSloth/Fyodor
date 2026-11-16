@@ -47,4 +47,22 @@ Macros are **data, never code**. Each step is one of these whitelisted primitive
   command zone). It also removes your tokens, copies and test objects, clears counters,
   markers and life changes, then shuffles and draws 7. This is undoable.
 - **New opening hand**: a free redraw.
+- **Add a target dummy** (host; also a checkbox when you start a Sandbox test on the Play page): seats a
+  **Target Dummy** opponent with no deck, the table's starting life, poison and commander damage, so "each
+  opponent", targeted damage and drain effects have someone to hit. Needs test cards allowed (as Spawn a card).
+  - It **never takes a turn**: ending your turn comes straight back to you (with the rules on too), so it never
+    draws. A draw an effect makes it take from its empty library doesn't lose it the game (704.5b is waived for
+    it); everything else does (0 life, 10 poison, 21 commander damage): that is the lethal you are testing.
+  - With rules automation on, the server answers for it at once: it passes priority, declares no attackers and
+    no blockers, and takes the first (or "none") answer to any other choice. Its answers are recorded actions,
+    so they replay the same; **one Undo takes back your action together with the dummy's answers to it**, and
+    Redo puts both back. The response helper never waits for it. A choice it can't answer is left to you (pause
+    automation), with a log line saying so.
+  - **Spawn a card** can put a test card on the dummy's battlefield (a blocker to test against with the rules
+    off, or a removal target); *Give control* works too.
+  - **Reset dummy…** (host): life back to the start, poison, other counters and commander damage cleared, its
+    test cards and tokens removed and any card it was given returned to its owner. If it lost, it comes back
+    into the game (**Restore dummy…**) and play goes on. Undoable like any table action.
+  - A table with a dummy records no pod result: when the rules end the game, the table shows it, and Reset
+    dummy (or Undo) carries on. Nobody can join in the dummy's seat.
 - **Restart game…** (host): resets every deck, back to turn 1.

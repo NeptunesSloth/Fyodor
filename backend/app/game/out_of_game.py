@@ -24,6 +24,7 @@ OUT_MAY = INTENT_TYPES | frozenset({
     "configure", "remove_player", "set_table_playmat", "restart_game", "mulligan_finish",
     # -- table toys -- the dice cannon and the draw bag, like the dice (the Bag of Extras makes objects: not theirs any more)
     "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",
+    "planar_start", "planar_end",  # -- planechase -- the host's planar deck, like the table settings (rolling and planeswalking: not theirs)
 })
 
 

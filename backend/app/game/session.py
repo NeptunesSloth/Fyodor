@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.cards.repository import CardRepository, RulesCards
-from app.game import engine, out_of_game, table_rights, undo_requests, undo_rights
+from app.game import dummy, engine, out_of_game, table_rights, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -51,6 +51,8 @@ class GameSession:
         self.table_snapshots: list[dict[str, Any]] = []
         self.rules_failure: dict[str, Any] | None = None  # the last unexpected rules-engine failure
         self.undo_request: undo_requests.UndoRequest | None = None  # -- quick undo request -- waiting for the table (in memory)
+        self._answering = False  # -- target dummy -- the server is answering for the dummy (app/game/dummy.py)
+        self._dummy_gave_up: list[dict[str, Any]] | None = None  # the answers it last couldn't give (said once)
 
     # -- actions ---------------------------------------------------------------------
     def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
@@ -65,6 +67,8 @@ class GameSession:
             self._check_not_controlled(actor)
         if not trusted and (out := out_of_game.refusal(self.state, actor, action.type)) is not None:
             raise ActionError(out)  # -- out of the game -- 800.4a: a player who left no longer takes part
+        if not trusted and not self._answering and dummy.is_dummy(self.state, actor):
+            raise ActionError("The target dummy acts on its own")  # (a hot-seat table can act as any seat: not as this one)
         was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
@@ -100,7 +104,49 @@ class GameSession:
         self.suggestions = self.rules.after_action(self.state, resolved) if self.rules else []
         self.updated_at = time.time()
         self._drop_stale_request()
+        if not self._answering:
+            self._answer_for_dummy()
         return resolved
+
+    def _answer_for_dummy(self) -> None:
+        """-- target dummy -- answer for the dummy until nothing waits for it (app/game/dummy.py): recorded actions of its own, after
+        the action that put the question to it. A question it can't answer is left to the table (pause automation, or Reset dummy)."""
+        suggestions = self.suggestions  # (the player's own action's suggestions stay the ones shown)
+        self._answering = True
+        try:
+            for _ in range(dummy.MAX_ANSWERS):
+                todo = dummy.to_answer(self.state)
+                if todo is None:
+                    self._dummy_gave_up = None
+                    return
+                pid, tries = todo
+                for payload in tries:
+                    try:
+                        self.perform(pid, payload, host=True)
+                        break
+                    except (ActionError, ValidationError):
+                        continue
+                    except Exception:  # noqa: BLE001 - the player's own action is already applied: never fail it for the dummy
+                        log.exception("The target dummy's answer failed: %s", payload.get("type"))
+                        continue
+                else:
+                    if tries != self._dummy_gave_up:  # (said once; tried again after each action: the table may have changed)
+                        self._notice(None, [pname(self.state, pid), text(" can't answer this by itself. Pause automation to go on by "
+                                                                             "hand, or use Reset dummy.")])
+                    self._dummy_gave_up = tries
+                    return
+            log.warning("The target dummy answered %d times in a row; stopping", dummy.MAX_ANSWERS)
+        finally:
+            self._answering = False
+            self.suggestions = suggestions
+
+    def _glued(self, end: int) -> int:
+        """-- target dummy -- how many of the history's actions just before position ``end`` are the dummy's answers: they go with the
+        player's action they answered, so undo and redo take them back and put them back together with it."""
+        n = 0
+        while end - n > 1 and dummy.is_dummy(self.state, self.history.actions[end - n - 1].actor):
+            n += 1
+        return n
 
     def _check_not_controlled(self, actor: str) -> None:
         if is_controlled(self.state, actor):
@@ -111,13 +157,22 @@ class GameSession:
         -- quick undo request -- ``others``: who would approve a request from ``actor`` (None at a hot-seat table): when there is
         someone to ask, an undo of something already seen asks them first. ``approved``: the table approved this undo (its label)."""
         self._check_not_controlled(actor)
+        glued = self._glued(self.history.cursor)  # -- target dummy -- its answers on top go back with the action they answered
         if approved is None:
             if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
                 raise ActionError(out)  # -- out of the game (gaps5) -- a player who left doesn't take the game's actions back (the host may)
-            undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
-            if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
-                raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
-        state, undone = self.history.undo()
+            self.history.cursor -= glued  # (the checks are about that action, not the dummy's answers)
+            try:
+                undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
+                if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
+                    raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
+            finally:
+                self.history.cursor += glued
+        if glued:
+            state, gone = self.history.undo_to(self.history.cursor - glued - 1)
+            undone = gone[0]
+        else:
+            state, undone = self.history.undo()
         self.state = state
         said = f" undid: {describe(undone)}" if approved is None else f" undid: {approved} (with the table's approval)"
         self._notice(actor, [pname(self.state, actor), text(said)])
@@ -132,10 +187,14 @@ class GameSession:
         self._check_not_controlled(actor)
         if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
             raise ActionError(out)
+        while 0 <= position < self.history.cursor and dummy.is_dummy(self.state, self.history.actions[position].actor):
+            position += 1  # -- target dummy -- its answers stay with the action they answered
         if not 0 <= position < self.history.cursor:
             raise ActionError("Nothing to undo back to there")
         policy = self.state.settings.undo_policy
         for i, a in enumerate(self.history.actions[position:self.history.cursor], start=position + 1):
+            if dummy.is_dummy(self.state, a.actor):
+                continue  # (the dummy's answers go with the action they answered)
             if policy == "host" and not host:
                 raise ActionError("Only the host may undo at this table (the host's undo setting).")
             if policy == "own" and a.actor != actor:
@@ -155,6 +214,8 @@ class GameSession:
             raise ActionError(out)  # -- out of the game (gaps5) --
         undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
+        while self.history.can_redo and dummy.is_dummy(state, self.history.actions[self.history.cursor].actor):
+            state, _ = self.history.redo(state)  # -- target dummy -- its answers come back with the action they answered
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])
         self._drop_stale_request()

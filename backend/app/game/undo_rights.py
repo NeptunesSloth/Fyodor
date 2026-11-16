@@ -63,6 +63,11 @@ def view_fields(state: GameState, history: History, *, host: bool) -> dict[str, 
 
     def by(op: Op) -> str | None:
         target = entry(history, op) if own else None
+        if target is not None and op == "undo":  # -- target dummy -- its answers go back with the action they answered (GameSession.undo)
+            i = history.cursor - 1
+            while i > 0 and (p := state.players.get(target.actor)) is not None and p.dummy:
+                i -= 1
+                target = history.actions[i]
         return (target.actor or None) if target is not None else None
 
     return {"undo_host": host, "undo_by": by("undo"), "redo_by": by("redo")}

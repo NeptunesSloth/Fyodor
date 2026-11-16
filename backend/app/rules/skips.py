@@ -163,6 +163,10 @@ def next_active(plan: Plan, after: str | None = None) -> str | None:
     nxt = plan.after(after or plan.active)  # (-- extra turns (wave 8A) -- after the player whose regular turn it was)
     skipped = False
     for _ in range(64):
+        if plan.state.players[nxt].dummy and plan.after(nxt) != nxt:  # -- target dummy -- never takes a turn (app/game/handlers/dummy.py)
+            skipped = True
+            nxt = plan.after(nxt)
+            continue
         label = take(plan, nxt, "turn")
         if label is None:
             break

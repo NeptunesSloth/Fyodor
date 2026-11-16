@@ -18,6 +18,7 @@ import { AutomationHud } from "./rules/RulesHud";
 import { BoardPressure } from "./TokenMathDialog";
 import { COMBAT_FILTERS, cycleCombatFilter, type CombatFilter } from "./combatFilter";
 import { keyLabel } from "./hotkeys";
+import { dummyMenu } from "./targetDummy";
 import { Icon } from "../components/Icon";
 
 export function TopBar() {
@@ -208,6 +209,7 @@ function soloMenu(isHost: boolean): MenuItem {
       { label: "Spawn a card…", disabled: !allowed, hint: allowed ? "test object" : "off at this table", onClick: () => s.openDialog("spawn") },
       { label: "Reset my deck…", onClick: () => { if (window.confirm("Gather your cards back into your deck, remove your tokens, copies and test objects, reset life and shuffle?")) void send({ type: "reset_deck", draw: 7 }); } },
       { label: "New opening hand", onClick: () => void send({ type: "mulligan" }) },
+      ...dummyMenu(s.view, isHost, send), // -- target dummy -- add it / reset it (host)
       ...(isHost
         ? ([
             "separator",

@@ -109,6 +109,8 @@ def find(plan: Plan) -> Found:
             reason = f"{POISON_LETHAL} poison counters"
         elif any(v >= COMMANDER_LETHAL for v in p.commander_damage.values()):
             reason = f"{COMMANDER_LETHAL} combat damage from one commander"
+        elif pid in r.drew_from_empty and p.dummy:  # -- target dummy -- it has no deck: a draw it was made to take doesn't end the test
+            r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]
         elif pid in r.drew_from_empty:
             reason = "drew from an empty library"
         if reason:
