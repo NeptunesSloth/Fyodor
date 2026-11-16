@@ -66,6 +66,7 @@ import { abilityCardTexture, backCanvas, canvasTexture, handCountCanvas, cardCor
 import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
 import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
+import { freeCovers } from "./covers";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
@@ -149,6 +150,9 @@ interface CardObj {
   tile?: boolean;
   squash?: number;
   sq?: number;
+  /** -- token piles -- the card it lies wholly under on a battlefield (table3d/covers.ts): while that one sits still over it,
+   * it is not drawn, picked or shadowed. */
+  cover?: string;
 }
 
 interface PileObj {
@@ -268,6 +272,12 @@ const shadowM = new THREE.Matrix4();
 const shadowColor = new THREE.Color();
 /** A body drawn at no size (a fading stand-in card keeps only its shadow). */
 const NO_BODY = new THREE.Matrix4().makeScale(0, 0, 0);
+
+/** -- token piles -- whether `a` lies just where `b` does, turned the same and no larger (so `b`, lying over it, hides it). */
+function lyingOn(a: THREE.Object3D, b: THREE.Object3D): boolean {
+  return Math.abs(a.position.x - b.position.x) < 0.005 && Math.abs(a.position.z - b.position.z) < 0.005
+    && Math.abs(angleLerp(0, b.rotation.y - a.rotation.y, 1)) < 0.01 && a.scale.x <= b.scale.x + 0.01 && a.rotation.x === b.rotation.x;
+}
 
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
@@ -1462,7 +1472,10 @@ export class TableScene {
       version: useCardCache.getState().cards,
       order: (zone) => boardOrder(view.game.id, zone),
     }, this.keepOut) : new Map();
-    for (const c of this.cards.values()) c.seen = false;
+    for (const c of this.cards.values()) {
+      c.seen = false;
+      c.cover = undefined;
+    }
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
@@ -1491,6 +1504,22 @@ export class TableScene {
       // battlefield
       const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
       const piles = this.arranged ? this.boards.piles(pid) : zonePileTops(view, `${pid}:battlefield`);
+      // -- token piles -- what lies wholly under another card (a pile's buried cards) is hidden; a raised card (selected, a
+      // targeting choice, on its way somewhere) neither hides nor is hidden
+      const tb0 = this.beams;
+      const lifted = (id: string) => selection.has(id) || !!tb0?.cands.has(id) || id === tb0?.source || !!pending[id];
+      // (nor is a card something is attached to: its tethers lead to it)
+      const hosts = new Set<string>();
+      for (const id of bf) {
+        const a = view.cards[id];
+        if (a && isVisible(a) && a.attached_to) hosts.add(a.attached_to);
+      }
+      const covers = this.arranged ? null : freeCovers(bf.flatMap((id, i) => {
+        const card = view.cards[id];
+        if (!card) return [];
+        const [x, y] = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
+        return [{ id, x, y, turn: (card.tapped ? 1 : 0) + (card.flipped ? 2 : 0) + (card.rotation ?? 0) * 4, lifted: lifted(id) || hosts.has(id) }];
+      }));
       bf.forEach((id, i) => {
         const card = view.cards[id];
         const c = show(id);
@@ -1502,12 +1531,15 @@ export class TableScene {
         const tb = this.beams;
         const lift = tb?.cands.has(id) ? (tb.targets.includes(id) ? 0.16 : 0.06) : 0;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
+        const under = covers ? covers.get(id) : this.placed.get(id)?.cover;
+        c.cover = under && !lifted(id) && !lifted(under) ? under : undefined;
         const face = this.faceMaterial(card, c.faceKey);
         const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
         if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
         // a stack member under its top card wears no badges (the top card carries the ×N and speaks for the stack)
-        const overlay = c.tile && this.placed.get(id)?.under ? null : overlayFor(card, view.rules?.stats?.[id], c.tile);
+        // (nor does a hidden one: 200 tokens with a counter each would be 200 badge textures)
+        const overlay = c.cover || (c.tile && this.placed.get(id)?.under) ? null : overlayFor(card, view.rules?.stats?.[id], c.tile);
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
@@ -2140,7 +2172,7 @@ export class TableScene {
   private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [...this.props.targets()];
-    for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
+    for (const c of this.cards.values()) if (c.group.visible && !this.drag?.ids.includes(c.id)) targets.push(c.face);
     for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
@@ -2712,7 +2744,11 @@ export class TableScene {
       const sq = c.squash ?? 1;
       c.sq = c.sq === undefined || Math.abs(sq - c.sq) < 1e-3 ? sq : c.sq + (sq - c.sq) * k;
       if (c.sq !== 1) c.group.scale.z = c.group.scale.x * c.sq;
-      n = this.writeBody(c.group, n, 1, !(c.tile && this.placed.get(c.id)?.under));
+      // -- token piles -- a card lying wholly under its cover draws nothing; either one moving off (a flight, a drag, an attack,
+      // the easing after a change) shows it meanwhile
+      const cover = c.cover ? this.cards.get(c.cover) : undefined;
+      c.group.visible = !cover || !!cover.flying || !!cover.fresh || !!c.flying || !lyingOn(c.group, cover.group);
+      if (c.group.visible) n = this.writeBody(c.group, n, 1, !(c.tile && this.placed.get(c.id)?.under));
     }
     if (moving) {
       this.bodyN = n;

@@ -11,6 +11,7 @@
 import { applyOrder, arrangeBoard, arrangeCard, reorderOnDrop, TILE_RATIO, type BoardLayout } from "../game/arrange";
 import { isVisible, type GameView } from "../types/game";
 import type { CardData } from "../types/cards";
+import { arrangedCovers } from "./covers";
 import { CARD_H, CARD_W, MAT_D, MAT_W, toWorld, type Seat } from "./layout";
 
 /** Arrange units (the 2D layout's px) per world unit. */
@@ -41,6 +42,8 @@ export interface Spot {
   pile?: number;
   /** A stack member beneath its top card: it casts no contact shadow (80 soft shadows on one spot add up to a black slab). */
   under?: true;
+  /** A pile's buried card (past the edges it shows): the card it lies wholly under, which hides it (table3d/covers.ts). */
+  cover?: string;
   player: string;
 }
 
@@ -64,6 +67,7 @@ export function tileScale(w: number): number {
 export function arrangeMat(cards: Parameters<typeof arrangeBoard>[0], mirrored: boolean, keepOut: KeepOut | null = null): { layout: BoardLayout; spots: Map<string, MatSpot> } {
   const layout = arrangeBoard(cards, { width: MAT_W * AU, height: MAT_D * AU, mirrored, maxW: TILE_MAX * AU, minW: TILE_MIN * AU, keepOut });
   const spots = new Map<string, MatSpot>();
+  const covers = arrangedCovers(layout);
   // a stack's buried cards share one height: a pile of 80 tokens lies as low as a pile of 5
   let rank = -1;
   let prevBuried = false;
@@ -77,12 +81,13 @@ export function arrangeMat(cards: Parameters<typeof arrangeBoard>[0], mirrored: 
       rank,
       ...(p.pile ? { pile: p.pile } : {}),
       ...(p.under ? { under: true as const } : {}),
+      ...(covers.has(id) ? { cover: covers.get(id)! } : {}),
     });
   });
   return { layout, spots };
 }
 
-type MatSpot = { lx: number; lz: number; w: number; rank: number; pile?: number; under?: true };
+type MatSpot = { lx: number; lz: number; w: number; rank: number; pile?: number; under?: true; cover?: string };
 
 /** A point on a mat (its frame, world units) → the arranged layout's units, as the top-left of a tile there. */
 export function toArrange(layout: BoardLayout, lx: number, lz: number): [number, number] {
@@ -193,7 +198,7 @@ export class ArrangedBoards {
         const piles = new Map<string, number>();
         for (const [id, s] of local) {
           const [x, z] = toWorld(frame, s.lx, s.lz);
-          spots.set(id, { lx: s.lx, lz: s.lz, w: s.w, rank: s.rank, ...(s.pile ? { pile: s.pile } : {}), ...(s.under ? { under: s.under } : {}), x, z, rot: mine.rot, index: index.get(id) ?? 0, player: seat.player });
+          spots.set(id, { lx: s.lx, lz: s.lz, w: s.w, rank: s.rank, ...(s.pile ? { pile: s.pile } : {}), ...(s.under ? { under: s.under } : {}), ...(s.cover ? { cover: s.cover } : {}), x, z, rot: mine.rot, index: index.get(id) ?? 0, player: seat.player });
           if (s.pile) piles.set(id, s.pile);
         }
         m = { ids, refs, order, version: src.version, keep, frame: frameKey, sig, layout, mat: { layout, frame, mirrored, zone }, spots, piles };
