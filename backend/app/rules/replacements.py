@@ -1425,13 +1425,18 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
     """The permanents on the battlefield whose static abilities replace this card's trip to the
     graveyard ("If a creature an opponent controls would die, exile it instead.", "If a card or
     token would be put into a graveyard from anywhere, exile it instead."), with the definition that applies."""
+    from app.rules import planar_statics
+
     frm = _from_zone(card)
     found: list[tuple[CardInstance, dict[str, Any]]] = []
     for src in plan.state.cards.values():
-        if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
+        plane = planar_statics.functions(plan.state, src)  # -- planechase more (wave E1) -- the face-up plane's (311.4: The Doctor's Tomb)
+        if not (src.zone.endswith(":battlefield") or plane) or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
         for d in scripts.definitions(plan.ch(src)).values():
             if d["kind"] != "static" or d.get("static") not in ("exile_instead", "hand_instead"):  # (wave 100K: hand_instead, Necromancer's Magemark)
+                continue
+            if plane and not planar_statics.read(d):
                 continue
             if d.get("from") == "battlefield" and frm != "battlefield":
                 continue
@@ -1590,6 +1595,9 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
+        if d.get("loses_e1"):  # -- planechase more (wave E1) -- The Doctor's Tomb: "and that creature's controller loses 2 life" (614.1a, one event)
+            rider = {"source": src.id, "controller": src.controller, "reflexive": False,
+                     "effects": [{"do": "lose_life", "who": f"player:{card.controller}", "n": int(d["loses_e1"])}]}
         if rider is not None and rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: its +1/+1 counters equal the power the creature had as it died (LKI, 608.2h)
             rider["n"] = max(0, int((plan.ch(card).pt or (0, 0))[0]))
         out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
@@ -2333,5 +2341,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                     "source_card": ctx.get("source_card"), "scope": scope,
                                     **({"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}),
                                     **({"until": "end_of_combat"} if e.get("duration") == "end_of_combat" else {}),  # (-- wave 110B -- "this combat", 500.5)
+                                    **({"until": "game"} if e.get("duration") == "game" else {}),  # (-- planechase deck (wave D) -- "this game": Mount Keralia)
                                     **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

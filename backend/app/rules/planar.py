@@ -115,6 +115,14 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     )
 
     planar_walk.on_events(plan, events)
+    from app.rules import (
+        planar_more,  # -- planechase more (wave E1) -- Unyaro's phasing ends; "if you planeswalked to ~ this turn"; Sea of Sand
+    )
+
+    planar_more.on_events(plan, events)
+    from app.rules import planar_events  # -- planechase events (wave E2) -- the planar die's roll triggers
+
+    planar_events.on_events(plan, events)
     for e in events:
         if e.kind != "planar" or e.manual:
             continue
@@ -153,8 +161,11 @@ def planeswalk(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     if e.get("roll") and planar_walk.chaos_instead(plan, ctx):
         return True
-    plan.do({"type": "planeswalk"}, actor=ctl)
-    return True
+    from app.rules import (
+        planar_deck,  # -- planechase deck (wave D) -- several face-up planes: their owner orders them (901.11c)
+    )
+
+    return planar_deck.planeswalk(plan, ctx, ctl)
 
 
 PRIMITIVES: dict[str, Any] = {"planeswalk901": planeswalk}
@@ -201,11 +212,16 @@ TRIGGER_KINDS = frozenset({"planar_chaos", "planar_to", "planar_from", "planar_e
 STATIC_KINDS = frozenset({"cost_modifier",
                           "escape_grant", "no_max_hand", "top_reveal", "replace", "prevent", "skip", "attack_limit_all", "block_limit_all",
                           "enters_tapped_others", "spend_as", "zone_grant", "permission"})  # (wave A: planar_statics.py, each collector reads the plane)
+from app.rules import planar_more as _planar_more  # noqa: E402  -- planechase more (wave E1) -- its static kinds (each read by its collector)
+
+STATIC_KINDS = STATIC_KINDS | _planar_more.STATIC_KINDS
 
 
 def _trigger_ok(trigger: str) -> bool:
     parts = trigger.removeprefix("multi:").split("+") if trigger.startswith("multi:") else [trigger]
-    return all(p in TRIGGER_KINDS or p.startswith("step:") for p in parts)
+    from app.rules import planar_events  # -- planechase events (wave E2) --
+
+    return all(p in TRIGGER_KINDS or p in planar_events.TRIGGER_KINDS or p.startswith("step:") for p in parts)
 
 
 def ability_ok(d: dict[str, Any] | None) -> bool:

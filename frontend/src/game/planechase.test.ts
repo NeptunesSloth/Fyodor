@@ -6,7 +6,7 @@ import { useGame } from "../state/gameStore";
 import type { CardData } from "../types/cards";
 import { PlanechasePlaque } from "./PlanechasePlaque";
 import type { GameView, PlanechaseView } from "../types/game";
-import { canRollPlanar, costText, onShowPlanarText, planarRollAction, planarRotation, planechaseCue, showPlanarText, splitPlaneText } from "./planechase";
+import { canRollPlanar, costText, onShowPlanarText, planarFaces, planarNames, planarRollAction, planarRotation, planechaseCue, showPlanarText, splitPlaneText } from "./planechase";
 
 const pc = (over: Partial<PlanechaseView> = {}): PlanechaseView => ({
   current: { printing_id: "a", name: "Llanowar", phenomenon: false },
@@ -108,5 +108,16 @@ describe("the planechase plaque", () => {
     const rules = { paused: false, conceded: [], lost: {} };
     expect(render(pc({ cost: 1 }), "p1", "p1", { rules })).toContain("paid from your mana pool (tap your mana when asked)");
     expect(render(pc({ cost: 1 }))).toContain("(pay it from your pool)");
+  });
+
+  it("names every face-up plane and the cards revealed from the planar deck (901.11c), an older view showing just the current one", () => {
+    expect(planarFaces(pc()).map((c) => c.name)).toEqual(["Llanowar"]);
+    const two = pc({ faces: [{ printing_id: "a", name: "Llanowar", phenomenon: false }, { printing_id: "k", name: "Mount Keralia", phenomenon: false }],
+      revealed: [{ printing_id: "x", name: "Chaotic Aether", phenomenon: true }] });
+    expect(planarNames(two)).toBe("Llanowar & Mount Keralia");
+    const html = render(two);
+    expect(html).toContain("Llanowar &amp; Mount Keralia");
+    expect(html).toContain("Also face up: Mount Keralia");
+    expect(html).toContain("Revealed: Chaotic Aether");
   });
 });

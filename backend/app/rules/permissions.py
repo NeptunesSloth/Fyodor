@@ -1922,6 +1922,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     from app.rules import caster_turn_costs63
 
     mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
+    from app.rules import (
+        planar_events,  # -- planechase events (wave E2) -- The Dining Car's "cost {2} less … this turn"
+    )
+
+    mods += planar_events.ability_modifiers(state, player)
     from app.rules import selected_keyword_costs65
 
     mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)

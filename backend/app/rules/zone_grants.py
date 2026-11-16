@@ -152,7 +152,7 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     view = None
     for src, d in found:
         if (not d.get("all_players") and (card.zone != f"{src.controller}:{zone}" or card.owner != src.controller)
-                or d['keyword'] not in KEYWORDS and d['keyword'] != "brink110b" and not d['keyword'].endswith('cycling')):
+                or d['keyword'] not in KEYWORDS and d['keyword'] not in ("brink110b", "embalm") and not d['keyword'].endswith('cycling')):  # (wave E1: Naktamun's embalm)
             continue
         view = view or Plan.view(state, src.controller, info)
         if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id) or (line := _line(d, ch, card)) is None:

@@ -37,6 +37,7 @@ Def = dict[str, Any]
 PLANESWALK = "planeswalk_pcb"  # the duration "until a player planeswalks"
 LABEL = "until a player planeswalks"
 CHAOS = "Whenever chaos ensues, "
+SHORT = "Chaos: "
 
 _WORD = re.compile(r"(?P<word>[A-Z][\w'!,. -]*?) — (?P<rest>(?:Whenever|When) [Cc]haos ensues, .+)")
 
@@ -122,6 +123,55 @@ def _first_is(effect: Def) -> Fix:
     return fix
 
 
+
+# -- planechase events (wave E2) -- "choose a color. … your devotion to that color" (700.5): the color chosen as it resolves
+def _chosen_color(d: Def, *, mana: bool = False, other_than_target: bool = False) -> Def:
+    from app.rules import planar_events as pe
+
+    choose, *rest = d["effects"]
+    assert choose["do"] == "choose_value" and choose["what"] == "color"
+    bind = {"do": "bind_color_pce2", **({"other_than_target": True} if other_than_target else {})}
+    if mana:
+        rest = [{"do": "add_mana", "sym": pe.CHOSEN, "n": {"devotion": [pe.CHOSEN]}}]
+    else:
+        rest = json.loads(json.dumps(rest).replace('{"devotion": ["W"]}', json.dumps({"devotion": [pe.CHOSEN]})))
+    return {**d, "effects": [{**choose, "as": pe.COLOR}, bind, *rest]}
+
+
+
+def _ketria(d: Def, ability: AbilityText, ch: Characteristics) -> Def:
+    """Ketria: Illuna, Apex of Wishes' library packet (library_packets101): exile until a nonland permanent card, then that card onto
+    the battlefield or into its owner's hand (its controller's choice); the other exiled cards stay in exile."""
+    from app.rules import library_packets101
+
+    packet = {"do": "library_packet101", "mode": "exile", "as": "packet101", "hits": "ref:packet_hits101",
+              "sel": library_packets101._selector("nonland permanent card"), "need": 1}
+    return {**d, "effects": [packet, {"do": "packet_destination101", "who": "ref:packet_hits101"}]}
+
+
+def _dining_car(d: Def, ability: AbilityText, ch: Characteristics) -> Def | None:
+    from app.rules import scripts
+
+    mod = scripts.define(replace(ability, kind="static", text="Activated abilities of artifact tokens you control cost {2} less to activate."), ch)
+    if mod is None or mod.get("static") != "ability_cost_modifier":
+        return None
+    return {**d, "effects": [{"do": "ability_cut_pce2", "mod": mod}]}
+
+
+
+def _ossuary(d: Def, ability: AbilityText, ch: Characteristics) -> Def | None:
+    """Grand Ossuary: every creature is exiled at once (each player exiles their own: one event, 101.4 / 608.2c), then each player creates
+    Saprolings for the total power of their creatures exiled this way (planar_events ``ossuary_*``); then planeswalk (701.31)."""
+    from app.rules import scripts
+
+    exile, token = scripts.parse_effects("Exile all creatures."), scripts.parse_effects("Create a 1/1 green Saproling creature token.")
+    first, *rest = d["effects"]
+    if exile is None or token is None or first["do"] != "gain_life":
+        return None
+    return {**d, "effects": [{"do": "ossuary_mark_pce2"}, *copy.deepcopy(exile[0]),
+                             {"do": "ossuary_tokens_pce2", "token": copy.deepcopy(token[0][0]["token"])}, *rest]}
+
+
 # exact Oracle line → (the native body read after "Whenever chaos ensues, ", the adjustment)
 REWRITES: dict[str, tuple[str, Fix | None]] = {
     "Whenever chaos ensues, put an indestructible counter on target creature you control that attacked this turn.":
@@ -160,6 +210,53 @@ REWRITES: dict[str, tuple[str, Fix | None]] = {
     # The Cheetah Planet: provoke granted as its ability line (702.39a, keyword_triggers: as "creatures you control gain flanking")
     "Whenever chaos ensues, all Cats gain provoke until end of turn.":
         ("all Cats gain trample until end of turn.", lambda d, ability, ch: _grant_line(d, "Provoke.")),
+    # -- planechase events (wave E2) -- Valor's Reach: "your team" is "you" outside a game between teams (102.4); "If it's a main
+    # phase, …" as Sokenzan's
+    "Whenever chaos ensues, untap up to two target creatures your team controls. If it's a main phase, there is an additional combat "
+    "phase after this phase, followed by an additional main phase.":
+        ("untap up to two target creatures you control. After this main phase, there is an additional combat phase followed by an "
+         "additional main phase.", None),
+    # Gardens of Tranquil Repose: "one plus the number of cards exiled with ~" (607.2a: exiled by its own exile ability, linked to this object)
+    "Whenever chaos ensues, create X 3/3 black Dalek artifact creature tokens with menace, where X is one plus the number of cards exiled "
+    "with Gardens of Tranquil Repose.":
+        ("create X 3/3 black Dalek artifact creature tokens with menace, where X is the number of cards exiled with Gardens of Tranquil "
+         "Repose.", lambda d, ability, ch: {**d, "effects": [{**d["effects"][0], "n": {"plus": [d["effects"][0]["n"], 1]}}]}),
+    # Nyx: Nykthos' mana, from a chaos ability (not a mana ability: it triggers on chaos, 605.1b)
+    "Whenever chaos ensues, choose a color. Add an amount of mana of that color equal to your devotion to that color.":
+        ("choose a color. You gain 1 life.", lambda d, ability, ch: _chosen_color(d, mana=True)),
+    # Hotel of Fears (after its ability word, 207.2c): "sacrifice another creature" — another than the target creature
+    "Whenever chaos ensues, choose a color. Put X +1/+1 counters on target creature you control, where X is your devotion to that "
+    "color. Then sacrifice another creature.":
+        ("choose a color. Put X +1/+1 counters on target creature you control, where X is your devotion to white. Then sacrifice "
+         "another creature.", lambda d, ability, ch: _chosen_color(d, other_than_target=True)),
+    "Whenever chaos ensues, exile cards from the top of your library until you exile a nonland permanent card. Put that card onto the "
+    "battlefield or into your hand.":
+        ("you gain 1 life.", _ketria),
+    "When chaos ensues, cards can't enter from exile this turn. Then planeswalk.":
+        ("you gain 1 life. Then planeswalk.", _first_is({"do": "no_exile_entry_pce2"})),
+    "Whenever chaos ensues, activated abilities of artifact tokens you control cost {2} less to activate this turn.":
+        ("you gain 1 life.", _dining_car),
+    "Whenever chaos ensues, for each opponent, you create a 3/3 black Dalek artifact creature token with menace that attacks that "
+    "opponent this turn if able. Those tokens gain haste. Sacrifice them at the beginning of the next end step.":
+        ("create a 3/3 black Dalek artifact creature token with menace. It gains haste. Sacrifice it at the beginning of the next end "
+         "step.", lambda d, ability, ch: {**d, "effects": [{"do": "daleks_pce2", "per": d["effects"]}]}),
+    # -- "Chaos: …" lines (above): The Food Court — "If you are already the Monarch" is judged before you become it (724): the draw first
+    "Whenever chaos ensues, you become the Monarch. If you are already the Monarch, draw a card.":
+        ("draw a card if you're the monarch. You become the monarch.", None),
+    "Whenever chaos ensues, you may sacrifice a Food. If you do, draw a card, gain three life and each opponent loses 3 life.":
+        ("you may sacrifice a Food. If you do, draw a card, gain 3 life, and each opponent loses 3 life.", None),
+    "Whenever chaos ensues, put X +1/+1 counters on target legendary artifact creature you control, where X is the number of times "
+    "you've rolled the planar die this turn.":
+        ("put X +1/+1 counters on target legendary artifact creature you control, where X is the number of creatures you control.",
+         lambda d, ability, ch: {**d, "effects": [{**d["effects"][0], "do": "rolls_counters_pce2"}]}),
+    # Glimmervoid Basin: each player other than the target creature's controller (as it last existed, 608.2h) creates one copy (707.1)
+    "Whenever chaos ensues, choose target creature. Each player except that creature's controller creates a token that's a copy of that "
+    "creature.":
+        ("create a token that's a copy of target creature.",
+         lambda d, ability, ch: {**d, "effects": [{**d["effects"][0], "creator": "others100c:target_player_or_controller", "each_creator": True}]}),
+    "Whenever chaos ensues, each player exiles all creatures they control and creates X 1/1 green Saproling creature tokens, where X is "
+    "the total power of the creatures they exiled this way. Then planeswalk.":
+        ("you gain 1 life. Then planeswalk.", _ossuary),
     # -- "until a player planeswalks" --
     "Whenever chaos ensues, creatures can't attack you until a player planeswalks.":
         ("creatures can't attack you until your next turn.", _swap_duration),
@@ -174,9 +271,17 @@ def definition(ability: AbilityText, ch: Characteristics) -> Def | None:
     """A plane's chaos ability in one of the wordings above; else None."""
     from app.rules import planar
 
-    if ability.kind != "triggered" or not planar.planar(ch):
+    if not planar.planar(ch):
         return None
     text = ability.text.strip()
+    if ability.kind == "static" and text.startswith(SHORT):  # -- planechase events (wave E2) -- "Chaos: …" (the Unknown Event planes'
+        # shorthand for a chaos ability, 311.7): read as "Whenever chaos ensues, …"
+        from app.rules import scripts
+
+        body = text[len(SHORT):]
+        return scripts.define(replace(ability, kind="triggered", text=CHAOS + body[:1].lower() + body[1:]), ch)
+    if ability.kind != "triggered":
+        return None
     if (m := _WORD.fullmatch(text)) is not None:  # 207.2c-d: an ability word / flavor word has no rules meaning
         from app.rules import scripts
 

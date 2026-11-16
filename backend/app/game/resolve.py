@@ -213,6 +213,12 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         from app.game.handlers import planechase
 
         a.r = A.PlanarDeckData(cards=planechase.deal(planechase.pool_of(info), a.count, a.phenomena, rng))
+    elif isinstance(a, A.PlanarDeckOp) and a.r is None:  # -- planechase deck (wave D) -- a random order, decided here (app/rules/planar_deck.py)
+        pc = state.planechase
+        size = len(a.random) if a.op == "arrange" else max(0, len(pc.deck) - pc.face_count) if a.op == "shuffle" and pc is not None else 0
+        perm = list(range(size))
+        rng.shuffle(perm)
+        a.r = A.PlanarDeckOpData(perm=perm)
     elif isinstance(a, A.Merge | A.Meld):
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):

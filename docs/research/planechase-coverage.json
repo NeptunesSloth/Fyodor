@@ -1,7 +1,7 @@
 {
  "levels": {
-  "FULL": 94,
-  "PARTIAL": 111,
+  "FULL": 134,
+  "PARTIAL": 71,
   "MANUAL": 1
  },
  "cards": [
@@ -90,14 +90,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "When you planeswalk to Amy's Home and at the beginning of your upkeep, you may exile a nonland card from your hand with a number of time counters on it equal to its mana value. If it doesn't have suspend, it gains suspend.\nWhenever chaos ensues, time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Amy's Home and at the beginning of your upkeep, you may exile a nonland card from your hand with a number of time counters on it equal to its mana value. If it doesn't have suspend, it gains suspend.",
      "family": "planeswalk to",
      "shape": "and upkeep",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, time travel.",
@@ -279,7 +279,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "At the beginning of combat on your turn, exile up to one target creature. Return it to the battlefield under its owner's control at the beginning of the next end step.\nWhen chaos ensues, cards can't enter from exile this turn. Then planeswalk.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of combat on your turn, exile up to one target creature. Return it to the battlefield under its owner's control at the beginning of the next end step.",
@@ -292,8 +292,8 @@
      "text": "When chaos ensues, cards can't enter from exile this turn. Then planeswalk.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -560,7 +560,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Whenever you attack, target opponent loses X life, where X is the number of artifacts you control.\nWhenever chaos ensues, for each opponent, you create a 3/3 black Dalek artifact creature token with menace that attacks that opponent this turn if able. Those tokens gain haste. Sacrifice them at the beginning of the next end step.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you attack, target opponent loses X life, where X is the number of artifacts you control.",
@@ -573,8 +573,8 @@
      "text": "Whenever chaos ensues, for each opponent, you create a 3/3 black Dalek artifact creature token with menace that attacks that opponent this turn if able. Those tokens gain haste. Sacrifice them at the beginning of the next end step.",
      "family": "chaos",
      "shape": "create tokens",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -704,14 +704,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "If a creature you control would untap during your untap step, put two +1/+1 counters on it instead.\nWhenever chaos ensues, untap each creature you control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "If a creature you control would untap during your untap step, put two +1/+1 counters on it instead.",
      "family": "static",
      "shape": "replacement",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, untap each creature you control.",
@@ -776,14 +776,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "When you planeswalk to Enigma Ridges, each player who controls fewer lands than the player who controls the most lands searches their library for a number of basic land cards less than or equal to the difference, reveals them, puts them into their hand, then shuffles.\nWhenever chaos ensues, draw a card, then you may put a land card from your hand onto the battlefield.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Enigma Ridges, each player who controls fewer lands than the player who controls the most lands searches their library for a number of basic land cards less than or equal to the difference, reveals them, puts them into their hand, then shuffles.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, draw a card, then you may put a land card from your hand onto the battlefield.",
@@ -1058,21 +1058,21 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Suspended Animation — Whenever a creature dies, exile it. Its controller scries 1.\nWhenever chaos ensues, create X 3/3 black Dalek artifact creature tokens with menace, where X is one plus the number of cards exiled with Gardens of Tranquil Repose.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Suspended Animation — Whenever a creature dies, exile it. Its controller scries 1.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create X 3/3 black Dalek artifact creature tokens with menace, where X is one plus the number of cards exiled with Gardens of Tranquil Repose.",
      "family": "chaos",
      "shape": "create tokens",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1198,8 +1198,8 @@
      "text": "Whenever chaos ensues, choose target creature. Each player except that creature's controller creates a token that's a copy of that creature.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1209,14 +1209,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Whenever a land enters, that land's controller creates three 0/1 white Goat creature tokens.\nWhenever chaos ensues, create a 0/1 white Goat creature token.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a land enters, that land's controller creates three 0/1 white Goat creature tokens.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create a 0/1 white Goat creature token.",
@@ -1246,8 +1246,8 @@
      "text": "Whenever chaos ensues, each player exiles all creatures they control and creates X 1/1 green Saproling creature tokens, where X is the total power of the creatures they exiled this way. Then planeswalk.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1415,14 +1415,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "All permanents untap during each player's untap step.\nWhenever chaos ensues, you may search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "All permanents untap during each player's untap step.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
@@ -1439,7 +1439,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "At the beginning of your upkeep, exile the top card of your library. You lose life equal to its mana value. You may play that card this turn.\nPraise Him — Whenever chaos ensues, choose a color. Put X +1/+1 counters on target creature you control, where X is your devotion to that color. Then sacrifice another creature. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of your upkeep, exile the top card of your library. You lose life equal to its mana value. You may play that card this turn.",
@@ -1452,8 +1452,8 @@
      "text": "Praise Him — Whenever chaos ensues, choose a color. Put X +1/+1 counters on target creature you control, where X is your devotion to that color. Then sacrifice another creature.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1528,14 +1528,14 @@
    "phenomenon": true,
    "set": "opca",
    "oracle_text": "When you encounter Interplanar Tunnel, reveal cards from the top of your planar deck until you reveal five plane cards. Put a plane card from among them on top of your planar deck, then put the rest of the revealed cards on the bottom in a random order. (Then planeswalk away from this phenomenon.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you encounter Interplanar Tunnel, reveal cards from the top of your planar deck until you reveal five plane cards. Put a plane card from among them on top of your planar deck, then put the rest of the revealed cards on the bottom in a random order.",
      "family": "encounter",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1600,14 +1600,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Whenever a player casts an instant or sorcery spell, that player copies it. The player may choose new targets for the copy.\nWhenever chaos ensues, instant and sorcery spells you cast this turn cost {3} less to cast.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player casts an instant or sorcery spell, that player copies it. The player may choose new targets for the copy.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, instant and sorcery spells you cast this turn cost {3} less to cast.",
@@ -1648,14 +1648,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever a player casts a creature spell that's black, red, or green, it gains devour 5. (As that creature enters, you may sacrifice any number of creatures. It enters with five times that many +1/+1 counters on it.)\nWhenever chaos ensues, create two 1/1 red Goblin creature tokens.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player casts a creature spell that's black, red, or green, it gains devour 5.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create two 1/1 red Goblin creature tokens.",
@@ -1720,7 +1720,7 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "When you planeswalk to Ketria and at the beginning of your upkeep, put your choice of a vigilance, menace, or trample counter on target creature you control.\nWhenever chaos ensues, exile cards from the top of your library until you exile a nonland permanent card. Put that card onto the battlefield or into your hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Ketria and at the beginning of your upkeep, put your choice of a vigilance, menace, or trample counter on target creature you control.",
@@ -1733,8 +1733,8 @@
      "text": "Whenever chaos ensues, exile cards from the top of your library until you exile a nonland permanent card. Put that card onto the battlefield or into your hand.",
      "family": "chaos",
      "shape": "destroy / exile / bounce",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1840,14 +1840,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Still Point in Time — All spells have split second. (As long as a spell with split second is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nWhenever chaos ensues, Lake Silencio deals 6 damage to target creature an opponent controls. If a creature dealt damage this way would die this turn, exile it instead.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Still Point in Time — All spells have split second.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, Lake Silencio deals 6 damage to target creature an opponent controls. If a creature dealt damage this way would die this turn, exile it instead.",
@@ -1888,7 +1888,7 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "Legendary Food tokens you control have hexproof and indestructible.\nWhen you planeswalk to this plane, create Li'l Giri, a legendary 1/1 colorless Food Warrior artifact creature token.\nWhenever chaos ensues, put X +1/+1 counters on target legendary artifact creature you control, where X is the number of times you've rolled the planar die this turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Legendary Food tokens you control have hexproof and indestructible.",
@@ -1908,8 +1908,8 @@
      "text": "Whenever chaos ensues, put X +1/+1 counters on target legendary artifact creature you control, where X is the number of times you've rolled the planar die this turn.",
      "family": "chaos",
      "shape": "counters",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2063,14 +2063,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Whenever a player casts a spell, that player flips a coin. If the player loses the flip, counter that spell.\nWhenever chaos ensues, target player reveals the top card of their library. If it's a nonland card, you may cast it without paying its mana cost.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player casts a spell, that player flips a coin. If the player loses the flip, counter that spell.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, target player reveals the top card of their library. If it's a nonland card, you may cast it without paying its mana cost.",
@@ -2111,14 +2111,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Whenever a creature attacks, it gets +1/+1 until end of turn for each other creature its controller controls that shares a creature type with it.\nWhenever chaos ensues, turn target creature face down. It becomes a 2/2 Cyberman artifact creature.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a creature attacks, it gets +1/+1 until end of turn for each other creature its controller controls that shares a creature type with it.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, turn target creature face down. It becomes a 2/2 Cyberman artifact creature.",
@@ -2152,7 +2152,7 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "At the beginning of your end step, put a pressure counter on Mount Keralia.\nWhen you planeswalk away from Mount Keralia, it deals damage equal to the number of pressure counters on it to each creature and each planeswalker.\nWhenever chaos ensues, prevent all damage that planes named Mount Keralia would deal this game to permanents you control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of your end step, put a pressure counter on Mount Keralia.",
@@ -2165,15 +2165,15 @@
      "text": "When you planeswalk away from Mount Keralia, it deals damage equal to the number of pressure counters on it to each creature and each planeswalker.",
      "family": "planeswalk away",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, prevent all damage that planes named Mount Keralia would deal this game to permanents you control.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2317,14 +2317,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Each creature card in your graveyard has embalm. Its embalm cost is equal to its mana cost. (Exile a creature card from your graveyard and pay its embalm cost: Create a token that's a copy of it, except it's a white Zombie in addition to its other types with no mana cost. Embalm only as a sorcery.)\nWhenever chaos ensues, you may discard a card. If you do, draw a card.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Each creature card in your graveyard has embalm. Its embalm cost is equal to its mana cost.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may discard a card. If you do, draw a card.",
@@ -2341,14 +2341,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "You may play any number of lands on each of your turns.\nWhenever chaos ensues, target red, green, or white creature you control gets +1/+1 until end of turn for each land you control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "You may play any number of lands on each of your turns.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, target red, green, or white creature you control gets +1/+1 until end of turn for each land you control.",
@@ -2488,8 +2488,8 @@
      "text": "Whenever you roll the planar die, manifest dread.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever Chaos ensures each player may turn a face-down permanent they control face-up. Remove a dread counter from this plane.",
@@ -2530,7 +2530,7 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "When you planeswalk to Norn's Seedcore, chaos ensues.\nWhenever chaos ensues, reveal cards from the top of your planar deck until you reveal a plane card. Planeswalk to it, except don't planeswalk away from any plane. Put the rest of the revealed cards on the bottom of your planar deck in any order.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Norn's Seedcore, chaos ensues.",
@@ -2543,8 +2543,8 @@
      "text": "Whenever chaos ensues, reveal cards from the top of your planar deck until you reveal a plane card. Planeswalk to it, except don't planeswalk away from any plane. Put the rest of the revealed cards on the bottom of your planar deck in any order.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2578,7 +2578,7 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Nontoken creatures are enchantments in addition to their other types.\nConstellation — Whenever an enchantment you control enters, you gain 1 life.\nWhenever chaos ensues, choose a color. Add an amount of mana of that color equal to your devotion to that color.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Nontoken creatures are enchantments in addition to their other types.",
@@ -2598,8 +2598,8 @@
      "text": "Whenever chaos ensues, choose a color. Add an amount of mana of that color equal to your devotion to that color.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2883,7 +2883,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "When you planeswalk to Pompeii and at the beginning of your upkeep, put an eruption counter on it.\nWhenever you roll a blank on the planar die, scry 2. Then put an eruption counter on Pompeii.\nWhen chaos ensues, Pompeii deals damage to each creature and each player equal to the number of eruption counters on Pompeii. Each player sacrifices a land of their choice. Then planeswalk.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Pompeii and at the beginning of your upkeep, put an eruption counter on it.",
@@ -2896,8 +2896,8 @@
      "text": "Whenever you roll a blank on the planar die, scry 2. Then put an eruption counter on Pompeii.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "When chaos ensues, Pompeii deals damage to each creature and each player equal to the number of eruption counters on Pompeii. Each player sacrifices a land of their choice. Then planeswalk.",
@@ -2914,7 +2914,7 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "At the beginning of your end step, put the cards in your hand on the bottom of your library in any order, then draw that many cards.\nWhenever chaos ensues, reveal the top three cards of your planar deck. Each of the revealed cards' chaos abilities triggers. Then put the revealed cards on the bottom of your planar deck in any order.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of your end step, put the cards in your hand on the bottom of your library in any order, then draw that many cards.",
@@ -2927,8 +2927,8 @@
      "text": "Whenever chaos ensues, reveal the top three cards of your planar deck. Each of the revealed cards' chaos abilities triggers. Then put the revealed cards on the bottom of your planar deck in any order.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2938,21 +2938,21 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "If you cast a spell this turn, you can't attack with creatures.\nIf you attacked with creatures this turn, you can't cast spells.\nWhenever chaos ensues, you gain life equal to the number of cards in your hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "If you cast a spell this turn, you can't attack with creatures.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "If you attacked with creatures this turn, you can't cast spells.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you gain life equal to the number of cards in your hand.",
@@ -3219,28 +3219,28 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Players reveal each card they draw.\nWhenever a player draws a land card, that player gains 3 life.\nWhenever a player draws a nonland card, that player loses 3 life.\nWhenever chaos ensues, put target permanent on top of its owner's library.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Players reveal each card they draw.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever a player draws a land card, that player gains 3 life.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever a player draws a nonland card, that player loses 3 life.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, put target permanent on top of its owner's library.",
@@ -3366,8 +3366,8 @@
      "text": "Each nonland card in your hand without foretell has foretell. Its foretell cost is equal to its mana cost reduced by {2}.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "collector (static dynamic_zone_keyword56)"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may cast a foretold card you own from exile without paying its mana cost this turn.",
@@ -3408,7 +3408,7 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Players play with the top card of their libraries revealed.\nSpells that share a card type with the top card of a library can't be cast.\nWhenever chaos ensues, target player loses life equal to the number of cards in their hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Players play with the top card of their libraries revealed.",
@@ -3421,8 +3421,8 @@
      "text": "Spells that share a card type with the top card of a library can't be cast.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, target player loses life equal to the number of cards in their hand.",
@@ -3494,14 +3494,14 @@
    "phenomenon": true,
    "set": "moc",
    "oracle_text": "When you encounter Spatial Merging, reveal cards from the top of your planar deck until you reveal two plane cards. Simultaneously planeswalk to both of them. Put all other cards revealed this way on the bottom of your planar deck in any order.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you encounter Spatial Merging, reveal cards from the top of your planar deck until you reveal two plane cards. Simultaneously planeswalk to both of them. Put all other cards revealed this way on the bottom of your planar deck in any order.",
      "family": "encounter",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3535,7 +3535,7 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Players have no maximum hand size.\nWhenever you roll the planar die, draw a card.\nWhenever chaos ensues, reveal the top card of your planar deck. You may put it on the bottom of your planar deck.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Players have no maximum hand size.",
@@ -3548,15 +3548,15 @@
      "text": "Whenever you roll the planar die, draw a card.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, reveal the top card of your planar deck. You may put it on the bottom of your planar deck.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3566,14 +3566,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever a creature deals damage to one or more players for the first time each turn, put a +1/+1 counter on it.\nWhenever chaos ensues, each creature you control gains \"{T}: This creature deals 1 damage to target player or planeswalker\" until end of turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a creature deals damage to one or more players for the first time each turn, put a +1/+1 counter on it.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, each creature you control gains \"{T}: This creature deals 1 damage to target player or planeswalker\" until end of turn.",
@@ -3682,8 +3682,8 @@
      "text": "Chaos: You may sacrifice a Food. If you do, draw a card, gain three life and each opponent loses 3 life.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3693,14 +3693,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "The first spell you cast during each of your turns with mana value 2 or greater has cascade. (When you cast that spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nWhen chaos ensues, gain control of target artifact. Then planeswalk.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "The first spell you cast during each of your turns with mana value 2 or greater has cascade.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "When chaos ensues, gain control of target artifact. Then planeswalk.",
@@ -3878,14 +3878,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever you roll the planar die, put a +1/+1 counter on up to one target creature.\nWhenever chaos ensues, creatures you control gain flying until end of turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you roll the planar die, put a +1/+1 counter on up to one target creature.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, creatures you control gain flying until end of turn.",
@@ -4060,14 +4060,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Whenever a nonblack card is put into a player's graveyard from anywhere, that player loses 1 life.\nWhenever chaos ensues, each opponent discards a card.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a nonblack card is put into a player's graveyard from anywhere, that player loses 1 life.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, each opponent discards a card.",
@@ -4084,7 +4084,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "When you planeswalk to The Dining Car, each player creates a Food token.\nSixty-Six Seconds — At the beginning of your upkeep, sacrifice a creature with the least toughness among creatures you control. Then investigate.\nWhenever chaos ensues, activated abilities of artifact tokens you control cost {2} less to activate this turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to The Dining Car, each player creates a Food token.",
@@ -4104,8 +4104,8 @@
      "text": "Whenever chaos ensues, activated abilities of artifact tokens you control cost {2} less to activate this turn.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4139,14 +4139,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "If a creature would die, instead exile it and that creature's controller loses 2 life.\nWhenever chaos ensues, redistribute any number of players' life totals. (Each of those players gets one life total back.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "If a creature would die, instead exile it and that creature's controller loses 2 life.",
      "family": "static",
      "shape": "replacement",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, redistribute any number of players' life totals.",
@@ -4163,14 +4163,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Whenever you roll the planar die, creatures you control get +1/+1 and gain haste until end of turn.\nWhenever chaos ensues, end the turn. (Exile all spells and abilities from the stack. The player whose turn it is discards down to their maximum hand size. Damage wears off, and \"this turn\" and \"until end of turn\" effects end.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you roll the planar die, creatures you control get +1/+1 and gain haste until end of turn.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, end the turn.",
@@ -4211,7 +4211,7 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever a player taps a land for mana, that player adds one mana of any type that land produced.\nWhenever chaos ensues, reveal cards from the top of your planar deck until you reveal a plane card. Chaos ensues on that plane. Then put all cards revealed this way on the bottom of your planar deck in any order.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player taps a land for mana, that player adds one mana of any type that land produced.",
@@ -4224,8 +4224,8 @@
      "text": "Whenever chaos ensues, reveal cards from the top of your planar deck until you reveal a plane card. Chaos ensues on that plane. Then put all cards revealed this way on the bottom of your planar deck in any order.",
      "family": "chaos",
      "shape": "reveal / look / search",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4255,8 +4255,8 @@
      "text": "Chaos: You become the Monarch. If you are already the Monarch, draw a card.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4949,14 +4949,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "At the beginning of your end step, if you planeswalked to Unyaro this turn, untap all creatures. They phase out until a player planeswalks. (Treat them and anything attached to them as though they didn't exist.)\nWhenever chaos ensues, create two 2/2 white and blue Knight creature tokens with vigilance.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of your end step, if you planeswalked to Unyaro this turn, untap all creatures. They phase out until a player planeswalks.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create two 2/2 white and blue Knight creature tokens with vigilance.",
@@ -4973,21 +4973,21 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever your team attacks with exactly two creatures, those creatures gain double strike until end of turn.\nWhenever chaos ensues, untap up to two target creatures your team controls. If it's a main phase, there is an additional combat phase after this phase, followed by an additional main phase.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever your team attacks with exactly two creatures, those creatures gain double strike until end of turn.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, untap up to two target creatures your team controls. If it's a main phase, there is an additional combat phase after this phase, followed by an additional main phase.",
      "family": "chaos",
      "shape": "pump / grant until end of turn",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -5021,14 +5021,14 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "At the beginning of each player's upkeep and whenever a player casts a spell, that player creates a 1/1 green Squirrel creature token.\nWhenever chaos ensues, put a +1/+1 counter on each Squirrel you control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of each player's upkeep and whenever a player casts a spell, that player creates a 1/1 green Squirrel creature token.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, put a +1/+1 counter on each Squirrel you control.",

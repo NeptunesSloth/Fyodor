@@ -967,6 +967,34 @@ class Planeswalk(Base):
     """Planeswalk: the face-up plane goes to the bottom of the planar deck and the next card is turned face up."""
 
     type: Literal["planeswalk"] = "planeswalk"
+    # -- planechase deck (wave D) -- with several face-up cards (901.11c), the order their owner puts them on the bottom in (printing ids,
+    # top first; Spatial Merging's ruling: an order of their choice, not revealed). Empty: the order they were turned face up in.
+    bottom: list[str] = Field(default_factory=list, max_length=60)
+
+
+# -- planechase deck (wave D) -- the planar deck changed by a rules effect (app/rules/planar_deck.py): server-built only
+class PlanarDeckOpData(BaseModel):
+    perm: list[int] = Field(default_factory=list)  # the random order of ``random`` (or of the whole planar deck, for "shuffle")
+
+
+class PlanarDeckOp(Base):
+    """Server-built only (the rules engine's step): reveal cards from the top of the planar deck (``count`` cards, or until ``planes``
+    plane cards are revealed), put revealed cards back (``top`` on top, then ``bottom`` and, below them, ``random`` in a random order:
+    printing ids, top first), turn revealed cards face up (``to``: planeswalk to them, after planeswalking away from every face-up card
+    when ``away``), or shuffle the planar deck. The random orders are decided on the server (``r``); no view or log holds the order."""
+
+    type: Literal["planar_deck_op"] = "planar_deck_op"
+    op: Literal["reveal", "arrange", "walk_to", "shuffle"]
+    count: int = Field(default=0, ge=0, le=60)
+    planes: int = Field(default=0, ge=0, le=60)
+    top: list[str] = Field(default_factory=list, max_length=60)
+    bottom: list[str] = Field(default_factory=list, max_length=60)
+    random: list[str] = Field(default_factory=list, max_length=60)
+    to: list[str] = Field(default_factory=list, max_length=60)
+    away: bool = False
+    away_bottom: list[str] = Field(default_factory=list, max_length=60)  # (``away``: as ``Planeswalk.bottom``)
+    by: str = Field(default="", max_length=200)  # the effect's source name, for the log
+    r: PlanarDeckOpData | None = None
 
 
 class Chat(Base):
@@ -1658,7 +1686,8 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect", "pay_deferred", "roll_planar_die"}
 )
-SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
+SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101",
+                               "planar_deck_op"})  # (-- planechase deck (wave D) --)
 
 
 Action = Annotated[
@@ -1748,6 +1777,7 @@ Action = Annotated[
     | PlanarEnd
     | PlanarRollAction
     | Planeswalk
+    | PlanarDeckOp
     | Chat
     | Phase
     | NextTurn

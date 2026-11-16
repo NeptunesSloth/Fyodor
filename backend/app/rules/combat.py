@@ -58,6 +58,10 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics, in
         return f"{ch.name} can't attack after attacking during its controller's last turn"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Prahv
+
+    if (plane := planar_more.attack_problem(state, card, info)) is not None:
+        return plane
     if state.rules is not None and state.rules.combat_tag == "only_land" and not ch.is_land:  # -- as long as (wave 100K) -- Bumi's combat phase
         return f"{ch.name} isn't a land creature: only land creatures can attack during this combat phase"
     if state.rules is not None and state.rules.combat_tag.startswith("only:") and state.rules.object_id(card.id) not in state.rules.combat_tag[5:].split(","):

@@ -251,6 +251,10 @@ export interface PlanechaseView {
   cost: number;
   rolls: number;
   last_roll: { player: string; face: PlanarFace; cost: number; seq: number } | null;
+  /** -- planechase deck (wave D) -- every face-up card, `current` first (CR 901.11c: Spatial Merging, Norn's Seedcore); absent from older servers. */
+  faces?: PlanarCardView[];
+  /** Cards an effect revealed from the planar deck and hasn't put back yet (public); never where they go. */
+  revealed?: PlanarCardView[];
 }
 
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }

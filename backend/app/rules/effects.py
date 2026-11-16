@@ -101,7 +101,7 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "you":
         return [me]
     if who == "left110e":  # -- left opponent (wave 110E) -- "the opponent to your left"/"that player" of Barroom Brawl: the next live player in turn order
-        return [plan.after(me)]
+        return [plan.left(me)]  # (wave E1: the seat to the left, not the turn order: Plan.left)
     if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
         return player_relative.players_in(plan, ctx, int(who[len(player_relative.TP):]))
     if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
@@ -4384,7 +4384,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, plan.after(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
+        mine = _controlled(plan, key, plan.left(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
                            ctx["controller"] if "dealt_combat_damage_you" in key else None, e.get("zone"))  # (wave 53A: a zone of that player)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), pid if e.get("any_by_chooser") else ctx["controller"], ctx.get("source_card"))
@@ -4442,7 +4442,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         if by != pid:
             prompt += f" for {plan.name(pid)}"
         if e.get("left"):
-            prompt += f" among {plan.name(plan.after(pid))}'s permanents"  # (wave 53D: the player to their left)
+            prompt += f" among {plan.name(plan.left(pid))}'s permanents"  # (wave 53D: the player to their left)
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=by, kind="choose_cards", prompt=prompt,

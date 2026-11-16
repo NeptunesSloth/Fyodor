@@ -593,7 +593,7 @@ STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", 
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
-    trigger = str(d.get("trigger") or "")
+    trigger = str(d.get("trigger") or "").removeprefix("multi:").split("+")[-1]  # (wave E1: a "multi:" ability's step half, We Hope You Like Squirrels)
     return d.get("kind") == "triggered" and trigger.startswith("step:") and trigger.rsplit(":", 1)[-1] in STEP_PLAYER_WHOSE
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -5229,6 +5229,11 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab
         if set(ab.keywords) <= SUPPORTED_KEYWORDS:
             return ab
+        if ab.keywords == ("devour",):  # -- planechase events (wave E2) -- Jund: a creature spell gains "Devour 5" (400.7a, 702.82a)
+            from app.rules import devour
+
+            if devour.supported(ab.text) and len(devour.pieces(ab.text)) == 1:
+                return ab
         if ab.keywords == ('sunburst',) and ab.text.rstrip('.').lower() == 'sunburst':
             return ab  # Native prospective entry counters use the spell's actual payment.
         if ab.keywords == ('bloodthirst',):
@@ -6777,6 +6782,11 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    trigger = str(d.get("trigger") or "")
+    if d.get("kind") == "triggered" and trigger.startswith("multi:event+step:") and trigger.count("+") == 1:
+        # -- planechase more (wave E1) -- one ability with an event half and a step half (603.2: We Hope You Like Squirrels): each half names it
+        step = {k: v for k, v in d.items() if k != "cond"}
+        return _event_refs_ok({**d, "trigger": "event"}) and _event_refs_ok({**step, "trigger": trigger.split("+", 1)[1]})
     from app.rules import first_event_receipts78
 
     if not first_event_receipts78.recipes_ok(d):

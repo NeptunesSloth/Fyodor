@@ -110,4 +110,21 @@ describe("the plane on the 3D table", () => {
     expect(t.targets()).toEqual([]);
     expect(planes(t)).toBe(0);
   });
+
+  it("lays a second face-up plane beside the first (901.11c), both clickable, and takes it away when the table planeswalks", async () => {
+    const t = new PlanarTable();
+    const two = pc({ faces: [{ printing_id: "a", name: "Academy at Tolaria West", phenomenon: false },
+      { printing_id: "b", name: "Llanowar", phenomenon: false }] });
+    t.sync(two, spot, 0, 0);
+    await loaded();
+    expect(planes(t)).toBe(2);
+    const [first, second] = t.targets();
+    expect(second).toBeDefined();
+    expect(second!.parent!.position.x - first!.parent!.position.x).toBeCloseTo(CARD_H * 1.8 * 1.08);
+    t.sync(pc({ current: { printing_id: "c", name: "Krosa", phenomenon: false }, walks: 1 }), spot, 0, 1);
+    t.finish();
+    t.update(10_000);
+    await loaded();
+    expect(t.targets()).toHaveLength(1);
+  });
 });

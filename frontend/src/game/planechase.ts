@@ -1,4 +1,4 @@
-import type { GameView, PlanarFace, PlanechaseView } from "../types/game";
+import type { GameView, PlanarCardView, PlanarFace, PlanechaseView } from "../types/game";
 
 /*
  * -- planechase -- (CR 901, Commander's single shared planar deck) the plaque's logic, kept pure for the tests. The server deals the
@@ -63,4 +63,14 @@ export function planechaseCue(prev: PlanechaseView | null | undefined, next: Pla
 export function canRollPlanar(view: GameView, me: string): boolean {
   const pc = view.planechase;
   return !!pc && view.turn.active_player === me && !pc.current.phenomenon && view.players.some((p) => p.id === me);
+}
+
+/** -- planechase deck (wave D) -- every face-up card, `current` first (901.11c: two or more planes at once); an older view: just `current`. */
+export function planarFaces(pc: Pick<PlanechaseView, "current" | "faces">): PlanarCardView[] {
+  return pc.faces && pc.faces.length ? pc.faces : [pc.current];
+}
+
+/** The face-up planes' names as the plaque writes them ("Llanowar & Mount Keralia"). */
+export function planarNames(pc: Pick<PlanechaseView, "current" | "faces">): string {
+  return planarFaces(pc).map((c) => c.name).join(" & ");
 }

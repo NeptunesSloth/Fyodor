@@ -124,6 +124,7 @@ HANDLERS: dict[str, Handler] = {
     "planar_end": planechase.end,
     "planar_roll": planechase.roll,
     "planeswalk": planechase.planeswalk,
+    "planar_deck_op": planechase.deck_op,  # -- planechase deck (wave D) -- (server-built: app/rules/planar_deck.py)
     "chat": turn.chat,
     "phase": turn.phase,
     "next_turn": turn.next_turn,

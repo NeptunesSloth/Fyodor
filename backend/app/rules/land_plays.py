@@ -86,7 +86,9 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
         n += sum(int(d.get("n") or 0) for d in scripts.definitions(ch).values()
                  if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS and (c.controller == player or d.get("all"))
                  and statics.static_if_holds(_view(state, info), d, c))  # (-- station (wave 48D) -- 611.3a: "As long as this permanent has 3 or more charge counters on it, …")
-    return n
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Naya: any number of lands (305.2)
+
+    return n + planar_more.extra_lands(state, player, info)
 
 
 # -- play now (wave 28A) -- 305.2a-b / 305.3: whether an effect that tells a player to play a land can be followed

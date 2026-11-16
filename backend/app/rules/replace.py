@@ -2211,6 +2211,8 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         return False
     if spec.get("types") and not set(spec["types"]) & set(src.get("types") or ()):
         return False
+    if spec.get("named_pdk") and spec["named_pdk"] not in (src.get("names") or ()):  # -- planechase deck (wave D) -- "planes named Mount Keralia"
+        return False
     if spec.get("not_types") and set(spec["not_types"]) & set(src.get("types") or ()):
         return False
     return not (spec.get("subtypes") and not set(spec["subtypes"]) & set(src.get("subtypes") or ()))

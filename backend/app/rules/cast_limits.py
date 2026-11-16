@@ -953,6 +953,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (rock := wave110n_cards.cast_problem(state, player, ch)) is not None:
         return rock
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Prahv, Skybreen (601.3)
+
+    if (plane := planar_more.cast_problem(state, player, card, ch, info)) is not None:
+        return plane
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"

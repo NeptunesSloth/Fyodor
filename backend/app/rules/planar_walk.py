@@ -19,7 +19,7 @@ then adjusted where the native wording differs.
 
 * The Aether Flues: "If you do, reveal …, put …, then shuffle …" — one sentence: all of it waits on the sacrifice (608.2c).
 * The Pit: each player's choice of two tokens (``token_choice_pcw``: chosen in turn order, 101.4, then made).
-* Bowie Base One: "controlled by the player to your left" — the native "the opponent to your left controls" (``Plan.after``, as wave 110E).
+* Bowie Base One: "controlled by the player to your left" — the native "the opponent to your left controls" (``Plan.left``: the seat order, wave E1).
 * Prime Minister's Cabinet Room: "up to one target creature you control" (115.1: the first target group may be empty).
 * City Hall: "you become the Monarch" (the monarch, 724).
 * Unleash the Flux: "If you lose the flip, repeat this process." (``again_pcw``: the sacrifice and the flip run again).
@@ -150,7 +150,7 @@ REWRITES: dict[str, tuple[str, bool, Fix | None]] = {
     "6 damage to you.\"":
         ("When you planeswalk to The Pit, each player creates a 3/3 white Angel creature token with flying.", True, _pit),
     # -- step triggers --
-    "At the beginning of your end step, goad target creature controlled by the player to your left.":  # (Bowie Base One; "left": Plan.after)
+    "At the beginning of your end step, goad target creature controlled by the player to your left.":  # (Bowie Base One; "left": Plan.left, the seats)
         ("At the beginning of your end step, goad target creature the opponent to your left controls.", False, None),
     "At the beginning of combat on your turn, up to one target creature you control becomes a copy of target creature an opponent "
     "controls.":  # (Prime Minister's Cabinet Room)
@@ -199,14 +199,13 @@ def chaos_ensues(plan: Plan, ctx: dict[str, Any], e: Def) -> bool:
     """311.7: "chaos ensues": the face-up plane's chaos ability triggers (controlled by the planar controller: ``planar.on_events``).
     Outside a Planechase game there is no plane: nothing happens."""
     from app.game.handlers import planechase
-    from app.game.rules_state import emit
 
     pc = plan.state.planechase
     if pc is None or not pc.deck or pc.face_id is None:
         plan.note("Not a Planechase game: chaos doesn't ensue (311.7)")
         return True
     plan.note("Chaos ensues (311.7)")
-    emit(plan.state, "planar", counter="chaos", card=pc.face_id, player=planechase.planar_controller(plan.state) or ctx.get("controller"))
+    planechase.emit_chaos(plan.state, planechase.planar_controller(plan.state) or ctx.get("controller"))  # (wave D: each face-up plane's)
     return True
 
 

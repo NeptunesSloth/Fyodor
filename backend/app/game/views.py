@@ -234,7 +234,11 @@ def planechase_view(state: GameState) -> dict[str, Any] | None:
 
     return {
         "current": pc.deck[0].model_dump(),
-        "count": len(pc.deck),
+        # -- planechase deck (wave D) -- every face-up card (901.11c: Spatial Merging, Norn's Seedcore), ``current`` first; the cards an
+        # effect revealed from the planar deck and hasn't put back yet (public, 701.20) — never where they go
+        "faces": [c.model_dump() for c in pc.deck[:max(1, min(pc.face_count, len(pc.deck)))]],
+        "revealed": [c.model_dump() for c in pc.revealed],
+        "count": len(pc.deck),  # (the face-up cards included, as before)
         "visited": [c.model_dump() for c in pc.visited[-VISITED_SHOWN:]],
         "visited_count": len(pc.visited),
         "walks": pc.walks,

@@ -242,6 +242,11 @@ def begin(plan: Plan) -> None:
 
     # -- planechase chaos (wave B) -- a planeswalk made since (a table action): "until a player planeswalks" ends (611.2a)
     planar_chaos.on_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch])
+    from app.rules import (
+        planar_more,  # -- planechase more (wave E1) -- Unyaro: a planeswalk by hand ends its phasing too
+    )
+
+    planar_more.on_walks(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch])
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
@@ -827,6 +832,11 @@ def start_next_turn(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
     keep += wave110h_cards.untap_hold(plan, skip_to or upcoming, keep) if stay is None else []  # -- untap hold (wave 110H) --
+    from app.rules import (
+        planar_more,  # -- planechase more (wave E1) -- Edge of Malacol: counters instead of untapping (614.1a)
+    )
+
+    keep += planar_more.untap_instead(plan, skip_to or upcoming, keep) if stay is None else []
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -872,6 +882,9 @@ def extra_untap_step(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
     keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Edge of Malacol
+
+    keep += planar_more.untap_instead(plan, pid, keep) if stay is None else []
     previous = plan.rules.previous_turn or (plan.state.turn_order()[(plan.state.turn_order().index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
@@ -901,6 +914,11 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
     if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
         effects._untap_riders.other_untap_step(plan)
         wave110a_teferi.untap_step(plan)  # -- wave 110A -- Teferi's emblem
+        from app.rules import (
+            planar_more,  # -- planechase more (wave E1) -- Edge of Malacol's counters, Horizon Boughs
+        )
+
+        planar_more.untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step

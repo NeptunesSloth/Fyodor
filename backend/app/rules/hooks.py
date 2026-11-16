@@ -314,10 +314,13 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 # scripts.define(ability, ch): 12 chains, 243 modules
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
+        "planar_deck.definition",  # -- planechase deck (wave D) -- planar-deck lines and Mount Keralia read by exact wording; planes only
         "planar_walk.definition",  # -- planechase walk (wave C) -- planeswalk to / away / encounter lines read by exact wording; planes only
+        "planar_events.definition",  # -- planechase events (wave E2) -- roll triggers and event triggers read by exact wording; planes only
         "planar.definition",  # -- planechase automation -- a plane's chaos / planeswalk / encounter triggers (311.7, 701.31d, 312.5); planes only
         "planar_chaos.definition",  # -- planechase chaos (wave B) -- chaos abilities read by exact wording; planes only
         "planar_statics.definition",  # -- planechase statics (wave A) -- a plane's statics read by exact wording; planes only
+        "planar_more.definition",  # -- planechase more (wave E1) -- a plane's leftover statics by exact wording; planes only
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -1280,5 +1283,9 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "planar.PRIMITIVES",  # -- planechase automation -- 701.31 planeswalk
         "planar_walk.PRIMITIVES",  # -- planechase walk (wave C) -- chaos ensues (311.7), Reality Shaping, The Pit
         "planar_walk.RESUME",  # -- planechase walk (wave C) --
+        "planar_more.PRIMITIVES",  # -- planechase more (wave E1) -- Unyaro: phase out until a player planeswalks
+        "planar_events.PRIMITIVES",  # -- planechase events (wave E2) --
+        "planar_deck.PRIMITIVES",  # -- planechase deck (wave D) -- reveal / put back / planeswalk to revealed planes (planar_deck_op)
+        "planar_deck.RESUME",  # -- planechase deck (wave D) --
     ),
 )

@@ -481,6 +481,19 @@ class Plan:
                 return p
         return player
 
+    def left(self, player: str) -> str:
+        """-- planechase more (wave E1) -- The next live player seated to ``player``'s left: the default turn order proceeds clockwise
+        (103.1, 101.4: "usually the player seated to the active player's left"), so the seats in order — a reversed turn order (Aeon Engine,
+        Time Distortion) doesn't move anyone's seat."""
+        order = list(self.state.seat_order)
+        live = set(self.live())
+        start = order.index(player) if player in order else -1
+        for i in range(1, len(order) + 1):
+            p = order[(start + i) % len(order)]
+            if p in live:
+                return p
+        return player
+
 
 _R = TypeVar("_R")
 

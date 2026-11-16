@@ -544,6 +544,12 @@ class Planechase(BaseModel):
     # -- planechase automation -- the face-up card as a rules object (311.4, 312.4, 901.7): the id of its instance in ``cards``
     # (``handlers.planechase.sync``; only while a rules engine exists). Not in any zone list, so no view shows it as a card.
     face_id: str | None = None
+    # -- planechase deck (wave D) -- several face-up cards at once (901.11c; Spatial Merging, Norn's Seedcore): ``deck[:face_count]``
+    # are face up (none is part of the planar deck proper: its top is ``deck[face_count]``), the first one's object ``face_id``, the
+    # others' ``face_ids`` (in order). ``revealed``: the planar deck's cards an effect revealed and hasn't put back yet (public).
+    face_count: int = 1
+    face_ids: list[str] = Field(default_factory=list)
+    revealed: list[PlanarCard] = Field(default_factory=list)
 
 
 class DigLog(BaseModel):

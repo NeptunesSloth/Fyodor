@@ -9,7 +9,7 @@ import { SPECTATOR, type PlanarCardView, type PlanarFace, type PlanechaseView } 
 import { send } from "./actions";
 import { MOTION, motionMs, motionOn, onMotionSkip } from "./motion/timing";
 import { isOut } from "./outOfGame";
-import { FACE_LABEL, canRollPlanar, costText, onShowPlanarText, planarRollAction, planarRotation, planechaseCue, splitPlaneText } from "./planechase";
+import { FACE_LABEL, canRollPlanar, costText, onShowPlanarText, planarFaces, planarNames, planarRollAction, planarRotation, planechaseCue, splitPlaneText } from "./planechase";
 import "./planechase.css";
 
 /*
@@ -170,6 +170,7 @@ export function PlanechasePlaque({ me, compact = false }: { me: string; compact?
   const active = view.players.find((p) => p.id === view.turn.active_player);
   const roller = view.players.find((p) => p.id === pc.last_roll?.player);
   const phenomenon = pc.current.phenomenon;
+  const more = planarFaces(pc).slice(1);
   const chaos = chaosSeq !== null && pc.last_roll?.seq === chaosSeq ? splitPlaneText(data?.oracle_text).chaos : null;
   const auto = !!view.rules && !view.rules.paused; // (the die's cost is charged: planarRollAction)
   const roll = () => void send(planarRollAction(view));
@@ -187,7 +188,7 @@ export function PlanechasePlaque({ me, compact = false }: { me: string; compact?
       </div>
       <div className="planar-info">
         <div className="planar-name" data-testid="planar-name">
-          <span>{pc.current.name}</span>
+          <span>{planarNames(pc)}</span>
           {phenomenon && <span className="planar-tag">Phenomenon</span>}
           {compact && !mini && <button type="button" className="planar-min planar-read" onClick={() => setOpen(!open)} aria-expanded={open}
             title={open ? "Hide the plane's text" : "Show the plane and its text (or click the plane on the table)"} data-testid="planar-read">Text</button>}
@@ -195,6 +196,12 @@ export function PlanechasePlaque({ me, compact = false }: { me: string; compact?
             title={mini ? "Show the plane" : "Fold the plaque to one line"} aria-label={mini ? "Show the plane" : "Fold the plaque"}>{mini ? "+" : "–"}</button>
         </div>
         <div className="planar-sub">Planar deck {pc.count}{pc.visited_count ? ` · ${pc.visited_count} visited` : ""}</div>
+        {more.length > 0 && ( /* -- planechase deck (wave D) -- 901.11c: the other face-up planes */
+          <div className="planar-sub planar-also" data-testid="planar-also">Also face up: {more.map((c) => c.name).join(" · ")}</div>
+        )}
+        {(pc.revealed?.length ?? 0) > 0 && (
+          <div className="planar-sub planar-revealed" data-testid="planar-revealed">Revealed: {pc.revealed!.map((c) => c.name).join(" · ")}</div>
+        )}
         <div className="planar-die-row">
           {pc.last_roll && (
             <span className={`planar-die face-${pc.last_roll.face}`} ref={die} style={{ ["--seat" as string]: roller?.color }}
@@ -218,7 +225,7 @@ export function PlanechasePlaque({ me, compact = false }: { me: string; compact?
         </div>
       </div>
       <span className="sr-only" aria-live="polite">
-        {pc.last_roll ? `${roller?.name ?? "A player"} rolled the planar die: ${pc.last_roll.face}. ` : ""}The table is on {pc.current.name}.
+        {pc.last_roll ? `${roller?.name ?? "A player"} rolled the planar die: ${pc.last_roll.face}. ` : ""}The table is on {planarNames(pc)}.
       </span>
       {open && !mini && (
         <div className="planar-detail" data-testid="planar-detail">

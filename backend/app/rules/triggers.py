@@ -592,7 +592,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
                     [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
     if e.kind == "drew":
-        return [("draw", None, None, e.player, {"amount": 1})]
+        # -- planechase more (wave E1) -- the card drawn, read only by Sea of Sand's "draws a land card" (its static reveals it: _cond_matches);
+        # never the event's object (a hidden card in a trigger's event would show it)
+        return [("draw", None, None, e.player, {"amount": 1, **({"drawn_e1": e.card} if e.card else {})})]
     if e.kind == "case_solved":
         got = _object_then(plan, e.card, e.object_id)
         return [("case_solved", got[0] if got is not None else None, got[1] if got is not None else None,
@@ -925,6 +927,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return False
         if event in ("dealt_damage", "targeted") and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
+        if event == "draw" and cond.get("obj"):  # -- planechase more (wave E1) -- Sea of Sand: the card drawn (revealed by its static)
+            drawn = plan.state.cards.get(info.get("drawn_e1") or "")
+            return drawn is not None and drawn.zone.endswith(":hand") and selectors.matches(
+                plan, selectors.from_key(cond["obj"]), drawn, plan.ch(drawn), you, watcher.id)
         if event == "cast":
             if cond.get("card110b") and (obj is None or obj.id != cond["card110b"]):  # -- (wave 110B) -- Havengul Lich: that one card
                 return False
@@ -1151,6 +1157,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
         return False  # (wave 39B)
+    if cond.get("first_players_pce2"):  # -- planechase events (wave E2) -- Stensia: its first damage to a player this turn (603.2)
+        from app.rules import planar_events
+
+        if not planar_events.first_to_players(plan, info):
+            return False
     if cond.get("cause_spell110m") and not _caused_by_spell110m(plan, cond["cause_spell110m"], info.get("cause110m")):  # (wave 110M)
         return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)

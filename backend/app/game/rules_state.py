@@ -904,6 +904,7 @@ class PhaseLifetime(BaseModel):
     while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
     roll_max110f: int | None = None  # -- wave 110F -- Ferris Wheel: held until ``roller110f`` rolls this or less while rolling to visit (the source does not matter)
     roller110f: str | None = None
+    until_walk_e1: bool = False  # -- planechase more (wave E1) -- Unyaro: held until a player planeswalks (the source does not matter; planar_more.on_events)
 
 
 class PhaseHold110K(BaseModel):
@@ -1504,6 +1505,9 @@ class RulesState(BaseModel):
     # -- planechase walk (wave C) -- encounter effects that change the planar die (app/rules/planar_walk.py): {"kind": "blank_chaos"} (Chaotic
     # Aether: until a player planeswalks away from a plane), {"kind": "fixed_point", "player", "turn"} (Fixed Point in Time: until that player's next turn)
     planar_walk_pcw: list[dict[str, Any]] = Field(default_factory=list)
+    # -- planechase more (wave E1) -- app/rules/planar_more.py: {"malacol": [objects held tapped this untap step], "walked": [{"turn", "card", "player"}]
+    # (the plane the planar controller last planeswalked to, and the turn)}
+    planar_more_e1: dict[str, Any] = Field(default_factory=dict)
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
     eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter

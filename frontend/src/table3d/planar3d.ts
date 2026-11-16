@@ -12,7 +12,7 @@
  */
 import * as THREE from "three";
 import { MOTION, motionMs, motionOn } from "../game/motion/timing";
-import { planarRotation, planechaseCue } from "../game/planechase";
+import { planarFaces, planarRotation, planechaseCue } from "../game/planechase";
 import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import type { PlanarCardView, PlanechaseView } from "../types/game";
@@ -29,6 +29,8 @@ interface Face {
   turn: 0 | 90 | "text";
   /** Half its depth on the table (toward me): how high its near edge must ride while it turns over. */
   half: number;
+  /** Dropped (its materials disposed): a picture loading late doesn't show it. */
+  gone?: boolean;
 }
 
 interface Walk { from: Face | null; t0: number; dur: number; skipped: boolean }
@@ -46,6 +48,9 @@ export class PlanarTable {
   private geo = new THREE.PlaneGeometry(1, 1);
   private shadowTex = contactShadowTexture();
   private face: Face | null = null;
+  /** -- planechase deck (wave D) -- the other face-up planes (901.11c), lying beside the first one, still (no motion of their own). */
+  private extras: Face[] = [];
+  private extrasKey = "";
   private walk: Walk | null = null;
   private pulse: Pulse | null = null;
   private prev: PlanechaseView | null = null;
@@ -73,6 +78,7 @@ export class PlanarTable {
       this.step(now);
       if (this.face) this.drop(this.face);
       this.face = null;
+      this.setExtras([]);
       this.group.visible = false;
       return;
     }
@@ -82,6 +88,7 @@ export class PlanarTable {
     if (spot.scale !== this.scale) {
       this.scale = spot.scale;
       if (this.face) this.shape(this.face);
+      this.extras.forEach((f, i) => this.place(f, i));
     }
     const cue = planechaseCue(before, pc);
     const animate = !!cue && motionOn();
@@ -95,6 +102,7 @@ export class PlanarTable {
       if (old && animate && cue.walk) this.walk = { from: old, t0: now, dur: motionMs(MOTION.cardTravel + 160), skipped: false };
       else if (old) this.drop(old);
     }
+    this.setExtras(planarFaces(pc).slice(1));
     if (animate && cue.chaos) this.pulse = { t0: now, dur: motionMs(700, false), skipped: false };
     this.step(now);
   }
@@ -112,12 +120,14 @@ export class PlanarTable {
 
   /** What a click can hit: the plane (its userData says so). */
   targets(): THREE.Object3D[] {
-    return this.group.visible && this.face?.card.visible ? [this.face.card] : [];
+    if (!this.group.visible) return [];
+    return [this.face, ...this.extras].filter((f): f is Face => !!f && f.card.visible).map((f) => f.card);
   }
 
   dispose(): void {
     if (this.walk?.from) this.drop(this.walk.from);
     if (this.face) this.drop(this.face);
+    this.setExtras([]);
     this.walk = this.pulse = this.face = null;
     this.geo.dispose();
     this.shadowTex.dispose();
@@ -126,7 +136,7 @@ export class PlanarTable {
 
   // ------------------------------------------------------------------ the planes
 
-  private make(card: PlanarCardView): Face {
+  private make(card: PlanarCardView, extra = false): Face {
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff, roughness: 0.62, metalness: 0, transparent: true, alphaMap: cardCornerMask(), alphaTest: 0.02,
       emissive: GLOW, emissiveIntensity: 0,
@@ -142,9 +152,11 @@ export class PlanarTable {
     holder.add(face.shadow, face.card);
     this.group.add(holder);
     const show = () => {
-      if (this.face !== face && this.walk?.from !== face) return; // (gone meanwhile: drop disposed it)
+      if (extra ? face.gone : this.face !== face && this.walk?.from !== face) return; // (gone meanwhile: drop disposed it)
       face.card.visible = face.shadow.visible = true;
       this.shape(face);
+      const i = this.extras.indexOf(face);
+      if (i >= 0) this.place(face, i);
     };
     const text = () => {
       // no picture (offline, never downloaded): its name, type and text drawn as a card, lying upright (card data when it's in)
@@ -178,7 +190,22 @@ export class PlanarTable {
     face.shadow.scale.set(w * 1.18, h * 1.22, 1);
   }
 
+  /** The other face-up planes: rebuilt when they change (by printing), each lying one landscape card's width further along. */
+  private setExtras(cards: PlanarCardView[]): void {
+    const key = cards.map((c) => c.printing_id).join("|");
+    if (key === this.extrasKey) return;
+    for (const f of this.extras) this.drop(f);
+    this.extrasKey = key;
+    this.extras = cards.map((c) => this.make(c, true));
+    this.extras.forEach((f, i) => this.place(f, i));
+  }
+
+  private place(face: Face, i: number): void {
+    face.holder.position.set((i + 1) * CARD_H * this.scale * 1.08, 0, 0);
+  }
+
   private drop(face: Face): void {
+    face.gone = true;
     face.holder.removeFromParent();
     face.card.material.map?.dispose();
     face.card.material.dispose();

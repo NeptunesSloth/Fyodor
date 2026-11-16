@@ -897,6 +897,13 @@ def _rolled_result(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: T
     return roll_result_history42.holds(plan, ctx, cond, log)
 
 
+def _walked_here_e1(plan: Plan, ctx: dict[str, Any]) -> bool:
+    """-- planechase more (wave E1) -- "if you planeswalked to ~ this turn" (Unyaro): app/rules/planar_more.walked_here."""
+    from app.rules import planar_more
+
+    return planar_more.walked_here(plan, ctx)
+
+
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
@@ -906,6 +913,7 @@ _WAVE_4D: dict[str, Any] = {
     "lore_put110b": lambda plan, ctx, cond, log: any(f.kind == "counters" and f.counter == "lore" and f.amount > 0 and f.object_id == ctx.get("source_object")
                                                        for f in log.facts),  # (wave 110B) 122.1: a lore counter was put on the permission's source this turn
     "cast": _cast,
+    "walked_here_e1": lambda plan, ctx, cond, log: _walked_here_e1(plan, ctx),  # (wave E1: Unyaro)
     "facts": _facts_holds,
     "damage": _damage,
     "damage_by_creatures100n": lambda plan, ctx, cond, log: len({f.object_id for f in log.facts if f.kind == "damage" and f.player == ctx["controller"]
