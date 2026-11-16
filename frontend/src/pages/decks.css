@@ -355,6 +355,11 @@ body.perf-low .dk-empty::before { display: none; }
 .de-panel-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .de-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
 .de-dim { color: var(--text-dim); }
+/* -- saved rows -- the rows a deck learned at the table */
+.de-rows-list { margin: 8px 0 10px; font-size: 13px; line-height: 1.45; }
+.de-rows-list div { display: grid; grid-template-columns: 7.5em 1fr; gap: 8px; padding: 2px 0; }
+.de-rows-list dt { color: var(--text-dim); }
+.de-rows-list dd { margin: 0; color: var(--room-bone); overflow-wrap: anywhere; }
 .de-ok { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 8px; color: var(--ok); font-size: 13.5px; }
 .de-panel .tt-btn .icon { color: var(--frame-hi); }
 .de-checks:focus { outline: none; }

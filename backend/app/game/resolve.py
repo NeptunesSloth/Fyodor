@@ -16,7 +16,7 @@ from app.game import actions as A
 from app.game import placement
 from app.game.errors import ActionError
 from app.game.handlers import response
-from app.game.state import STACK, GameState, TokenDef, zone_key
+from app.game.state import STACK, BattlefieldRow, GameState, TokenDef, zone_key
 from app.game.views import resolve_placeholder
 
 if TYPE_CHECKING:
@@ -212,6 +212,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.faces = max(1, faces or 2)
     elif isinstance(a, A.Move):
         a.r = _resolve_move(state, a, actor, info)
+    elif isinstance(a, A.SetPosition):
+        a.learned_rows = _learned_rows(state, a, actor, info) or None
     elif isinstance(a, A.ResolveTop):
         a.r = _resolve_top(state, info, a.card_id)
     elif isinstance(a, A.RevealUntil | A.Cascade):
@@ -232,7 +234,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         inner = A.Move(card_ids=[found], to=A.ZoneRef(zone=a.to, player=pid if a.to == "battlefield" else None), actor=actor, ts=a.ts)
         if a.to == "battlefield":
             card = state.cards[found]
-            inner.x, inner.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(_face_type(info.get(card.card_id) if card.card_id else None, 0)))
+            inner.x, inner.y = placement.free_spot(state, zone_key(pid, "battlefield"),
+                                                   placement.entry_row(state, pid, card, _face_type(info.get(card.card_id) if card.card_id else None, 0)))
         inner.r = _resolve_move(state, inner, actor, info)
         a.r = A.FetchData(move=inner, shuffle=shuffle_data(len(library_ids) - 1, rng))
     elif isinstance(a, A.DiscardRandom):
@@ -383,10 +386,36 @@ def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.
         if card.zone == key:
             continue
         type_line = card.token.type_line if card.token else _face_type(info.get(card.card_id) if card.card_id else None, 0)
-        spot = placement.free_spot(state, key, placement.row_for(type_line), taken)
+        spot = placement.free_spot(state, key, placement.entry_row(state, pid, card, type_line, face_down=bool(a.face_down)), taken)
         taken.append(spot)
         data.positions[cid] = spot
     return data
+
+
+def _learned_rows(state: GameState, a: A.SetPosition, actor: str, info: CardInfo) -> dict[str, BattlefieldRow | None]:
+    """-- saved rows -- a player who drags their own permanent from one row into another (a mana rock into the lands, a
+    creature-land among the lands) teaches its deck where that card goes: decided here, where card data is at hand, and recorded
+    on the action so replay never needs it. Back in its type's row, the lesson is forgotten. Nudges within a row teach nothing,
+    and neither does a batch of lands alone: "Tidy my lands" (frontend game/tidy.ts) piles them upward from the near edge, and
+    a big mana base's upper piles reach the creature row's height without anyone choosing that row for them."""
+    learned: dict[str, BattlefieldRow | None] = {}
+    key = zone_key(actor, "battlefield")
+    if len(a.moves) > 1 and all((c := state.cards.get(cid)) is not None and placement.row_for(
+            _face_type(info.get(c.card_id) if c.card_id else None, c.face)) == "land" for cid, _x, _y in a.moves):
+        return learned
+    rows = state.players[actor].row_overrides if actor in state.players else {}
+    for cid, _x, y in a.moves:
+        card = state.cards.get(cid)
+        if card is None or card.zone != key or card.owner != actor or card.attached_to or not placement.learns_row(card):
+            continue
+        row = placement.row_at(y)
+        if row == placement.row_at(card.y):
+            continue
+        default = placement.row_for(_face_type(info.get(card.card_id) if card.card_id else None, 0))
+        want = None if row == default else row
+        if rows.get(card.name) != want:
+            learned[card.name] = want
+    return learned
 
 
 def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -> A.MoveData:
@@ -406,7 +435,7 @@ def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -
     else:
         key = zone_key(top.controller, "battlefield")
         data.destinations[top.id] = key
-        data.positions[top.id] = placement.free_spot(state, key, placement.row_for(type_line))
+        data.positions[top.id] = placement.free_spot(state, key, placement.entry_row(state, top.controller, top, type_line))
     return data
 
 

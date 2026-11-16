@@ -127,7 +127,11 @@ export interface Deck {
   warnings: DeckWarning[];
   import_report?: ImportStats;
   conflicts?: string[];
+  /** -- saved rows -- card name -> the battlefield row it was moved to at the table (it enters there in later games) */
+  row_overrides?: Record<string, SavedRow>;
 }
+
+export type SavedRow = "land" | "creature" | "other";
 
 export interface ParsePreview extends ImportReport {
   name: string | null;

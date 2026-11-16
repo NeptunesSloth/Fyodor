@@ -40,7 +40,7 @@ from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
-from app.game import undo_requests
+from app.game import placement, undo_requests
 from app.game.errors import ActionError
 from app.game.factory import STARTING_LIFE, DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
@@ -348,7 +348,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             allow_test_objects=body.mode == "local" or body.format == "sandbox", automation=body.automation,
                             automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first,
-                     related_tokens=services.related_tokens)
+                     related_tokens=services.related_tokens, deck_rows=services.decks.row_overrides)
     if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
@@ -832,9 +832,11 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
             "unresolved": [{"line": n} for n in unresolved[:50]],
             "notes": notes[:20],
         }
-        return _submitted(
+        submitted = _submitted(
             services, entries, name=body.name or deck.name, fmt=deck.format, report=report, kind="library"
         )
+        submitted.deck_id = deck.id  # -- saved rows -- its rows are learned into the host's library
+        return submitted
     if not (body.text.strip() or body.archidekt or body.json_data):
         raise HTTPException(422, "Paste a deck list, give an Archidekt URL, or choose a file")
     req = DeckImportRequest(text=body.text, archidekt=body.archidekt, json=body.json_data)
@@ -1181,6 +1183,7 @@ async def start_game(
                     name=room.seat_name(pid),
                     color=info.color,
                     deck_name=deck.name if deck else None,
+                    deck_id=deck.deck_id if deck else None,
                     cards=list(deck.cards) if deck else [],
                     collection=list(info.collection),
                 )
@@ -1215,6 +1218,7 @@ async def start_game(
             shuffle=body.shuffle,
             first_player=first,
             related_tokens=services.related_tokens,
+            deck_rows=services.decks.row_overrides,  # -- saved rows -- (a deck from the host's library)
         )
         state.id = room.game_id  # same URL before and after the start
         if lobby.automation != "off":
@@ -1412,7 +1416,9 @@ async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, s
         raise HTTPException(413, str(exc)) from exc
     # a pasted list with no name of its own is called after its commander(s), as the lobby shows it
     name = deck.name if body.name or body.deck_id or deck.name not in ("Deck", "") else " & ".join(deck.commanders) or deck.name
-    action = A.LoadDeck(player=seat, deck_name=name[:120], deck_id=body.deck_id if body.deck_id and local else None, draw=body.draw,
+    deck_id = body.deck_id if body.deck_id and local else None
+    rows = await run_in_threadpool(services.decks.row_overrides, deck_id) if deck_id else {}  # -- saved rows --
+    action = A.LoadDeck(player=seat, deck_name=name[:120], deck_id=deck_id, draw=body.draw, row_overrides=placement.saved_rows(rows),
                         cards=[A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
                                for c in deck.cards if c.section in ("commander", "companion", "main", "sideboard", "attractions")])
     async with room.lock:

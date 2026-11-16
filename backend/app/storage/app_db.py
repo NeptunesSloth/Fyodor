@@ -158,6 +158,10 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE decks ADD COLUMN folder TEXT NOT NULL DEFAULT '';
     """,
+    # 11: -- saved rows -- card name -> the battlefield row its owner moved it to by hand (JSON object), learned at the table
+    """
+    ALTER TABLE decks ADD COLUMN row_overrides TEXT NOT NULL DEFAULT '{}';
+    """,
 ]
 
 

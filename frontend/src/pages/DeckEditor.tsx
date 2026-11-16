@@ -9,7 +9,7 @@ import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { getPrintings } from "../services/cards";
-import { applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, unlinkSource, updateDeck, waitForJob } from "../services/decks";
+import { applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, resetDeckRows, unlinkSource, updateDeck, waitForJob } from "../services/decks";
 import { askText } from "../components/Prompt";
 import { refreshCards, requestCards, useCardCache } from "../state/cardCache";
 import {
@@ -25,7 +25,7 @@ import {
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
 import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
-import { checkSummary, curveStats, groupGlyph, groupTitle } from "./deckBits";
+import { checkSummary, curveStats, groupGlyph, groupTitle, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
 import "./decks.css";
 
@@ -350,6 +350,27 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                 <button className="tt-btn ghost" onClick={async () => { await unlinkSource(id).catch(toastError); load(await getDeck(id)); }}>Unlink</button>
               </div>
               <p className="de-note">This is a normal local deck: it never needs Archidekt to play.</p>
+            </section>
+          )}
+
+          {savedRows(deck.row_overrides).length > 0 && ( /* -- saved rows -- learned at the table, shown only once there are some */
+            <section className="de-panel de-saved-rows" aria-labelledby="de-rows-title" data-testid="deck-saved-rows">
+              <h2 id="de-rows-title">Table rows</h2>
+              <p className="de-note">Cards you moved into another row at the table enter there in later games.</p>
+              <dl className="de-rows-list">
+                {savedRows(deck.row_overrides).map((g) => (
+                  <div key={g.row}><dt>{g.label}</dt><dd>{g.names.join(", ")}</dd></div>
+                ))}
+              </dl>
+              <div className="de-panel-acts">
+                <button className="tt-btn ghost" data-testid="deck-reset-rows" onClick={async () => {
+                  try {
+                    await resetDeckRows(id);
+                    setDeck((d) => (d ? { ...d, row_overrides: {} } : d));
+                    toast("Saved rows reset: cards enter in their type's row again");
+                  } catch (e) { toastError(e); }
+                }}>Reset saved rows</button>
+              </div>
             </section>
           )}
 

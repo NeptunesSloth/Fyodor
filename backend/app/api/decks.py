@@ -244,6 +244,16 @@ def move_deck_to_folder(deck_id: str, body: FolderIn, services: ServicesDep) -> 
     return {"id": deck_id, "folder": _folder_name(body.folder)}
 
 
+@router.delete("/decks/{deck_id}/rows")
+def reset_deck_rows(deck_id: str, services: ServicesDep) -> dict[str, Any]:
+    """-- saved rows -- forget where the deck's cards were moved at the table: they enter in their type's row again."""
+    try:
+        services.decks.set_row_overrides(deck_id, {})
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "row_overrides": {}}
+
+
 class FolderRename(BaseModel):
     old: str = Field(min_length=1, max_length=60)
     new: str = Field(default="", max_length=60)

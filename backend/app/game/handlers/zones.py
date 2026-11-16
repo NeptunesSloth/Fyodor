@@ -195,6 +195,13 @@ def set_position(state: GameState, a: A.SetPosition) -> None:
             if child.zone == c.zone and child.id in ids:
                 ids.remove(child.id)
                 ids.insert(ids.index(c.id), child.id)
+    if a.learned_rows and a.actor in state.players:  # -- saved rows -- (decided by resolve: app/game/resolve.py _learned_rows)
+        rows = state.players[a.actor].row_overrides
+        for name, row in a.learned_rows.items():
+            if row is None:
+                rows.pop(name, None)
+            else:
+                rows[name] = row
 
 
 def draw_cards(state: GameState, pid: str, count: int, from_bottom: bool = False) -> list[CardInstance]:

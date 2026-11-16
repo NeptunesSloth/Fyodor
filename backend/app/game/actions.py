@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 
 from app.game.macros import MacroDef
 from app.game.rules_state import EntryCharacteristics, ObjectSnapshot
-from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
+from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, BattlefieldRow, Playmat, TokenDef
 from app.textutil import clean_text
 
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
@@ -122,6 +122,8 @@ class SetPosition(Base):
     type: Literal["set_position"] = "set_position"
     moves: list[tuple[Id, Coord, Coord]] = Field(min_length=1, max_length=250)
     with_attachments: bool = True  # attached cards follow their host (hold a modifier to move only the host)
+    # -- saved rows -- server-filled: card name -> the row its owner just moved it into (None: back to its type's row)
+    learned_rows: dict[str, BattlefieldRow | None] | None = None
 
 
 class Shuffle(Base):
@@ -661,6 +663,7 @@ class LoadDeck(Base):
     deck_id: str | None = Field(default=None, max_length=64)
     cards: list[LoadDeckCard] = Field(max_length=600)
     draw: int = Field(default=7, ge=0, le=20)
+    row_overrides: dict[str, BattlefieldRow] = Field(default_factory=dict, max_length=1000)  # -- saved rows -- the deck's
     r: LoadDeckData | None = None
 
 

@@ -176,6 +176,7 @@ def load_deck(state: GameState, a: A.LoadDeck) -> None:
     lib[:] = [lib[i] for i in a.r.perm]  # shuffled (the ids are new: nothing links them to the old deck)
     p.deck_name = a.deck_name
     p.deck_id = a.deck_id
+    p.row_overrides = dict(a.row_overrides)  # -- saved rows -- the new deck's (none for a deck that isn't in the host's library)
     p.life = state.settings.starting_life
     p.life_history = []
     p.resources = {k: 0 for k in DEFAULT_RESOURCES}

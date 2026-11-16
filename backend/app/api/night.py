@@ -191,7 +191,7 @@ def rematch(services: Services, room: Room) -> None:
     order, source, rolls = Night.plan(seats, winner)
     settings = old.settings.model_copy(deep=True)
     state = new_game([night.setups[pid] for pid in order], name=old.name, format=old.format, settings=settings,
-                     shuffle=True, first_player=0, related_tokens=services.related_tokens)
+                     shuffle=True, first_player=0, related_tokens=services.related_tokens, deck_rows=services.decks.row_overrides)
     state.id = room.game_id  # the table keeps its address for the whole night
     if settings.automation != "off":
         start_rules(state)
@@ -213,7 +213,7 @@ def _info_from_setup(setup: PlayerSetup | None, player: PlayerState) -> LobbySea
     info = LobbySeatInfo(name=player.name, color=player.color)
     if setup is not None and setup.cards:
         info.deck = SubmittedDeck(
-            name=setup.deck_name or "Deck", cards=list(setup.cards),
+            name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id,
             commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=[],
             card_count=sum(c.quantity for c in setup.cards if c.section != "maybeboard"), collection=list(setup.collection))
     return info

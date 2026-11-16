@@ -22,6 +22,8 @@ export const renameDeckFolder = (old: string, name: string) => api.post<{ moved:
 export interface Precon { id: string; name: string; set: string; released: string; commanders: string[]; added: boolean }
 export const listPrecons = () => api.get<Precon[]>("/decks/precons");
 export const addPrecons = (ids: string[]) => api.post<{ added: number; ids: string[] }>("/decks/precons", { ids });
+/** -- saved rows -- forget the rows the deck learned at the table. */
+export const resetDeckRows = (id: string) => api.del<{ id: string; row_overrides: Record<string, never> }>(`/decks/${id}/rows`);
 export const deleteDeck = (id: string) => api.del<void>(`/decks/${id}`);
 export const exportDeck = async (id: string, format: "archidekt" | "plain" = "archidekt"): Promise<string> => {
   const res = await fetch(`/api/decks/${id}/export?format=${format}`);

@@ -97,6 +97,7 @@ class SubmittedDeck:
     collection: list[CollectionCard] = field(default_factory=list)
     offline: dict[str, Any] = field(default_factory=dict)
     commander_ids: list[str] = field(default_factory=list)  # printings, for the seat card's art
+    deck_id: str | None = None  # -- saved rows -- a deck from the host's library (host computer only); never sent to clients
 
     def entries_public(self) -> list[dict[str, Any]]:
         return [

@@ -18,7 +18,7 @@ import time
 from collections.abc import Awaitable, Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.game import undo_requests, undo_rights
 from app.game.factory import PLAYER_COLORS
@@ -30,6 +30,9 @@ from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules
 from app.multiplayer.spectate import Predictions
 from app.storage.journal import RoomJournal
+
+if TYPE_CHECKING:
+    from app.decks.repository import DeckRepository
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +112,7 @@ class Room:
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
     predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
+    saved_rows: dict[str, dict[str, str]] = field(default_factory=dict)  # -- saved rows -- deck id -> the rows last stored for it
 
     @property
     def id(self) -> str:
@@ -282,9 +286,11 @@ class Room:
 
 class GameHub:
     def __init__(self, *, autosave: Callable[[Room], None] | None = None, autosave_every: int = 10,
-                 asset_info: Callable[[set[str]], dict[str, Any]] | None = None, journal: RoomJournal | None = None) -> None:
+                 asset_info: Callable[[set[str]], dict[str, Any]] | None = None, journal: RoomJournal | None = None,
+                 decks: DeckRepository | None = None) -> None:
         self.rooms: dict[str, Room] = {}
         self.journal = journal
+        self.decks = decks  # -- saved rows -- where rows learned at the table are stored
         self.asset_info = asset_info  # asset id -> {url, width, height} for sleeves / playmats in views
         self.join_failures: dict[str, list[float]] = {}  # client ip -> recent failed join times
         self._autosave = autosave
@@ -369,6 +375,26 @@ class GameHub:
             self.journal.save_meta(room.id, self.meta(room))
         except Exception:  # noqa: BLE001 - recovery data must never break play; it is logged loudly
             log.exception("Could not store room %s for recovery", room.id)
+
+    def save_rows(self, room: Room) -> None:
+        """-- saved rows -- store each saved deck's rows as the table now has them (learned by set_position, app/game/resolve.py),
+        outside the replayed game: an undo that takes a move back takes its lesson back here too. A deck brought from another
+        computer has no deck id; its rows last for this game only."""
+        if self.decks is None or room.game is None or room.practice is not None:
+            return
+        for p in room.game.state.players.values():
+            if not p.deck_id:
+                continue
+            try:
+                if p.deck_id not in room.saved_rows:
+                    room.saved_rows[p.deck_id] = self.decks.row_overrides(p.deck_id)
+                rows = {k: str(v) for k, v in p.row_overrides.items()}
+                if rows != room.saved_rows[p.deck_id]:
+                    self.decks.set_row_overrides(p.deck_id, rows)
+                    room.saved_rows[p.deck_id] = rows
+            except Exception:  # noqa: BLE001 - a deck deleted mid-game (or a busy database) must never break play
+                log.warning("Could not store the saved rows of deck %s", p.deck_id, exc_info=True)
+                room.saved_rows[p.deck_id] = {k: str(v) for k, v in p.row_overrides.items()}
 
     def track(self, room: Room) -> None:
         """Journal every change of a started table (do / undo / redo) until its next checkpoint."""
@@ -645,6 +671,7 @@ class GameHub:
     def after_change(self, room: Room) -> None:
         follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         self.persist(room)
+        self.save_rows(room)
         room.actions_since_save += 1
         if self._autosave and room.actions_since_save >= self.autosave_every:
             room.actions_since_save = 0

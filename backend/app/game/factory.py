@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.game import placement
 from app.game.resolve import new_id
 from app.game.state import (
     CardInstance,
@@ -66,7 +67,9 @@ def new_game(
     first_player: int | None = None,
     rng: Any = _rng,
     related_tokens: Callable[[str], list[str]] | None = None,
+    deck_rows: Callable[[str], dict[str, str]] | None = None,
 ) -> GameState:
+    """``deck_rows``: a saved deck's remembered battlefield rows by deck id (-- saved rows --, app/game/placement.py)."""
     if not 1 <= len(players) <= 6:
         raise ValueError("A game needs 1–6 players")
     settings = settings or GameSettings(starting_life=STARTING_LIFE.get(format, 40))
@@ -88,6 +91,7 @@ def new_game(
             deck_id=setup.deck_id,
             deck_name=setup.deck_name,
             token_shortcuts=deck_tokens(setup.cards, related_tokens),
+            row_overrides=placement.saved_rows(deck_rows(setup.deck_id)) if deck_rows is not None and setup.deck_id else {},
         )
         from app.game.state import StickerSheet101
         from app.rules import sticker_sheets101

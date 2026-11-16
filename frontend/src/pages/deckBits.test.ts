@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardData } from "../types/cards";
 import type { DeckEntry } from "../types/decks";
-import { checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, recordText } from "./deckBits";
+import { checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, recordText, savedRows } from "./deckBits";
 
 const player = (deck_key: string | null, outcome: "win" | "loss" | "draw" | "none") => ({
   seat: "p1", player_id: "x", name: "X", deck_key, deck_name: null, commanders: [], outcome,
@@ -92,5 +92,16 @@ describe("deckFolders", () => {
     const { deckFolders } = await import("./deckBits");
     expect(deckFolders([{ folder: "Pod" }, { folder: "" }, { folder: "Pod" }, { folder: "alpha" }], ["New", "Pod"]))
       .toEqual([{ name: "alpha", count: 1 }, { name: "New", count: 0 }, { name: "Pod", count: 2 }]);
+  });
+});
+
+describe("saved rows", () => {
+  it("groups the learned rows lands first, names sorted, and shows nothing when there are none", () => {
+    expect(savedRows(undefined)).toEqual([]);
+    expect(savedRows({})).toEqual([]);
+    expect(savedRows({ "Sol Ring": "land", "Arcane Signet": "land", "Dryad Arbor": "other" })).toEqual([
+      { row: "land", label: "Land row", names: ["Arcane Signet", "Sol Ring"] },
+      { row: "other", label: "Back row", names: ["Dryad Arbor"] },
+    ]);
   });
 });

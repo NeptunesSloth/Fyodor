@@ -94,7 +94,7 @@ class Services:
         self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
-                           journal=self.journal)
+                           journal=self.journal, decks=self.decks)
         self.handoffs = Handoffs()  # decks a joining player brought from their own computer (memory only)
         self.art_keeper = ArtKeeper(self)  # each saved deck's art, kept for offline play while online
         self.jobs = JobManager()

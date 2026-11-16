@@ -300,7 +300,7 @@ def build_view(
     for pid in state.seat_order:
         p = state.players[pid]
         own = viewer in (pid, OMNISCIENT)
-        exclude = set() if own else {"token_shortcuts", "deck_id"}
+        exclude = set() if own else {"token_shortcuts", "deck_id", "row_overrides"}  # (saved rows name the deck's cards)
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)

@@ -53,6 +53,7 @@ DEFAULT_RESOURCES = ("poison", "energy", "experience")
 
 BATTLEFIELD_W = 1000.0
 BATTLEFIELD_H = 600.0
+BattlefieldRow = Literal["land", "creature", "other"]  # -- saved rows -- (app/game/placement.py ROWS)
 
 
 def zone_key(player_id: str | None, zone: str) -> str:
@@ -314,6 +315,9 @@ class PlayerState(BaseModel):
     mulligans: int = 0
     deck_id: str | None = None
     deck_name: str | None = None
+    # -- saved rows -- card name -> the battlefield row ("land" / "creature" / "other") its owner moved it to by hand, so it enters
+    # there next time (app/game/placement.py); seeded from the saved deck, learned from set_position. Names the deck's cards: owner only
+    row_overrides: dict[str, BattlefieldRow] = Field(default_factory=dict, max_length=1000)
     sticker_pool101: list[dict[str, str]] = Field(default_factory=list)  # All revealed pregame sheet references (123.2a).
     sticker_sheets101: list[StickerSheet101] = Field(default_factory=list)  # The three public accessible sheets (123.2c).
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
