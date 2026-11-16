@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import sqlite3
 import threading
@@ -20,7 +22,7 @@ from app.cards.downloader import (
     image_jobs_from_rows,
     make_client,
 )
-from app.cards.images import ImageStore
+from app.cards.images import UUID_RE, ImageStore
 from app.cards.linked import LinkedAssets
 from app.cards.repository import CardDatabaseUnavailable, CardRepository
 from app.cards.token_art import TokenArt
@@ -43,6 +45,7 @@ from app.storage.backup import (
     RecoveryInfo,
     apply_pending_restore,
     create_backup,
+    deck_art,
     list_backups,
     pre_migration_backup,
     quarantine_damaged,
@@ -141,7 +144,7 @@ class Services:
     def _open_app_db(self) -> sqlite3.Connection:
         """Open app.sqlite: apply a staged restore, back up before migrating, recover if damaged."""
         path = self.settings.app_db_path
-        if apply_pending_restore(self.settings.data_dir, path, self.settings.assets_dir):
+        if apply_pending_restore(self.settings.data_dir, path, self.settings.assets_dir, self.settings.images_dir):
             log.warning("A backup was restored at start-up")
         pre_migration_backup(path, len(APP_MIGRATIONS))
         try:
@@ -158,11 +161,32 @@ class Services:
                                          backups=[b["name"] for b in list_backups(self.settings.data_dir)])
             return open_app_db(path)
 
-    def backup(self, *, reason: str | None = None, browser_decks: list[Any] | None = None) -> dict[str, Any]:
+    def backup(self, *, reason: str | None = None, browser_decks: list[Any] | None = None,
+               art: bool | None = None) -> dict[str, Any]:
         """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set.
-        ``browser_decks``: the asking browser's "My decks", carried in the backup too."""
+        ``browser_decks``: the asking browser's "My decks", carried in the backup too. ``art`` (by default: hand-made
+        backups only): the cached card art the saved decks need offline, so a restore on an offline computer has it."""
+        want_art = reason is None if art is None else art
         return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
-                             copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks)
+                             copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks,
+                             art=deck_art(self.images, self._deck_printings(browser_decks)) if want_art else None)
+
+    def _deck_printings(self, browser_decks: list[Any] | None) -> list[str]:
+        """Every printing the saved decks (and the browser's My decks) use, plus the tokens they make (as the art keeper
+        keeps them, app/cards/art_keeper.py)."""
+        ids = [e.printing_id for d in self.decks.list_all() for e in d.entries if e.printing_id]
+        if browser_decks is None:  # the host browser's mirrored copy, as the backup itself carries it
+            with contextlib.suppress(OSError, ValueError):
+                browser_decks = json.loads((self.settings.data_dir / SYNCED_BROWSER_DECKS).read_bytes())
+        for deck in browser_decks if isinstance(browser_decks, list) else []:
+            entries = deck.get("entries") if isinstance(deck, dict) else None
+            for e in entries if isinstance(entries, list) else []:
+                if isinstance(e, dict) and isinstance(e.get("printing_id"), str):
+                    ids.append(e["printing_id"])
+        ids = [i for i in dict.fromkeys(ids) if UUID_RE.match(i)]
+        with contextlib.suppress(CardDatabaseUnavailable):
+            ids += [t["id"] for c in self.cards.get_many(ids).values() for t in c.get("related_tokens") or []]
+        return list(dict.fromkeys(ids))
 
     browser_decks_saved = 0  # times the host browser's My decks mirror was rewritten: a change automatic backups count
 

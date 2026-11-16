@@ -90,7 +90,7 @@ def restore_listed(name: str, request: Request, services: ServicesDep) -> dict[s
     require_local(request)
     try:
         path = backup_path(services.settings.data_dir, name)
-        return stage_restore(services.settings.data_dir, path.read_bytes())
+        return stage_restore(services.settings.data_dir, path)  # (unpacked from disk: hand-made backups carry art)
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
 

@@ -15,7 +15,8 @@ Your decks travel in a Fyodor backup file:
 1. On the computer that has your decks (with Fyodor, online or not): **Settings → Back up Fyodor now**. It saves a
    `fyodor-backup-….zip` file (to Downloads). Copy it onto the USB stick with the installer.
 2. On the offline computer, in Fyodor: **Settings → Restore from a file…**, choose that file, then click
-   **Restart Fyodor now**. Your decks, saved games and pod stats are all there.
+   **Restart Fyodor now**. Your decks, saved games and pod stats are all there, with the card art your decks use
+   (a backup made by hand carries the art the computer that made it had cached; automatic backups carry none).
 
 A restore replaces what the offline computer had (a copy of it is kept). Decks that live on Archidekt or as text
 lists: import them into Fyodor on the online computer first (Decks → Import; several at once with the bulk import),

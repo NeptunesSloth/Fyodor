@@ -122,3 +122,107 @@ def test_automatic_backups_carry_the_synced_my_decks(settings, card_db):
         made = services.backup(reason="test")
         blob = (settings.data_dir / "backups" / made["name"]).read_bytes()
         assert json.loads(zipfile.ZipFile(io.BytesIO(blob)).read("browser-decks.json")) == mine
+
+
+# -- card art in hand-made backups (an offline computer restoring a backup gets the decks' art too) ---------------------
+
+JPEG = b"\xff\xd8\xff\xe0" + b"art" * 100
+KRENKO_DECK = "Commander\n1x Krenko, Mob Boss (ddn) 13\nDeck\n1x Lightning Bolt (clb) 187\n"
+
+
+def _plant(images, card_id: str, body: bytes = JPEG, *, size: str = "normal", face: int = 0, is_token: bool = False):
+    path = images.path_for(card_id, face=face, size=size, is_token=is_token)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(body)
+    return path
+
+
+def _other_settings(tmp_path):
+    from app.cards.importer import build_database
+    from app.config import load_settings
+    from tests.fixtures.cards import fixture_cards
+
+    other = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "offline"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})
+    other.ensure_dirs()
+    build_database(fixture_cards(), other.cards_db_path, meta={"bulk_type": "test"})
+    return other
+
+
+def test_hand_made_backups_carry_the_decks_card_art(settings, card_db, tmp_path):
+    from app.cards.images import CARD_BACK_ID
+    from tests.fixtures.cards import GOBLIN, cid
+
+    krenko, bolt, elves = cid("Krenko, Mob Boss|ddn|13"), cid("Lightning Bolt|clb|187"), cid("Llanowar Elves|dom|168")
+    with TestClient(create_app(settings)) as c:
+        services = c.app.state.services
+        deck = c.post("/api/decks", json={"text": KRENKO_DECK, "name": "Goblins"}).json()
+        assert {e["printing_id"] for e in deck["entries"]} >= {krenko, bolt}
+        images = services.images
+        _plant(images, krenko)
+        _plant(images, krenko, size="large")
+        _plant(images, bolt)
+        _plant(images, GOBLIN["id"], is_token=True)  # the token Krenko makes
+        _plant(images, elves)  # cached, but in no deck: stays out
+        back = images.card_back_path()
+        back.parent.mkdir(parents=True, exist_ok=True)
+        back.write_bytes(JPEG)
+        made = c.post("/api/backups").json()
+        assert made["art"] == 5 and made["art_left_out"] == 0
+        zf = zipfile.ZipFile(settings.data_dir / "backups" / made["name"])
+        names = set(zf.namelist())
+        assert {f"images/cards/{krenko[:2]}/{krenko}-0-normal.jpg", f"images/cards/{krenko[:2]}/{krenko}-0-large.jpg",
+                f"images/cards/{bolt[:2]}/{bolt}-0-normal.jpg", f"images/tokens/{GOBLIN['id'][:2]}/{GOBLIN['id']}-0-normal.jpg",
+                f"images/backs/{CARD_BACK_ID}-normal.jpg"} <= names
+        assert not any(elves in n for n in names)
+        assert json.loads(zf.read("manifest.json"))["art"] == 5
+        zf.close()
+        # automatic backups never carry art (a dozen of them are kept)
+        auto = services.backup(reason="test")
+        with zipfile.ZipFile(settings.data_dir / "backups" / auto["name"]) as az:
+            assert not any(n.startswith("images/") for n in az.namelist())
+        blob = (settings.data_dir / "backups" / made["name"]).read_bytes()
+
+    # restore onto an offline computer that has no art for Krenko yet, but newer art for Lightning Bolt
+    other = _other_settings(tmp_path)
+    with TestClient(create_app(other)) as c:
+        newer = _plant(c.app.state.services.images, bolt, JPEG + b"newer")
+        staged = c.post("/api/backups/restore", content=blob)
+        assert staged.status_code == 200 and staged.json()["art"] == 5
+    with TestClient(create_app(other)) as c:
+        images = c.app.state.services.images
+        assert c.get(f"/api/decks/{deck['id']}").status_code == 200
+        assert images.find(krenko) == images.path_for(krenko) and images.find(krenko).read_bytes() == JPEG
+        assert images.find(krenko, size="large") is not None
+        assert images.find(GOBLIN["id"]) is not None and images.card_back() is not None
+        assert newer.read_bytes() == JPEG + b"newer"  # art already here is never replaced
+        assert images.find(elves) is None
+        assert not (other.data_dir / "restore-pending").exists()
+
+
+def test_restore_refuses_odd_art_names_and_skips_what_isnt_art(client, settings):
+    made = client.post("/api/backups").json()
+    with zipfile.ZipFile(settings.data_dir / "backups" / made["name"]) as zf:
+        base = {n: zf.read(n) for n in zf.namelist()}
+    good = "0aeebaf5-8c7d-4636-9e82-8c27447861f7"
+
+    def upload(extra: dict[str, bytes]):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for n, data in {**base, **extra}.items():
+                zf.writestr(n, data)
+        return client.post("/api/backups/restore", content=buf.getvalue())
+
+    for name in (f"images/cards/0a/../../{good}-0-normal.jpg", "images/cards/ab/not-a-uuid-0-normal.jpg",
+                 f"images/cards/zz/{good}-0-normal.jpg", f"images/cards/0a/{good}-0-huge.jpg",
+                 f"images/cards/0a/{good}-7-normal.jpg", f"images/cards/0a/{good.upper()}-0-normal.jpg",
+                 f"images/elsewhere/0a/{good}-0-normal.jpg", "images/symbols/evil.svg", "images/run.exe",
+                 f"/images/cards/0a/{good}-0-normal.jpg"):
+        assert upload({name: JPEG}).status_code == 422, name
+    # the right name, the wrong content: left out, the rest still restores
+    res = upload({f"images/cards/0a/{good}-0-normal.jpg": b"MZ not a jpeg",
+                  f"images/tokens/0a/{good}-0-small.jpg": b"\xff\xd8\xff" + b"x" * 3_000_000,
+                  "images/symbols/W.svg": b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+                  "images/symbols/symbology.json": b"[1, 2]"})
+    assert res.status_code == 200 and res.json()["art"] == 0
+    assert not (settings.data_dir / "restore-pending" / "images").exists() or not any(
+        p.is_file() for p in (settings.data_dir / "restore-pending" / "images").rglob("*"))
