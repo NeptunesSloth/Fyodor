@@ -9,7 +9,35 @@ import { isVisible, PHASE_LABEL, type GameView, type LogPartView, type PhaseName
 import { useIsHost } from "./HostTools";
 
 interface Snapshot { id: string; name: string; seq: number; turn: number; created_at: number; by: string }
-export interface HistoryItem { position: number; seq: number; type: string; actor: string | null; log: LogPartView[][]; undone: boolean }
+export interface HistoryItem {
+  position: number; seq: number; type: string; actor: string | null; log: LogPartView[][]; undone: boolean;
+  /** The turn and step the action happened in (from its log lines; absent when it logged nothing). */
+  turn?: number | null; phase?: string | null;
+}
+
+export interface StepHead { label: string; first: number }
+
+/** -- undo back to here -- the (newest-first) list grouped by turn and step: keyed by each group's newest row (where its heading
+ * goes), the group's label and its oldest position (what "Undo from here" goes back to before). Rows that logged nothing join the
+ * group around them. */
+export function stepHeads(items: HistoryItem[]): Map<number, StepHead> {
+  const heads = new Map<number, StepHead>();
+  let label = "", top = -1;
+  [...items].reverse().forEach((it) => {
+    const key = it.turn == null || !it.phase ? label : `Turn ${it.turn} · ${PHASE_LABEL[it.phase as PhaseName] ?? it.phase.replace(/_/g, " ")}`;
+    if (key !== label || top < 0) {
+      label = key;
+      top = it.position;
+      heads.set(top, { label: key || "Earlier", first: it.position });
+    } else {
+      const head = heads.get(top)!;
+      heads.delete(top);
+      top = it.position;
+      heads.set(top, head);
+    }
+  });
+  return heads;
+}
 
 const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...p.group.map((g) => g.card.name), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
 
@@ -30,6 +58,7 @@ export const historyText = (it: HistoryItem): string => it.log.map((line) => lin
 export function HistoryDialog({ onClose }: { onClose: () => void }) {
   const view = useGame((s) => s.view);
   const isHost = useIsHost();
+  const actingAs = useGame((s) => s.actingAs);
   const [tab, setTab] = useState<"snapshots" | "history">("snapshots");
   const [snaps, setSnaps] = useState<Snapshot[]>([]);
   const [items, setItems] = useState<HistoryItem[]>([]);
@@ -52,10 +81,19 @@ export function HistoryDialog({ onClose }: { onClose: () => void }) {
     api.get<GameView>(`/games/${gameId}/history/${picked}${q}`, headers()).then(setPast, toastError);
   }, [picked, gameId, q, headers]);
   if (!view) return null;
+  const cursor = items.reduce((n, it) => (it.undone ? n : Math.max(n, it.position)), 0);
+  const heads = stepHeads(items);
 
   const restore = async (path: string, what: string) => {
     if (!window.confirm(`Restore the table to ${what}? Everyone's table changes; Undo brings it back.`)) return;
     await api.post(path, {}, headers()).then(() => { toast("Table restored"); onClose(); }, toastError);
+  };
+  // -- undo back to here -- every action after ``position`` at once, under the table's undo rules (Redo puts them back one at a time)
+  const undoTo = async (position: number) => {
+    const n = cursor - position;
+    if (n <= 0 || !window.confirm(`Undo the last ${n} action${n === 1 ? "" : "s"}, back to #${position}?`)) return;
+    const as = view.game.mode === "local" ? actingAs : null;
+    await api.post(`/games/${gameId}/history/${position}/undo`, { as }, headers()).then(() => { toast(`Undid ${n} action${n === 1 ? "" : "s"}`); onClose(); }, toastError);
   };
 
   return (
@@ -86,10 +124,21 @@ export function HistoryDialog({ onClose }: { onClose: () => void }) {
         <div className="history-view" data-testid="history">
           <div className="history-list">
             {items.map((it) => (
-              <button key={it.position} className={`history-item ${picked === it.position ? "on" : ""} ${it.undone ? "undone" : ""}`} onClick={() => setPicked(it.position)}>
-                <span className="hint">#{it.position}</span>
-                <span>{it.log.length ? it.log.map((l) => l.map(partText).join("")).join(" · ") : `${it.actor ?? ""} ${it.type.replace(/_/g, " ")}`}</span>
-              </button>
+              <div key={it.position} className="history-row">
+                {heads.has(it.position) && (
+                  <div className="history-head">
+                    <span>{heads.get(it.position)!.label}</span>
+                    {heads.get(it.position)!.first <= cursor && (
+                      <button className="tt-btn ghost" data-testid="undo-step" title="Undo every action of this step"
+                        onClick={() => void undoTo(heads.get(it.position)!.first - 1)}>Undo this step</button>
+                    )}
+                  </div>
+                )}
+                <button className={`history-item ${picked === it.position ? "on" : ""} ${it.undone ? "undone" : ""}`} onClick={() => setPicked(it.position)}>
+                  <span className="hint">#{it.position}</span>
+                  <span>{it.log.length ? it.log.map((l) => l.map(partText).join("")).join(" · ") : `${it.actor ?? ""} ${it.type.replace(/_/g, " ")}`}</span>
+                </button>
+              </div>
             ))}
           </div>
           <div className="history-state">
@@ -107,6 +156,9 @@ export function HistoryDialog({ onClose }: { onClose: () => void }) {
                     </div>
                   );
                 })}
+                {picked != null && picked < cursor && (
+                  <button className="tt-btn brass" data-testid="undo-to-history" onClick={() => void undoTo(picked)}>Undo back to here</button>
+                )}
                 {isHost && picked != null && (
                   <button className="tt-btn" data-testid="restore-history" onClick={() => void restore(`/games/${gameId}/history/${picked}/restore`, `step #${picked}`)}>Restore from here</button>
                 )}

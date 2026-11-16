@@ -92,6 +92,19 @@ class History:
         self._notify("undo", None)
         return state, undone
 
+    def undo_to(self, position: int) -> tuple[GameState, list[Action]]:
+        """-- undo back to here -- take back every action after ``position`` with one replay (undoing them one at a time replays
+        once per action, which is slow on a big board). The listener hears one "undo" per action, as if they had been undone in
+        turn, so the crash journal replays it the same way."""
+        if not 0 <= position < self.cursor:
+            raise ActionError("Nothing to undo back to there")
+        undone = self.actions[position:self.cursor]
+        state = self.state_at(position)
+        self.cursor = position
+        for _ in undone:
+            self._notify("undo", None)
+        return state, undone
+
     def redo(self, current: GameState) -> tuple[GameState, Action]:
         if not self.can_redo:
             raise ActionError("Nothing to redo")

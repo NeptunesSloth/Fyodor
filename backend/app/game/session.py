@@ -124,6 +124,31 @@ class GameSession:
         self._drop_stale_request()
         return undone
 
+    def undo_to(self, actor: str, position: int, *, host: bool = False, others: list[str] | None = None) -> list[Action]:
+        """-- undo back to here -- take back every action after history ``position`` at once (a whole combat, a whole turn), under
+        the same rules as undoing them one at a time: the table's undo setting must allow each of them, and when there is someone to
+        ask, none may have shown hidden information or a random result (those still go one at a time, through a request, or the
+        host's Restore from here)."""
+        self._check_not_controlled(actor)
+        if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+            raise ActionError(out)
+        if not 0 <= position < self.history.cursor:
+            raise ActionError("Nothing to undo back to there")
+        policy = self.state.settings.undo_policy
+        for i, a in enumerate(self.history.actions[position:self.history.cursor], start=position + 1):
+            if policy == "host" and not host:
+                raise ActionError("Only the host may undo at this table (the host's undo setting).")
+            if policy == "own" and a.actor != actor:
+                raise ActionError(f"Players may only undo their own actions at this table: #{i} ({describe(a)}) was another player's.")
+            if others and (kind := undo_requests.shown(a)) is not None:
+                raise ActionError(f"{undo_requests.reason(kind)} (#{i}, {describe(a)}) Undo up to it one action at a time, or ask the host"
+                                  " to restore from there.")
+        state, undone = self.history.undo_to(position)
+        self.state = state
+        self._notice(actor, [pname(self.state, actor), text(f" undid {len(undone)} action{'s' if len(undone) != 1 else ''} back to #{position}")])
+        self._drop_stale_request()
+        return undone
+
     def redo(self, actor: str, *, host: bool = False) -> Action:
         self._check_not_controlled(actor)
         if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:

@@ -1464,15 +1464,18 @@ async def game_history(game_id: str, request: Request, services: ServicesDep,
     history = room.session.history
     log = room.session.view(v)["log"]
     by_seq: dict[int, list[Any]] = {}
+    when: dict[int, tuple[Any, Any]] = {}  # (-- undo back to here -- the turn and step each entry happened in, to group them by)
     for entry in log:
         by_seq.setdefault(int(entry["seq"]), []).append(entry["parts"])
+        when.setdefault(int(entry["seq"]), (entry.get("turn"), entry.get("phase")))
     players = room.session.state.players
     items = []
     for i, action in enumerate(history.actions, start=1):
         seq = history.base_seq + i
         items.append({"position": i, "seq": seq, "type": action.type,
                       "actor": players[action.actor].name if action.actor in players else None,
-                      "log": by_seq.get(seq, []), "undone": i > history.cursor})
+                      "log": by_seq.get(seq, []), "undone": i > history.cursor,
+                      "turn": when.get(seq, (None, None))[0], "phase": when.get(seq, (None, None))[1]})
     return {"cursor": history.cursor, "base_seq": history.base_seq, "items": items}
 
 
@@ -1501,6 +1504,26 @@ async def restore_history(game_id: str, position: int, request: Request, service
         raise HTTPException(404, str(exc)) from exc
     return await _restore(services, room, request, x_seat_token, state.model_dump(mode="json"),
                           f"back to history step {position} (turn {state.turn.number})")
+
+
+@router.post("/games/{game_id}/history/{position}/undo")
+async def undo_to_history(game_id: str, position: int, body: MetaIn, request: Request, services: ServicesDep,
+                          x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- undo back to here -- undo every action after ``position`` at once (a whole combat or turn), under the table's undo rules
+    (GameSession.undo_to). Unlike Restore from here it is anyone's, it leaves the undone actions to redo, and it adds no history entry."""
+    room = _room(services, game_id)
+    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
+    if actor is None:
+        raise HTTPException(403, "Spectators cannot undo")
+    async with room.lock:
+        _check_table_open(room)
+        try:
+            host = room.mode == "local" or room.is_host(x_seat_token)
+            room.session.undo_to(actor, position, host=host, others=undo_voters(room, actor))
+        except ActionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        services.hub.after_change(room)
+    return await _broadcast_view(services, room, viewer)
 
 
 # --------------------------------------------------------------------------- host tools
