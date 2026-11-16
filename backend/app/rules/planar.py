@@ -107,8 +107,14 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     """The table's "planar" events (handlers.planechase): chaos (311.7), planeswalking to / away from (701.31d), encountering
     (312.5) — the face-up card's abilities for them, controlled by the planar controller — and the planeswalking ability (901.8)."""
     from app.rules import characteristics as chars
-    from app.rules import designations, triggers
+    from app.rules import designations, planar_chaos, triggers
 
+    planar_chaos.on_events(plan, events)  # -- planechase chaos (wave B) -- "until a player planeswalks" ends (611.2a)
+    from app.rules import (
+        planar_walk,  # -- planechase walk (wave C) -- Chaotic Aether ends as a player planeswalks away from a plane
+    )
+
+    planar_walk.on_events(plan, events)
     for e in events:
         if e.kind != "planar" or e.manual:
             continue
@@ -140,6 +146,12 @@ def planeswalk(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = ctx.get("controller")  # (the planeswalking ability's controller is the roller, 901.8: the active player, the planar controller)
     if who != ctl or ctl is None:
         plan.note("Only the planar controller planeswalks (701.31a): nothing happens")
+        return True
+    from app.rules import (
+        planar_walk,  # -- planechase walk (wave C) -- Fixed Point in Time: chaos ensues instead (614.1a)
+    )
+
+    if e.get("roll") and planar_walk.chaos_instead(plan, ctx):
         return True
     plan.do({"type": "planeswalk"}, actor=ctl)
     return True
@@ -184,8 +196,11 @@ def encounter_automated(plan: Plan, face: CardInstance) -> bool:
 # or a paired sentence), permissions._all_table_statics the kinds read through ``_table_statics`` (filtered by this function) — only the kinds listed here are
 # known to be read that way and nowhere else (a kind read by a battlefield-only collector, e.g. replacement effects, combat limits or
 # hand size, is not supported until that collector reads the planar object too).
-TRIGGER_KINDS = frozenset({"planar_chaos", "planar_to", "planar_from", "planar_encounter", "event", "upkeep_you", "end_step_you"})
-STATIC_KINDS = frozenset({"cost_modifier"})
+TRIGGER_KINDS = frozenset({"planar_chaos", "planar_to", "planar_from", "planar_encounter", "event", "upkeep_you", "end_step_you",
+                           "enters_other", "state", "tap_for_mana"})  # (wave A: planar_statics.py)
+STATIC_KINDS = frozenset({"cost_modifier",
+                          "escape_grant", "no_max_hand", "top_reveal", "replace", "prevent", "skip", "attack_limit_all", "block_limit_all",
+                          "enters_tapped_others", "spend_as", "zone_grant", "permission"})  # (wave A: planar_statics.py, each collector reads the plane)
 
 
 def _trigger_ok(trigger: str) -> bool:

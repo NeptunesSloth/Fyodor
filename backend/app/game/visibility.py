@@ -125,7 +125,8 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
         return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
-        if source is None or source.face_down or not source.zone.endswith(":battlefield") \
+        plane = source is not None and source.id.startswith("planar-") and source.zone.endswith(":command")  # (wave A) the face-up plane, 311.4
+        if source is None or source.face_down or not (source.zone.endswith(":battlefield") or plane) \
                 or rules.card_mode(source.id) == "manual":
             continue
         controller = source.controller

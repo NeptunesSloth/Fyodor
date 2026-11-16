@@ -283,6 +283,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
+        if src is not None and src.id.startswith("planar-") and plan.oid(src) == ctx.get("source_object"):  # (wave A: planar_statics.py)
+            from app.rules import (
+                planar_statics,  # -- planechase -- the face-up plane is "this plane" (Aretopolis's scroll counters, 311.4)
+            )
+
+            return [src.id] if planar_statics.functions(plan.state, src) else []
         return []  # the source left: "it" is gone (a new object isn't affected)
     if who.startswith("obj:"):  # -- granted from object (wave 18F) -- the granting object, while it is still that object here
         obj = plan.state.cards.get(who[4:].rsplit(".", 1)[0])

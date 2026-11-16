@@ -645,6 +645,7 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if e.get("act") == "loyalty":
             what += " or activate loyalty abilities"
         when = "for the rest of the game" if e["until"] == "game" else "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
+            "until a player planeswalks" if e["until"] == "planeswalk_pcb" else \
             ("until the end of " if e["until"] == "end_of_next_turn" else "until ") + plan.name(ctx["controller"]) + "’s next turn"
         plan.note(f"{plan.name(pid)} can't cast {what} {when} ({label})", actor=ctx["controller"])
     return True
@@ -752,7 +753,7 @@ def _scan_table(state: GameState, info: CardInfo) -> list[tuple[str, int, Defini
     """(permanent, ability index, definition) of every limit / haste-permission static on the battlefield, read
     from copiable values (cheap, cached by what is there); ``_statics`` confirms each with the permanent's
     current characteristics (a "loses all abilities" effect removes it, 613.1f)."""
-    from app.rules import designations, scripts, static_pairs
+    from app.rules import designations, planar_statics, scripts, static_pairs
     from app.rules.copying import copy_index
     from app.rules.layers import copiable
     from app.rules.plan import live_players
@@ -764,17 +765,22 @@ def _scan_table(state: GameState, info: CardInfo) -> list[tuple[str, int, Defini
     copies = copy_index(r)
     key = (live, tuple(sorted((cid, c.controller, c.zone, c.face_down, c.face, c.flipped, c.card_id or c.name,
                                c.token.text if c.token else "", r.card_mode(cid), copies.get(r.object_id(cid), (0, "")))
-                              for cid, c in state.cards.items() if c.zone.endswith(":battlefield") or designations.emblem_card(c))))
+                              for cid, c in state.cards.items() if c.zone.endswith(":battlefield") or designations.emblem_card(c)
+                              or planar_statics.functions(state, c))))  # (wave A: the face-up plane's, 311.4: in the key, a planeswalk changes it)
     hit = _CACHE.get(key)
     if hit is not None:
         return hit
     out = []
     for cid, c in state.cards.items():
-        if not (c.zone.endswith(":battlefield") or designations.emblem_card(c)) or c.face_down or c.controller not in live or r.card_mode(cid) == "manual":
+        plane = planar_statics.functions(state, c)  # (wave A: planar_statics.py) the face-up plane's statics (311.4), the kinds coverage claims
+        if not (c.zone.endswith(":battlefield") or designations.emblem_card(c) or plane) or c.face_down or c.controller not in live or r.card_mode(cid) == "manual":
             continue
         entries = scripts.definitions(copiable(state, c, info))
         for index, d in ((i, part) for i, definition in entries.items() for part in static_pairs.parts(definition)):
-            if not c.zone.endswith(':battlefield') and d.get('static') not in ('spell_keyword', 'loyalty_rule', 'cast_limit'):
+            if plane:
+                if not planar_statics.read(d):
+                    continue
+            elif not c.zone.endswith(':battlefield') and d.get('static') not in ('spell_keyword', 'loyalty_rule', 'cast_limit'):
                 continue
             if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield") or d.get("spell_grants")):  # (wave 28C: spell_grants.py)
                 out.append((cid, index, d))

@@ -117,19 +117,20 @@ def skip_next(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 # -- the turn structure asks ------------------------------------------------------------------------------
 def _static(plan: Plan, player: str, what: str) -> str | None:
-    from app.rules import scripts
+    from app.rules import planar_statics, scripts
     from app.rules.replace import conditional_lines
 
     with plan.reading():  # -- big boards (step scans) -- read-only, before every step: each permanent derived once, not from scratch
         for c in plan.state.cards.values():
-            if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+            plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's (311.4: Eon Fog)
+            if not (c.zone.endswith(":battlefield") or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
                 continue
             ch = plan.ch(c)
             if "Room" in ch.subtypes:
                 continue  # (a Room door is unlocked or not: not modelled)
             skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
             for i, d in scripts.definitions(ch).items():
-                if i not in skip and d.get("kind") == "static" and d.get("static") == "skip" and d.get("what") == what \
+                if i not in skip and d.get("kind") == "static" and d.get("static") == "skip" and d.get("what") == what and (not plane or planar_statics.read(d)) \
                         and (d.get("who") == "each" or (c.controller != player if d.get("who") == "opponents" else c.controller == player)) \
                         and not (d.get("hand_empty100h") and plan.state.zones.get(f"{player}:hand")):
                     return ch.name or c.name or "a permanent"

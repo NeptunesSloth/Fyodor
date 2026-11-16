@@ -224,6 +224,10 @@ def roll(state: GameState, a: A.PlanarRollAction) -> None:
     pc.last_roll = PlanarRoll(player=a.actor, face=a.r.face, cost=cost, seq=state.seq)
     paid = f" (cost {{{cost}}})" if cost else ""
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" rolled the planar die{paid}: {a.r.face}")], kind="planar")
+    if a.r.face == "blank" and state.rules is not None and any(x.get("kind") == "blank_chaos" for x in state.rules.planar_walk_pcw):
+        # -- planechase walk (wave C) -- Chaotic Aether: "each blank roll of the planar die is a {CHAOS} roll" (app/rules/planar_walk.py)
+        log(state, a.actor, a.ts, [text("The blank roll is a chaos roll (Chaotic Aether)")], kind="planar")
+        emit(state, "planar", counter="chaos", card=pc.face_id, player=a.actor)
     if a.r.face == "chaos":  # 901.9b: chaos ensues (311.7)
         emit(state, "planar", counter="chaos", card=pc.face_id, player=a.actor)
     if a.r.face == "planeswalker":

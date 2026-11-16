@@ -799,7 +799,8 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d",
+                      "planeswalk_pcb"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     created_step110d: int = 0  # -- (wave 110D) -- next_end_step110d: the step counter when it began (an end step already begun does not end it)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
@@ -1500,6 +1501,9 @@ class RulesState(BaseModel):
     hand_reveal_turn110m: dict[str, int] = Field(default_factory=dict)  # (wave 110M) player -> the turn through which they play with their hand revealed
     reveal_ask110m: list[list[str]] = Field(default_factory=list)  # (wave 110M) [player, card, object] first draws of a turn whose "you may reveal" is still to be asked
     turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
+    # -- planechase walk (wave C) -- encounter effects that change the planar die (app/rules/planar_walk.py): {"kind": "blank_chaos"} (Chaotic
+    # Aether: until a player planeswalks away from a plane), {"kind": "fixed_point", "player", "turn"} (Fixed Point in Time: until that player's next turn)
+    planar_walk_pcw: list[dict[str, Any]] = Field(default_factory=list)
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
     eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter

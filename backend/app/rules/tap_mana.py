@@ -156,6 +156,11 @@ def _scan_triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str
                         out.append((c.controller, {**d, "extra": [[color]], "only": color}, c.id))
                 elif d.get("trigger") == "tap_for_mana":
                     out.append((c.controller, d, c.id))
+    from app.rules import planar_statics
+
+    if (plane := planar_statics.face(state)) is not None:  # (wave A: planar_statics.py) the face-up plane's (311.4: Eloren Wilds), in no zone list
+        out += [(plane.controller, d, plane.id) for d in scripts.definitions(chars.of(plane, info)).values()
+                if d.get("trigger") == "tap_for_mana" and not d.get("chosen") and planar_statics.read(d)]
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
         out += [(str(x["controller"]), {**x["def"], 'effect_source_object': x.get('source_object')}, x.get('source_card'))
                 for x in r.tap_mana if x.get("turn") == state.turn.number and x["def"].get("trigger")]  # (wave 49A: the replacements go to mana_replace)

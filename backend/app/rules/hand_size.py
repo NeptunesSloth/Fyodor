@@ -79,7 +79,7 @@ def bound_legacy(plan: Plan) -> None:
 
 def maximum(plan: Plan, player: str, *, warn_legacy: bool = False) -> int | None:
     """Apply setting/no-maximum/delta effects in timestamp order (402.2,613.10)."""
-    from app.rules import chosen, scripts, statics, values
+    from app.rules import chosen, planar_statics, scripts, statics, values
     from app.rules.layers import timestamp
     from app.rules.replace import conditional_lines
 
@@ -91,6 +91,7 @@ def maximum(plan: Plan, player: str, *, warn_legacy: bool = False) -> int | None
     with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
         for c in plan.state.cards.values():
             emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"
+            emblem = emblem or planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane (311.4)
             if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
                 continue
             ch = plan.ch(c)

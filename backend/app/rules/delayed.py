@@ -125,6 +125,7 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "monarch_player": "for as long as they're the monarch",
           "creature_cast110m": "until a player casts a creature spell",
           "roll1_110f": "until end of turn or until any player rolls a 1"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
+LABELS["planeswalk_pcb"] = "until a player planeswalks"  # -- planechase chaos (wave B) -- 611.2a: ended by planar_chaos.on_events
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -712,6 +713,11 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
 
     cast_limits.turn_began(plan, skipped)
+    from app.rules import (
+        planar_walk,  # -- planechase walk (wave C) -- Fixed Point in Time: "until your next turn" (500.4, 800.4m)
+    )
+
+    planar_walk.turn_began(plan, skipped)
     # CR 800.4m: an "until your next turn" cost effect also ends when a
     # departed player's next turn would have begun.
     r.cost_modifiers = [m for m in r.cost_modifiers if not (m.until == "next_turn" and (

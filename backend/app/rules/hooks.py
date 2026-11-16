@@ -311,10 +311,13 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 )
 
 
-# scripts.define(ability, ch): 12 chains, 242 modules
+# scripts.define(ability, ch): 12 chains, 243 modules
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
+        "planar_walk.definition",  # -- planechase walk (wave C) -- planeswalk to / away / encounter lines read by exact wording; planes only
         "planar.definition",  # -- planechase automation -- a plane's chaos / planeswalk / encounter triggers (311.7, 701.31d, 312.5); planes only
+        "planar_chaos.definition",  # -- planechase chaos (wave B) -- chaos abilities read by exact wording; planes only
+        "planar_statics.definition",  # -- planechase statics (wave A) -- a plane's statics read by exact wording; planes only
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -667,7 +670,7 @@ DEFINE_REPLACEMENT: tuple[Chain, ...] = (
 )
 
 
-# effects.py, at import: 40 runs of 523 module tables (register: "module.PRIMITIVES" / "module.RESUME")
+# effects.py, at import: 40 runs of 525 module tables (register: "module.PRIMITIVES" / "module.RESUME")
 RESOLUTION: tuple[tuple[str, ...], ...] = (
     (  # RESOLUTION[0]
         "graveyard_cost_grants57.PRIMITIVES",  # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py, which imports this module lazily) --
@@ -1275,5 +1278,7 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "assimilate.RESUME",  # -- Star Trek mechanics (wave 112T) --
         "trek112t.PRIMITIVES",  # -- Star Trek one-offs (wave 112T) --
         "planar.PRIMITIVES",  # -- planechase automation -- 701.31 planeswalk
+        "planar_walk.PRIMITIVES",  # -- planechase walk (wave C) -- chaos ensues (311.7), Reality Shaping, The Pit
+        "planar_walk.RESUME",  # -- planechase walk (wave C) --
     ),
 )

@@ -284,13 +284,16 @@ def has_block_cost(plan: Plan, card_id: str, ch: Characteristics) -> bool:
 def limits(plan: Plan, kind: str = LIMIT) -> dict[str, int]:
     """Players and the most creatures that can attack them each combat (the smallest of their limits); ``"*"``: the most
     that can attack at all (``LIMIT_ALL``), or that can block at all (``kind`` BLOCK_LIMIT_ALL, key ``"*"`` only)."""
-    from app.rules import scripts, statics
+    from app.rules import planar_statics, scripts, statics
 
     out: dict[str, int] = {}
     for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's (311.4: Astral Arena)
+        if not (c.zone.endswith(":battlefield") or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
+            if plane and not planar_statics.read(d):
+                continue
             if d.get("kind") != "static" or not statics.conditions_hold(plan, d, source=c, controller=c.controller):  # (wave 49B: Mirri's "as long as it is tapped")
                 continue
             if d.get("static") == kind == LIMIT:

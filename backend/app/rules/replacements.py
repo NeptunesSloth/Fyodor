@@ -339,13 +339,16 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
                 ch = ch if ch is not None else plan.ch(probe)
                 if selectors.matches(plan, selectors.from_key(key), probe, ch, record["controller"], record.get("source_card")):
                     return True
+    from app.rules import planar_statics
+
     for src in plan.state.cards.values():
-        if src.id == card.id or not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) \
+        plane = planar_statics.functions(plan.state, src)  # (wave A: planar_statics.py) the face-up plane's (311.4)
+        if src.id == card.id or not (src.zone.endswith(":battlefield") or plane) or src.face_down or not plan.in_game(src) \
                 or plan.manual(src):
             continue
         src_ch = plan.ch(src)
         for i, d in scripts.definitions(src_ch).items():
-            if d["kind"] != "static" or d.get("static") != static:
+            if d["kind"] != "static" or d.get("static") != static or (plane and not planar_statics.read(d)):
                 continue
             if d.get("cast110e") and card.zone != "stack":
                 continue  # -- wave 110E -- "Creatures played by your opponents": only a cast spell entering (Uphill Battle)
@@ -2179,11 +2182,16 @@ DamageEvent = dict[str, Any]  # {"source_card", "source_oid", "target" (player i
 
 
 def _static_records(plan: Plan) -> list[dict[str, Any]]:
+    from app.rules import planar_statics
+
     out = []
     for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's prevention statics (311.4)
+        if not (c.zone.endswith(":battlefield") or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
+            if plane and not planar_statics.read(d):
+                continue
             if d["kind"] == "static" and d.get("static") == "prevent" and statics.static_if_holds(plan, d, c):  # (wave 35D: "As long as …", 611.3a)
                 out.append({"kind": "prevent", "controller": c.controller, "source": plan.oid(c), "source_card": c.id,
                             "scope": d["scope"]})

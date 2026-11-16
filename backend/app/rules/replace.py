@@ -174,6 +174,7 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     they apply while their source is there; a face-down permanent has none; a card taken out of
     automation is left to the players)."""
     events = (event,) if isinstance(event, str) else event
+    from app.rules import planar_statics
     from app.rules.layers import timestamp  # (layers → plan: type hints only)
 
     out: list[Candidate] = []
@@ -184,17 +185,18 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
         )
 
         gy110d = c.zone.endswith(":graveyard") and not c.is_token and "counters" in events and wave110d_enter.in_graveyard(c, plan.ch(c))
-        if not (c.zone.endswith(":battlefield") or emblem or gy110d) or c.face_down or not plan.in_game(c) or plan.manual(c):
+        plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's replacement statics (311.4)
+        if not (c.zone.endswith(":battlefield") or emblem or gy110d or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
-        if "damage" in events and not gy110d:
+        if "damage" in events and not gy110d and not plane:
             from app.rules import absorb
 
             out += absorb.candidates(plan, c, ch)
         defs = scripts.definitions(ch)
         wanted = [(i, d) for i, d in defs.items() if d["kind"] == "static" and d.get("static") == "replace"
                   and d.get("event") in events and (not emblem or d.get("event") in ("life_loss", "damage"))
-                  and bool(d.get("gy110d")) == gy110d]
+                  and bool(d.get("gy110d")) == gy110d and (not plane or planar_statics.read(d))]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
         skip = conditional_lines(ch)

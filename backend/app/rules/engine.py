@@ -238,6 +238,10 @@ def begin(plan: Plan) -> None:
     from app.rules import previous_own_turns
     previous_own_turns.begin(plan)
     absorb_manual_events(plan)
+    from app.rules import planar_chaos
+
+    # -- planechase chaos (wave B) -- a planeswalk made since (a table action): "until a player planeswalks" ends (611.2a)
+    planar_chaos.on_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch])
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
