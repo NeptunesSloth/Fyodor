@@ -1403,9 +1403,10 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
 
     for card in state.cards.values():
         # -- trigger other (wave 25B) -- eminence: a static that names "in the command zone or on the battlefield" works from the command zone (113.6b)
-        eminent = card.zone.endswith(":command") and not designations.emblem_card(card)
+        plane = card.id.startswith("planar-") and card.zone.endswith(":command")  # -- planechase automation -- the face-up plane's statics (311.4, 113.6p)
+        eminent = card.zone.endswith(":command") and not designations.emblem_card(card) and not plane
         emblem = designations.emblem_card(card)
-        if not (card.zone.endswith(":battlefield") or eminent or emblem) or card.face_down or card.controller not in live \
+        if not (card.zone.endswith(":battlefield") or eminent or emblem or plane) or card.face_down or card.controller not in live \
                 or r.card_mode(card.id) == "manual":
             continue
         ch = derive(state, card, chars.of(card, info), info)
@@ -1415,6 +1416,11 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue
+                if plane:  # -- planechase automation -- only the kinds coverage claims for a plane (planar.ability_ok): the rest stay by hand
+                    from app.rules import planar
+
+                    if not planar.ability_ok(d):
+                        continue
                 out.append((card, index, d))
     return out
 

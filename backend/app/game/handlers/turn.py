@@ -76,6 +76,10 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
         clear_combat_markers(state)
     state.turn.number += 1
     state.turn.active_player = nxt
+    if state.planechase is not None:  # -- planechase automation -- the new active player is the planar controller (311.5)
+        from app.game.handlers import planechase
+
+        planechase.sync(state)
     state.turn.phase = "untap"
     state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
     state.turn.starting_hand = {pid: len(state.zones.get(f"{pid}:hand", [])) for pid in state.players}  # (wave 110G)

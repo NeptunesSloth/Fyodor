@@ -229,6 +229,10 @@ class Plan:
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
+        if self.state.planechase is not None:  # -- planechase automation -- the face-up card's object follows the planar controller (311.5)
+            from app.game.handlers import planechase
+
+            planechase.sync(self.state)
         if resolved.type in token_stacks.NEW_OBJECT_STEPS and getattr(self, "stack_watch", False):
             token_stacks.check_new(self)  # -- engine token stacks -- an object that may see a stack appeared, or control changed
         if resolved.type not in UNREAD_STEPS:

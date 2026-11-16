@@ -52,7 +52,7 @@ class _Paid:
 
 
 def _roll(plan: Plan) -> None:
-    plan.do({"type": "planar_roll"})  # (the face is resolved here, on the scratch copy, and recorded in the step)
+    plan.do({"type": "planar_roll", "by_rules": True})  # (the face is resolved here, on the scratch copy, and recorded in the step; 901.8: a planeswalker face triggers the planeswalking ability, app/rules/planar.py)
     plan.rules.passed = []  # (a special action: the player keeps priority, 116.3c; everyone gets to pass again)
 
 

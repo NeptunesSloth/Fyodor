@@ -958,6 +958,9 @@ class PlanarRollAction(Base):
 
     type: Literal["planar_roll"] = "planar_roll"
     r: PlanarRollData | None = None
+    # -- planechase automation -- rolled by the rules engine (``roll_planar_die``): the planeswalker symbol doesn't planeswalk at once,
+    # the inherent "planeswalking ability" triggers instead (901.8, 901.9c; app/rules/planar.py). A table roll planeswalks at once.
+    by_rules: bool = False
 
 
 class Planeswalk(Base):

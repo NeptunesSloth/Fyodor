@@ -541,6 +541,9 @@ class Planechase(BaseModel):
     roll_turn: int = 0  # the turn ``rolls`` counts for
     rolls: int = 0  # planar die rolls the active player made this turn
     last_roll: PlanarRoll | None = None
+    # -- planechase automation -- the face-up card as a rules object (311.4, 312.4, 901.7): the id of its instance in ``cards``
+    # (``handlers.planechase.sync``; only while a rules engine exists). Not in any zone list, so no view shows it as a card.
+    face_id: str | None = None
 
 
 class DigLog(BaseModel):

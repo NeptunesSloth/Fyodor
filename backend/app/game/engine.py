@@ -188,6 +188,8 @@ def apply(state: GameState, action: A.Action) -> None:
     before = capture(state) if action.type not in A.INTENT_TYPES and action.type != "configure" else None
     try:
         handler(state, action)
+        if state.planechase is not None:  # -- planechase automation -- the face-up card's object follows the planar controller (311.5)
+            planechase.sync(state)
     except ActionError:
         state.seq -= 1
         state.departures().clear()

@@ -237,6 +237,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                 impending_ids.append(cid)
         if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem":  # -- emblems (wave 13A) -- 114: their text
             emblem_rows.append((cid, c.owner, c.token.text))
+        elif cid.startswith("planar-") and c.zone.endswith(":command"):  # -- planechase automation -- the face-up plane (311.4): its printing
+            emblem_rows.append((cid, c.controller, c.card_id or ""))
         if c.entry_characteristics is not None and c.entry_characteristics.add_abilities:  # (wave 110D)
             entries110d.append((cid, c.entry_characteristics.timestamp))
     # (the face and flip state are part of the key: a transformed permanent has only its back
@@ -314,10 +316,10 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                     out.append(Static(cid, p, d, timestamp(state, cid), ability_index=ability_index))
     # -- emblems (wave 13A) -- 114.4: an emblem's static abilities apply as long as it exists; its owner controls it (114.3)
     for cid, owner, _ in emblems:
-        if owner in live:
+        if owner in live:  # (-- planechase automation -- and the face-up plane's, 311.4 / 901.7: its controller is the planar controller)
             out += [Static(cid, owner, d, timestamp(state, cid), ability_index=ability_index)
                     for ability_index, d in scripts.definitions(copiable(state, state.cards[cid], info)).items()
-                    if d["kind"] == "static" and d.get("static") == "grant"]
+                    if d["kind"] == "static" and d.get("static") == "grant" and not (cid.startswith("planar-") and (grammar.zone_static(d) or d.get("also")))]
     # -- attached events (wave 4L) -- a permanent that lost all abilities (613.1f: by a resolved effect, or by an
     # Aura's "Enchanted creature loses all abilities") has none of its static abilities: they don't apply
     # Keep source definitions raw: 305.7 and layer6 source loss are solved at

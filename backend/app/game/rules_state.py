@@ -446,6 +446,10 @@ EventKind = Literal[
     # ``by_card`` (``source``: its object as it was; a player: ``player``); an attachment that left the battlefield was unattached (603.10c)
     "attached",
     "unattached",
+    # -- planechase automation -- (app/game/handlers/planechase.py) ``counter``: "chaos" (311.7, 901.9b), "walk_roll" (901.8: the planeswalker
+    # symbol was rolled by ``player``), "from" / "to" (701.31d: the plane planeswalked away from / to), "encounter" (312.5); ``card`` the
+    # face-up card's object (``object_id``), ``printing`` its printing, ``player`` the planar controller (the roller for a roll)
+    "planar",
 ]
 
 
@@ -465,6 +469,7 @@ class Event(BaseModel):
     played_snapshot: ObjectSnapshot | None = None  # Public land face as played, even if entering was diverted.
     step_phase: str | None = None
     active_player: str | None = None
+    printing: str | None = None  # -- planechase automation -- a "planar" event: the plane's printing (its object may be gone: 901.7a)
     counter_remaining: int | None = None  # after a counter change; remembers when a duration's last counter disappeared
     batch: int
     kind: EventKind
@@ -1986,6 +1991,10 @@ def start_rules(state: GameState) -> RulesState:
         },
     )
     state.rules = rules
+    if state.planechase is not None:  # -- planechase automation -- the face-up card becomes a rules object (311.4, 901.7)
+        from app.game.handlers import planechase  # (the handler imports this module)
+
+        planechase.sync(state)
     return rules
 
 

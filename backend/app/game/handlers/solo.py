@@ -40,8 +40,10 @@ def library_size_after_reset(state: GameState, pid: str, keep: set[str] | frozen
 def _reset(state: GameState, pid: str, shuffle: A.ShuffleData | None, *, reset_life: bool, draw: int, keep: set[str] | frozenset[str] = frozenset()) -> None:
     for c in [c for c in state.cards.values() if c.merged and c.owner == pid]:  # (wave 18D) the piles break up first
         ops.move_card(state, c, zone_key(pid, "graveyard"))
+    from app.game.handlers import planechase
+
     for c in list(state.cards.values()):
-        if c.id not in state.cards or c.id in keep:
+        if c.id not in state.cards or c.id in keep or planechase.is_face(c):  # (-- planechase automation -- the plane isn't anyone's deck)
             continue  # (wave 110A: 727.5 a card the restart leaves in exile)
         if c.owner == pid and generated(c):
             ops.delete(state, c)
@@ -140,7 +142,7 @@ def load_deck(state: GameState, a: A.LoadDeck) -> None:
     gone: set[str] = set()
     old_keys = {c.commander_key for c in state.cards.values() if c.owner == pid and c.commander_key}
     for c in [c for c in state.cards.values() if c.owner == pid]:
-        if c.id in state.cards:
+        if c.id in state.cards and not c.id.startswith("planar-"):  # (-- planechase automation -- the plane isn't their deck: handlers.planechase.is_face)
             gone.add(c.id)
             ops.delete(state, c)
     state.arrows = [ar for ar in state.arrows if ar.owner != pid and ar.source not in gone and not gone.intersection(ar.targets)]

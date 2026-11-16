@@ -352,6 +352,11 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.on_events(plan, new)
+    from app.rules import (
+        planar,  # -- planechase automation -- chaos, planeswalking to / away, encounters, the planeswalking ability
+    )
+
+    planar.on_events(plan, new)
     from app.rules import speed  # -- speed (wave 24B) -- 702.179d: the inherent speed trigger
 
     speed.on_events(plan, new)
@@ -2054,7 +2059,7 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
             out += graveyard_abilities(plan, card, trigger)
             continue
-        if card.zone.endswith(":command") and not designations.emblem_card(card):  # (wave 25B: eminence; an emblem's own abilities are read below)
+        if card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card):  # (wave 25B: eminence; an emblem's own abilities are read below)
             out += command_zone_abilities(plan, card, trigger)
             continue
         if card.zone.endswith(":exile"):  # -- keywords (wave 50H) -- 702.55c: "When the creature it haunts dies" functions in exile
@@ -2068,9 +2073,14 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
                 ch = plan.ch(card)
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if (d.get("cond") or {}).get("event") == "phase_out"]
             continue
-        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
-            continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
+        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card) or _planar(card)) or not plan.in_game(card) or plan.manual(card):
+            continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone; -- planechase automation -- a plane's, 311.4)
         ch = plan.ch(card)
+        if _planar(card):  # -- planechase automation -- only the trigger kinds coverage claims for a plane (planar.ability_ok)
+            from app.rules import planar
+
+            out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if planar.ability_ok(d)]
+            continue
         out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d) or d.get("gy_bf110b")]  # (-- wave 110B -- Quakebringer: also from the battlefield)
     return out
 
@@ -2099,9 +2109,14 @@ COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
 COMMAND_IFS = (COMMAND_OR_BATTLEFIELD, {"object": "self", "test": "in_command"})
 
 
+def _planar(card: CardInstance) -> bool:
+    """-- planechase automation -- the face-up plane or phenomenon (app/rules/planar.py): its abilities work from the command zone (311.4, 113.6p)."""
+    return card.id.startswith("planar-") and card.zone.endswith(":command")
+
+
 def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     """The eminence abilities of a card in the command zone (not an emblem: 114.4) for this trigger."""
-    if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
+    if not card.zone.endswith(":command") or designations.emblem_card(card) or _planar(card) or not plan.in_game(card) or plan.manual(card):
         return []
     ch = plan.ch(card)
     return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") in COMMAND_IFS]
@@ -2258,7 +2273,7 @@ def _active_field(plan: Plan, *, emblems: bool = False) -> list[tuple[CardInstan
     """-- big boards (step scans) -- the active player's permanents (and with ``emblems``, their emblems) that aren't taken out of
     automation, with their characteristics, read in one pass before the upkeep and end step scans add any trigger."""
     return [(c, plan.ch(c)) for c in list(plan.state.cards.values())
-            if (c.zone.endswith(":battlefield") or emblems and designations.emblem_card(c)) and c.controller == plan.active
+            if (c.zone.endswith(":battlefield") or emblems and (designations.emblem_card(c) or _planar(c))) and c.controller == plan.active
             and not plan.manual(c)]
 
 
@@ -2279,7 +2294,7 @@ def at_step(plan: Plan, trigger: str) -> None:
                 _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                      definition=d)
             continue
-        if card.zone.endswith(":command") and not designations.emblem_card(card) and card.controller == plan.active:  # (-- wave 25B -- eminence)
+        if card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card) and card.controller == plan.active:  # (-- wave 25B -- eminence)
             for _, ch, i, d in command_zone_abilities(plan, card, trigger):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
             continue
@@ -2313,11 +2328,11 @@ def _step_abilities(plan: Plan, prefixes: tuple[str, ...]) -> list[tuple[CardIns
     out = []
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
-        cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
+        cz = card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
         exiled = card.zone.endswith(":exile")
         if exiled and card.owner in plan.live() and not plan.manual(card) or gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or "") or cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
             pass
-        elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
+        elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card) or _planar(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():

@@ -478,6 +478,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
 
         if graveyard_order.offer(plan):
             return True
+    if state.planechase is not None:  # -- planechase automation -- 704.6f: a phenomenon whose ability left the stack planeswalks away
+        from app.rules import planar
+
+        if planar.sba(plan):
+            return True
     return happened
 
 

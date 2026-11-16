@@ -314,6 +314,7 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 # scripts.define(ability, ch): 12 chains, 242 modules
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
+        "planar.definition",  # -- planechase automation -- a plane's chaos / planeswalk / encounter triggers (311.7, 701.31d, 312.5); planes only
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -1273,5 +1274,6 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "assimilate.PRIMITIVES",  # -- Star Trek mechanics (wave 112T) --
         "assimilate.RESUME",  # -- Star Trek mechanics (wave 112T) --
         "trek112t.PRIMITIVES",  # -- Star Trek one-offs (wave 112T) --
+        "planar.PRIMITIVES",  # -- planechase automation -- 701.31 planeswalk
     ),
 )
