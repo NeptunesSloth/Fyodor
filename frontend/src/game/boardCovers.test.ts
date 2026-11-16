@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hiddenUnderPiles, liftedIds } from "./boardCovers";
-import { zonePileTops } from "./piles";
+import { zonePiles, zonePileTops } from "./piles";
+import { spreadPileMoves } from "./spread";
 import type { GameView, VisibleCard } from "../types/game";
 
 const tok = (id: string, x: number, y: number, extra: Partial<VisibleCard> = {}): VisibleCard => ({
@@ -49,5 +50,28 @@ describe("2D token piles render what shows of them", () => {
   it("cards side by side, or turned differently, are not covered", () => {
     const view = viewOf([tok("a", 12, 63), tok("b", 40, 63), tok("c", 40, 63, { tapped: true })]);
     expect(rendered(view)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("bulk-created tokens are one pile", () => {
+  // create_token with count 30 (backend handlers/cards.py): 30 separate tokens on the one spot it chose
+  const made = Array.from({ length: 30 }, (_, i) => tok(`g${i}`, 300, 200, { name: "Goblin" }));
+
+  it("30 tokens made at once count ×30, draw one card, and Spread pile lays out all 30", () => {
+    const view = viewOf(made);
+    expect(zonePileTops(view, "p1:battlefield").get("g29")).toBe(30);
+    expect(rendered(view)).toEqual(["g29"]);
+    const piles = zonePiles(view, "p1:battlefield");
+    expect(piles).toHaveLength(1);
+    const moves = spreadPileMoves(piles[0]!);
+    expect(moves).toHaveLength(30);
+    expect(new Set(moves.map(([, x, y]) => `${x},${y}`)).size).toBe(30);
+  });
+
+  it("the old fan (10 per row, 16 apart) was no pile at all: no ×N, every card drawn", () => {
+    const fanned = made.map((c, i) => ({ ...c, x: 300 + (i % 10) * 16, y: 200 + Math.floor(i / 10) * 16 + (i % 10) * 4 }));
+    const view = viewOf(fanned);
+    expect(zonePiles(view, "p1:battlefield")).toEqual([]);
+    expect(rendered(view)).toHaveLength(30);
   });
 });

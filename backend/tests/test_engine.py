@@ -119,7 +119,7 @@ def test_tokens_from_db_and_custom(s):
     assert len(goblins) == 3
     assert goblins[0].token.power == "1" and goblins[0].name == "Goblin"
     assert all(c.zone == "p1:battlefield" for c in goblins)
-    assert len({(c.x, c.y) for c in goblins}) == 3  # fanned out, not stacked exactly
+    assert len({(c.x, c.y) for c in goblins}) == 1  # -- token piles -- separate objects, one pile on one spot (×3 on the table)
     act(s, "p2", type="create_token", token={"name": "Spirit", "power": "1", "toughness": "1", "colors": ["W"],
                                              "type_line": "Token Creature — Spirit", "text": "Flying"})
     spirit = find(s.state, "Spirit")

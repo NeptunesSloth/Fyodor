@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { cannonSpot } from "./cannon3d";
-import { CARD_H, CARD_W, HEART, heartSpot, MAT_D, MAT_W, planarSpot, PLATE, plaqueSpot, RAIL, seats, STACK_REACH, tableSize, toLocal, toWorld } from "./layout";
+import { CARD_H, CARD_W, DUEL_VIEW, HEART, heartSpot, MAT_D, MAT_W, planarSpot, PLATE, plaqueSpot, RAIL, seats, STACK_REACH, tableSize, toLocal, toWorld } from "./layout";
 
 // -- planechase -- the face-up plane lying in the aisle of the 3D table (TableScene.syncPlanar; table3d/planar3d.ts)
 describe("the plane's place on the 3D table", () => {
   for (const n of [1, 2, 3, 4, 5, 6]) {
     it(`lies flat in the aisle, on no mat, clear of the stack, the hearts and the plates (${n} seat${n > 1 ? "s" : ""})`, () => {
       const all = seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0");
-      const { x, z, scale } = planarSpot(all);
+      const { x, z, scale, tilt } = planarSpot(all);
       const hw = (CARD_H * scale) / 2; // landscape: its long side along the aisle
-      const hd = (CARD_W * scale) / 2;
+      const hd = (CARD_W * scale * Math.cos(tilt)) / 2; // (its footprint: a duel's stands tipped up toward me)
       expect(scale).toBeGreaterThanOrEqual(1.25); // (bigger than a card on the mats: it is the table's one plane)
       const corners = [[x - hw, z - hd], [x + hw, z - hd], [x - hw, z + hd], [x + hw, z + hd]] as const;
       for (const seat of all) {
@@ -28,10 +28,15 @@ describe("the plane's place on the 3D table", () => {
       const size = tableSize(all);
       expect(Math.abs(x) + hw).toBeLessThan(size.w / 2 - RAIL - 0.3); // on the table, inside the rail
       if (n === 2) {
+        // big enough to read from the duel's low seat view: more than twice a mat card, its face turned toward my seat
+        expect(scale).toBeGreaterThanOrEqual(2.2);
+        expect(tilt + DUEL_VIEW).toBeGreaterThan(1.3);
+        expect(tilt + DUEL_VIEW).toBeLessThan(Math.PI / 2 + 0.2);
         // a duel's stack lies at the aisle's left end and the dice cannon rolls in at its right end: the plane between
         expect(x - hw).toBeGreaterThan(0);
         expect(x + hw).toBeLessThan(cannonSpot(size.w).spot.x - 1);
       } else {
+        expect(tilt).toBe(0); // (a pod's aisle is wide and seen from higher: it lies flat)
         expect(x + hw).toBeLessThan(-STACK_REACH - 0.3); // left of the stack's widest fan
       }
     });

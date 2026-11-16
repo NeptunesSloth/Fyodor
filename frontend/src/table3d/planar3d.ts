@@ -2,8 +2,10 @@
  * -- planechase -- the face-up plane on the 3D table (CR 901; the table's procedure: app/game/handlers/planechase.py). A landscape card
  * lying face up in the aisle between the rows (layout.ts planarSpot: on no mat, clear of the stack and of every heart and plate), its
  * picture loaded like any card's (textures.ts cardImageTexture) and turned the way the plaque turns it (game/planechase.ts
- * planarRotation: an upright scan a quarter clockwise, so its text reads left to right). Clicking it opens the plaque's full text
- * (game/PlanechasePlaque.tsx, through showPlanarText).
+ * planarRotation: an upright scan a quarter clockwise, so its text reads left to right). In a duel it stands tipped up toward my seat
+ * on its near edge (planarSpot's tilt: a duel's aisle is narrow and seen low, so a flat plane there could not be read); the whole
+ * group tilts, so the motion below is the same either way. Clicking it opens the plaque's full text (game/PlanechasePlaque.tsx,
+ * through showPlanarText).
  *
  * Motion (docs/GAME_UI_MOTION_RESEARCH.md): a planeswalk slides the old plane off to the left as it fades while the new one turns over
  * onto the table; chaos pulses the plane (a brass glow and a small swell). Display only: the table already holds the new plane, the game
@@ -55,6 +57,9 @@ export class PlanarTable {
   private pulse: Pulse | null = null;
   private prev: PlanechaseView | null = null;
   private scale = 1.8;
+  /** How far the plane is tipped up toward me (planarSpot), and which way further face-up planes lie beside it. */
+  private tilt = 0;
+  private along: 1 | -1 = 1;
 
   constructor() {
     this.group.name = "planar";
@@ -70,7 +75,7 @@ export class PlanarTable {
    * A new view: where the plane lies (my frame turned by my seat's rotation, world units) and which plane it is; a planeswalk or a chaos
    * roll since the last view plays its motion (planechaseCue: nothing on first sight).
    */
-  sync(pc: PlanechaseView | null | undefined, spot: { x: number; z: number; scale: number }, myRot: number, now: number): void {
+  sync(pc: PlanechaseView | null | undefined, spot: { x: number; z: number; scale: number; tilt?: number; along?: 1 | -1 }, myRot: number, now: number): void {
     const before = this.prev;
     this.prev = pc ?? null;
     if (!pc) {
@@ -84,12 +89,18 @@ export class PlanarTable {
     }
     this.group.visible = true;
     this.group.position.set(spot.x * Math.cos(myRot) + spot.z * Math.sin(myRot), 0, -spot.x * Math.sin(myRot) + spot.z * Math.cos(myRot));
-    this.group.rotation.set(0, myRot, 0);
-    if (spot.scale !== this.scale) {
+    // (turned to my seat, then tipped up about its own width: its far edge rises toward me)
+    this.group.rotation.set(spot.tilt ?? 0, myRot, 0, "YXZ");
+    const along = spot.along ?? 1;
+    if (spot.scale !== this.scale || (spot.tilt ?? 0) !== this.tilt || along !== this.along) {
       this.scale = spot.scale;
+      this.tilt = spot.tilt ?? 0;
+      this.along = along;
+      for (const f of [this.face, ...this.extras]) if (f?.card.visible) f.shadow.visible = !this.tilt;
       if (this.face) this.shape(this.face);
       this.extras.forEach((f, i) => this.place(f, i));
     }
+    this.lift();
     const cue = planechaseCue(before, pc);
     const animate = !!cue && motionOn();
     if (!this.face || this.face.id !== pc.current.printing_id) {
@@ -153,7 +164,8 @@ export class PlanarTable {
     this.group.add(holder);
     const show = () => {
       if (extra ? face.gone : this.face !== face && this.walk?.from !== face) return; // (gone meanwhile: drop disposed it)
-      face.card.visible = face.shadow.visible = true;
+      face.card.visible = true;
+      face.shadow.visible = !this.tilt; // (standing up, it casts no contact shadow on the felt: one behind it reads as a pale halo)
       this.shape(face);
       const i = this.extras.indexOf(face);
       if (i >= 0) this.place(face, i);
@@ -188,6 +200,12 @@ export class PlanarTable {
     face.card.scale.set(w, h, 1);
     face.half = (spin ? w : h) / 2;
     face.shadow.scale.set(w * 1.18, h * 1.22, 1);
+    if (face === this.face) this.lift();
+  }
+
+  /** Tipped up (a duel): raised so the plane's near edge rests on the felt. */
+  private lift(): void {
+    this.group.position.y = this.tilt ? (this.face?.half ?? (CARD_W * this.scale) / 2) * Math.sin(this.tilt) : 0;
   }
 
   /** The other face-up planes: rebuilt when they change (by printing), each lying one landscape card's width further along. */
@@ -201,7 +219,7 @@ export class PlanarTable {
   }
 
   private place(face: Face, i: number): void {
-    face.holder.position.set((i + 1) * CARD_H * this.scale * 1.08, 0, 0);
+    face.holder.position.set(this.along * (i + 1) * CARD_H * this.scale * 1.08, 0, 0);
   }
 
   private drop(face: Face): void {

@@ -55,6 +55,27 @@ describe("the plane on the 3D table", () => {
     expect(t.active).toBe(false);
   });
 
+  it("in a duel stands tipped up toward my seat, its near edge on the felt, further planes to its left", async () => {
+    const t = new PlanarTable();
+    const duel = { x: 6, z: 0, scale: 2.3, tilt: 1, along: -1 as const };
+    t.sync(pc({ faces: [{ printing_id: "a", name: "Academy at Tolaria West", phenomenon: false },
+      { printing_id: "b", name: "Llanowar", phenomenon: false }] }), duel, Math.PI, 0);
+    await loaded();
+    const m = card(t);
+    t.group.updateMatrixWorld(true);
+    // the card's near and far edges (its picture is turned: the scan's left edge, the name, is the far edge)
+    const far = new THREE.Vector3(-0.5, 0, 0).applyMatrix4(m.matrixWorld);
+    const near = new THREE.Vector3(0.5, 0, 0).applyMatrix4(m.matrixWorld);
+    expect(near.y).toBeCloseTo(0.008, 2); // (resting on the felt)
+    expect(far.y).toBeCloseTo(CARD_W * 2.3 * Math.sin(1) + 0.008, 2);
+    // seen from the far seat (turned half round): my "toward me" is world -z
+    expect(far.z).toBeGreaterThan(near.z);
+    expect(Math.abs(far.z - near.z)).toBeCloseTo(CARD_W * 2.3 * Math.cos(1), 2);
+    const [, second] = t.targets();
+    expect(second!.parent!.position.x).toBeCloseTo(-CARD_H * 2.3 * 1.08);
+    expect(m.parent!.children[0]!.visible).toBe(false); // (no contact shadow standing behind it)
+  });
+
   it("doesn't turn a landscape scan, and lies a text card upright when there's no picture", async () => {
     scan.w = 680;
     scan.h = 488;

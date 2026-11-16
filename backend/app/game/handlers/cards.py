@@ -151,7 +151,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             source = TokenSource(source_id=src.id, name=src.name, object_id=a.source_object)
     base_x = a.x if a.x is not None else 20.0
     base_y = a.y if a.y is not None else 220.0
-    for i, new_id in enumerate(a.r.ids):
+    for new_id in a.r.ids:
         if new_id in state.cards:
             raise ActionError("id collision")
         c = CardInstance(
@@ -161,8 +161,10 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             owner=pid,
             controller=pid,
             zone=key,
-            x=base_x + (i % 10) * 16,
-            y=base_y + (i // 10) * 16 + (i % 10) * 4,
+            # -- token piles -- identical tokens made together lie on one spot: one pile with its ×N (frontend game/piles.ts),
+            # drawn as one card (table3d/covers.ts, game/boardCovers.ts), laid out by "Spread pile" (game/spread.ts)
+            x=base_x,
+            y=base_y,
             tapped=a.tapped,
             is_token=not emblem,
             token=spec.model_copy(),
