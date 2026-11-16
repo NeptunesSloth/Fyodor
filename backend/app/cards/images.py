@@ -10,8 +10,11 @@ import json
 import os
 import re
 import threading
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
+
+from app.cards.art_roots import ArtRoot
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 IMAGE_SIZES = ("small", "normal", "large", "art_crop")
@@ -32,17 +35,35 @@ SYMBOL_CODE_RE = re.compile(r"^[A-Z0-9]{1,16}$")
 SYMBOL_INDEX = "symbology.json"
 
 
+def media_type(path: Path) -> str:
+    """A picture's type from its first bytes (an art folder may hold PNG or WebP); JPEG, the cache's, otherwise."""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(12)
+    except OSError:
+        return "image/jpeg"
+    if head[1:4] == b"PNG" and head[:1] == bytes((0x89,)):
+        return "image/png"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
+
+
 class InvalidImageRequest(ValueError):
     pass
 
 
 class ImageStore:
-    def __init__(self, root: Path, bundled: Path | None = None) -> None:
+    def __init__(self, root: Path, bundled: Path | None = None, roots: Sequence[ArtRoot] = ()) -> None:
         self.root = root
-        # -- offline token art -- read-only images the Windows installer carries (seed/images, same layout): found when the cache
-        # has none, never written to (docs/OFFLINE.md)
-        self.bundled = bundled
+        # -- art folders -- read-only folders of pictures searched after the cache, in order, never written to (docs/OFFLINE.md):
+        # the installer's seed/images (-- offline token art --), folders found beside Fyodor's data, and the ones the host added
+        self.roots: tuple[ArtRoot, ...] = (*((ArtRoot(bundled, "bundled", "fyodor"),) if bundled is not None else ()), *roots)
         self._symbols: tuple[int, dict[str, dict[str, str]]] | None = None  # the symbol list, by its file's mtime
+
+    @property
+    def bundled(self) -> Path | None:
+        return next((r.base for r in self.roots if r.source == "bundled"), None)
 
     def path_for(self, card_id: str, *, face: int = 0, size: str = DEFAULT_SIZE, is_token: bool = False) -> Path:
         if not UUID_RE.match(card_id):
@@ -62,13 +83,10 @@ class ImageStore:
                 path = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token)
                 if path.is_file():
                     return path
-        if self.bundled is not None:
-            for candidate_size in sizes:
-                for is_token in (True, False):
-                    rel = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token).relative_to(self.root)
-                    path = self.bundled / rel
-                    if path.is_file():
-                        return path
+        for art_root in self.roots:
+            found = art_root.find(card_id, face=face, sizes=sizes)
+            if found is not None:
+                return found
         return None
 
     def card_back_path(self) -> Path:

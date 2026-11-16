@@ -74,6 +74,8 @@ class Settings:
     discovery_port: int = 47474
     scryfall_api: str = "https://api.scryfall.com"
     user_agent: str = "Fyodor-MTG-Tabletop/0.1"
+    # -- art folders -- more folders of card pictures, read in place after the cache (app/cards/art_folders.py)
+    art_dirs: tuple[Path, ...] = ()
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -132,6 +134,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         dev_tools=_bool(get("DEV_TOOLS"), False),
         discovery=_bool(get("DISCOVERY"), True),
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
+        art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )
 
 

@@ -14,6 +14,7 @@ import httpx
 
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
+from app.cards.art_folders import ArtFolders
 from app.cards.art_keeper import ArtKeeper
 from app.cards.downloader import (
     ImageReport,
@@ -26,7 +27,7 @@ from app.cards.images import UUID_RE, ImageStore
 from app.cards.linked import LinkedAssets
 from app.cards.repository import CardDatabaseUnavailable, CardRepository
 from app.cards.token_art import TokenArt
-from app.config import Settings, bundled_images
+from app.config import Settings
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
 from app.game import engine
@@ -89,8 +90,10 @@ class Services:
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)
-        self.images = ImageStore(settings.images_dir, bundled_images())  # (-- offline token art -- the installer's seed/images)
+        self.images = ImageStore(settings.images_dir)  # (its read-only art folders, the installer's seed/images first: art_folders below)
         self.cards = CardRepository(settings.cards_db_path, self.images)
+        # -- art folders -- more read-only folders of pictures (the installer's seed/images is the first): docs/OFFLINE.md
+        self.art_folders = ArtFolders(settings, self.images, on_change=self.cards.art.clear)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)
         self.macros = MacroRepository(self.app_db, self.app_db_lock)

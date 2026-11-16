@@ -10,8 +10,9 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
 from app.cards import updater
+from app.cards.art_folders import ArtFolderError
 from app.cards.downloader import DownloadError
-from app.cards.images import IMAGE_SIZES, InvalidImageRequest
+from app.cards.images import IMAGE_SIZES, InvalidImageRequest, media_type
 from app.cards.repository import CardDatabaseUnavailable
 from app.jobs import ProgressFn
 from app.services import Services
@@ -127,13 +128,53 @@ def get_image(
     if path is None and size != "art_crop":
         path = services.token_art.fetch(card_id, face)  # a token nobody has shown yet: linked from Scryfall now, cached
     if path is not None:
-        return FileResponse(path, media_type="image/jpeg", headers=IMAGE_HEADERS)
+        return FileResponse(path, media_type=media_type(path), headers=IMAGE_HEADERS)
     if fallback:
         with contextlib.suppress(CardDatabaseUnavailable):
             path = services.cards.borrowed_art(card_id, face=face, size=size)
     if path is None:
         raise HTTPException(404, "Image not cached")
-    return FileResponse(path, media_type="image/jpeg", headers=BORROWED_HEADERS)
+    return FileResponse(path, media_type=media_type(path), headers=BORROWED_HEADERS)
+
+
+# ---------------------------------------------------------------------------- ART FOLDERS (host only)
+# -- art folders -- more folders of card pictures, read in place after the cache (app/cards/art_folders.py, docs/OFFLINE.md)
+
+
+class ArtFolderIn(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+
+
+@router.get("/art-folders")
+def list_art_folders(request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    return {"folders": services.art_folders.listing()}
+
+
+@router.post("/art-folders")
+def add_art_folder(body: ArtFolderIn, request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    try:
+        added = services.art_folders.add(body.path)
+    except ArtFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"added": added, "folders": services.art_folders.listing()}
+
+
+@router.delete("/art-folders")
+def remove_art_folder(request: Request, services: ServicesDep, path: Annotated[str, Query(min_length=1, max_length=1000)]) -> dict[str, Any]:
+    require_local(request)
+    try:
+        services.art_folders.remove(path)
+    except ArtFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"folders": services.art_folders.listing()}
+
+
+@router.post("/art-folders/rescan")
+def rescan_art_folders(request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    return {"folders": services.art_folders.rescan()}
 
 
 # ---------------------------------------------------------------------------- UPDATE CARD DATABASE (host only)

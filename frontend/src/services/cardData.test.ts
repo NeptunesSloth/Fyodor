@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { progressFraction, progressText, type CardJob } from "./cardData";
+import { artFolderCount, artSourceLabel, progressFraction, progressText, type ArtFolder, type CardJob } from "./cardData";
 
 const job = (phase: string, done: number, total: number): CardJob => ({ id: "j", kind: "card-update", state: "running", done, total, phase, message: "" });
 
@@ -14,5 +14,16 @@ describe("card update progress", () => {
     expect(progressText(job("Asking Scryfall", 0, 0))).toBe("Asking Scryfall…");
     expect(progressFraction(job("Switching over", 5, 5))).toBeNull();
     expect(progressFraction(job("Downloading", 5, 0))).toBeNull();
+  });
+});
+
+describe("art folders", () => {
+  const folder = (over: Partial<ArtFolder>): ArtFolder => ({ path: "D:/art", folder: "D:/art", source: "added", exists: true, layout: "fyodor", count: 0, ...over });
+  it("count pictures and say where a folder came from", () => {
+    expect(artFolderCount(folder({ count: 1 }))).toBe("1 picture");
+    expect(artFolderCount(folder({ count: 0 }))).toBe("0 pictures");
+    expect(artFolderCount(folder({ exists: false, count: 5 }))).toBe("missing");
+    expect(artSourceLabel("bundled")).toBe("came with Fyodor");
+    expect(artSourceLabel("added")).toBe("added here");
   });
 });

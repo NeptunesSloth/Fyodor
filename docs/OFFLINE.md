@@ -37,6 +37,15 @@ then back up. A deck list can also be pasted in on the offline computer itself: 
   already saved on a computer stay there. An art pack copied into `seed/images` beside `Fyodor.exe` (the image cache's layout)
   is read in place. A printing with no picture of its own shows another printing's picture of the same card (the default
   printing first) instead of a frame; the deck editor's "Choose printing…" marks which printings have their own art here.
+- **Art folders.** Any other folder of card pictures can be read in place too (never copied, never changed): Settings →
+  Card database → Art folders, paste the folder's path (e.g. `C:\Users\you\Fyodor\images`) and **Add**. Fyodor accepts a
+  folder in its own picture layout (`cards\` and `tokens\` inside), a folder holding one (`images\`, `data\images\` or
+  `seed\images\` inside: another computer's whole `Fyodor` folder or an install), or loose pictures named by Scryfall
+  printing id up to three folders down (`<id>.jpg`, `<id>-<face>.png`, `<id>-<face>-<size>.jpg`; JPEG, PNG or WebP).
+  `%USERPROFILE%\Fyodor\images` and `%USERPROFILE%\Fyodor\seed\images` are used on their own when they exist, and
+  `FYODOR_ART_DIRS` names more (separated by `;`). Fyodor's own downloads come first, then the folders in that order.
+  Loose pictures are listed once; after copying more in, press **Rescan**. The list is kept in
+  `%USERPROFILE%\Fyodor\data\art-folders.json`.
 
 Opening Fyodor again while it's running just brings the table back up.
 

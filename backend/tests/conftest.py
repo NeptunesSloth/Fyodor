@@ -38,6 +38,13 @@ def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.cards.token_art.DOWNLOADS", False)
 
 
+@pytest.fixture(autouse=True)
+def _no_home_art_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # -- art folders -- the server reads %USERPROFILE%\Fyodor\images and the like when they exist (app/cards/art_folders.py):
+    # never this computer's own in the tests, so what a test sees doesn't depend on whose machine it runs on
+    monkeypatch.setattr("app.cards.art_folders.home_dir", lambda: tmp_path / "home")
+
+
 @pytest.fixture()
 def settings(tmp_path: Path) -> Settings:
     return load_settings({"FYODOR_DATA_DIR": str(tmp_path / "data"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})

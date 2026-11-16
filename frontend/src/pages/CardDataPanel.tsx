@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArtFoldersSetting } from "./ArtFolders";
 import { KeepArtSetting } from "./ArtKeeper";
 import { checkCardBack } from "../cards/cardBack";
 import { checkSymbols } from "../cards/symbols";
@@ -122,6 +123,7 @@ export function CardDataSection() {
           {!info.network && <p className="hint">Network access is turned off on this computer (FYODOR_ALLOW_NETWORK=0).</p>}
           <p className="hint">Tables keep playing while it updates.</p>
           <KeepArtSetting />
+          <ArtFoldersSetting />
         </div>
       ) : null}
     </SettingsSection>

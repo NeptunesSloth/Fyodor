@@ -46,3 +46,32 @@ export function scryfallDay(stamp: string | null): string {
   const d = new Date(stamp);
   return Number.isNaN(d.getTime()) ? stamp.slice(0, 10) : d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** -- art folders -- more folders of card pictures the host reads in place (backend app/cards/art_folders.py). */
+export interface ArtFolder {
+  path: string;
+  /** Where the pictures actually are (the chosen folder, or the images folder inside it). */
+  folder: string;
+  source: "bundled" | "auto" | "env" | "added";
+  exists: boolean;
+  layout: "fyodor" | "loose" | null;
+  count: number;
+}
+export const artFolders = () => api.get<{ folders: ArtFolder[] }>("/art-folders");
+export const addArtFolder = (path: string) => api.post<{ added: ArtFolder; folders: ArtFolder[] }>("/art-folders", { path });
+export const removeArtFolder = (path: string) => api.del<{ folders: ArtFolder[] }>(`/art-folders?path=${encodeURIComponent(path)}`);
+export const rescanArtFolders = () => api.post<{ folders: ArtFolder[] }>("/art-folders/rescan", {});
+
+const SOURCE_LABELS: Record<ArtFolder["source"], string> = {
+  bundled: "came with Fyodor",
+  auto: "found on this computer",
+  env: "FYODOR_ART_DIRS",
+  added: "added here",
+};
+export const artSourceLabel = (source: ArtFolder["source"]) => SOURCE_LABELS[source] ?? source;
+
+/** "1 picture", "12,400 pictures", or "missing" for a folder that isn't there now. */
+export function artFolderCount(folder: ArtFolder): string {
+  if (!folder.exists) return "missing";
+  return folder.count === 1 ? "1 picture" : `${folder.count.toLocaleString()} pictures`;
+}
