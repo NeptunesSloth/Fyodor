@@ -6,8 +6,8 @@ serves the picture of a sibling printing: same oracle id, same face; the card's 
 art. A back face (face > 0) only borrows from a printing with the same layout and the same number of faces.
 
 The exact printing's own picture always wins and is never cached here (``ImageStore.find`` is a few file checks). Only the
-sibling scan is cached: per card and face, which printings have art, kept for ``TTL_SECONDS`` and re-checked on use, so art that
-arrives later (a download, a friend's art over the LAN) shows within that time.
+sibling scan is cached: per card and face, the first printings found with art, kept for ``TTL_SECONDS`` and re-checked on use,
+so art that arrives later (a download, a friend's art over the LAN) shows within that time.
 """
 
 from __future__ import annotations
@@ -23,6 +23,9 @@ from app.cards.images import ImageStore
 TTL_SECONDS = 30.0
 MAX_FAMILIES = 512  # cards whose scan is remembered
 MAX_SCAN = 400  # printings checked per card (a basic land has over a thousand; the default comes first)
+# printings with art kept per scan: a front face takes the first (its asker has no art of its own, so it isn't that one); a back
+# face also needs the asker's layout and face count, so it keeps a few more
+KEEP_FRONT, KEEP_BACK = 1, 8
 
 # one printing of the card: (printing id, layout, image faces)
 Sibling = tuple[str, str, int]
@@ -56,6 +59,8 @@ class ArtFallback:
                 continue
             if self.images.find(sib[0], face=face, size="art_crop" if crop else "normal") is not None:
                 found.append(sib)
+                if len(found) >= (KEEP_BACK if face else KEEP_FRONT):
+                    break  # (an art pack holds only the default: the rest of a basic land's thousand printings aren't looked at)
         with self._lock:
             self._with_art[key] = (now, found)
             self._with_art.move_to_end(key)

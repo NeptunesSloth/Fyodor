@@ -507,7 +507,7 @@ function ArtSummary({ art }: { art: ArtStatus }) {
   return (
     <>
       {art.missing} of {art.printings} printings have no cached image of their own; {borrowed === art.missing ? (borrowed === 1 ? "it shows" : "they show") : `${borrowed} show`} another printing's art of the same card.
-      {proxies > 0 && <> {proxies === 1 ? "1 plays" : `${proxies} play`} as a readable proxy.</>}
+      {proxies > 0 && <> {proxies === 1 ? "1 plays as a readable proxy." : `${proxies} play as readable proxies.`}</>}
     </>
   );
 }

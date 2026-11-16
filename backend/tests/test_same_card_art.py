@@ -164,3 +164,16 @@ def test_the_lan_art_fetch_never_keeps_another_printings_art(tmp_path):
     assert lan_art.fetch_art("http://192.168.1.20:8000", Repo(), store, [pid], transport=peer(True)) == []  # type: ignore[arg-type]
     assert not store.path_for(pid).exists() and seen[-1]["fallback"] == "0"
     assert lan_art.fetch_art("http://192.168.1.20:8000", Repo(), store, [pid], transport=peer(False)) == [pid]  # type: ignore[arg-type]
+
+
+def test_the_scan_stops_at_the_first_printings_with_art(env, monkeypatch):
+    client, cache, _ = env
+    jpeg(cache.path_for(SOL_DEFAULT["id"]), b"\xff\xd8default")
+    jpeg(cache.path_for(SOL_PROMO["id"]), b"\xff\xd8promo")
+    services = client.app.state.services
+    probed: list[str] = []
+    real = services.images.find
+    monkeypatch.setattr(services.images, "find", lambda cid, **kw: probed.append(cid) or real(cid, **kw))
+    assert client.get(f"/api/images/{SOL_OLD['id']}").content == b"\xff\xd8default"
+    # its own picture, then the scan: the default has art, so no other printing is looked at (an art pack: the default only)
+    assert probed == [SOL_OLD["id"], SOL_DEFAULT["id"], SOL_DEFAULT["id"]]
