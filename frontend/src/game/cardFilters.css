@@ -1,0 +1,20 @@
+/* ---------- card filters (library search, look at the top N, a tutor's finds) ---------- */
+.card-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 12px 0; font-size: 12px; }
+.card-filters-text { width: 220px; padding: 4px 8px; }
+.cf-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.cf-label { color: var(--text-faint); font-size: 11px; letter-spacing: 0.04em; margin-right: 2px; }
+.cf-chip {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 2px 8px; border-radius: 6px;
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--text-dim); cursor: pointer; font: inherit; line-height: 1;
+}
+.cf-chip:hover { color: var(--text); }
+.cf-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-2); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+.cf-chip:focus-visible, .cf-clear:focus-visible, .cf-sort select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cf-num { min-width: 26px; padding: 2px 4px; font-variant-numeric: tabular-nums; }
+.cf-color { min-width: 26px; padding: 2px 3px; }
+.cf-color .mana { width: 16px; height: 16px; }
+.cf-color:not([aria-pressed="true"]) .mana { opacity: 0.7; }
+.cf-sort { display: inline-flex; align-items: center; gap: 5px; color: var(--text-dim); }
+.cf-sort select { padding: 2px 6px; font: inherit; }
+.cf-clear { background: none; border: none; color: var(--text-dim); text-decoration: underline; cursor: pointer; font: inherit; padding: 2px 4px; }
+.cf-clear:hover { color: var(--text); }

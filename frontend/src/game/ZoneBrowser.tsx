@@ -2,8 +2,10 @@ import { memo, useMemo, useState } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useCardCache } from "../state/cardCache";
 import { playerName, useCardView, useGame } from "../state/gameStore";
-import { isVisible, splitZone, type GameCard } from "../types/game";
+import { splitZone, type GameCard } from "../types/game";
 import { moveCards, send } from "./actions";
+import { CardFilterBar, filterCardOf } from "./CardFilterBar";
+import { NO_FILTER, filterCards, filtering, type CardFilter } from "./cardFilters";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
@@ -18,7 +20,7 @@ import { useHoverCard } from "./hoverCard";
 export function ZoneBrowser({ me }: { me: string }) {
   const browser = useGame((s) => s.browser);
   const view = useGame((s) => s.view);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState<CardFilter>(NO_FILTER);
   const cards = useCardCache((s) => s.cards);
 
   // a search of my library takes the window over from any zone I was looking at (the Command zone, a graveyard…)
@@ -38,14 +40,11 @@ export function ZoneBrowser({ me }: { me: string }) {
 
   if (!view || !zoneKey) return null;
   const { zone, player } = splitZone(zoneKey);
-  const q = filter.trim().toLowerCase();
-  const shown = ids.filter((id) => {
-    if (!q) return true;
+  // only what this viewer already sees of each card here (a hidden one has nothing to match: filterCardOf)
+  const shown = filterCards(ids.map((id) => {
     const c = view.cards[id];
-    if (!c || !isVisible(c)) return false;
-    const data = c.card_id ? cards[c.card_id] : undefined;
-    return c.name.toLowerCase().includes(q) || (data?.type_line ?? "").toLowerCase().includes(q) || (data?.oracle_text ?? "").toLowerCase().includes(q);
-  });
+    return filterCardOf(id, c, c && !c.hidden && c.card_id ? cards[c.card_id] : undefined);
+  }), filter).map((c) => c.id);
   const libraryCount = !Array.isArray(view.zones[zoneKey]) ? (view.zones[zoneKey] as { count: number }).count : ids.length;
   const title =
     own?.title ??
@@ -56,7 +55,7 @@ export function ZoneBrowser({ me }: { me: string }) {
     // Closing a "look at the top N" view hides those cards again (nothing is remembered).
     else if (view.my_views?.some((v) => v.kind === "look" && v.zone === zoneKey)) void send({ type: "end_view" });
     useGame.getState().openBrowser(null);
-    setFilter("");
+    setFilter(NO_FILTER);
   };
 
   return (
@@ -64,9 +63,9 @@ export function ZoneBrowser({ me }: { me: string }) {
       <div className="zb-head">
         <b>{title}</b>
         <span className="hint">
-          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : `${ids.length} cards`}
+          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} cards`}
         </span>
-        <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter} onChange={(e) => setFilter(e.target.value)} autoFocus />
+        <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus />
         <span className="spacer" />
         {searching ? (
           <>
@@ -77,6 +76,7 @@ export function ZoneBrowser({ me }: { me: string }) {
           <button className="btn small" onClick={() => close()}>Close</button>
         )}
       </div>
+      <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : "Newest first"} />
       <div className="zb-hint hint">Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more</div>
       <div className="zb-cards">
         {shown.length === 0 && <div className="hint">Nothing to show.</div>}

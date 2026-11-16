@@ -19,11 +19,13 @@ import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { wheelEligible } from "./wheel";
 import { FILTER_MIN, filterOptions } from "./optionFilter";
+import { CardFilterBar, filterCardOf } from "../CardFilterBar";
+import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
 import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
-import { useCardCache } from "../../state/cardCache";
+import { requestCards, useCardCache } from "../../state/cardCache";
 import { targetingOf } from "../targeting/targeting";
 import { TargetingBar } from "../targeting/TargetingBar";
 import { useTargeting } from "../targeting/store";
@@ -649,7 +651,13 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
   const [filter, setFilter] = useState("");
+  const [cardFilter, setCardFilter] = useState<CardFilter>(NO_FILTER); // a long list of cards to find (a tutor): the zone browser's chips
+  const cardData = useCardCache((s) => s.cards);
   const options = d.options ?? [];
+  // the chips read each found card's data, and plain option buttons don't load it the way card faces do
+  const printings = d.kind === "choose_cards" ? options.map((o) => (o.card_id ? view.cards[o.card_id] : undefined)).flatMap((c) => (c && !c.hidden && c.card_id ? [c.card_id] : [])) : [];
+  const printingKey = printings.join(",");
+  useEffect(() => { if (printings.length > FILTER_MIN) requestCards(printings); }, [printingKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
   const min = d.min_choices ?? 1;
@@ -713,10 +721,23 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   }
   if (d.kind === "reconcile") return <Reconcile d={d} />;
   if (d.kind === "divide") return <Divide d={d} view={view} />;
-  // choose_cards
+  // choose_cards. A long list of cards (a library search's legal finds, shown to the chooser only): filter and sort them as in the
+  // zone browser, by what the chooser already sees of each; picks stay listed, and options that aren't cards (Panglacial Wurm) always show
+  const cardOptions = options.filter((o) => o.card_id);
+  const filterable = cardOptions.length > FILTER_MIN;
+  let listed = options;
+  if (filterable) {
+    const byId = new Map(cardOptions.map((o) => [o.id, o]));
+    const found = filterCards(cardOptions.map((o) => {
+      const c = view.cards[o.card_id!];
+      return filterCardOf(o.id, c, c && !c.hidden && c.card_id ? cardData[c.card_id] : undefined);
+    }), cardFilter).map((c) => byId.get(c.id)!);
+    listed = [...found, ...cardOptions.filter((o) => picked.includes(o.id) && !found.includes(o)), ...options.filter((o) => !o.card_id)];
+  }
   return (
     <div className="decision-options" {...sentences}>
-      {options.map((o) => (
+      {filterable && <CardFilterBar value={cardFilter} onChange={setCardFilter} text orderLabel="Library order" />}
+      {listed.map((o) => (
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
       ))}
