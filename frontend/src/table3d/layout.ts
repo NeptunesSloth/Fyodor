@@ -362,3 +362,24 @@ export function pileAt(lx: number, lz: number, seat?: Pick<Seat, "side">): PileZ
   if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
   return null;
 }
+
+/**
+ * -- planechase -- how far along the aisle the stack's cards reach from the table's middle, either way, in a pod (TableScene's stack:
+ * at most 8 world units of fanned cards, plus half the top card at its largest, 2.25×).
+ */
+export const STACK_REACH = 4 + (CARD_W * 2.25) / 2 + 0.1;
+
+/**
+ * -- planechase -- where the face-up plane lies on the 3D table, in my frame (x to my right, z toward me; TableScene turns it by my
+ * seat's rotation), and its size (× a card): a landscape card lying flat in the aisle between the rows, on no mat, clear of the stack
+ * and of every seat's heart and plate. In a pod, to the stack's left (the hearts and plates sit in the aisle by each seat's own mat,
+ * further out); in a duel, whose narrow aisle holds only the stack at its left end, at the aisle's right end, sized to its depth.
+ */
+export function planarSpot(all: Pick<Seat, "duel">[]): { x: number; z: number; scale: number } {
+  if (all.some((s) => s.duel)) {
+    const scale = Math.min(1.8, (DUEL_AISLE * 2 - 0.15) / CARD_W); // (between the mats' own edges; their felt hems are the margin)
+    return { x: MAT_W / 2 - 0.3 - (CARD_H * scale) / 2, z: 0, scale };
+  }
+  const scale = 1.8;
+  return { x: -(STACK_REACH + 0.7 + (CARD_H * scale) / 2), z: 0, scale };
+}

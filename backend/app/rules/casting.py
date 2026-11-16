@@ -2033,7 +2033,7 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
     r.payments[plan.oid(card_id)] = record
 
 
-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect | A.PayDeferred, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect | A.PayDeferred | A.RollPlanarDie, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None, then: dict[str, Any] | None = None,
                  cast_greatest_power: int | None = None, counter_cost_origins70: list[ObjectRef] | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the

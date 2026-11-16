@@ -1,7 +1,8 @@
 """-- planechase -- (CR 901, Commander's single shared planar deck; app/game/handlers/planechase.py).
 
 The planar deck is dealt on the server when the game is created (part of its base state) or by the host's ``planar_start``; the
-active player rolls the planar die (the first roll in a turn {0}, then {1} more each time; the cost is shown, not charged); a
+active player rolls the planar die (the first roll in a turn {0}, then {1} more each time; on a manual table the cost is shown, with
+automation it is charged from the pool: ``roll_planar_die``); a
 planeswalker result planeswalks, chaos leaves the plane in place (players apply it), a phenomenon waits until someone planeswalks
 away from it. No view holds the deck's order; undo, replay and saves are exact; a table without Planechase is unchanged."""
 
@@ -247,3 +248,93 @@ def test_a_planes_picture_is_fetched_when_first_shown(client, monkeypatch):
     assert client.get(f"/api/images/{PLANES[0]['id']}").status_code == 200 and calls == ["https://cards.scryfall.io/normal/front/p1.jpg"]
     sol_ring = next(c for c in fixture_cards() if c["name"] == "Sol Ring")
     assert client.get(f"/api/images/{sol_ring['id']}").status_code == 404 and len(calls) == 1  # (a deck's own card: still never)
+
+
+# -- the die's cost with rules automation on (app/rules/planar_die.py): ``roll_planar_die`` pays {N} from the pool or opens the
+# "tap your mana" prompt, as every cost at the table; the first roll in a turn is free; the manual ``planar_roll`` still works.
+def automated(cards, *, to_main: bool = True) -> tuple[GameSession, list[str]]:
+    from tests.game_helpers import enable
+
+    s = table(cards)
+    enable(s.state)
+    for prefs in s.state.rules.prefs.values():
+        prefs.payment = "self"  # the table default: players tap their own mana
+    s = GameSession(s.state, cards=cards)
+    if not to_main:
+        return s, []
+    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    assert s.state.turn.phase == "main1" and s.state.rules.priority == "p1"
+    lands = [c.id for c in s.state.cards.values() if c.name == "Mountain" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=lands, to={"zone": "battlefield"})
+    return s, lands
+
+
+def test_with_automation_the_first_roll_is_free_and_the_next_asks_you_to_tap_mana(cards, monkeypatch):
+    from tests.game_helpers import mana_pool
+
+    s, lands = automated(cards)
+    script(monkeypatch, [4, 5, 3])
+    act(s, "p1", type="roll_planar_die")
+    pc = s.state.planechase
+    assert pc.rolls == 1 and pc.last_roll.face == "blank" and pc.last_roll.cost == 0 and s.state.rules.decision is None
+    assert s.state.rules.priority == "p1" and not any(s.state.cards[c].tapped for c in lands)
+    seq = pc.last_roll.seq
+    act(s, "p1", type="roll_planar_die")  # {1}, and the pool is empty: the prompt, nothing rolled yet
+    d = s.state.rules.decision
+    assert d is not None and d.display["kind"] == "tap_mana" and d.display["cost"] == "{1}" and set(d.display["sources"]) == set(lands)
+    assert s.state.planechase.rolls == 1 and s.state.planechase.last_roll.seq == seq
+    with pytest.raises(ActionError, match="Tap your mana first"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    act(s, "p1", type="activate_ability", card_id=lands[0], ability=0)  # Alice taps a Mountain: the die is paid and rolled
+    pc = s.state.planechase
+    assert s.state.rules.decision is None and pc.rolls == 2 and pc.last_roll.cost == 1 and pc.last_roll.seq != seq
+    assert s.state.cards[lands[0]].tapped and mana_pool(s) == {}
+    assert "rolled the planar die (cost {1}): blank" in line(s)
+    replay_matches(s)
+    s.undo("p1")  # the tap that paid goes back, and the roll with it: the Mountain untapped, the prompt open again
+    assert s.state.planechase.rolls == 1 and not s.state.cards[lands[0]].tapped and mana_pool(s) == {}
+    assert s.state.rules.decision is not None and s.state.rules.decision.display["cost"] == "{1}"
+    replay_matches(s)
+
+
+def test_with_automation_mana_in_the_pool_pays_at_once_and_cancel_rolls_nothing(cards, monkeypatch):
+    from tests.game_helpers import mana_pool
+
+    s, lands = automated(cards)
+    script(monkeypatch, [3, 2])
+    act(s, "p1", type="roll_planar_die")
+    act(s, "p1", type="roll_planar_die")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])  # refused: nothing paid, nothing rolled
+    assert s.state.rules.decision is None and s.state.planechase.rolls == 1 and s.state.rules.priority == "p1"
+    act(s, "p1", type="activate_ability", card_id=lands[0], ability=0)
+    act(s, "p1", type="activate_ability", card_id=lands[1], ability=0)
+    assert mana_pool(s) == {"R": 2}
+    act(s, "p1", type="roll_planar_die")  # {1} from the pool, no prompt
+    pc = s.state.planechase
+    assert s.state.rules.decision is None and pc.rolls == 2 and pc.last_roll.face == "chaos" and mana_pool(s) == {"R": 1}
+    replay_matches(s)
+
+
+def test_with_automation_the_die_is_rolled_only_in_your_main_phase_with_an_empty_stack(cards, monkeypatch):
+    s, _ = automated(cards, to_main=False)
+    assert s.state.turn.phase not in ("main1", "main2") and s.state.rules.priority == "p1"
+    with pytest.raises(ActionError, match="main phase"):
+        act(s, "p1", type="roll_planar_die")
+    with pytest.raises(ActionError, match="priority"):
+        act(s, "p2", type="roll_planar_die")
+    act(s, "p1", type="pass_priority")
+    card_id = next(c.id for c in s.state.cards.values() if c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[card_id], to={"zone": "stack"})  # (something on the stack, put there by hand)
+    assert s.state.zones.get("stack")
+    with pytest.raises(ActionError, match="stack is empty"):
+        act(s, "p1", type="roll_planar_die")
+
+
+def test_with_automation_a_roll_by_hand_is_a_manual_override(cards, monkeypatch):
+    s, _ = automated(cards)
+    script(monkeypatch, [3])
+    act(s, "p1", type="planar_roll")  # (the table tools still roll: the cost isn't charged, and the log says it was by hand)
+    assert s.state.planechase.rolls == 1 and s.state.log[-1].manual
+    with pytest.raises(ActionError, match="Rules automation is off"):
+        act(table(cards), "p1", type="roll_planar_die")  # (a manual table rolls with planar_roll and pays by hand)

@@ -46,4 +46,19 @@ describe("target dummy", () => {
     const lost = table([player("p1"), player("p2", { dummy: true, life: 0 })], { rules: { lost: { p2: "0 or less life" }, conceded: [] } } as unknown as Partial<GameView>);
     expect((dummyMenu(lost, true, send) as Entry[])[0]!.label).toBe("Restore dummy…");
   });
+
+  it("lets the host set how the dummy blocks, the current way marked in words", () => {
+    const send = vi.fn();
+    const rules = { rules: { lost: {}, conceded: [] } } as unknown as Partial<GameView>;
+    const seated = table([player("p1"), player("p2", { dummy: true, dummy_blocks: "chump" })], rules);
+    const blocks = (dummyMenu(seated, true, send) as (Entry & { submenu?: Entry[] })[]).find((e) => e.label === "Dummy blocks")!;
+    expect(blocks.hint).toBe("Chump the biggest attacker");
+    expect(blocks.submenu!.map((e) => [e.label, e.hint, !!e.disabled])).toEqual([
+      ["Never", undefined, false], ["Chump the biggest attacker", "current", true], ["Block with everything it can", undefined, false],
+    ]);
+    blocks.submenu![2]!.onClick!();
+    expect(send).toHaveBeenCalledWith({ type: "set_dummy", blocks: "all" });
+    const manual = (dummyMenu(table([player("p1"), player("p2", { dummy: true })]), true, send) as Entry[]).find((e) => e.label === "Dummy blocks")!;
+    expect(manual.hint).toBe("with automation on"); // (automation off: the dummy's cards are moved by hand)
+  });
 });

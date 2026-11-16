@@ -115,7 +115,7 @@ class GameSession:
         self._answering = True
         try:
             for _ in range(dummy.MAX_ANSWERS):
-                todo = dummy.to_answer(self.state)
+                todo = dummy.to_answer(self.state, self.cards)
                 if todo is None:
                     self._dummy_gave_up = None
                     return

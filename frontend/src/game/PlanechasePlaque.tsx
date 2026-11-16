@@ -9,14 +9,17 @@ import { SPECTATOR, type PlanarCardView, type PlanarFace, type PlanechaseView } 
 import { send } from "./actions";
 import { MOTION, motionMs, motionOn, onMotionSkip } from "./motion/timing";
 import { isOut } from "./outOfGame";
-import { FACE_LABEL, canRollPlanar, costText, planarRotation, planechaseCue, splitPlaneText } from "./planechase";
+import { FACE_LABEL, canRollPlanar, costText, onShowPlanarText, planarRollAction, planarRotation, planechaseCue, splitPlaneText } from "./planechase";
 import "./planechase.css";
 
 /*
  * -- planechase -- (CR 901, Commander's single shared planar deck) the plaque at the top right of both tables (it folds to one line): the face-up plane's
  * art (landscape) and name, its text on click, the planar die for the active player with what the next roll costs, and "Done —
  * planeswalk" on a phenomenon. The server deals, rolls and planeswalks (app/game/handlers/planechase.py); players apply what the
- * plane does by hand, and pay the die's cost from their pool by hand. The plaque only knows the face-up card, never the deck's order.
+ * plane does by hand. With rules automation running the die's cost is charged from the roller's mana pool (the "tap your mana" prompt
+ * when it's short: app/rules/planar_die.py); on a manual table it is shown and paid by hand. The plaque only knows the face-up card,
+ * never the deck's order. On the 3D table (``compact``) the plane lies on the table itself (table3d/planar3d.ts): the plaque folds to
+ * its name and die, and opens to the full card and text from its Text button or a click on the plane.
  *
  * Motion (docs/GAME_UI_MOTION_RESEARCH.md): a planeswalk slides the old plane off as the new one turns in; chaos pulses its symbol on
  * the plane and holds the chaos ability up until dismissed; the die tumbles onto its face. All at the player's animation speed
@@ -93,7 +96,7 @@ function PlanarArt({ card, data, large }: { card: PlanarCardView; data: CardData
   );
 }
 
-export function PlanechasePlaque({ me }: { me: string }) {
+export function PlanechasePlaque({ me, compact = false }: { me: string; compact?: boolean }) {
   const view = useGame((s) => s.view);
   const pc = view?.planechase ?? null;
   const data = useCard(pc?.current.printing_id);
@@ -108,6 +111,12 @@ export function PlanechasePlaque({ me }: { me: string }) {
   const away = useRef<HTMLDivElement>(null);
   const flash = useRef<HTMLSpanElement>(null);
   const die = useRef<HTMLSpanElement>(null);
+
+  // -- 3D table -- a click on the plane lying on the table opens its text here
+  useEffect(() => onShowPlanarText(() => {
+    setOpen(true);
+    setMini(false);
+  }), []);
 
   // what changed since the last view: a planeswalk, a chaos roll, any roll (planechaseCue); nothing on first sight
   useEffect(() => {
@@ -162,11 +171,12 @@ export function PlanechasePlaque({ me }: { me: string }) {
   const roller = view.players.find((p) => p.id === pc.last_roll?.player);
   const phenomenon = pc.current.phenomenon;
   const chaos = chaosSeq !== null && pc.last_roll?.seq === chaosSeq ? splitPlaneText(data?.oracle_text).chaos : null;
-  const roll = () => void send({ type: "planar_roll" });
+  const auto = !!view.rules && !view.rules.paused; // (the die's cost is charged: planarRollAction)
+  const roll = () => void send(planarRollAction(view));
   const walk = () => void send({ type: "planeswalk" });
 
   return (
-    <section className={`planar-plaque ${open && !mini ? "open" : ""} ${mini ? "mini" : ""} ${phenomenon ? "is-phenomenon" : ""}`} aria-label="Planechase" data-testid="planar-plaque">
+    <section className={`planar-plaque ${open && !mini ? "open" : ""} ${mini ? "mini" : ""} ${compact ? "in-3d" : ""} ${phenomenon ? "is-phenomenon" : ""}`} aria-label="Planechase" data-testid="planar-plaque">
       <div className="planar-stage" ref={stage}>
         {leaving && <div className="planar-away" ref={away} aria-hidden><PlanarArt card={leaving.card} data={undefined} /></div>}
         <button type="button" className="planar-art-btn" ref={art} onClick={() => setOpen(!open)} aria-expanded={open}
@@ -179,6 +189,8 @@ export function PlanechasePlaque({ me }: { me: string }) {
         <div className="planar-name" data-testid="planar-name">
           <span>{pc.current.name}</span>
           {phenomenon && <span className="planar-tag">Phenomenon</span>}
+          {compact && !mini && <button type="button" className="planar-min planar-read" onClick={() => setOpen(!open)} aria-expanded={open}
+            title={open ? "Hide the plane's text" : "Show the plane and its text (or click the plane on the table)"} data-testid="planar-read">Text</button>}
           <button type="button" className="planar-min" onClick={() => setMini(!mini)} aria-expanded={!mini}
             title={mini ? "Show the plane" : "Fold the plaque to one line"} aria-label={mini ? "Show the plane" : "Fold the plaque"}>{mini ? "+" : "–"}</button>
         </div>
@@ -195,7 +207,9 @@ export function PlanechasePlaque({ me }: { me: string }) {
               title="When everyone has applied the phenomenon: planeswalk to the next plane">Done — planeswalk</button>
           ) : mine ? (
             <button type="button" className="tt-btn brass" onClick={roll} data-testid="planar-roll"
-              title={pc.cost ? `Roll the planar die: costs ${costText(pc.cost)} this time (pay it from your pool)` : "Roll the planar die: free the first time this turn"}>
+              title={!pc.cost ? "Roll the planar die: free the first time this turn"
+                : auto ? `Roll the planar die: costs ${costText(pc.cost)} this time, paid from your mana pool (tap your mana when asked)`
+                : `Roll the planar die: costs ${costText(pc.cost)} this time (pay it from your pool)`}>
               Roll planar die <ManaText text={costText(pc.cost)} />
             </button>
           ) : (
@@ -214,7 +228,8 @@ export function PlanechasePlaque({ me }: { me: string }) {
             <div className="planar-visited"><span>Visited</span> {pc.visited.slice(-6).map((c) => c.name).join(" · ")}</div>
           )}
           <div className="planar-tools">
-            <span className="hint">Players apply the plane by hand; the die's cost is paid from your pool.</span>
+            <span className="hint">{auto ? "Players apply the plane by hand; the die's cost is charged from your mana pool."
+              : "Players apply the plane by hand; the die's cost is paid from your pool."}</span>
             {seated && !phenomenon && <button type="button" className="tt-btn ghost" onClick={walk} title="A card told the table to planeswalk">Planeswalk</button>}
           </div>
         </div>

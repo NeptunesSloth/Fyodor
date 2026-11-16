@@ -4,6 +4,7 @@ poison and commander damage, so "each opponent", targeted damage and drain effec
 * It never takes a turn (``next_turn`` and the rules engine's turn skips pass over it), so it never draws from its empty library.
   A draw an effect makes it take doesn't lose it the game either (``app.rules.sba``): it is there to test damage.
 * With rules automation on, the server answers its priority and decisions at once, as recorded actions (``app.game.dummy``).
+  How it blocks is the host's setting (``PlayerState.dummy_blocks``: Add a target dummy, then Solo tools → Dummy blocks).
 * It loses as anyone does (0 life, 10 poison, 21 commander damage); **Reset dummy** brings it back.
 """
 
@@ -27,6 +28,8 @@ from app.game.state import (
 NAME = "Target Dummy"
 COLOR = "#8a8f98"  # unpainted wood-and-steel grey: no seat colour of its own (its name and the dummy icon say what it is)
 MAX_SEATS = 6
+# how it blocks with automation on (app/game/dummy.py), as the log says it
+BLOCKS = {"never": "never blocks", "chump": "chump-blocks the biggest attacker", "all": "blocks with everything it can"}
 
 
 def dummy_of(state: GameState) -> str | None:
@@ -45,7 +48,8 @@ def add_dummy(state: GameState, a: A.AddDummy) -> None:
     while f"p{n}" in state.players:
         n += 1
     pid = f"p{n}"
-    state.players[pid] = PlayerState(id=pid, name=NAME, color=COLOR, life=state.settings.starting_life, dummy=True)
+    state.players[pid] = PlayerState(id=pid, name=NAME, color=COLOR, life=state.settings.starting_life, dummy=True,
+                                     dummy_blocks=a.blocks)
     state.seat_order.append(pid)
     for zone in PLAYER_ZONES:
         state.zones.setdefault(zone_key(pid, zone), [])
@@ -56,7 +60,19 @@ def add_dummy(state: GameState, a: A.AddDummy) -> None:
         state.turn.starting_hand[pid] = 0
     if state.pregame is not None and not state.pregame.finished:
         state.pregame.seats[pid] = PregameSeat(status="kept", kept=0)  # nothing to mulligan: the others' keeps start the game
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(" added a target dummy: "), pname(state, pid)])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" added a target dummy: "), pname(state, pid),
+                               *([text(f" ({BLOCKS[a.blocks]})")] if a.blocks != "never" else [])])
+
+
+def set_dummy(state: GameState, a: A.SetDummy) -> None:
+    pid = dummy_of(state)
+    if pid is None or state.players[pid].left:
+        raise ActionError("There is no target dummy at this table")
+    p = state.players[pid]
+    if p.dummy_blocks == a.blocks:
+        raise ActionError(f"{p.name} already {BLOCKS[a.blocks]}")
+    p.dummy_blocks = a.blocks
+    log(state, a.actor, a.ts, [pname(state, pid), text(f" {BLOCKS[a.blocks]} from now on (with automation on)")])
 
 
 def reset_dummy(state: GameState, a: A.ResetDummy) -> None:

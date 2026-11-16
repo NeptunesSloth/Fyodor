@@ -97,6 +97,7 @@ HANDLERS: dict[str, Handler] = {
     # -- target dummy -- Sandbox's practice opponent (app/game/handlers/dummy.py)
     "add_dummy": dummy.add_dummy,
     "reset_dummy": dummy.reset_dummy,
+    "set_dummy": dummy.set_dummy,
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,
@@ -197,6 +198,8 @@ def apply(state: GameState, action: A.Action) -> None:
     rules = state.rules
     if rules is not None:
         manual = action.type not in NOT_OVERRIDES
+        if action.type == "planar_roll" and state.settings.automation != "off" and not rules.paused:
+            manual = True  # -- planechase -- rolled by hand while automation runs: its {N} wasn't charged (roll_planar_die charges it)
         if manual and action.type in ('set_face', 'flip', 'face_down', 'merge'):
             # A manual loss/regain between intents has no native World timing
             # authority, even if its final copiable values match the old ones.

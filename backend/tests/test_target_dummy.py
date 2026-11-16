@@ -353,3 +353,226 @@ def test_the_play_pages_sandbox_start_with_a_dummy(client):
     guest = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
     refused = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "reset_dummy"}}, headers={"X-Seat-Token": guest})
     assert refused.status_code == 403
+    refused = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "set_dummy", "blocks": "all"}}, headers={"X-Seat-Token": guest})
+    assert refused.status_code == 403
+    res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "set_dummy", "blocks": "chump"}}, headers=host)
+    assert res.status_code == 200, res.text
+    assert next(p for p in res.json()["players"] if p["id"] == "p2")["dummy_blocks"] == "chump"  # (in the table's view: the menu marks it)
+
+
+# ---------------------------------------------------------------------------- how it blocks (the host's setting)
+
+
+def spawned(s: GameSession, cards, name: str, player: str | None = None) -> str:
+    act(s, "p1", type="spawn_card", card_id=cards.resolve(name)["id"], **({"player": player} if player else {}))
+    return next(c.id for c in reversed(list(s.state.cards.values())) if c.name == name and c.owner == (player or "p1"))
+
+
+def combat_with(cards, mine: list[str], theirs: list[str], blocks: str = "never"):
+    """Creatures spawned with the rules off (no summoning sickness to wait out, no enter triggers), the dummy set to ``blocks``, the
+    rules turned on, and on to Alice's declare attackers."""
+    s = with_dummy(cards)
+    dummy_cards = [spawned(s, cards, n, "p2") for n in theirs]
+    alice = [spawned(s, cards, n) for n in mine]
+    if blocks != "never":
+        act(s, "p1", type="set_dummy", blocks=blocks)
+    turn_on(s, "full")
+    engine_pays(s.state)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_attackers" and d.player == "p1"
+    return s, alice, dummy_cards
+
+
+def attack(s: GameSession, attackers: list[str]) -> None:
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": a, "target": "p2"} for a in attackers])
+
+
+def blocks_of(s: GameSession) -> dict[str, str]:
+    """The dummy's last declared blocks, blocker -> attacker (its recorded answer: with nothing else to do, the engine plays the combat
+    out at once)."""
+    declared = [a for a in s.history.actions[:s.history.cursor] if a.actor == "p2" and a.type == "declare_blockers"]
+    return {b.blocker_id: b.attacker_id for b in declared[-1].blocks} if declared else {}
+
+
+def test_the_dummy_chumps_the_biggest_attacker_with_its_smallest_creature(cards):
+    s, (swift, bears), (elves, _big) = combat_with(cards, ["Monastery Swiftspear", "Grizzly Bears"],
+                                                   ["Llanowar Elves", "Grizzly Bears"], "chump")
+    assert s.state.players["p2"].dummy_blocks == "chump"
+    attack(s, [swift, bears])
+    assert blocks_of(s) == {elves: bears}
+    assert s.state.cards[elves].zone == "p2:graveyard" and s.state.players["p2"].life == 39  # (the Swiftspear got through)
+    replay_matches(s)
+
+
+def test_a_chump_only_blocks_what_it_may_block(cards):
+    """The biggest attacker flies: the dummy's Bears can't block it (combat.block_problem), so it chumps the next biggest."""
+    s, (swift, flyer), (bears,) = combat_with(cards, ["Monastery Swiftspear", "Hollow Marauder"], ["Grizzly Bears"], "chump")
+    attack(s, [swift, flyer])
+    assert blocks_of(s) == {bears: swift}
+    assert s.state.players["p2"].life == 36  # (the flyer got through)
+    replay_matches(s)
+
+
+def test_the_dummy_blocks_with_everything_it_can(cards):
+    s, (swift, bears, flyer), (elves, big) = combat_with(cards, ["Monastery Swiftspear", "Grizzly Bears", "Hollow Marauder"],
+                                                         ["Llanowar Elves", "Grizzly Bears"], "all")
+    attack(s, [swift, bears, flyer])
+    assert blocks_of(s) == {elves: bears, big: bears}  # each on the biggest attacker it can block (not the flyer)
+    for _ in range(30):  # and combat goes on (Alice divides her Bears' damage: her choice, not the dummy's)
+        if s.state.turn.phase in ("end_combat", "main2"):
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "divide":
+            assert d.player == "p1"
+            act(s, "p1", type="choose", decision_id=d.id, amounts=[2] + [0] * (len(d.options) - 1))
+        elif d is not None and d.player == "p1" and d.kind == "order":
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        else:
+            act(s, "p1", type="pass_priority")
+    assert s.state.players["p2"].life == 40 - 1 - 4  # the Swiftspear and the flyer weren't blocked
+    replay_matches(s)
+
+
+def test_the_dummy_never_blocks_by_default(cards):
+    s, (swift, bears), (_elves,) = combat_with(cards, ["Monastery Swiftspear", "Grizzly Bears"], ["Llanowar Elves"])
+    assert s.state.players["p2"].dummy_blocks == "never"
+    attack(s, [swift, bears])
+    assert blocks_of(s) == {} and any(a.actor == "p2" and a.type == "declare_blockers" for a in s.history.actions)
+    assert s.state.players["p2"].life == 37
+    replay_matches(s)
+
+
+def test_how_it_blocks_is_set_mid_game_and_undone_with_the_rest(cards):
+    s, (swift, bears), (elves,) = combat_with(cards, ["Monastery Swiftspear", "Grizzly Bears"], ["Llanowar Elves"])
+    act(s, "p1", type="set_dummy", blocks="all")  # (mid-game, from Solo tools)
+    assert s.state.players["p2"].dummy_blocks == "all"
+    with pytest.raises(ActionError, match="already"):
+        act(s, "p1", type="set_dummy", blocks="all")
+    before = s.state.model_dump(mode="json")
+    attack(s, [swift, bears])
+    assert blocks_of(s) == {elves: bears}
+    after = s.state.model_dump(mode="json")
+    s.undo("p1")  # the attack and the dummy's blocks go back together
+    assert s.state.model_dump(mode="json") == before
+    s.redo("p1")
+    assert s.state.model_dump(mode="json") == after
+    replay_matches(s)
+    loaded = GameSession(GameState.model_validate(s.state.model_dump(mode="json")), cards=cards,
+                         history=History.from_dict(s.history.to_dict()))
+    assert loaded.history.rebuild().model_dump(mode="json") == after  # (a reload replays the setting and the blocks)
+    s.undo("p1")
+    s.undo("p1")  # the setting itself is a recorded action
+    assert s.state.players["p2"].dummy_blocks == "never"
+    attack(s, [swift, bears])
+    assert blocks_of(s) == {} and s.state.players["p2"].life == 37
+    replay_matches(s)
+
+
+def test_adding_the_dummy_with_a_block_setting(cards):
+    s = sandbox(cards)
+    act(s, "p1", type="add_dummy", blocks="chump")
+    assert s.state.players["p2"].dummy_blocks == "chump"
+    with pytest.raises(ActionError, match="no target dummy"):
+        act(sandbox(cards), "p1", type="set_dummy", blocks="all")
+    replay_matches(s)
+
+
+def test_with_automation_off_the_setting_changes_nothing(cards):
+    s = with_dummy(cards)
+    act(s, "p1", type="spawn_card", card_id=cards.resolve("Grizzly Bears")["id"], player="p2")
+    act(s, "p1", type="set_dummy", blocks="all")
+    act(s, "p1", type="next_turn", force=True)
+    assert not any(a.actor == "p2" for a in s.history.actions)  # (its cards are moved by hand)
+
+
+# ---------------------------------------------------------------------------- the choices it answers
+
+
+def test_the_dummy_divides_as_evenly_as_it_may():
+    from app.game.dummy import answers
+    from app.game.rules_state import Decision, DecisionOption
+
+    def divide(n: int, **resume) -> list:
+        opts = [DecisionOption(id=f"t{i}", label=f"Target {i}") for i in range(n)]
+        d = Decision(id="d", player="p2", kind="divide", prompt="Divide", options=opts, min_choices=n, max_choices=n,
+                     resume={"step": "x", **resume})
+        return [a["amounts"] for a in answers(d)]
+
+    assert divide(3, total=5) == [[3, 1, 1]]  # (at least 1 each, the rest on the first)
+    assert divide(2, total=4) == [[2, 2]]
+    assert divide(3, total=7, least=0) == [[3, 2, 2]]
+    assert divide(3, total=5, least=0, lethal=[2, 2], free=2) == [[3, 2, 0]]  # combat damage: none past the blockers (702.19b)
+    assert divide(3, total=2) == []  # (can't: left to the table)
+
+
+def test_the_dummy_answers_a_division_the_engine_accepts(cards):
+    """A divide decision put to the dummy (Wildhunt's damage among Wolves: app/rules/wave110c_misc.py) is answered by the server."""
+    from app.game.rules_state import Decision, DecisionOption
+
+    s = with_dummy(cards, rules=True)
+    pass_until(s, 1, "main1")
+    wolves = [spawned(s, cards, "Grizzly Bears", "p2"), spawned(s, cards, "Llanowar Elves", "p2")]
+    s.state.rules.decision = Decision(
+        id="dv", player="p2", kind="divide", prompt="Divide 3 damage among the Wolves",
+        options=[DecisionOption(id=w, label=s.state.cards[w].name or "", card_id=w) for w in wolves], min_choices=2, max_choices=2,
+        resume={"step": "wildhunt110c", "ctx": {"controller": "p1", "effects": [], "next": 0, "stack_id": "gone"}, "total": 3, "least": 0,
+                "target": "gone", "wolves": wolves})
+    s._answer_for_dummy()
+    answered = s.history.actions[-1]
+    assert answered.actor == "p2" and answered.type == "choose" and answered.amounts == [2, 1]
+    assert s.state.rules.decision is None or s.state.rules.decision.id != "dv"
+
+
+def test_the_dummy_names_a_card_the_engine_accepts(cards):
+    """A "choose a creature card name" put to the dummy (Paper Tiger's: app/rules/wave110a_paper.py), then the creature type it asks."""
+    from app.game.dummy import answers
+    from app.game.rules_state import Decision, DecisionOption
+    from app.rules import card_names
+
+    s = with_dummy(cards, rules=True)
+    pass_until(s, 1, "main1")
+    bears = spawned(s, cards, "Grizzly Bears", "p2")
+    s.state.rules.decision = Decision(id="dn", player="p2", kind="choose_one", prompt="Choose a creature card name",
+                                      options=[card_names.option("creature card name")], resume={"step": "paper_name110a", "card": bears})
+    s._answer_for_dummy()
+    named = next(a for a in s.history.actions if a.type == "choose" and a.actor == "p2")
+    assert named.name == "Grizzly Bears"
+    assert any("Grizzly Bears" in str(v) for v in s.state.cards[bears].choices.values())
+    assert s.state.rules.decision is None  # (and the creature type it asks next: the first offered)
+
+    def names(what: str, info=cards, seen=()) -> list[str]:
+        opts = [card_names.option(what), *(DecisionOption(id=f"seen:{n}", label=n, group="seen") for n in seen)]
+        d = Decision(id="d", player="p2", kind="choose_one", prompt="Name", options=opts)
+        return [a["name"] for a in answers(d, info=info)]
+
+    assert names("nonland card name")[0] == "Sol Ring"
+    assert names("land card name") == ["Command Tower", "Mountain"]
+    assert names("nonbasic land card name") == ["Command Tower"]
+    assert names("nonartifact, nonland card name")[0] == "Grizzly Bears"
+    assert names("nonland card name", seen=["Mountain", "Lightning Bolt"])[0] == "Lightning Bolt"  # a card it was shown, if it fits
+    assert names("card name", info=None)[0] == "Sol Ring"  # (no card database to check against: the engine judges)
+
+
+def test_the_dummy_types_numbers_and_answers_each_question_of_a_reconcile():
+    from app.game.dummy import answers
+    from app.game.rules_state import Decision, DecisionOption
+
+    number = Decision(id="d", player="p2", kind="choose_one", prompt="Choose a number",
+                      options=[DecisionOption(id="__number__", label="Bid: a number ≥ 1")])
+    assert [a["name"] for a in answers(number)] == ["1"]
+    count = Decision(id="d", player="p2", kind="choose_one", prompt="Count", options=[DecisionOption(id="__number__", label="Count: 0–1000")])
+    assert [a["name"] for a in answers(count)] == ["0"]
+    splice = Decision(id="d", player="p2", kind="choose_one", prompt="Splice",
+                      options=[DecisionOption(id="__name__", label="Type", group="historical splice names")])
+    assert [a["name"] for a in answers(splice)] == ["no cards"]
+    history = Decision(id="d", player="p2", kind="choose_one", prompt="Names",
+                       options=[DecisionOption(id="__name__", label="Type", group="historical spell names")])
+    assert answers(history) == []  # (only the table knows: the session's "can't answer" note)
+    opts = [DecisionOption(id=f"{g}{i}", label=f"{g}{i}", group=g) for g in "ab" for i in range(2)]
+    reconcile = Decision(id="d", player="p2", kind="reconcile", prompt="Reconcile", options=opts, min_choices=2, max_choices=2)
+    assert answers(reconcile)[0]["option_ids"] == ["a0", "b0"]

@@ -16,12 +16,33 @@ export function splitPlaneText(oracle: string | null | undefined): { statics: st
 
 export const FACE_LABEL: Record<PlanarFace, string> = { planeswalker: "Planeswalk", chaos: "Chaos", blank: "Blank" };
 
+/**
+ * How the plaque rolls the die: with rules automation running, through the rules engine (``roll_planar_die``: its cost is charged from
+ * the roller's mana pool, or the "tap your mana" prompt opens; app/rules/planar_die.py); on a manual table, the table's own roll
+ * (``planar_roll``: the cost is shown and paid by hand).
+ */
+export function planarRollAction(view: Pick<GameView, "rules">): { type: "roll_planar_die" | "planar_roll" } {
+  return { type: view.rules && !view.rules.paused ? "roll_planar_die" : "planar_roll" };
+}
+
+/** -- 3D table -- the plane lying on the table was clicked: the plaque opens its full text (table3d/planar3d.ts → PlanechasePlaque). */
+const textOpeners = new Set<() => void>();
+export function showPlanarText(): void {
+  for (const open of [...textOpeners]) open();
+}
+export function onShowPlanarText(open: () => void): () => void {
+  textOpeners.add(open);
+  return () => void textOpeners.delete(open);
+}
+
 /** The mana the next roll costs, as the cost text the table shows ("{0}", "{2}"). */
 export const costText = (cost: number) => `{${Math.max(0, Math.floor(cost))}}`;
 
 /**
  * How far to turn a plane's picture, in degrees, so it reads landscape: a plane is printed sideways, and a scan stored upright
- * (taller than wide) is turned a quarter clockwise. A landscape scan, or one not loaded yet, isn't turned.
+ * (taller than wide) is turned a quarter clockwise. A landscape scan, or one not loaded yet, isn't turned. (Checked against Scryfall's
+ * own scan of Academy at Tolaria West, 488 × 680 "normal": stored upright, its name and text run bottom to top along the long edges,
+ * so a quarter turn clockwise reads them left to right. The 3D table turns its plane the same way: table3d/planar3d.ts.)
  */
 export function planarRotation(width: number, height: number): 0 | 90 {
   return width > 0 && height > width ? 90 : 0;

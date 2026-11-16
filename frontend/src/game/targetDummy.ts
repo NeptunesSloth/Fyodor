@@ -1,9 +1,16 @@
 /**
  * -- target dummy -- Sandbox's practice opponent (docs/MACROS_AND_SOLO.md): a seat with no deck that never takes a turn; the server
- * answers its priority and choices. The table only offers the tools around it: add it, reset it, spawn test cards for it.
+ * answers its priority and choices. The table only offers the tools around it: add it, reset it, set how it blocks, spawn test cards for it.
  */
 import type { MenuItem } from "../components/ContextMenu";
-import type { Action, GameView, PlayerView } from "../types/game";
+import type { Action, DummyBlocks, GameView, PlayerView } from "../types/game";
+
+/** How the dummy blocks with automation on (the server's setting: app/game/dummy.py); in the Sandbox start and Solo tools. */
+export const DUMMY_BLOCKS: [DummyBlocks, string][] = [
+  ["never", "Never"],
+  ["chump", "Chump the biggest attacker"],
+  ["all", "Block with everything it can"],
+];
 
 /** The table's target dummy (one at most). */
 export function dummyOf(view: GameView | null | undefined): PlayerView | undefined {
@@ -32,6 +39,14 @@ export function dummyMenu(view: GameView | null | undefined, isHost: boolean, se
     return [{ label: "Add a target dummy", disabled: !allowed || full, hint: !allowed ? "off at this table" : full ? "the table is full" : "an opponent to hit",
       onClick: () => void send({ type: "add_dummy" }) }];
   }
-  return [{ label: dummyIsOut(view) ? "Restore dummy…" : "Reset dummy…", hint: `${d.life} life`,
-    onClick: () => { if (window.confirm(`Reset ${d.name}: life back to the start, poison and commander damage cleared, its permanents removed${dummyIsOut(view) ? ", back in the game" : ""}?`)) void send({ type: "reset_dummy" }); } }];
+  const blocks = d.dummy_blocks ?? "never";
+  const auto = !!view.rules; // (with automation off the dummy's cards are moved by hand: the setting waits for it)
+  return [
+    { label: dummyIsOut(view) ? "Restore dummy…" : "Reset dummy…", hint: `${d.life} life`,
+      onClick: () => { if (window.confirm(`Reset ${d.name}: life back to the start, poison and commander damage cleared, its permanents removed${dummyIsOut(view) ? ", back in the game" : ""}?`)) void send({ type: "reset_dummy" }); } },
+    { label: "Dummy blocks", hint: auto ? DUMMY_BLOCKS.find(([k]) => k === blocks)?.[1] : "with automation on",
+      submenu: DUMMY_BLOCKS.map(([k, label]): MenuItem => k === blocks
+        ? { label, hint: "current", disabled: true }
+        : { label, onClick: () => void send({ type: "set_dummy", blocks: k }) }) },
+  ];
 }

@@ -128,7 +128,7 @@ export function GameScreen() {
       <TableImporter />
       <StackWidget me={me} />
       {/* -- planechase -- the face-up plane and the planar die (both tables: over the 3D view too) */}
-      <PlanechasePlaque me={me} />
+      <PlanechasePlaque me={me} compact={three} />
       <LogDrawer />
       <ToolTray />
       <SelectionBar />

@@ -691,6 +691,7 @@ class AddDummy(Base):
     """-- target dummy -- Sandbox: seat a "Target Dummy" opponent with no deck (app/game/dummy.py)."""
 
     type: Literal["add_dummy"] = "add_dummy"
+    blocks: Literal["never", "chump", "all"] = "never"  # how it blocks with automation on (state.DummyBlocks)
 
 
 class ResetDummy(Base):
@@ -698,6 +699,13 @@ class ResetDummy(Base):
     card it was given goes back to its owner), and back in the game if it lost."""
 
     type: Literal["reset_dummy"] = "reset_dummy"
+
+
+class SetDummy(Base):
+    """-- target dummy -- how it blocks with automation on: never, chump the biggest attacker, or block with everything it can."""
+
+    type: Literal["set_dummy"] = "set_dummy"
+    blocks: Literal["never", "chump", "all"]
 
 
 class RestartGame(Base):
@@ -1329,6 +1337,15 @@ class EndEffect(_Intent):
     sources: list[Id] | None = Field(default=None, max_length=60)
 
 
+class RollPlanarDie(_Intent):
+    """-- planechase -- 901.9: the active player rolls the planar die through the rules engine (a special action in their main phase
+    with the stack empty), paying the roll's {N} from their mana pool like any other cost (app/rules/planar_die.py). Its compiled
+    steps hold the payment and the ``planar_roll`` with the die's face. The manual table rolls with ``planar_roll`` itself."""
+
+    type: Literal["roll_planar_die"] = "roll_planar_die"
+    sources: list[Id] | None = Field(default=None, max_length=60)
+
+
 class UnlockDoor(_Intent):
     """-- Rooms (wave 18G) -- the unlock special action (116.2m, 709.5e): pay a locked half's mana cost (1 left, 2 right)."""
 
@@ -1636,7 +1653,7 @@ class RulesLog(Base):
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
-     "miracle_reveal", "end_effect", "pay_deferred"}
+     "miracle_reveal", "end_effect", "pay_deferred", "roll_planar_die"}
 )
 SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
 
@@ -1688,6 +1705,7 @@ Action = Annotated[
     | ResetDeck
     | AddDummy
     | ResetDummy
+    | SetDummy
     | RestartGame
     | RunMacro
     | SetAppearance
@@ -1759,6 +1777,7 @@ Action = Annotated[
     | TurnFaceUp
     | UnlockDoor
     | EndEffect
+    | RollPlanarDie
     | PayDeferred
     | MiracleReveal
     | ActivateAbility

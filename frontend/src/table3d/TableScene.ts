@@ -51,6 +51,8 @@ import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
 import { TableMotion } from "./motion3d";
+import { PlanarTable } from "./planar3d";
+import { showPlanarText } from "../game/planechase";
 import { EndScene3D } from "./endScene3d";
 import { onEndScene } from "../game/motion/endScene";
 import { onTableEvents } from "../game/motion/tableEvents";
@@ -58,7 +60,7 @@ import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
   aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
-  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, wellPiece, wellSize, type PileZone, type Seat,
+  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, planarSpot, wellPiece, wellSize, type PileZone, type Seat,
 } from "./layout";
 import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
@@ -400,6 +402,8 @@ export class TableScene {
   private post: Post | null = null;
   /** Card flights, stand-ins, riffles, strikes and numbers (table3d/motion3d.ts), stepped from this loop. */
   private motion: TableMotion;
+  /** -- planechase -- the face-up plane lying in the aisle (table3d/planar3d.ts). */
+  private planar = new PlanarTable();
   /** The end-of-game table scene (table3d/endScene3d.ts): dim, camera ease, one pulse, a few motes; stepped from this loop. */
   private end: EndScene3D;
   /** -- arranged boards -- each mat in rows (table3d/arrange3d.ts), unless this device chose free placement; each battlefield card's spot. */
@@ -506,6 +510,8 @@ export class TableScene {
       heart: (p) => this.props.heartWorld(p),
     });
     this.unsubs.push(onTableEvents((events, next, prev) => this.motion.play(events, next, prev)), onMotionSkip(() => this.motion.finish()));
+    this.world.add(this.planar.group);
+    this.unsubs.push(onMotionSkip(() => this.planar.finish()));
     this.end = new EndScene3D(this.scene, () => tableSize(this.seatList));
     this.unsubs.push(onEndScene((cue) => this.end.play(cue)));
     this.applyFog();
@@ -620,6 +626,7 @@ export class TableScene {
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
       Object.fromEntries(view.players.map((p) => [p.id, p.color])), this.myRot());
     this.cursors.setTable(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, { color: p.color, name: p.name }])), performance.now());
+    this.planar.sync(view.planechase, planarSpot(this.seatList), this.myRot(), performance.now()); // -- planechase --
     this.syncCards();
   }
 
@@ -1022,6 +1029,7 @@ export class TableScene {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.motion.dispose();
+    this.planar.dispose();
     this.end.dispose();
     this.dice.dispose();
     this.cannon?.dispose();
@@ -2173,15 +2181,15 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string; planar?: boolean } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
-    const targets: THREE.Object3D[] = [...this.props.targets()];
+    const targets: THREE.Object3D[] = [...this.props.targets(), ...this.planar.targets()];
     for (const c of this.cards.values()) if (c.group.visible && !this.drag?.ids.includes(c.id)) targets.push(c.face);
     for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string; planar?: boolean };
     // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
     if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
@@ -2300,6 +2308,10 @@ export class TableScene {
       void send({ type: "commander_tax", commander: hit.tax, delta: 2 }); // cast once more: +2
       return;
     }
+    if (hit?.planar) {
+      showPlanarText(); // -- planechase -- the plane on the table: the plaque opens its full text
+      return;
+    }
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
       runSeatAction(hit.seatButton, 1, this.me, { x: e.clientX, y: e.clientY });
@@ -2403,7 +2415,7 @@ export class TableScene {
     const tip = taxOf ? `${taxSentence(taxOf.tax)}\n${taxOf.name}: click +2, right-click −2${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life${this.lifeLocked() ? "" : ": click − to lose 1 or + to gain 1, right-click for 5, or the wheel"}` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax || hit?.planar ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -2720,6 +2732,7 @@ export class TableScene {
     // table motion (motion3d.ts): flights, riffles, numbers; nothing to do while idle
     const moving = this.motion.active;
     if (moving) this.motion.update(started, reduced);
+    this.planar.update(started); // -- planechase -- a planeswalk or chaos playing (idle: nothing)
     for (const c of this.cards.values()) {
       if (c.fresh) {
         // new to the table with no flight to bring it: it is simply where it belongs (never glides in from the middle)

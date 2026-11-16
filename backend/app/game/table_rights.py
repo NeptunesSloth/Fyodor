@@ -92,7 +92,7 @@ OPEN = frozenset({
     "city_blessing", "add_mana", "clear_mana",
     # table settings and seats (host-only where it matters: games.HOST_ONLY_ACTIONS), your own look, your own ability object
     "configure", "set_day_night", "set_appearance", "set_table_playmat", "rename_player", "remove_player", "create_ability",
-    "add_dummy", "reset_dummy",  # -- target dummy -- (host-only: games.HOST_ONLY_ACTIONS)
+    "add_dummy", "reset_dummy", "set_dummy",  # -- target dummy -- (host-only: games.HOST_ONLY_ACTIONS)
 })
 
 

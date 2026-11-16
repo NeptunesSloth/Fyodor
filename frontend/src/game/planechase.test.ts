@@ -6,7 +6,7 @@ import { useGame } from "../state/gameStore";
 import type { CardData } from "../types/cards";
 import { PlanechasePlaque } from "./PlanechasePlaque";
 import type { GameView, PlanechaseView } from "../types/game";
-import { canRollPlanar, costText, planarRotation, planechaseCue, splitPlaneText } from "./planechase";
+import { canRollPlanar, costText, onShowPlanarText, planarRollAction, planarRotation, planechaseCue, showPlanarText, splitPlaneText } from "./planechase";
 
 const pc = (over: Partial<PlanechaseView> = {}): PlanechaseView => ({
   current: { printing_id: "a", name: "Llanowar", phenomenon: false },
@@ -50,16 +50,31 @@ describe("planechase", () => {
     expect(canRollPlanar(view(pc({ current: { printing_id: "x", name: "Chaotic Aether", phenomenon: true } })), "p1")).toBe(false);
     expect(canRollPlanar(view(null), "p1")).toBe(false);
   });
+
+  it("rolls through the rules engine (its cost charged) while automation runs, else the table's own roll (paid by hand)", () => {
+    expect(planarRollAction({ rules: { paused: false } } as unknown as GameView)).toEqual({ type: "roll_planar_die" });
+    expect(planarRollAction({ rules: { paused: true } } as unknown as GameView)).toEqual({ type: "planar_roll" });
+    expect(planarRollAction({ rules: null } as unknown as GameView)).toEqual({ type: "planar_roll" });
+  });
+
+  it("tells the plaque to open its text when the plane on the 3D table is clicked", () => {
+    let opened = 0;
+    const off = onShowPlanarText(() => void opened++);
+    showPlanarText();
+    off();
+    showPlanarText();
+    expect(opened).toBe(1);
+  });
 });
 
 describe("the planechase plaque", () => {
-  const render = (planechase: PlanechaseView | null, me = "p1", viewer = "p1") => {
-    const view = { viewer, planechase, turn: { active_player: "p1" }, players: [{ id: "p1", name: "Alice", color: "#d4a852" }, { id: "p2", name: "Bob", color: "#5fa8d3" }] };
+  const render = (planechase: PlanechaseView | null, me = "p1", viewer = "p1", more: { compact?: boolean; rules?: unknown } = {}) => {
+    const view = { viewer, planechase, rules: more.rules ?? null, turn: { active_player: "p1" }, players: [{ id: "p1", name: "Alice", color: "#d4a852" }, { id: "p2", name: "Bob", color: "#5fa8d3" }] };
     // (a static render reads the stores' initial state)
     (useGame.getInitialState() as { view: unknown }).view = view;
     useCardCache.getInitialState().cards.a = { id: "a", name: "Llanowar", type_line: "Plane — Dominaria", oracle_text: "x", faces: [] } as unknown as CardData;
     useCardCache.getInitialState().cards.x = { id: "x", name: "Chaotic Aether", type_line: "Phenomenon", oracle_text: "y", faces: [] } as unknown as CardData;
-    return renderToStaticMarkup(createElement(PlanechasePlaque, { me }));
+    return renderToStaticMarkup(createElement(PlanechasePlaque, { me, compact: more.compact }));
   };
 
   it("shows the face-up plane, landscape, and the die with its cost to the active player only", () => {
@@ -80,5 +95,18 @@ describe("the planechase plaque", () => {
     expect(html).toContain('data-testid="planar-done"');
     expect(html).not.toContain('data-testid="planar-roll"');
     expect(render(null)).toBe("");
+  });
+
+  it("on the 3D table folds to the name and die, with a Text button (the plane itself lies on the table)", () => {
+    const html = render(pc(), "p1", "p1", { compact: true });
+    expect(html).toContain("in-3d");
+    expect(html).toContain('data-testid="planar-read"');
+    expect(render(pc())).not.toContain('data-testid="planar-read"');
+  });
+
+  it("says the die's cost is charged from the pool while automation runs, and paid by hand otherwise", () => {
+    const rules = { paused: false, conceded: [], lost: {} };
+    expect(render(pc({ cost: 1 }), "p1", "p1", { rules })).toContain("paid from your mana pool (tap your mana when asked)");
+    expect(render(pc({ cost: 1 }))).toContain("(pay it from your pool)");
   });
 });

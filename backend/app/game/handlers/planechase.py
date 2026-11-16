@@ -9,7 +9,9 @@ one chaos face and four blank; the first roll in a turn costs {0}, each further 
 planeswalks (the face-up card goes to the bottom, the next is turned face up), and the planes visited are logged. What a plane or phenomenon
 *does* (its static and chaos abilities, a phenomenon's encounter trigger) is applied by the players by hand: the tables show the
 card and its text, and a phenomenon waits face up until a player planeswalks away from it ("Done — planeswalk"). The die's mana
-cost is shown, not charged: players pay it from their pool as they would any manual cost.
+cost: with rules automation running the plaque rolls through the rules engine (``roll_planar_die``, app/rules/planar_die.py), which
+charges it from the roller's mana pool (or opens the "tap your mana" prompt) and then applies this ``planar_roll`` as one of its
+recorded steps; on a manual table it is shown, and players pay it from their pool by hand.
 
 The server decides every outcome and records it on the action (``resolve``): the dealt deck's order on ``planar_start`` (or in the
 game's base state), the die's face on ``planar_roll``; planeswalking itself is deterministic. Replays, saves and undo keep it.

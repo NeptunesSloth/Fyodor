@@ -54,6 +54,7 @@ DEFAULT_RESOURCES = ("poison", "energy", "experience")
 BATTLEFIELD_W = 1000.0
 BATTLEFIELD_H = 600.0
 BattlefieldRow = Literal["land", "creature", "other"]  # -- saved rows -- (app/game/placement.py ROWS)
+DummyBlocks = Literal["never", "chump", "all"]  # -- target dummy -- how it blocks with automation on (app/game/dummy.py)
 
 
 def zone_key(player_id: str | None, zone: str) -> str:
@@ -328,6 +329,7 @@ class PlayerState(BaseModel):
     # -- target dummy -- a seat nobody sits in (Sandbox: "Add a target dummy"): no deck, never takes a turn, and the server answers
     # its priority and decisions at once (app/game/dummy.py)
     dummy: bool = False
+    dummy_blocks: DummyBlocks = "never"  # (the dummy's only: never / chump the biggest attacker / block with everything it can)
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
     playmat: Playmat | None = None

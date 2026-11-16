@@ -75,6 +75,7 @@ from app.rules import (
     permissions,
     phasing,  # -- phasing (wave 13D) --
     piles_legacy,
+    planar_die,  # -- planechase -- 901.9
     player_control,  # -- controlling another player (wave 18H) --
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
@@ -115,7 +116,8 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred",
+                            "roll_planar_die"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -1931,6 +1933,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "unlock_door": rooms.unlock_action,
     "pay_deferred": deferred_payment82.pay,
     "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
+    "roll_planar_die": planar_die.roll,  # -- planechase -- 901.9: the planar die, its {N} paid from the pool
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,

@@ -10,7 +10,8 @@ import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
-import type { AutomationLevel, MulliganPolicy, TableFormat } from "../types/game";
+import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
+import { DUMMY_BLOCKS } from "../game/targetDummy";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
@@ -193,6 +194,7 @@ interface LastNight {
   name: string; format: TableFormat; life: string; lobby: boolean; privacy: "private" | "commander_only" | "public"; mulligan: string;
   policy: MulliganPolicy | null; helper: "off" | "simple"; automation: AutomationLevel; hostDeck: string | null; players: CreatePlayer[];
   dummy?: boolean; // -- target dummy -- (Sandbox)
+  dummyBlocks?: DummyBlocks;
 }
 const lastNight = (): LastNight | null => {
   try { return JSON.parse(localStorage.getItem(LAST_NIGHT) ?? "null") as LastNight | null; } catch { return null; }
@@ -230,6 +232,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [hostDeck, setHostDeck] = useState<string | null>(preselect);
   const [pickingHost, setPickingHost] = useState(false);
   const [dummy, setDummy] = useState(false); // -- target dummy -- Sandbox: an opponent with no deck to aim damage at
+  const [dummyBlocks, setDummyBlocks] = useState<DummyBlocks>("never"); // (how it blocks with automation on)
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
@@ -251,7 +254,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   }, [players, picking]);
 
   const remember = () => {
-    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummy };
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummy, dummyBlocks };
     try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
   };
   const [last] = useState(lastNight);
@@ -262,6 +265,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
     setHostDeck(known(last.hostDeck));
     setDummy(!!last.dummy);
+    setDummyBlocks(last.dummyBlocks ?? "never");
     if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
     toast("Set up as last time");
   };
@@ -289,7 +293,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         });
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
-        if (dummy) await tableAction(res.game.id, { type: "add_dummy" }).catch(toastError); // (seated before the rules start)
+        if (dummy) await tableAction(res.game.id, { type: "add_dummy", blocks: dummyBlocks }).catch(toastError); // (seated before the rules start)
         if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
         remember();
         navigate(`/game/${res.game.id}`);
@@ -489,9 +493,17 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               </label>
             )}
             {sandbox && (
-              <label className="pg-rule pg-rule-check" title="An opponent with no deck and the starting life: it never takes a turn or blocks; Solo tools resets it">
+              <label className="pg-rule pg-rule-check" title="An opponent with no deck and the starting life: it never takes a turn; Solo tools resets it">
                 <span>Target dummy</span>
                 <span><input type="checkbox" checked={dummy} onChange={(e) => setDummy(e.target.checked)} data-testid="target-dummy" /> Add one</span>
+              </label>
+            )}
+            {sandbox && dummy && (
+              <label className="pg-rule" title="With automation on, how the dummy blocks your attacks (Solo tools changes it mid-game)">
+                <span>Dummy blocks</span>
+                <select data-testid="dummy-blocks" value={dummyBlocks} onChange={(e) => setDummyBlocks(e.target.value as DummyBlocks)}>
+                  {DUMMY_BLOCKS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
               </label>
             )}
             {!useLobby && !sandbox && (

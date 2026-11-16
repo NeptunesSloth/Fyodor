@@ -27,6 +27,7 @@ export function outReason(view: GameView | null | undefined, me: string | null |
 const RULES_INTENTS = [
   "play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority", "choose", "concede", "set_stops",
   "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door", "miracle_reveal", "end_effect", "pay_deferred",
+  "roll_planar_die", // -- planechase -- (the engine refuses it from a player who is out: not the active player)
 ];
 const OUT_MAY = new Set([
   ...RULES_INTENTS, "chat", "roll", "coin", "rename_player", "set_appearance", "end_view", "response_pass", "response_auto", "configure",

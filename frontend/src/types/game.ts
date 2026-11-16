@@ -191,6 +191,8 @@ export interface PlayerView {
   left?: boolean;
   /** -- target dummy -- Sandbox's practice opponent: no deck, never takes a turn, the server answers for it. */
   dummy?: boolean;
+  /** -- target dummy -- how it blocks with automation on (the host sets it: Solo tools, Dummy blocks). */
+  dummy_blocks?: DummyBlocks;
   sleeve?: string | null;
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
@@ -623,6 +625,9 @@ export interface CommanderRef {
 }
 
 export type Action = { type: string } & Record<string, unknown>;
+
+/** -- target dummy -- how it blocks with automation on: never, chump the biggest attacker, or block with everything it can. */
+export type DummyBlocks = "never" | "chump" | "all";
 
 export const zoneKey = (player: string | null, zone: ZoneName): string => (zone === "stack" ? "stack" : `${player}:${zone}`);
 
