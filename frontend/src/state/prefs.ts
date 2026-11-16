@@ -46,6 +46,8 @@ export interface Prefs {
   handSort: HandSort;
   /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
   boardLayout: "arranged" | "free";
+  /** -- combat filter -- dim what doesn't matter to combat, on this screen (game/combatFilter.ts): off, creatures only, can attack / block. */
+  combatFilter: "off" | "creatures" | "combat";
   /** The turn dial (bottom right): full, or folded to its step, status and pass button so it covers less of the table. */
   turnDial: "full" | "folded";
   /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
@@ -96,6 +98,7 @@ export const DEFAULT_PREFS: Prefs = {
   choiceWheel: true,
   handSort: "drawn",
   boardLayout: "arranged",
+  combatFilter: "off",
   turnDial: "full",
   autoCenter: "off",
   showTokenSources: false,

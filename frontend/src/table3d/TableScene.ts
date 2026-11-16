@@ -67,6 +67,7 @@ import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, typ
 import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { freeCovers } from "./covers";
+import { litCards } from "../game/combatFilter";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
@@ -445,6 +446,7 @@ export class TableScene {
     // -- arranged boards -- the board layout setting, and my order for a board (dragged along its row, here or on the 2D table)
     this.arranged = usePrefs.getState().boardLayout !== "free";
     this.unsubs.push(usePrefs.subscribe((s, prev) => {
+      if (s.combatFilter !== prev.combatFilter && s.boardLayout === prev.boardLayout) return this.syncCards(); // -- combat filter -- (re-dim once)
       if (s.boardLayout === prev.boardLayout) return;
       this.arranged = s.boardLayout !== "free";
       this.syncCards();
@@ -1481,6 +1483,8 @@ export class TableScene {
     const selection = new Set(store.selection);
     this.selectedIds = selection;
     this.beams = targetBeams(view, this.me);
+    // -- combat filter -- (game/combatFilter.ts) the cards it leaves lit, worked out here once per sync: dimming is a material swap, no per-frame cost
+    const lit = litCards(view, this.me, usePrefs.getState().combatFilter);
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -1534,7 +1538,7 @@ export class TableScene {
         const under = covers ? covers.get(id) : this.placed.get(id)?.cover;
         c.cover = under && !lifted(id) && !lifted(under) ? under : undefined;
         const face = this.faceMaterial(card, c.faceKey);
-        const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
+        const want = (tb && !tb.cands.has(id) && id !== tb.source) || (lit && !lit.has(id) && !selection.has(id)) ? this.dimmed(face) : face;
         if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
         // a stack member under its top card wears no badges (the top card carries the ×N and speaks for the stack)

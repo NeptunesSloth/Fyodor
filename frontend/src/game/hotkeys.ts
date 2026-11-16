@@ -32,7 +32,8 @@ export type HotkeyId =
   | "ping"
   | "hand_sort"
   | "dice"
-  | "token_math";
+  | "token_math"
+  | "combat_filter";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -72,6 +73,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
   { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
   { id: "token_math", keys: ["shift+t"], label: "Token math: Scute Swarm, landfall, copies and token doublers worked out (open / close)" },
+  { id: "combat_filter", keys: ["b"], label: "Combat filter: all permanents → creatures only → can attack / block (dims the rest)" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

@@ -12,6 +12,8 @@ import { usePrefs } from "../state/prefs";
 import { isVisible } from "../types/game";
 import { applyOrder, arrangeBoard, arrangeCard, boardOrder, type BoardLayout } from "./arrange";
 import { publishBoard, useBoardOrderTick } from "./arrangeDrop";
+import { hiddenUnderPiles, liftedIds } from "./boardCovers";
+import { useLitCards } from "./combatFilter";
 import "./board.css";
 
 interface Props {
@@ -37,6 +39,8 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   const pending = useGame((s) => s.pendingPositions);
   const cards = useGame((s) => s.view?.cards);
   const over = useDrag((s) => s.drag?.overZone === key);
+  const dragging = useDrag((s) => s.drag?.ids);
+  const selection = useGame((s) => s.selection);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
   useEffect(() => {
@@ -76,6 +80,14 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
     [sig, size.w, size.h, mirrored, mine, keepOut]);
   useEffect(() => publishBoard(key, layout, size.w, size.h, mirrored), [key, layout, size.w, size.h, mirrored]);
   const piles = useMemo(() => (view && !arranged ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData, arranged]);
+  // -- token piles -- a card wholly under an identical one isn't rendered (game/boardCovers.ts); the ×N on the top one counts it
+  const hidden = useMemo(() => {
+    if (!view) return new Set<string>();
+    const lifted = liftedIds(view, ids, me, { selection, pending, dragging });
+    return hiddenUnderPiles(view, ids, lifted, pending, layout);
+  }, [view, ids, me, selection, pending, dragging, layout]);
+  // -- combat filter -- what the filter dims (game/combatFilter.ts); null: nothing
+  const lit = useLitCards(me);
   const cardW = layout ? layout.w : battlefieldCardWidth(size.w, size.h, true);
   const cardH = layout ? layout.h : cardW * CARD_RATIO;
 
@@ -136,19 +148,19 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       {layout && <MatBands layout={layout} />}
       {layout && ids.map((id) => {
         const at = layout.place.get(id);
-        if (!at) return null;
-        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} tile />;
+        if (!at || hidden.has(id)) return null;
+        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} dim={!!lit && !lit.has(id)} tile />;
       })}
       {!layout && ids.map((id, i) => {
         const c = cards?.[id];
-        if (!c) return null;
+        if (!c || hidden.has(id)) return null;
         const [vx, vy] = pending[id] ?? [c.x ?? 0, c.y ?? 0];
         const [rawLeft, raw] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
         // a wide, short mat makes cards taller than the room below their row: keep them on the felt (display only)
         const top = size.h > cardH + 8 ? Math.max(4, Math.min(size.h - cardH - 4, raw)) : raw;
         // small mats draw cards larger than their share (readable): the right-most stay on the felt too
         const left = Math.max(0, Math.min(size.w - cardW - 2, rawLeft));
-        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} />;
+        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} dim={!!lit && !lit.has(id)} />;
       })}
       {marquee && (
         <div

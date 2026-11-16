@@ -132,6 +132,9 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .table-card.selected { box-shadow: 0 0 0 2px var(--accent-2), 0 0 14px rgba(240, 195, 109, 0.55); }
 .table-card.attacking { box-shadow: 0 0 0 2px #e0645c, 0 0 16px rgba(224, 100, 92, 0.7); }
 .table-card.blocking { box-shadow: 0 0 0 2px #6aa7e8, 0 0 14px rgba(106, 167, 232, 0.6); }
+/* -- combat filter -- (game/combatFilter.ts) dimmed, never hidden or locked: hover, selection and every click still work */
+.table-card.combat-dim { filter: brightness(0.38) saturate(0.55); }
+.table-card.combat-dim:hover, .table-card.combat-dim.selected { filter: none; }
 .card-marks { position: absolute; top: 4%; right: 4%; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; pointer-events: none; }
 .mark {
   font-size: 9.5px; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: rgba(10, 10, 12, 0.82);

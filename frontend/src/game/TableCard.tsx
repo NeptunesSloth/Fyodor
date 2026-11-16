@@ -28,10 +28,12 @@ interface Props {
   pile?: number;
   /** On the arranged board: drawn as an art tile (game/BoardTile.tsx), dragged along its row to reorder. */
   tile?: boolean;
+  /** The combat filter dims it (game/combatFilter.ts): drawn darker, still fully usable. */
+  dim?: boolean;
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false }: Props) {
   const card = useCardView(id);
   const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
@@ -64,7 +66,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
       data-tile={tile ? "" : undefined}

@@ -17,6 +17,7 @@ import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
 import { toast } from "../components/Toasts";
+import { cycleCombatFilter } from "./combatFilter";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { outKeyBlocked } from "./outOfGame";
@@ -255,6 +256,7 @@ function useShortcuts() {
           prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" });
           break;
         }
+        case "combat_filter": cycleCombatFilter(); break;
         case "dice":
           e.preventDefault();
           s.openDialog(s.dialog === "dice" ? null : "dice");

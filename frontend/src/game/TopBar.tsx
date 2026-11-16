@@ -16,6 +16,9 @@ import { resolveRenderer } from "../table3d/renderer";
 import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
 import { AutomationHud } from "./rules/RulesHud";
 import { BoardPressure } from "./TokenMathDialog";
+import { COMBAT_FILTERS, cycleCombatFilter, type CombatFilter } from "./combatFilter";
+import { keyLabel } from "./hotkeys";
+import { Icon } from "../components/Icon";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -23,6 +26,8 @@ export function TopBar() {
   const actingAs = useGame((s) => s.actingAs);
   const { undo, redo, openDialog, setViewer, setActingAs } = useGame.getState();
   const isHost = useIsHost();
+  const filter = usePrefs((s) => s.combatFilter);
+  const keymap = usePrefs((s) => s.keymap);
   if (!view) return null;
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
@@ -53,6 +58,7 @@ export function TopBar() {
           {dayNight === "day" ? "☀ Day" : "☾ Night"}
         </button>
       )}
+      <CombatFilterButton filter={filter} hotkey={keyLabel("combat_filter", keymap)} />
       <span className="tt-split" role="group" aria-label="Undo and redo">
         <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined} data-testid="undo"
           onClick={() => void undo()} title={undoWhy ?? (mode.kind === "ask" ? `${mode.why} Ask the table (Ctrl+Z)` : `Undo (Ctrl+Z)${note}`)}>
@@ -100,6 +106,25 @@ export function TopBar() {
   );
 }
 
+/** -- combat filter -- (game/combatFilter.ts) its mode in words beside a mark, so it never reads by color alone; a click cycles it. */
+function CombatFilterButton({ filter, hotkey }: { filter: CombatFilter; hotkey: string | null }) {
+  const f = COMBAT_FILTERS.find((x) => x.id === filter) ?? COMBAT_FILTERS[0]!;
+  const next = COMBAT_FILTERS[(COMBAT_FILTERS.indexOf(f) + 1) % COMBAT_FILTERS.length]!;
+  return (
+    <button className={`tt-btn ghost combat-filter ${filter}`} data-testid="combat-filter" aria-pressed={filter !== "off"} onClick={cycleCombatFilter}
+      aria-label={`Combat filter: ${f.label}. Next: ${next.label}`} title={`Combat filter: ${f.label}. Click for: ${next.label}${hotkey ? ` (${hotkey})` : ""}`}>
+      <Icon name="swords" size={13} /> {f.short}
+    </button>
+  );
+}
+
+function combatFilterItem(filter: CombatFilter): MenuItem {
+  return {
+    label: "Combat filter",
+    submenu: COMBAT_FILTERS.map((f) => ({ label: `${f.id === filter ? "✓ " : ""}${f.label}`, onClick: () => usePrefs.getState().set({ combatFilter: f.id }) })),
+  };
+}
+
 /** The last few actions, newest first; picking one undoes everything back to and including it. */
 async function recentMenu(e: React.MouseEvent) {
   const at = { clientX: e.clientX, clientY: e.clientY };
@@ -138,6 +163,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
     soloMenu(isHost),
     viewsMenu(),
     boardLayoutItem(),
+    combatFilterItem(prefs.combatFilter),
     { label: "Tidy my lands", hint: "pile identical lands by your edge", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),
