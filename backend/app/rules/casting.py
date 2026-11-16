@@ -5929,6 +5929,13 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "hand"):
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        from app.rules import (
+            planar_more2,  # -- planechase more 2 (wave F1) -- Talon Gates' special action (116.2, ruling 2012-06-01): no stack
+        )
+
+        if planar_more2.talon_ability(ability) and not plan.manual(card):
+            planar_more2.talon(plan, card, ch, a)
+            return
         if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
             # (a Spirit Guide's is a mana ability, 605.1a: Pithing Needle and split second leave it alone, 702.61b)
             _activation_limit(plan, card, ch, mana=ability is not None and ability.kind == "mana")

@@ -46,7 +46,7 @@ def phase_out_cards(plan: Plan, ctx: Context, cards: list[str]) -> None:
 def untap_step(plan: Plan, player: str) -> None:
     """702.26a: before ``player`` untaps, their phased-in permanents with phasing phase out and, simultaneously, the
     permanents that phased out under their control phase in (the ones phased out indirectly come along with their host)."""
-    from app.rules import phase_lifetimes43, wave110k_cards
+    from app.rules import phase_lifetimes43, planar_more3, wave110k_cards
 
     state = plan.state
     with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
@@ -58,7 +58,8 @@ def untap_step(plan: Plan, player: str) -> None:
     barred = bool(cast_limits._statics(state, plan.info, "cant_phase_in110o"))
     back = [c for c in state.zones.get(zone_key(player, "phased"), [])
             if not state.cards[c].phased_indirect and not phase_lifetimes43.held(plan, c) and not barred
-            and not wave110k_cards.cant_phase_in(plan, c)]  # -- (wave 110K) -- Teferi, Timeless Voyager: "they can't phase in"
+            and not wave110k_cards.cant_phase_in(plan, c)
+            and not planar_more3.cant_phase_in(plan, c)]  # -- planechase more 3 (wave F2) -- The Doctor's Childhood Barn, while it is face up  # -- (wave 110K) -- Teferi, Timeless Voyager: "they can't phase in"
     if back:
         from app.game.rules_state import emit
 

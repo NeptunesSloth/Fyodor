@@ -1165,10 +1165,14 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     # controller's hand. A control change can enable or disable rebound.
     hand_player = (record.cast_from_player or record.controller) if record is not None else card.owner if was_rebound else None
     from_hand = record.cast_from == "hand" if record is not None else was_rebound
-    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Cast Through Time
+    from app.rules import (  # -- static permanents (wave 100D) -- Cast Through Time; (wave F1) Trail of the Mage-Rings
+        planar_more2,
+        static_perm100d,
+    )
 
     if not countered and from_hand and hand_player == controller and ("rebound" in plan.ch(card).keywords or (
-            plan.ch(card).is_instant_or_sorcery and static_perm100d.yours(plan, static_perm100d.REBOUND, controller))):
+            plan.ch(card).is_instant_or_sorcery and (static_perm100d.yours(plan, static_perm100d.REBOUND, controller)
+                                                     or planar_more2.rebound_all(plan)))):  # (wave F1: Trail of the Mage-Rings)
         from app.rules import (
             wave110b_cards,  # -- rebound vs hand (wave 110B) -- 616.1: its controller picks between the two replacements
         )

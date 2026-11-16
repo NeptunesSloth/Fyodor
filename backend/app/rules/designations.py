@@ -1179,7 +1179,11 @@ def storied_permanents(plan: Plan) -> bool:
 def ascend_permanent_due(plan: Plan, pid: str) -> bool:
     """-- most-played cards II (wave 45A) -- 702.131b: ten permanents and a permanent with ascend: the blessing is theirs at once ("any time"), also in the middle of a
     resolution before the state-based actions are checked (Ocelot Pride's ruling 2024-06-07: its Cat as the tenth permanent gives it before the ability checks)."""
-    return city_blessing_due(plan, pid) and any(
+    from app.rules import (
+        planar_more2,  # -- planechase more 2 (wave F1) -- a face-up plane with ascend (The Golden City of Orazca, ruling 2023-04-14)
+    )
+
+    return city_blessing_due(plan, pid) and (any(
         c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
             ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
-        for c in plan.state.cards.values())
+        for c in plan.state.cards.values()) or planar_more2.ascend_face(plan, pid))

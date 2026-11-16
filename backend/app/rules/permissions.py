@@ -1440,6 +1440,8 @@ def _card_zone(state: GameState, player: str, card: CardInstance) -> str | None:
         return "hand"
     if card.zone.endswith(":exile") and card.owner == player:
         return "exile"
+    if card.zone == zone_key(player, "foretell"):  # -- planechase more 3 (wave F2) -- a foretold card (exiled face down, 702.143a): Singing Towers' permission
+        return "foretell"
     if card.zone == zone_key(player, "library"):
         library = state.zones.get(card.zone) or []
         return "library_top" if library and library[0] == card.id else None
@@ -1590,6 +1592,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
         if d.get('zone_owner') == 'any' and d['zone'] == 'graveyard' and card.zone.endswith(':graveyard'):
             permission_where = 'graveyard'
+        if d.get('any_library_f1') and card.zone.endswith(':library') and (state.zones.get(card.zone) or [''])[0] == card.id:
+            permission_where = 'library_top'  # -- planechase more 2 (wave F1) -- Windriddle Palaces: the top card of any player's library
         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
             continue
         if d.get('foreign') and card.owner == player:

@@ -14,10 +14,8 @@
 
 ## Statics (wave A: app/rules/planar_statics.py)
 
-- Talon Gates — "Any time you could cast a sorcery, you may exile a nonland card from your hand with X time counters on it …" — a suspend-like special action granting suspend (702.62); one card (wave A).
 - The Command Zone — "If an ability of your commander would trigger during your turn, that ability triggers an additional time." — commander-only, turn-limited trigger doubling: unsettled with trigger_multipliers' rulings (wave A).
 - Deceptive Divination — "Change the text of each sorcery spell and sorcery card not on the stack …" — text-changing effects (612) have no grammar (wave A).
-- Windriddle Palaces — "You may play lands and cast spells from the top of any player's library." — a play permission over other players' libraries; one card (its reveal line is read, wave A).
 - Stroopwafel Cafe (punk) — statics: "may play cards from the top of their library" / "The top card of each player's library is a Food artifact" — characteristics given to a hidden library card; no grammar or settled meaning (wave A).
 - Finally! Left-Handed Magic Cards (punk) — statics: base power/toughness equal to printed toughness/power — a swap from printed values, no layer-7b grammar for it; one card (wave A).
 - Imaginary Friends (Plane) (punk) — static: "cast spells as though they were other cards legal in this game's format" — refers to cards outside the game (wave A).
@@ -40,7 +38,6 @@
 - High and Dry Black Market (punk) — "chooses up to 5 ♦ worth of modes" — "♦ worth" has no rules definition (wave C).
 - Black Lotus Lounge (punk) — "create a Black Lotus artifact token" — no such predefined token (111.10) and no definition on the card (wave C).
 - Ghirapur Grand Prix (punk) — "all players start their engines!" / "the highest speed among players" — start your engines! is a keyword of a permanent (702.179), not an instruction; no rules meaning for players starting it (wave C).
-- Furnace Layer (opca) — "select target player at random" — a target chosen at random (601.2c / 115) with no settled engine procedure (who chooses, illegal targets re-rolled?); refused until a ruling settles it (wave C).
 
 ## Wave E1 (app/rules/planar_more.py)
 
@@ -63,9 +60,6 @@ Li'l Giri Saves the Day; chaos lines of Glimmervoid Basin, Grand Ossuary, The Fo
 ability). Judgement calls: a blank roll that Chaotic Aether makes a chaos roll is no blank roll for Pompeii (Chaotic Aether's text: it "is a
 {CHAOS} roll"); Hotel of Fears' "sacrifice another creature" is another than the target creature (the plane is no creature).
 
-- Grand Ossuary (opca) — "its controller distributes … among any number of target creatures they control" — who chooses the targets and the
-  division (the ability's controller, the planar controller, 601.2c-d / 603.3d, or the dead creature's controller, as the wording says) is
-  not settled offline (no ruling at hand); refused until a ruling settles it (wave E2).
 - Event Horizon (punk) — its chaos modes: the Oracle splitter already keeps "choose one —" and its bullets as one modal ability
   (modal_abilities); the third mode "You may return …" is refused because modal abilities don't read a "you may" mode (wave E2).
 - Bicycle Rack (punk) — "Chaos: … have "This creature gets +1/+1 for each card you've discarded this turn."" — the matcher reads "Chaos:"
@@ -78,4 +72,44 @@ phase in while face up), The Moonbase (per-opponent graveyard targets put face d
 Glimmervoid Basin line 1 (copy for each other legal target of any kind), The Matrix of Time line 3 (cast/play "from among cards exiled with ~"
 event), Singing Towers of Darillium chaos line, Two Streams Facility (depends on the green anchor / red waterfall choice record), Deceptive
 Divination chaos line ("two target players each search"), the graveyard/spell keyword grants of the "other" family (Grixis unearth, Otaria
-flashback, Strixhaven demonstrate, Trail of the Mage-Rings rebound, The Caldaia blitz).
+flashback, Strixhaven demonstrate, Trail of the Mage-Rings rebound, The Caldaia blitz). (Kharasha Foothills, Glen Elendra, Glimmervoid Basin line 1
+and those keyword grants: done in wave F1, below.)
+
+## Wave F1 (app/rules/planar_more2.py)
+
+Promoted (each with a test in tests/test_rules_planechase_more2.py): Grixis, Otaria, Strixhaven, Trail of the Mage-Rings, The Caldaia, The Golden City
+of Orazca (ascend on a plane: a static, ruling 2023-04-14), Ghirapur, New New York, Talon Gates (the special action, ruling 2012-06-01), Windriddle
+Palaces, Glimmervoid Basin, Glen Elendra, Furnace Layer, Grand Ossuary, Kharasha Foothills. Lifted refusals: Talon Gates and Windriddle Palaces (wave A:
+"one card" only — now one-card handling), Furnace Layer (wave C: settled by the Scab-Clan Giant ruling 2013-04-15 — the table picks among the legal
+targets as the ability goes on the stack — and Furnace Layer's 2012-06-01 ruling — you can be selected), Grand Ossuary (wave E2: settled by its
+2012-06-01 ruling — "You choose the number of target creatures and declare how you are distributing the counters as you put the first ability on the
+stack": the ability's controller, 601.2c-d; the creatures are the dead creature's controller's).
+
+## Wave F2 (app/rules/planar_more3.py; tests/test_rules_planechase_more3.py)
+
+Promoted: Caught in a Parallel Universe, Human—Time Lord Meta-Crisis, Morphic Tide (Warp World's procedure with planeswalkers, ruling
+2012-06-01), The Moonbase, The Doctor's Childhood Barn (ruling 2023-10-13: no phase-in while it is face up; the planeswalk's delayed trigger),
+Ood Sphere (convoke for every player's noncreature spells; Red-Eye: ruling 2023-10-13 — not tapped by effects or for costs), Singing Towers of
+Darillium (chaos), Two Streams Facility, The Matrix of Time (line 3: the cast / land play of a card linked to the plane, 607.2a), Math is for
+Blockers (Plane), sAnS mERcY (its case is flavor; plane types now read in any case). Lifted refusal: Two Streams Facility (wave A) — the
+choice is defined by its first ability (each player's last choice, recorded for the plane object).
+
+Refused (exact reasons):
+- Finally! Left-Handed Magic Cards (pssc) — "base power is equal to its printed toughness" / "base toughness is equal to its printed power" —
+  undefined for most of the creatures it applies to: a token has no printed values (111.4), a noncreature permanent that became a creature
+  (an animated land, a crewed Vehicle's own P/T aside) has none, a face-down creature's printed values are hidden (708.2, 708.10), and a printed
+  "*" is a characteristic-defining ability, not a number (604.3); and "draw a card from the bottom of your library" has no rule (121.1: a draw
+  takes the top card; no ruling).
+- Imaginary Friends (Plane) (pssc) — "Players may cast spells as though they were other cards legal in this game's format with the same type
+  and mana cost" — no rule says what a spell cast "as though it were another card" is (601.3 lets a permission change when / from where a
+  spell is cast, not what object it is), and "cards legal in this game's format" is the whole card pool outside the game; the chaos line casts
+  "only as another card following this plane's first ability", so it falls with it.
+- No Way Out (punk) — "No Way Out enters with three dread counters." — a plane never enters (it is turned face up in the command zone,
+  701.31b / 901; "enters" is the battlefield's, 603.6a / 614.1c), so by the rules it never has dread counters and "You can never leave"
+  never applies; the intended reading (counters as it is turned face up) is not in the text and no ruling exists ("Whenever Chaos ensures"
+  is a playtest typo too).
+
+Not done in wave F2 (defined, open): Deceptive Divination (612.1-2 define it, but the engine's text changes reach only the battlefield and the
+stack, and a card-type word changed in the type line of cards in hands, libraries, graveyards and exile — "each sorcery … card not on the stack"
+— has no layer-3 support there), Happy Yargle Day! ("It becomes a copy of Yargle, Glutton of Urborg" — a copy of a card outside the game
+(Garth One-Eye's copy recipe exists only for "create a copy"), and the chaos line's random choice among five named cards, copied and cast).

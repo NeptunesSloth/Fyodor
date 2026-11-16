@@ -48,12 +48,12 @@ VISITED_KEPT = 100  # the planes-visited history a table keeps
 
 
 def is_phenomenon(type_line: str | None) -> bool:
-    return (type_line or "").startswith("Phenomenon")
+    return (type_line or "").lower().startswith("phenomenon")
 
 
 def is_planar(type_line: str | None) -> bool:
-    t = type_line or ""
-    return t.startswith("Plane ") or t == "Plane" or is_phenomenon(t)
+    t = (type_line or "").lower()  # (wave F2: case-insensitive — sAnS mERcY's type line is "pLAnE — sECreT LaIR")
+    return t.startswith("plane ") or t == "plane" or is_phenomenon(t)
 
 
 def face_of(n: int) -> Literal["planeswalker", "chaos", "blank"]:

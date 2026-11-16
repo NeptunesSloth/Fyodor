@@ -2432,6 +2432,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == "streams_f2":  # -- planechase more 3 (wave F2) -- Two Streams Facility: controlled by a player who last chose red waterfall
+            from app.rules import planar_more3
+
+            if not planar_more3.selector_extra(plan, extra, card, you):
+                return False
+            continue
         if extra.startswith("not_controlled_by110a:"):  # -- wave 110A -- "creatures your opponents control" read for a caster other than the rule's holder (Tarrasque lure)
             if card.controller == extra.partition(":")[2]:
                 return False

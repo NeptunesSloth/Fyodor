@@ -787,7 +787,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
     # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
     if is_planar:  # -- planechase automation -- a keyword, mana or scripted ability of the face-up plane: no collector reads it there yet
-        out = [Feature(f.id, f.label, f.supported and not f.id.startswith(("keyword:", "mana:", "script:"))) for f in out]
+        from app.rules import (
+            planar_more2,  # -- planechase more 2 (wave F1) -- a plane's keyword a collector reads (ascend: designations.ascend_permanent_due)
+        )
+
+        out = [Feature(f.id, f.label, f.supported and (not f.id.startswith(("keyword:", "mana:", "script:")) or planar_more2.keyword_ok(f.id))) for f in out]
     return out
 
 

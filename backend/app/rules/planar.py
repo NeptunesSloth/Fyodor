@@ -123,6 +123,16 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     from app.rules import planar_events  # -- planechase events (wave E2) -- the planar die's roll triggers
 
     planar_events.on_events(plan, events)
+    from app.rules import (
+        planar_more2,  # -- planechase more 2 (wave F1) -- Glen Elendra: this combat's combat damage to players
+    )
+
+    planar_more2.on_events(plan, events)
+    from app.rules import (
+        planar_more3,  # -- planechase more 3 (wave F2) -- The Doctor's Childhood Barn: a planeswalk's delayed triggers
+    )
+
+    planar_more3.on_events(plan, events)
     for e in events:
         if e.kind != "planar" or e.manual:
             continue
@@ -215,6 +225,13 @@ STATIC_KINDS = frozenset({"cost_modifier",
 from app.rules import planar_more as _planar_more  # noqa: E402  -- planechase more (wave E1) -- its static kinds (each read by its collector)
 
 STATIC_KINDS = STATIC_KINDS | _planar_more.STATIC_KINDS
+from app.rules import planar_more2 as _planar_more2  # noqa: E402  -- planechase more 2 (wave F1) -- its static kinds
+
+STATIC_KINDS = STATIC_KINDS | _planar_more2.STATIC_KINDS
+from app.rules import planar_more3 as _planar_more3  # noqa: E402  -- planechase more 3 (wave F2) -- its static kinds
+
+STATIC_KINDS = STATIC_KINDS | _planar_more3.STATIC_KINDS
+TRIGGER_KINDS = TRIGGER_KINDS | _planar_more3.TRIGGER_KINDS
 
 
 def _trigger_ok(trigger: str) -> bool:

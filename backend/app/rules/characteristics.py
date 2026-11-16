@@ -132,7 +132,8 @@ def parse_type_line(type_line: str) -> tuple[frozenset[str], frozenset[str], fro
     left, _, right = (type_line or "").partition("—")
     words = left.replace("Token", " ").split()
     supertypes = frozenset(w for w in words if w in SUPERTYPES)
-    types = frozenset(w for w in words if w in CARD_TYPES)
+    types = frozenset(w if w in CARD_TYPES else w.capitalize() for w in words
+                      if w in CARD_TYPES or w.lower() in ("plane", "phenomenon"))  # (wave F2: "pLAnE — sECreT LaIR", sAnS mERcY: a Plane in any case)
     # CR 205.3m lists Time Lord as one creature type, including on mixed lines
     # such as "Time Lord Doctor". All other printed subtypes are single words.
     subtypes = frozenset(re.findall(r"Time Lord|\S+", right)) if right else frozenset()

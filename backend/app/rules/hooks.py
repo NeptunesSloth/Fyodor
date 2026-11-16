@@ -321,6 +321,8 @@ DEFINE: tuple[Chain, ...] = (
         "planar_chaos.definition",  # -- planechase chaos (wave B) -- chaos abilities read by exact wording; planes only
         "planar_statics.definition",  # -- planechase statics (wave A) -- a plane's statics read by exact wording; planes only
         "planar_more.definition",  # -- planechase more (wave E1) -- a plane's leftover statics by exact wording; planes only
+        "planar_more2.definition",  # -- planechase more 2 (wave F1) -- a plane's remaining grants and triggers by exact wording; planes only
+        "planar_more3.definition",  # -- planechase more 3 (wave F2) -- a few planes' and phenomena's remaining lines by exact wording; planes only
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -1284,6 +1286,10 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "planar_walk.PRIMITIVES",  # -- planechase walk (wave C) -- chaos ensues (311.7), Reality Shaping, The Pit
         "planar_walk.RESUME",  # -- planechase walk (wave C) --
         "planar_more.PRIMITIVES",  # -- planechase more (wave E1) -- Unyaro: phase out until a player planeswalks
+        "planar_more2.PRIMITIVES",  # -- planechase more 2 (wave F1) --
+        "planar_more2.RESUME",  # -- planechase more 2 (wave F1) --
+        "planar_more3.PRIMITIVES",  # -- planechase more 3 (wave F2) --
+        "planar_more3.RESUME",  # -- planechase more 3 (wave F2) --
         "planar_events.PRIMITIVES",  # -- planechase events (wave E2) --
         "planar_deck.PRIMITIVES",  # -- planechase deck (wave D) -- reveal / put back / planeswalk to revealed planes (planar_deck_op)
         "planar_deck.RESUME",  # -- planechase deck (wave D) --

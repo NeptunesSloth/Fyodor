@@ -718,6 +718,11 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     )
 
     planar_walk.turn_began(plan, skipped)
+    from app.rules import (
+        planar_more3,  # -- planechase more 3 (wave F2) -- Ood Sphere: "until your next turn" (500.4, 800.4m)
+    )
+
+    planar_more3.turn_began(plan, skipped)
     # CR 800.4m: an "until your next turn" cost effect also ends when a
     # departed player's next turn would have begun.
     r.cost_modifiers = [m for m in r.cost_modifiers if not (m.until == "next_turn" and (

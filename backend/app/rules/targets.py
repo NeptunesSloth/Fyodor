@@ -468,6 +468,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             from app.rules import wave110i_cards
 
             options = wave110i_cards.block_options(plan, spec, options, out.groups)
+        if spec.get("glen_f1") is not None:  # -- planechase more 2 (wave F1) -- Glen Elendra: this combat's combat damage relates the two targets
+            from app.rules import planar_more2
+
+            options = planar_more2.glen_options(plan, spec, options, out.groups)
         from app.rules import permanent_exchanges
 
         options = permanent_exchanges.viable_first(plan, specs, g, options,

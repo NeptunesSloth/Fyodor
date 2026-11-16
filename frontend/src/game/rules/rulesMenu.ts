@@ -268,7 +268,9 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     });
     // Zone grants use the server's stable ability index and are visible only with the card.
     for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
-      if (ability.kind === "keywords" && /^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling(?: \{|\s*[—-])/i.test(ability.text)) {
+      // (wave F1) Talon Gates' special action, offered on each nonland card in the planar controller's hand (the server checks the timing)
+      if (ability.kind === "keywords" && /^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling(?: \{|\s*[—-])/i.test(ability.text)
+        || /^Talon Gates — Exile this card from your hand/.test(ability.text)) {
         items.push({ label: ability.text.replace(/\s*\(.*$/, ""), disabled: !hints.has_priority,
           onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
       }

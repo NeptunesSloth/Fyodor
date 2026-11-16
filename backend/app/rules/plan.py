@@ -174,6 +174,12 @@ class Plan:
         )
 
         token_stacks.guard(self, payload)
+        if payload.get("type") in ("tap", "rules_mana") and self.state.rules is not None and self.state.rules.planar_more3_f2.get("ood"):
+            from app.rules import (
+                planar_more3,  # -- planechase more 3 (wave F2) -- Ood Sphere: "can't become tapped unless they're being declared as attackers"
+            )
+
+            payload = planar_more3.tap_guard(self, payload, actor)
         if payload.get("type") in ("tap", "rules_mana") and (payload.get("tapped") is not False or payload.get("type") == "rules_mana"):  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of becoming tapped
             from app.rules import wave110i_cards
 

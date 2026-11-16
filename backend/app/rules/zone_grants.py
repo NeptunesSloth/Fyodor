@@ -96,6 +96,10 @@ def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | N
 
     if d["keyword"] == "jump-start":
         return "Jump-start"
+    if d["keyword"] == "talon_f1":  # -- planechase more 2 (wave F1) -- Talon Gates' special action, offered on each nonland card in the hand
+        from app.rules import planar_more2
+
+        return planar_more2.TALON_LINE
     if d["keyword"] == "brink110b":  # -- Back from the Brink (wave 110B) -- the exile is part of the cost (602.2b), the token is a copy of that card (707.2); paying a mana cost is not casting
         cost = M.parse_cost(ch.mana_cost.replace("{X}", "") or "{0}") if ch.mana_cost and "//" not in ch.mana_cost + ch.name else None  # (712.8a, 715.4: a card in a graveyard has only its front face's characteristics; a split card has both, which cost is "its" is unsettled)
         return None if cost is None or cost.unsupported else (
@@ -152,12 +156,12 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     view = None
     for src, d in found:
         if (not d.get("all_players") and (card.zone != f"{src.controller}:{zone}" or card.owner != src.controller)
-                or d['keyword'] not in KEYWORDS and d['keyword'] not in ("brink110b", "embalm") and not d['keyword'].endswith('cycling')):  # (wave E1: Naktamun's embalm)
+                or d['keyword'] not in KEYWORDS and d['keyword'] not in ("brink110b", "embalm", "talon_f1") and not d['keyword'].endswith('cycling')):  # (wave E1: Naktamun's embalm)
             continue
         view = view or Plan.view(state, src.controller, info)
         if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id) or (line := _line(d, ch, card)) is None:
             continue
         parsed = parse_abilities(line)
-        if len(parsed) == 1 and (parsed[0].kind == "keywords" or d["keyword"] in ("scavenge", "jump-start", "brink110b")):  # (wave 44C: read as the ability they mean, 702.97a, 702.133a)
+        if len(parsed) == 1 and (parsed[0].kind == "keywords" or d["keyword"] in ("scavenge", "jump-start", "brink110b", "talon_f1")):  # (wave F1: Talon Gates)  # (wave 44C: read as the ability they mean, 702.97a, 702.133a)
             extra.append(replace(parsed[0], index=100 + len(extra)))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch

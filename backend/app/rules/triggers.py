@@ -1577,6 +1577,10 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
         from app.rules import wave110f_zev
 
         return wave110f_zev.targets_ok(plan, watcher, targets)
+    if want == "single_f1":  # -- planechase more 2 (wave F1) -- Glimmervoid Basin: "with a single target"
+        from app.rules import planar_more2
+
+        return planar_more2.single_target(targets)
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now
@@ -2355,6 +2359,8 @@ def _step_abilities(plan: Plan, prefixes: tuple[str, ...]) -> list[tuple[CardIns
                 continue
             if d.get("first_step") and plan.rules.step_counts.get(phase, 0) != 1:
                 continue
+            if d.get("first_game_f2") and (plan.state.turn.number != 1 or plan.rules.step_counts.get(phase, 0) != 1):
+                continue  # -- planechase more 3 (wave F2) -- "at the beginning of the first upkeep of the game" (Two Streams Facility)
             out.append((card, ch, i, d))
     return out
 
@@ -3080,6 +3086,11 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     from app.rules import exchange_choices92
 
     exchange_choices92.bind(plan, t)
+    from app.rules import (
+        planar_more2,  # -- planechase more 2 (wave F1) -- Grand Ossuary: "creatures they control" (the dead creature's controller)
+    )
+
+    planar_more2.bind(plan, t)
     raw = json.dumps(t.ability)
     if t.event is not None and t.event.kind == "reflexive" and f'\\"{EVENT_STAT}amount\\"' in raw:  # -- one-card wordings (wave 110H) -- Unleash the Inferno: the reflexive trigger's amount
         t.ability = json.loads(raw.replace(f'\\"{EVENT_STAT}amount\\"', str(t.event.amount or 0)))

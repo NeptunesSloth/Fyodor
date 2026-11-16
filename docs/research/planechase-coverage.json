@@ -1,8 +1,7 @@
 {
  "levels": {
-  "FULL": 134,
-  "PARTIAL": 71,
-  "MANUAL": 1
+  "FULL": 160,
+  "PARTIAL": 46
  },
  "cards": [
   {
@@ -447,14 +446,14 @@
    "phenomenon": true,
    "set": "who",
    "oracle_text": "When you encounter Caught in a Parallel Universe, each player chooses a creature controlled by the player to their left. Each player creates a token that's a copy of the creature they chose, except it has menace. (Then planeswalk away from this phenomenon.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you encounter Caught in a Parallel Universe, each player chooses a creature controlled by the player to their left. Each player creates a token that's a copy of the creature they chose, except it has menace.",
      "family": "encounter",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1003,14 +1002,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "When you planeswalk to Furnace Layer and at the beginning of your upkeep, select target player at random. That player discards a card. If that player discards a land card this way, they lose 3 life.\nWhenever chaos ensues, you may destroy target nonland permanent.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to Furnace Layer and at the beginning of your upkeep, select target player at random. That player discards a card. If that player discards a land card this way, they lose 3 life.",
      "family": "planeswalk to",
      "shape": "and upkeep",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may destroy target nonland permanent.",
@@ -1106,14 +1105,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "At the beginning of combat on your turn, until end of turn, each noncreature, non-Vehicle artifact you control becomes a 5/3 Vehicle in addition to its other types and gains trample, haste, and crew 2.\nWhenever chaos ensues, return target noncreature artifact card from your graveyard to your hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of combat on your turn, until end of turn, each noncreature, non-Vehicle artifact you control becomes a 5/3 Vehicle in addition to its other types and gains trample, haste, and crew 2.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, return target noncreature artifact card from your graveyard to your hand.",
@@ -1161,14 +1160,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "At end of combat, you may exchange control of target creature you control that dealt combat damage to a player this combat and target creature that player controls.\nWhenever chaos ensues, gain control of target creature you own.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At end of combat, you may exchange control of target creature you control that dealt combat damage to a player this combat and target creature that player controls.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, gain control of target creature you own.",
@@ -1185,14 +1184,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever a player casts an instant or sorcery spell with a single target, that player copies that spell for each other spell, permanent, card not on the battlefield, and/or player the spell could target. Each copy targets a different one of them.\nWhenever chaos ensues, choose target creature. Each player except that creature's controller creates a token that's a copy of that creature.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a player casts an instant or sorcery spell with a single target, that player copies that spell for each other spell, permanent, card not on the battlefield, and/or player the spell could target. Each copy targets a different one of them.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, choose target creature. Each player except that creature's controller creates a token that's a copy of that creature.",
@@ -1233,14 +1232,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Whenever a creature dies, its controller distributes a number of +1/+1 counters equal to its power among any number of target creatures they control.\nWhenever chaos ensues, each player exiles all creatures they control and creates X 1/1 green Saproling creature tokens, where X is the total power of the creatures they exiled this way. Then planeswalk.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a creature dies, its controller distributes a number of +1/+1 counters equal to its power among any number of target creatures they control.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, each player exiles all creatures they control and creates X 1/1 green Saproling creature tokens, where X is the total power of the creatures they exiled this way. Then planeswalk.",
@@ -1257,14 +1256,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Blue, black, and/or red creature cards in your graveyard have unearth. The unearth cost is equal to the card's mana cost. (Pay the card's mana cost: Return it to the battlefield. The creature gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)\nWhenever chaos ensues, put target creature card from a graveyard onto the battlefield under your control.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Blue, black, and/or red creature cards in your graveyard have unearth. The unearth cost is equal to the card's mana cost.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, put target creature card from a graveyard onto the battlefield under your control.",
@@ -1463,14 +1462,14 @@
    "phenomenon": true,
    "set": "who",
    "oracle_text": "When you encounter Human—Time Lord Meta-Crisis, each player chooses one or two creatures they control. Each player creates a token that's a copy of the first creature they chose, except it isn't legendary. Then each player who chose a second creature puts a number of +1/+1 counters on the token they created equal to the power of the second creature they chose. (Then planeswalk away from this phenomenon.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you encounter Human—Time Lord Meta-Crisis, each player chooses one or two creatures they control. Each player creates a token that's a copy of the first creature they chose, except it isn't legendary. Then each player who chose a second creature puts a number of +1/+1 counters on the token they created equal to the power of the second creature they chose.",
      "family": "encounter",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -1744,14 +1743,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Whenever a creature you control attacks a player, for each other opponent, you may create a token that's a copy of that creature, tapped and attacking that opponent. Exile those tokens at the beginning of the next end step.\nWhenever chaos ensues, you may sacrifice any number of creatures. If you do, Kharasha Foothills deals that much damage to target creature.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a creature you control attacks a player, for each other opponent, you may create a token that's a copy of that creature, tapped and attacking that opponent. Exile those tokens at the beginning of the next end step.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may sacrifice any number of creatures. If you do, Kharasha Foothills deals that much damage to target creature.",
@@ -1991,14 +1990,14 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "Whenever a nontoken creature attacks, exile it. Return it to the battlefield under its owner's control tapped and attacking at the beginning of that player's next declare attackers step.\nWhenever chaos ensues, goad target creature. (Until your next turn, It attacks each combat if able and attacks a player other than you if able.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever a nontoken creature attacks, exile it. Return it to the battlefield under its owner's control tapped and attacking at the beginning of that player's next declare attackers step.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, goad target creature.",
@@ -2135,14 +2134,14 @@
    "phenomenon": true,
    "set": "opca",
    "oracle_text": "When you encounter Morphic Tide, each player shuffles all permanents they own into their library, then reveals that many cards from the top of their library. Each player puts all artifact, creature, land, and planeswalker cards revealed this way onto the battlefield, then does the same for enchantment cards, then puts all cards revealed this way that weren't put onto the battlefield on the bottom of their library in any order. (Then planeswalk away from this phenomenon.)",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you encounter Morphic Tide, each player shuffles all permanents they own into their library, then reveals that many cards from the top of their library. Each player puts all artifact, creature, land, and planeswalker cards revealed this way onto the battlefield, then does the same for enchantment cards, then puts all cards revealed this way that weren't put onto the battlefield on the bottom of their library in any order.",
      "family": "encounter",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2413,14 +2412,14 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "At the beginning of combat on your turn, until end of turn, noncreature artifacts you control become 3/3 Vehicles in addition to their other types and gain flying, haste, and crew 1.\nWhenever chaos ensues, create a Treasure token and a 2/2 white Alien creature token.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "At the beginning of combat on your turn, until end of turn, noncreature artifacts you control become 3/3 Vehicles in addition to their other types and gain flying, haste, and crew 1.",
      "family": "trigger",
      "shape": "upkeep / step",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create a Treasure token and a 2/2 white Alien creature token.",
@@ -2650,21 +2649,21 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Song of the Ood — Noncreature spells have convoke. (A player's creatures can help cast those spells. Each creature they tap while casting a noncreature spell pays for {1} or one mana of that creature's color.)\nRed-Eye — Whenever chaos ensues, for each opponent, goad up to one target creature that opponent controls. Until your next turn, those creatures can't become tapped unless they're being declared as attackers.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Song of the Ood — Noncreature spells have convoke.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Red-Eye — Whenever chaos ensues, for each opponent, goad up to one target creature that opponent controls. Until your next turn, those creatures can't become tapped unless they're being declared as attackers.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -2722,14 +2721,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Instant and sorcery cards in graveyards have flashback. The flashback cost is equal to the card's mana cost. (Its owner may cast the card from their graveyard for its mana cost. Then they exile it.)\nWhenever chaos ensues, take an extra turn after this one.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Instant and sorcery cards in graveyards have flashback. The flashback cost is equal to the card's mana cost.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, take an extra turn after this one.",
@@ -3360,7 +3359,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Each nonland card in your hand without foretell has foretell. Its foretell cost is equal to its mana cost reduced by {2}. (During your turn, you may pay {2} and exile it from your hand face down. Cast it on a later turn for its foretell cost.)\nWhenever chaos ensues, you may cast a foretold card you own from exile without paying its mana cost this turn.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Each nonland card in your hand without foretell has foretell. Its foretell cost is equal to its mana cost reduced by {2}.",
@@ -3373,8 +3372,8 @@
      "text": "Whenever chaos ensues, you may cast a foretold card you own from exile without paying its mana cost this turn.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -3614,14 +3613,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Instant and sorcery spells players cast have demonstrate. (Whenever a player casts an instant or sorcery spell, they may copy it. If they do, they choose an opponent to also copy it. Players may choose new targets for their copies.)\nWhenever chaos ensues, return up to one target instant or sorcery card from a graveyard to its owner's hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Instant and sorcery spells players cast have demonstrate.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, return up to one target instant or sorcery card from a graveyard to its owner's hand.",
@@ -3741,14 +3740,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Any time you could cast a sorcery, you may exile a nonland card from your hand with X time counters on it, where X is its mana value. If the exiled card doesn't have suspend, it gains suspend. (At the beginning of its owner's upkeep, they remove a time counter. When the last is removed, the player may cast it without paying its mana cost. If it's a creature, it has haste.)\nWhenever chaos ensues, remove two time counters from each suspended card you own.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Any time you could cast a sorcery, you may exile a nonland card from your hand with X time counters on it, where X is its mana value. If the exiled card doesn't have suspend, it gains suspend.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, remove two time counters from each suspended card you own.",
@@ -3957,14 +3956,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Creature spells you cast from your hand have blitz {3}. (If you cast a spell for its blitz cost, it gains haste and \"When this creature dies, draw a card.\" Sacrifice it at the beginning of the next end step.)\nWhenever chaos ensues, return target creature card from your graveyard to your hand.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Creature spells you cast from your hand have blitz {3}.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, return target creature card from your graveyard to your hand.",
@@ -4115,7 +4114,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Creatures enter tapped.\nWhenever chaos ensues, for each opponent, choose up to one target nonland permanent that opponent controls. Untap those permanents. They phase out. They can't phase in for as long as The Doctor's Childhood Barn remains face up. When a player planeswalks, those permanents phase in.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Creatures enter tapped.",
@@ -4128,8 +4127,8 @@
      "text": "Whenever chaos ensues, for each opponent, choose up to one target nonland permanent that opponent controls. Untap those permanents. They phase out. They can't phase in for as long as The Doctor's Childhood Barn remains face up. When a player planeswalks, those permanents phase in.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4290,14 +4289,14 @@
    "phenomenon": false,
    "set": "moc",
    "oracle_text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token. Then draw a card if you have the city's blessing.\nWhenever chaos ensues, you may put a permanent card from your hand onto the battlefield tapped.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Ascend",
      "family": "keyword",
      "shape": "Ascend",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever one or more creatures you control deal combat damage to a player, create a Treasure token. Then draw a card if you have the city's blessing.",
@@ -4448,7 +4447,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "When you planeswalk to The Matrix of Time, each player exiles the top card of their library.\nDuring your turn, you may play lands and cast spells from among cards exiled with The Matrix of Time.\nWhenever you play a land or cast a spell from among cards exiled with The Matrix of Time, that card's owner loses 3 life and exiles the top card of their library.\nWhenever chaos ensues, create two Treasure tokens.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "When you planeswalk to The Matrix of Time, each player exiles the top card of their library.",
@@ -4468,8 +4467,8 @@
      "text": "Whenever you play a land or cast a spell from among cards exiled with The Matrix of Time, that card's owner loses 3 life and exiles the top card of their library.",
      "family": "trigger",
      "shape": "event",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, create two Treasure tokens.",
@@ -4486,7 +4485,7 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Low Gravity — All creatures have \"{2}: This creature gains flying until end of turn. Activate only as a sorcery.\"\nWhenever chaos ensues, for each opponent, choose up to one target creature card in that player's graveyard. Put those cards onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Low Gravity — All creatures have \"{2}: This creature gains flying until end of turn. Activate only as a sorcery.\"",
@@ -4499,8 +4498,8 @@
      "text": "Whenever chaos ensues, for each opponent, choose up to one target creature card in that player's graveyard. Put those cards onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -4757,14 +4756,14 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Instant and sorcery spells have rebound. (The spell's controller exiles the spell as it resolves if they cast it from their hand. At the beginning of that player's next upkeep, they may cast that card from exile without paying its mana cost.)\nWhenever chaos ensues, you may search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Instant and sorcery spells have rebound.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, you may search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.",
@@ -4829,35 +4828,35 @@
    "phenomenon": false,
    "set": "who",
    "oracle_text": "Whenever you planeswalk to Two Streams Facility and at the beginning of the first upkeep of the game, each player chooses green anchor or red waterfall.\nEach player who last chose green anchor may play an additional land during each of their turns.\nCreatures controlled by players who last chose red waterfall get +2/+0 and have haste.\nWhenever chaos ensues, each player who last chose green anchor chooses red waterfall, and vice versa.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Whenever you planeswalk to Two Streams Facility and at the beginning of the first upkeep of the game, each player chooses green anchor or red waterfall.",
      "family": "planeswalk to",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Each player who last chose green anchor may play an additional land during each of their turns.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Creatures controlled by players who last chose red waterfall get +2/+0 and have haste.",
      "family": "static",
      "shape": "grant / rule for all",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, each player who last chose green anchor chooses red waterfall, and vice versa.",
      "family": "chaos",
      "shape": "other",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   },
@@ -5093,7 +5092,7 @@
    "phenomenon": false,
    "set": "opca",
    "oracle_text": "Players play with the top card of their libraries revealed.\nYou may play lands and cast spells from the top of any player's library.\nWhenever chaos ensues, each player mills a card.",
-   "level": "PARTIAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "Players play with the top card of their libraries revealed.",
@@ -5106,8 +5105,8 @@
      "text": "You may play lands and cast spells from the top of any player's library.",
      "family": "static",
      "shape": "rules change",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "Whenever chaos ensues, each player mills a card.",
@@ -5141,21 +5140,21 @@
    "phenomenon": false,
    "set": "pssc",
    "oracle_text": "wHeN YoU pLAnESWalK tO tHIs pLAnE, eACh pLAyER cHoOSeS a nOnBlACk cREaTuRE tHEy cONtrOl. dEsTRoy tHOsE cREatUReS.\nwHeNEveR cHoAS EnSUEs, pERfoRm tHe foLLowiNG pROceSs X tiMEs, wHErE X iS tHe nUmBEr oF tImeS yOU'vE roLLeD tHe PlaNAr diE tHIs tuRN. eAcH oPPonENt LOseS 3 LiFE uNLeSs tHAt pLAyEr sAcRiFicEs A nOnLaND pErManENt OR diSCaRds a cArD.",
-   "level": "MANUAL",
+   "level": "FULL",
    "lines": [
     {
      "text": "wHeN YoU pLAnESWalK tO tHIs pLAnE, eACh pLAyER cHoOSeS a nOnBlACk cREaTuRE tHEy cONtrOl. dEsTRoy tHOsE cREatUReS.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     },
     {
      "text": "wHeNEveR cHoAS EnSUEs, pERfoRm tHe foLLowiNG pROceSs X tiMEs, wHErE X iS tHe nUmBEr oF tImeS yOU'vE roLLeD tHe PlaNAr diE tHIs tuRN. eAcH oPPonENt LOseS 3 LiFE uNLeSs tHAt pLAyEr sAcRiFicEs A nOnLaND pErManENt OR diSCaRds a cArD.",
      "family": "other",
      "shape": "",
-     "supported": false,
-     "gap": "grammar"
+     "supported": true,
+     "gap": null
     }
    ]
   }

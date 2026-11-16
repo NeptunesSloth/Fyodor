@@ -1122,7 +1122,7 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
     from app.rules.cost_changes import first_ok
     from app.rules.permissions import spell_matches
 
-    return nxt | {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
+    return nxt | {d["keyword"] for src, d in found if (src.controller == player or d.get("all_f2")) and d["keyword"] != "affinity"  # (wave F2: Ood Sphere, every player's spells)
             and (d.get("from") is None or card.zone.endswith(":exile")
                  or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))
@@ -1184,7 +1184,7 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
     if not found:
         return total
     for src, d in found:
-        if src.controller != player or d.get("keyword") != keyword:
+        if (src.controller != player and not d.get("players_f1")) or d.get("keyword") != keyword:  # (wave F1: Strixhaven, "spells players cast")
             continue
         zone = d.get("from")
         if zone is not None and not (cast_from != "hand" if zone == "not_hand" else cast_from == zone):

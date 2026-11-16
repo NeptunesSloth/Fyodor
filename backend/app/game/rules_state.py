@@ -1275,7 +1275,7 @@ class Permission(BaseModel):
     player: str
     play: bool = False  # lands ("you may play …" covers both: 701.13 — "play" a land or cast a spell)
     cast: bool = False  # spells
-    zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
+    zone: Literal["hand", "graveyard", "exile", "library_top", "any", "foretell"] = "any"  # where the card must be (wave F2: "foretell", a foretold card: Singing Towers of Darillium)
     zone_owner: Literal["you", "any"] = "you"  # A broad graveyard permission may include other players' cards.
     hand_of110m: str | None = None  # (wave 110M) zone "hand": the cards of THIS player's hand (Sen Triplets: "from that player's hand"), not the holder's own
     # A specific object ("you may play that card this turn"): the permission follows the object,
@@ -1508,6 +1508,12 @@ class RulesState(BaseModel):
     # -- planechase more (wave E1) -- app/rules/planar_more.py: {"malacol": [objects held tapped this untap step], "walked": [{"turn", "card", "player"}]
     # (the plane the planar controller last planeswalked to, and the turn)}
     planar_more_e1: dict[str, Any] = Field(default_factory=dict)
+    # -- planechase more 3 (wave F2) -- app/rules/planar_more3.py: {"streams": {"plane": object, "choices": {player: "anchor"|"waterfall"}}, "barn": [held phased-out
+    # objects: {"plane", "controller", "objects"}], "ood": [{"objects", "player", "turn"}] (can't become tapped unless attacking), ...}
+    planar_more3_f2: dict[str, Any] = Field(default_factory=dict)
+    # -- planechase more 2 (wave F1) -- app/rules/planar_more2.py: {"combat_damage": {"turn", "combat", "dealt": [[object, player], ...]}} (this combat's combat
+    # damage to players, Glen Elendra)
+    planar_more2_f1: dict[str, Any] = Field(default_factory=dict)
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
     eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter
