@@ -123,3 +123,9 @@ export function savedRows(rows: Record<string, SavedRow> | undefined): { row: Sa
     row, label: ROW_NAME[row], names: entries.filter(([, r]) => r === row).map(([n]) => n).sort((a, b) => a.localeCompare(b)),
   })).filter((g) => g.names.length > 0);
 }
+
+/** Printings whose own picture is on this computer first; release order otherwise (as the server sends them). */
+export function artFirst(printings: CardData[]): CardData[] {
+  const here = (p: CardData) => Number(p.own_image ?? p.has_image);
+  return printings.map((p, i) => [p, i] as const).sort(([a, i], [b, j]) => here(b) - here(a) || i - j).map(([p]) => p);
+}

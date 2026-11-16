@@ -9,7 +9,7 @@ import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { getPrintings } from "../services/cards";
-import { applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, resetDeckRows, unlinkSource, updateDeck, waitForJob } from "../services/decks";
+import { type ArtStatus, applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, resetDeckRows, unlinkSource, updateDeck, waitForJob } from "../services/decks";
 import { askText } from "../components/Prompt";
 import { refreshCards, requestCards, useCardCache } from "../state/cardCache";
 import {
@@ -25,7 +25,7 @@ import {
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
 import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
-import { checkSummary, curveStats, groupGlyph, groupTitle, savedRows } from "./deckBits";
+import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
 import "./decks.css";
 
@@ -50,7 +50,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const [addSection, setAddSection] = useState<Section>("main");
   const [groupBy, setGroupBy] = useState<"type" | "category">(() => (localStorage.getItem("fyodor.deck.groupBy") === "category" ? "category" : "type"));
   const [exportFormat, setExportFormat] = useState<"archidekt" | "plain">("archidekt");
-  const [art, setArt] = useState<{ printings: number; missing: number } | null>(null);
+  const [art, setArt] = useState<ArtStatus | null>(null);
   const [artJob, setArtJob] = useState<Job | null>(null);
   const [sourceDiff, setSourceDiff] = useState<{ diff: SourceDiff; local_edits: boolean } | null>(null);
   const [sourceBusy, setSourceBusy] = useState(false);
@@ -323,7 +323,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
             <h2 id="de-art-title">Artwork</h2>
             {art && (
               <p className="de-panel-text">
-                {art.missing === 0 ? <span className="de-ok"><Icon name="check" size={15} />All {art.printings} printings cached for offline play.</span> : <>{art.missing} of {art.printings} printings have no cached image. Cards without one play as readable proxies.</>}
+                {art.missing === 0 ? <span className="de-ok"><Icon name="check" size={15} />All {art.printings} printings cached for offline play.</span> : <ArtSummary art={art} />}
               </p>
             )}
             {artJob?.state === "running" ? (
@@ -499,22 +499,52 @@ function EntryRow(props: {
   );
 }
 
+/** The deck's artwork in words: printings without their own picture, and how many of those show another printing's instead. */
+function ArtSummary({ art }: { art: ArtStatus }) {
+  const borrowed = Math.min(art.borrowed ?? 0, art.missing);
+  const proxies = art.missing - borrowed;
+  if (borrowed === 0) return <>{art.missing} of {art.printings} printings have no cached image. Cards without one play as readable proxies.</>;
+  return (
+    <>
+      {art.missing} of {art.printings} printings have no cached image of their own; {borrowed === art.missing ? (borrowed === 1 ? "it shows" : "they show") : `${borrowed} show`} another printing's art of the same card.
+      {proxies > 0 && <> {proxies === 1 ? "1 plays" : `${proxies} play`} as a readable proxy.</>}
+    </>
+  );
+}
+
 function PrintingPicker({ entry, onPick, onClose }: { entry: DeckEntry; onPick: (c: CardData) => void; onClose: () => void }) {
   const [printings, setPrintings] = useState<CardData[] | null>(null);
   useEffect(() => {
-    if (entry.printing_id) getPrintings(entry.printing_id).then(setPrintings, toastError);
+    if (entry.printing_id) getPrintings(entry.printing_id).then((ps) => setPrintings(artFirst(ps)), toastError);
   }, [entry.printing_id]);
+  const byId = new Map((printings ?? []).map((p) => [p.id, p]));
+  const withArt = printings?.filter((p) => p.own_image ?? p.has_image).length ?? 0;
   return (
     <Modal title={`Printings of ${entry.name}`} onClose={onClose} wide>
       {!entry.printing_id && <p>This card is not in the local database. Remove it or re-add it from search.</p>}
       {printings === null && entry.printing_id && <p>Loading…</p>}
+      {printings && printings.length > 1 && withArt < printings.length && (
+        <p className="de-note de-printings-note">
+          {withArt === 0
+            ? "No printing of this card has art on this computer: it plays as a readable proxy."
+            : `${withArt} of ${printings.length} printings have art on this computer. The others show that art until their own is downloaded.`}
+        </p>
+      )}
       <div className="card-grid small de-printings">
-        {printings?.map((p) => (
-          <button key={p.id} className={`grid-card ${p.id === entry.printing_id ? "selected" : ""}`} onClick={() => onPick(p)} title={`${p.set_name} #${p.collector_number}`} aria-pressed={p.id === entry.printing_id}>
-            <CardFace card={p} size="small" />
-            <span className="caption">{p.set_code.toUpperCase()} #{p.collector_number}</span>
-          </button>
-        ))}
+        {printings?.map((p) => {
+          const own = p.own_image ?? p.has_image;
+          const from = !own && p.art_from ? byId.get(p.art_from) : undefined;
+          const title = `${p.set_name} #${p.collector_number}${own ? " — art on this computer" : from ? ` — no art on this computer; shows ${from.set_code.toUpperCase()} #${from.collector_number}'s art` : " — no art on this computer"}`;
+          return (
+            <button key={p.id} className={`grid-card ${p.id === entry.printing_id ? "selected" : ""} ${own ? "de-art-here" : "de-art-elsewhere"}`} onClick={() => onPick(p)} title={title} aria-pressed={p.id === entry.printing_id}>
+              <CardFace card={p} size="small" />
+              <span className="caption">{p.set_code.toUpperCase()} #{p.collector_number}</span>
+              {own
+                ? <span className="caption de-art-tag">Art here</span>
+                : <span className="caption de-art-tag">{from ? `No art here · shows ${from.set_code.toUpperCase()} #${from.collector_number}` : "No art here"}</span>}
+            </button>
+          );
+        })}
       </div>
     </Modal>
   );

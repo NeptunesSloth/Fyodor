@@ -35,7 +35,9 @@ export const checkSource = (id: string) =>
 export const applySource = (id: string) => api.post<Deck>(`/decks/${id}/source/apply`);
 export const ignoreSource = (id: string) => api.post<Deck>(`/decks/${id}/source/ignore`);
 export const unlinkSource = (id: string) => api.del<void>(`/decks/${id}/source`);
-export const artStatus = (id: string) => api.get<{ printings: number; missing: number }>(`/decks/${id}/art-status`);
+/** missing: printings without their own picture here; borrowed: of those, the ones showing another printing's of the card. */
+export interface ArtStatus { printings: number; missing: number; borrowed?: number }
+export const artStatus = (id: string) => api.get<ArtStatus>(`/decks/${id}/art-status`);
 export const cacheArt = (id: string) => api.post<Job>(`/decks/${id}/cache-art`);
 export const getJob = (id: string) => api.get<Job>(`/jobs/${id}`);
 /** Keep deck art for offline play: whether it's on, how many decks wait for the network, what is downloading now. */

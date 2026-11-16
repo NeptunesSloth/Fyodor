@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from app.cards.art_fallback import ArtFallback, Sibling
 from app.cards.images import ImageStore
 from app.cards.names import normalize_name
 from app.cards.search import compile_query, fts_quote
@@ -45,6 +46,8 @@ class CardRepository:
         # the rules engine's reads (rules_card): one per printing per open database
         self._rules: dict[str, dict[str, Any] | None] = {}
         self._rules_for: sqlite3.Connection | None = None
+        # -- same-card art -- a printing without a picture here shows another printing's of the same card (app/cards/art_fallback.py)
+        self.art = ArtFallback(images, self._art_family)
 
     # -- connection management -------------------------------------------------------
     def _connection(self) -> sqlite3.Connection:
@@ -60,6 +63,7 @@ class CardRepository:
             conn = sqlite3.connect(f"file:{self.db_path.as_posix()}?mode=ro", uri=True, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             self._conn, self._inode = conn, ident
+            self.art.clear()
             log.info("Opened card database %s", self.db_path)
         return self._conn
 
@@ -348,6 +352,34 @@ class CardRepository:
             return []
         return card["related_tokens"]
 
+    # -- same-card art ----------------------------------------------------------------
+    def _art_family(self, oracle_id: str) -> list[Sibling]:
+        """Every printing of a card as (id, layout, image faces): the default printing first, then the newest."""
+        rows = self._query(
+            "SELECT p.id, p.layout, p.image_uris, p.card_faces FROM printings p "
+            "LEFT JOIN oracle_defaults d ON d.oracle_id = p.oracle_id AND d.printing_id = p.id "
+            "WHERE p.oracle_id = ? ORDER BY d.printing_id IS NULL, p.released_at DESC, p.set_code, p.collector_number",
+            (oracle_id,),
+        )
+        return [(r["id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"])) for r in rows]
+
+    def find_art(self, card_id: str, *, face: int = 0, size: str = "normal") -> Path | None:
+        """The picture shown for a printing: its own, or another printing's of the same card (None: a proxy)."""
+        own = self.images.find(card_id, face=face, size=size)
+        if own is not None:
+            return own
+        return self.borrowed_art(card_id, face=face, size=size)
+
+    def borrowed_art(self, card_id: str, *, face: int = 0, size: str = "normal") -> Path | None:
+        """Another printing's picture of the same card for this printing's face (not its own), or None."""
+        rows = self._query("SELECT oracle_id, layout, image_uris, card_faces FROM printings WHERE id = ?", (card_id,))
+        if not rows:
+            return None
+        r = rows[0]
+        got = self.art.find(card_id, r["oracle_id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"]),
+                            face=face, size=size)
+        return got[0] if got else None
+
     # -- row mapping -----------------------------------------------------------------
     def _to_card(self, row: sqlite3.Row, *, detail: bool = False, images: bool = True) -> dict[str, Any]:
         faces_raw: list[dict[str, Any]] = json.loads(row["card_faces"]) if row["card_faces"] else []
@@ -398,7 +430,14 @@ class CardRepository:
             "image_faces": len(image_faces),
         }
         if images:  # (a file check per call: rules_card leaves it out)
-            card["has_image"] = self.images.has(row["id"], 0)
+            # own_image: this printing's picture is here; has_image: some picture will show (-- same-card art -- another
+            # printing's of the same card when this one has none)
+            own = self.images.has(row["id"], 0)
+            card["own_image"] = own
+            borrowed = None if own else self.art.find(row["id"], row["oracle_id"], layout, len(image_faces))
+            card["has_image"] = own or borrowed is not None
+            if borrowed is not None:
+                card["art_from"] = borrowed[1]  # the printing whose picture shows
         if detail:
             legal = json.loads(row["legalities"] or "{}")
             card.update(
@@ -439,6 +478,14 @@ class CardRepository:
             return bool(row["is_token"]), [json.loads(row["image_uris"])]
         faces = json.loads(row["card_faces"] or "[]")
         return bool(row["is_token"]), [f.get("image_uris") or {} for f in faces if f.get("image_uris")]
+
+
+def _image_face_count(image_uris: str | None, card_faces: str | None) -> int:
+    """How many pictures a printing has (as ``_to_card``'s ``image_faces``)."""
+    if image_uris:
+        return 1
+    faces = json.loads(card_faces) if card_faces else []
+    return max(1, sum(1 for f in faces if f.get("image_uris")))
 
 
 class RulesCards:

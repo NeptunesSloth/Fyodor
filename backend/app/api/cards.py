@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import Annotated, Any, Literal
 
 import httpx
@@ -11,6 +12,7 @@ from app.api.deps import get_services, require_local
 from app.cards import updater
 from app.cards.downloader import DownloadError
 from app.cards.images import IMAGE_SIZES, InvalidImageRequest
+from app.cards.repository import CardDatabaseUnavailable
 from app.jobs import ProgressFn
 from app.services import Services
 
@@ -102,22 +104,36 @@ def get_symbol(code: str, services: ServicesDep) -> FileResponse:
     return FileResponse(path, media_type="image/svg+xml", headers=SVG_HEADERS)
 
 
+IMAGE_HEADERS = {"Cache-Control": "public, max-age=604800"}
+# -- same-card art -- another printing's picture stands in for this one's: browsers re-ask every time (a 304 while unchanged), so
+# the printing's own picture shows as soon as it arrives; and a friend's Fyodor never keeps it as this printing's (lan_art.py)
+BORROWED_HEADERS = {"Cache-Control": "no-cache", "X-Fyodor-Art": "another-printing"}
+
+
 @router.get("/images/{card_id}", response_class=FileResponse)
 def get_image(
     card_id: str,
     services: ServicesDep,
     face: Annotated[int, Query(ge=0, le=3)] = 0,
     size: Annotated[str, Query(pattern="^(" + "|".join(IMAGE_SIZES) + ")$")] = "normal",
+    fallback: Annotated[int, Query(ge=0, le=1)] = 1,
 ) -> FileResponse:
+    """A printing's picture: its own (the cache, then the installer's seed/images); a token's fetched now while online; else
+    -- same-card art -- another printing's of the same card (not with ``fallback=0``: the LAN art fetch wants exact art)."""
     try:
         path = services.images.find(card_id, face=face, size=size)
     except InvalidImageRequest as exc:
         raise HTTPException(400, str(exc)) from exc
     if path is None and size != "art_crop":
         path = services.token_art.fetch(card_id, face)  # a token nobody has shown yet: linked from Scryfall now, cached
+    if path is not None:
+        return FileResponse(path, media_type="image/jpeg", headers=IMAGE_HEADERS)
+    if fallback:
+        with contextlib.suppress(CardDatabaseUnavailable):
+            path = services.cards.borrowed_art(card_id, face=face, size=size)
     if path is None:
         raise HTTPException(404, "Image not cached")
-    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+    return FileResponse(path, media_type="image/jpeg", headers=BORROWED_HEADERS)
 
 
 # ---------------------------------------------------------------------------- UPDATE CARD DATABASE (host only)

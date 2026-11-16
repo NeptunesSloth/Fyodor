@@ -34,7 +34,9 @@ then back up. A deck list can also be pasted in on the offline computer itself: 
 - **Token pictures.** The installer can carry the art of every token (`seed\images\tokens`), and Fyodor reads it in place, so
   tokens show their art offline. A picture the computer downloaded itself is used first.
 - **Other card pictures** are not included: offline, cards are drawn as frames with their name, cost, type and text. Pictures
-  already saved on a computer stay there.
+  already saved on a computer stay there. An art pack copied into `seed/images` beside `Fyodor.exe` (the image cache's layout)
+  is read in place. A printing with no picture of its own shows another printing's picture of the same card (the default
+  printing first) instead of a frame; the deck editor's "Choose printing…" marks which printings have their own art here.
 
 Opening Fyodor again while it's running just brings the table back up.
 

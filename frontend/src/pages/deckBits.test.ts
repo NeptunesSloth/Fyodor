@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardData } from "../types/cards";
 import type { DeckEntry } from "../types/decks";
-import { checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, recordText, savedRows } from "./deckBits";
+import { artFirst, checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, recordText, savedRows } from "./deckBits";
 
 const player = (deck_key: string | null, outcome: "win" | "loss" | "draw" | "none") => ({
   seat: "p1", player_id: "x", name: "X", deck_key, deck_name: null, commanders: [], outcome,
@@ -103,5 +103,13 @@ describe("saved rows", () => {
       { row: "land", label: "Land row", names: ["Arcane Signet", "Sol Ring"] },
       { row: "other", label: "Back row", names: ["Dryad Arbor"] },
     ]);
+  });
+});
+
+describe("the printing picker's order", () => {
+  it("puts printings with their own art here first and keeps release order otherwise", () => {
+    const p = (id: string, own: boolean) => ({ id, own_image: own, has_image: true }) as unknown as CardData;
+    const sorted = artFirst([p("new", false), p("mid", true), p("old", false), p("oldest", true)]);
+    expect(sorted.map((c) => c.id)).toEqual(["mid", "oldest", "new", "old"]);
   });
 });

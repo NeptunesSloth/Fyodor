@@ -394,6 +394,14 @@ body.perf-low .dk-empty::before { display: none; }
 .de-progress > span { position: relative; display: block; text-align: center; font: 600 11.5px/20px var(--font-ui); color: var(--room-bone); text-shadow: 0 1px 2px #000, 0 0 4px #000; font-variant-numeric: tabular-nums; }
 .de-page .de-panel textarea { width: 100%; min-height: 96px; font: 13.5px/1.5 var(--font-ui); }
 .de-printings .grid-card { border-radius: 6px; }
+/* -- same-card art -- printings with their own picture here read first; the others show another printing's, dimmed */
+.de-printings-note { margin-bottom: 10px; }
+.de-printings .de-art-tag { margin-top: 1px; font-size: 10.5px; letter-spacing: 0.02em; }
+.de-printings .de-art-here .de-art-tag { color: var(--ok); }
+.de-printings .de-art-elsewhere .card-face { opacity: 0.55; filter: saturate(0.6); transition: opacity 0.12s, filter 0.12s; }
+.de-printings .de-art-elsewhere:hover .card-face,
+.de-printings .de-art-elsewhere:focus-visible .card-face,
+.de-printings .de-art-elsewhere.selected .card-face { opacity: 1; filter: none; }
 
 /* ---------------------------------------------------------------- the import dialog */
 .imp { display: flex; flex-direction: column; gap: 16px; }

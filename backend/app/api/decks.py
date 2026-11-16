@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import json
 import time
@@ -11,6 +12,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
+from app.cards.repository import CardDatabaseUnavailable
 from app.decks import archidekt, service, sites
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
@@ -361,7 +363,12 @@ def art_status(deck_id: str, services: ServicesDep) -> dict[str, Any]:
     deck = _get(services, deck_id)
     ids = [e.printing_id for e in deck.entries if e.printing_id]
     missing = [pid for pid in dict.fromkeys(ids) if not services.images.has(pid)]
-    return {"printings": len(set(ids)), "missing": len(missing)}
+    # missing: no picture of its own here (what "Cache entire deck artwork" downloads); borrowed: of those, the ones that show
+    # another printing's picture of the same card meanwhile (-- same-card art --) rather than a proxy
+    borrowed = 0
+    with contextlib.suppress(CardDatabaseUnavailable):
+        borrowed = sum(1 for pid in missing if services.cards.borrowed_art(pid) is not None)
+    return {"printings": len(set(ids)), "missing": len(missing), "borrowed": borrowed}
 
 
 @router.get("/jobs/{job_id}")
