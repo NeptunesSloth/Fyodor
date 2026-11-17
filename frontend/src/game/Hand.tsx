@@ -268,7 +268,13 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact, small = f
           e.stopPropagation();
           if (next instanceof HTMLElement && next !== el) {
             next.focus({ preventScroll: true });
-            next.scrollIntoView({ block: "nearest", inline: "nearest" });
+            // bring it into the strip's view by scrolling the strip only (scrollIntoView would also shift the table: the
+            // cards reach below the screen's edge)
+            const strip = next.parentElement;
+            if (strip && strip.scrollWidth > strip.clientWidth) {
+              if (next.offsetLeft < strip.scrollLeft) strip.scrollLeft = next.offsetLeft;
+              else if (next.offsetLeft + next.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = next.offsetLeft + next.offsetWidth - strip.clientWidth;
+            }
           }
         }
       }}

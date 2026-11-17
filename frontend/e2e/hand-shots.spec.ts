@@ -107,6 +107,18 @@ for (const [w, h] of [[1920, 1080], [1366, 768]] as const) {
       await page.mouse.move(box.x + 12, h - 40);
       await page.waitForTimeout(500);
       await shot(page, `hand77-${tag}-hover`);
+      // the arrow keys walk the hand: the strip scrolls along, the table doesn't move
+      await page.locator("[data-testid=my-hand-cards] .hand-card").first().focus();
+      for (let i = 0; i < 45; i++) await page.keyboard.press("ArrowRight");
+      const moved = await page.evaluate(() => ({
+        strip: document.querySelector<HTMLElement>("[data-testid=my-hand-cards]")!.scrollLeft,
+        table: [...document.querySelectorAll<HTMLElement>(".game-screen, .game-body, main.table")].reduce((n, el) => n + el.scrollTop + el.scrollLeft, 0),
+        focused: document.activeElement?.getAttribute("data-index"),
+      }));
+      expect(moved.strip).toBeGreaterThan(0);
+      expect(moved.table).toBe(0);
+      expect(moved.focused).toBe("45");
+      await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); document.querySelector<HTMLElement>("[data-testid=my-hand-cards]")!.scrollLeft = 0; });
       // scroll along with the › button
       await page.mouse.move(w / 2, h / 3);
       await page.getByTestId("hand-scroll-right").click();
