@@ -1,5 +1,5 @@
 /**
- * The seat buttons' colours: each button is a round gaming chip (a poker chip's edge inserts, a brass inlay round its
+ * The seat buttons' colours: each button is a round chip (a plain bevelled rim, a brass inlay round its
  * face) in its own muted jewel tone, so the row reads at a glance on the dark wood. Colour is never the only cue: every
  * chip keeps its glyph, its tooltip and its accessible name (game/seatActions.ts). Pure data, shared by the 2D buttons
  * (game/seatIcons.ts, as images) and the 3D table's chips (table3d/seatProps.ts, their edges).

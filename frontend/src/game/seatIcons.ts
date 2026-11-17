@@ -146,7 +146,7 @@ function begin(canvas: HTMLCanvasElement): { g: CanvasRenderingContext2D; s: num
 
 /**
  * A round gaming chip in the button's own colour (seatChips.ts), lit from the top left: a dark edge so it reads on any
- * table, a bevelled body with eight ivory edge inserts like a poker chip's, a fine brass inlay round a slightly sunken
+ * table, a plain bevelled body, a fine brass inlay round a slightly sunken
  * face, and its glyph printed in ivory (seatGlyphs.ts: game-icons.net, CC BY 3.0).
  */
 function chip(g: CanvasRenderingContext2D, id: SeatIconId): void {
@@ -166,18 +166,6 @@ function chip(g: CanvasRenderingContext2D, id: SeatIconId): void {
   };
   disc(49.5, "#100a05"); // the edge, dark against any table
   disc(48, slope(c.light, c.base, c.dark)); // the body, its rim lit at the top left
-  // the edge inserts: eight short ivory blocks round the rim, a little shaded so they sit in the body
-  g.save();
-  g.lineCap = "butt";
-  g.lineWidth = 6.5;
-  g.strokeStyle = "rgba(246, 236, 212, 0.62)";
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
-    g.beginPath();
-    g.arc(50, 50, 44.2, a - 0.13, a + 0.13);
-    g.stroke();
-  }
-  g.restore();
   // the brass inlay round the face, then the face a step down (its inner slope shaded at the top left)
   disc(38.6, slope(BRASS.light, BRASS.mid, BRASS.dark));
   disc(37, slope(c.dark, c.base, c.light));
