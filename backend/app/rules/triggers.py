@@ -3081,10 +3081,14 @@ def ability_words(plan: Plan | None, t: Any) -> tuple[str, str]:
 
             full = shown(plan.state, ab.text.replace("~", ch.name or t.name))
             return full, shorten_ability(full)
-    word = ability.get("keyword") or (ability.get("trigger") if index is not None and index >= _SYNTHETIC_INDEX else None)
-    if isinstance(word, str) and word:
-        return "", word.replace("_", " ").capitalize()
+    keyword = ability.get("keyword")
+    if isinstance(keyword, str) and keyword:
+        return "", keyword.replace("_", " ").capitalize()
     what = effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else ""
+    raw = "_" in what or what.lower() in {str(e.get("do")) for e in ability.get("effects") or []}  # (a primitive's own name: no words for it)
+    word = ability.get("trigger") if index is not None and index >= _SYNTHETIC_INDEX else None
+    if isinstance(word, str) and word and (raw or not what or what == "Do it"):  # (the rules' own trigger whose effects have no words: exalted, renown …)
+        return "", word.replace("_", " ").capitalize()
     return "", (what if what != "Do it" else "")
 
 
@@ -3147,7 +3151,6 @@ def remembered_order(plan: Plan, player: str, mine: list[PendingTrigger]) -> lis
 def remember_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     """-- trigger order memory -- "Always use this order for these cards (this game)": the keys of the abilities ordered, first one first
     (a later answer for the same set replaces it; the newest TRIGGER_ORDERS_KEPT are kept)."""
-    from app.game.control import decider_of
     from app.game.errors import ActionError
 
     keys_of = (d.resume or {}).get("keys") or {}
@@ -3156,7 +3159,7 @@ def remember_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     order = list(dict.fromkeys(keys_of[c] for c in chosen if c in keys_of))
     if len(order) < 2:
         return
-    prefs = plan.prefs(decider_of(plan.state, d))
+    prefs = plan.prefs(d.player)  # (the triggers' controller's, where remembered_order reads it, whoever makes the choice for them: 723.5)
     prefs.trigger_orders = [*[o for o in prefs.trigger_orders if set(o) != set(order)][-(TRIGGER_ORDERS_KEPT - 1):], order]
 
 

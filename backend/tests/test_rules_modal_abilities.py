@@ -1307,8 +1307,8 @@ def test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     assert step(s) == "order_triggers"
     d = rules(s).decision
-    first = next(o.id for o in d.options if o.label == "Seer B")
-    second = next(o.id for o in d.options if o.label == "Seer A")
+    first = next(o.id for o in d.options if o.label.startswith("Seer B — "))  # (then its printed words)
+    second = next(o.id for o in d.options if o.label.startswith("Seer A — "))
     choose(s, first, second)  # (the first picked goes on the stack first, resolves last)
     assert step(s) == "trigger_modes" and rules(s).decision.prompt.startswith("Seer B")
     choose(s, "0:0")

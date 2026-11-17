@@ -243,8 +243,10 @@ def test_temporal_extortion_copy_takes_a_turn_and_the_order_prompt_says_which_tr
     casualty(s, "Temporal Extortion")
     settle(s, "Grizzly Bears", stop_at="Order your triggered abilities")
     d = s.state.rules.decision
-    assert sorted(o.label for o in d.options) == ["Crypt Ghast", "Temporal Extortion: Any player may pay half their life rounded up",
-                                                  "Temporal Extortion: Copy it"]
+    labels = sorted(o.label for o in d.options)  # (the source's name, then what each says: its printed words, else the effects in words)
+    assert [label.split(" — ")[0] for label in labels] == ["Crypt Ghast", "Temporal Extortion", "Temporal Extortion"]
+    assert not any(w in label for label in labels for w in ("Storm", "Each_may", "Optional_payment"))
+    assert any("half" in label for label in labels) and any("cop" in label.lower() for label in labels[1:])
     asked = settle(s, "Don't pay", "Don't pay", "Don't pay")
     assert sum(p.startswith("Crypt Ghast") for p in asked) == 1 and sum(p.startswith("Temporal Extortion: pay half") for p in asked) == 2
     assert len(s.state.rules.extra_turns) == 2 and s.state.players["p2"].life == 40
