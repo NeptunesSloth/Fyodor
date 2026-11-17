@@ -149,3 +149,23 @@ def test_a_bot_never_holds_up_the_result_or_the_rematch(lobby):
     v = view(client, gid, alice)
     assert v["game"]["night"]["number"] == 2
     assert [p["bot_level"] for p in v["players"] if p["bot"]] == ["intermediate"]
+
+
+def test_back_to_the_lobby_after_a_restart_keeps_the_table_settings_and_the_bot_level(lobby):
+    """The server restarted during the game: the lobby's settings and the seats' setups (in memory only) are gone. Return to lobby
+    takes the settings the game was played with (Automation Full, which the bot needs) and the bot's level, not the defaults."""
+    client, gid, code, alice, deck_id = lobby
+    add_bot(client, gid, alice, deck_id, level="advanced")
+    start(client, gid, alice)
+    _play_until(client, gid, alice, lambda v: (v.get("rules") or {}).get("priority") == v["viewer"]
+                and not (v.get("pregame") and not v["pregame"].get("finished")))
+    room = client.app.state.services.hub.get(gid)
+    room.lobby, room.night.setups, room.night.infos = None, {}, {}  # (what a restart loses: app/multiplayer/night.py meta)
+    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "concede"}}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(alice)).status_code == 200
+    res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "lobby"}, headers=h(alice))
+    assert res.status_code == 200 and res.json()["decision"] == "lobby", res.text
+    body = client.get(f"/api/games/{gid}/lobby", headers=h(alice)).json()
+    assert body["settings"]["automation"] == "full" and body["settings"]["mulligan_rule"] == "commander_london"
+    assert next(s for s in body["seats"] if s.get("bot"))["bot"] == "advanced"
+    assert not any("Full" in b for b in body["start_blockers"])

@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import is_local_request
 from app.api.games import ServicesDep, _room, authorize, record_game_result
 from app.game.factory import PlayerSetup, new_game
+from app.game.mulligan import PRESETS
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
@@ -212,13 +213,26 @@ def rematch(services: Services, room: Room) -> None:
 
 
 def _info_from_setup(setup: PlayerSetup | None, player: PlayerState) -> LobbySeatInfo:
-    info = LobbySeatInfo(name=player.name, color=player.color, bot=setup.bot_level if setup is not None else None)
+    # (-- LAN bots -- after a restart the setups are gone: the bot keeps its level from the seat it played, not the default)
+    level = setup.bot_level if setup is not None else player.bot_level if player.bot is not None else None
+    info = LobbySeatInfo(name=player.name, color=player.color, bot=level)
     if setup is not None and setup.cards:
         info.deck = SubmittedDeck(
             name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id,
             commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=[],
             card_count=sum(c.quantity for c in setup.cards if c.section != "maybeboard"), collection=list(setup.collection))
     return info
+
+
+def _settings_of(old: GameState) -> LobbySettings:
+    """The lobby settings for the next game from the game just played (the lobby's own record is lost when the server restarted
+    during the game)."""
+    s = old.settings
+    rule = "none" if s.mulligan is None else s.mulligan.id if s.mulligan.id in PRESETS else None
+    return LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order), starting_life=s.starting_life,
+                         deck_privacy=s.deck_privacy, auto_untap=s.auto_untap, automation=s.automation,
+                         planechase=s.planechase, planar_deck_size=s.planar_deck_size, planar_phenomena=s.planar_phenomena,
+                         **({"mulligan_rule": rule} if rule is not None else {}))
 
 
 def to_lobby(services: Services, room: Room) -> None:
@@ -230,8 +244,8 @@ def to_lobby(services: Services, room: Room) -> None:
         info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid])
         info.ready = pid in room.seats and room.seats[pid].bot and info.deck is not None  # (-- LAN bots -- a bot is always ready)
         infos[pid] = info
-    if room.lobby is None:
-        room.lobby = LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order))
+    if room.lobby is None:  # (after a restart: the table settings the game was played with, not the defaults, Automation Off among them)
+        room.lobby = _settings_of(old)
     # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
     room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
                                                "card_permissions": old.settings.card_permissions})
