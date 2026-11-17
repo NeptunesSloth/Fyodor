@@ -154,7 +154,16 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
     (``source``: the spell or the ability's source, for protection; ``source_card``: that
     object, for "another target …"; ``attacker``: the creature an "attacks" trigger is about,
-    whose defending player "defending player" means, 508.5)."""
+    whose defending player "defending player" means, 508.5). -- big boards (playtest B4) -- read-only: one read pass for the whole
+    question, so each candidate's hexproof / "can't be the target" statics are read once, not once per candidate (Kiki-Jiki's
+    "target nonlegendary creature you control" among 200 copies)."""
+    with plan.reading():
+        return _legal_targets(plan, selector, chooser, source, source_card, attacker, source_object=source_object)
+
+
+def _legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
+                   source_card: str | None = None, attacker: str | None = None, *,
+                   source_object: str | None = None) -> list[str]:
     if selector.startswith('source_loyalty_lt:'):
         from app.rules import values
 

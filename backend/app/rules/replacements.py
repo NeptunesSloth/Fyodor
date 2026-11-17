@@ -1425,6 +1425,11 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
     """The permanents on the battlefield whose static abilities replace this card's trip to the
     graveyard ("If a creature an opponent controls would die, exile it instead.", "If a card or
     token would be put into a graveyard from anywhere, exile it instead."), with the definition that applies."""
+    with plan.reading():  # -- big boards (playtest B4) -- read-only: each permanent derived once, not once per card that moves
+        return _static_exile_all_now(plan, card)
+
+
+def _static_exile_all_now(plan: Plan, card: CardInstance) -> list[tuple[CardInstance, dict[str, Any]]]:
     from app.rules import planar_statics
 
     frm = _from_zone(card)

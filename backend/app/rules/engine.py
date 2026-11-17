@@ -104,7 +104,7 @@ from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
-from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.plan import Plan, decide, require_no_decision, require_priority, scratch_copy
 from app.rules.targets import as_spell, still_legal
 
 MAIN_PHASES = ("main1", "main2")
@@ -434,7 +434,7 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
         if _until_met(plan, a):
             reason = "the condition was reached"
             break
-        snapshot, mark = plan.state.model_copy(deep=True), len(plan.steps)
+        snapshot, mark = scratch_copy(plan.state), len(plan.steps)
         try:
             for i, payload in enumerate(seq):
                 if payload["type"] == "choose":  # the same answer to the same question, as the player gave it the first time
@@ -670,10 +670,14 @@ class _Chain:
     """The objects resolved in this action (``Plan.chain``): how many, how tall the stack was before the first, and the cards each
     player had drawn this turn by then (a public count)."""
 
-    __slots__ = ("base", "drew", "n")
+    __slots__ = ("base", "drew", "last", "n", "refills")
 
     def __init__(self, base: int, drew: dict[str, int]) -> None:
         self.base, self.drew, self.n = base, drew, 0
+        # -- playtest B4 -- the stack's height at the last resolution, and how many resolutions found it no lower than the one before
+        # (something was put on it in between): a loop refills it nearly every time, a big batch (a wipe's 150 death triggers, 200
+        # end-step sacrifices) only drains it
+        self.last, self.refills = base, 0
 
 
 def _count_resolution(plan: Plan) -> None:
@@ -682,13 +686,23 @@ def _count_resolution(plan: Plan) -> None:
         from app.rules import history
 
         chain = plan.chain = _Chain(len(plan.state.zones.get(STACK, [])), dict(history.log_for(plan).drew))
+    else:
+        height = len(plan.state.zones.get(STACK, []))
+        if height >= chain.last:
+            chain.refills += 1
+        chain.last = height
     chain.n += 1
+
+
+def _repeating(chain: _Chain | None) -> bool:
+    """Does this action's chain keep refilling the stack (most resolutions put something new on it), as a loop does?"""
+    return chain is not None and chain.n > chain.base and chain.refills * 2 >= chain.n
 
 
 def runaway(plan: Plan) -> int:
     """How many objects this action resolved, once that is a runaway chain (else 0)."""
     chain = getattr(plan, "chain", None)
-    if chain is None or chain.n < LOOP_RESOLUTIONS or chain.n <= chain.base:
+    if chain is None or chain.n < LOOP_RESOLUTIONS or not _repeating(chain):
         return 0
     return chain.n
 
@@ -715,8 +729,15 @@ def loop_pause(plan: Plan, players: list[str]) -> bool:
                   "you can respond. Resolve to go on one object at a time, or Resolve all for another round; if it can never end, "
                   "the game is a draw (104.4b): propose one from End game.")
         return True
-    plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
-              "the game is a draw (104.4b): propose one from End game.")
+    if _repeating(getattr(plan, "chain", None)):  # (the stack keeps being refilled while it resolves: it may be repeating)
+        plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
+                  "the game is a draw (104.4b): propose one from End game.")
+        return True
+    # -- playtest B4 -- a big finite batch (200 "sacrifice it at the beginning of the next end step" triggers) only drains the stack: it
+    # used up this action's step budget without repeating anything, so it is no loop and says nothing about a draw
+    left = len(plan.state.zones.get(STACK, [])) + len(r.pending_triggers)
+    plan.note(f"Many objects to resolve: {left:,} left on the stack. Automatic passing stopped here so you can respond; "
+              "Resolve all carries on with the rest." if left else "Automatic passing stopped here so you can respond; pass to carry on.")
     return True
 
 

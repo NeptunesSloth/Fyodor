@@ -57,7 +57,9 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
             trusted: bool = False, shuffle_retained: tuple[ObjectRef, ...] = ()) -> A.Action:
     """Return a copy of ``action`` with server-owned fields filled in."""
     info = cards or NoCardInfo()
-    a = action.model_copy(deep=True)
+    # (-- big boards (playtest B3) -- the rules engine's own rules_sync carries a fresh dump of the rules state that nothing else holds:
+    # copying it deep again cost as much as the intent's own work on a big table)
+    a = action.model_copy() if trusted and action.type == "rules_sync" else action.model_copy(deep=True)
     a.actor = actor
     a.ts = time.time()
     _resolve_placeholders(state, a, actor)

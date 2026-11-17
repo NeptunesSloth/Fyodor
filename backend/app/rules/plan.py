@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import pickle
 import secrets
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -63,6 +64,16 @@ class DepartureBefore(BaseModel):
     types: dict[str, list[str]] = Field(default_factory=dict)
 
 
+
+def scratch_copy(state: GameState) -> GameState:
+    """An independent copy of the table for an intent to work on (what ``model_copy(deep=True)`` makes). -- big boards (playtest B3/B4) --
+    a pickle round trip makes the same copy (every field, the private attributes, shared references kept shared) in about half the time
+    of a deep copy, which every intent paid in full: a table of 200 tokens holds a megabyte of rules state."""
+    try:
+        return pickle.loads(pickle.dumps(state, protocol=pickle.HIGHEST_PROTOCOL))
+    except Exception:  # (anything a pickle can't carry: the deep copy, as before)
+        return state.model_copy(deep=True)
+
 class Plan:
     """A scratch copy of the table plus the table actions carried out on it so far."""
 
@@ -96,7 +107,7 @@ class Plan:
     delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
-        self.state = state.model_copy(deep=True)
+        self.state = scratch_copy(state)
         self.actor = actor
         self.info = info
         self.rng = rng
