@@ -306,7 +306,12 @@ export function TurnDial() {
   const active = view.players.find((p) => p.id === turn.active_player);
   const step = turn.phase as PhaseName;
   const extra = extraTurn(view); // -- playtest (nov 16) -- an extra turn is marked
-  const { auto, watching: dialWatching, mine, status } = dialState(view, me);
+  const dial = dialState(view, me);
+  // -- playtest (nov 16) -- the rules ended the game: no Resolve / Resolve all over a result waiting to be confirmed (the stack is only a record)
+  const over = gameEnded(view, me);
+  const { auto, watching: dialWatching } = dial;
+  const mine = dial.mine && !over;
+  const status = over ? "The game is over" : dial.status;
   const watching = dialWatching || !ctx.seated;
   // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
   const out = isOut(view, me);

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { GameView } from "../types/game";
-import { RulesStack } from "./rules/RulesHud";
+import { RulesStack, TurnDial } from "./rules/RulesHud";
 import { barMoment } from "./Hud";
 import { gameEnded } from "./nightEnding";
 
@@ -40,6 +40,16 @@ describe("after the game is over (Sanguine Bond won it with a trigger still on t
     expect(over).toContain("Exquisite Blood");
     expect(over).not.toContain('data-testid="stack-respond"');
     expect(over).not.toContain("Stop after");
+    expect(over).toContain("The game is over");
+  });
+
+  it("the turn dial offers no Resolve over a result waiting to be confirmed", () => {
+    state.game.view = table({});
+    expect(renderToStaticMarkup(createElement(TurnDial))).toContain('data-testid="pass-priority"');
+    state.game.view = table({ winner: "p1", lost: { p2: "0 or less life" } });
+    const over = renderToStaticMarkup(createElement(TurnDial));
+    expect(over).not.toContain('data-testid="pass-priority"');
+    expect(over).not.toContain('data-testid="resolve-all"');
     expect(over).toContain("The game is over");
   });
 
