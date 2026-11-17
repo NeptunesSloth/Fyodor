@@ -239,6 +239,11 @@ class RevealTop(Base):
     type: Literal["reveal_top"] = "reveal_top"
     player: Id | None = None
     count: int = Field(default=1, ge=1, le=100)
+    # -- public reveals -- the rules engine's words for the log and the table's reveal notice (701.20a): the spell or ability that
+    # reveals ("Nissa, Resurgent Animist"), and for "reveal cards … until you reveal X" whether the last card revealed is the one found
+    source: Annotated[str, Field(max_length=200)] | None = Field(default=None, exclude_if=lambda v: v is None)
+    until: bool = Field(default=False, exclude_if=lambda v: not v)
+    found: bool = Field(default=False, exclude_if=lambda v: not v)
 
 
 class DigData(BaseModel):

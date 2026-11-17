@@ -8,7 +8,7 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.rules_state import emit
-from app.game.state import ALL, STACK, CardInstance, DigLog, GameState, ViewContext, split_zone, zone_key
+from app.game.state import ALL, STACK, CardInstance, DigLog, GameState, RevealLog, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
 
 OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"}
@@ -356,7 +356,10 @@ def reveal(state: GameState, a: A.Reveal) -> None:
             c.revealed_to = sorted(set(c.revealed_to) | set(a.to))
     audience = "everyone" if a.to is None else ", ".join(state.players[p].name for p in a.to)
     extra = {c.id: before[c.id] | ({ALL} if a.to is None else set(a.to)) for c in targets}
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(" revealed "), group(state, targets, extra), text(f" to {audience}")])
+    owners = {c.owner for c in targets}
+    # -- public reveals -- the table shows each viewer the cards this line names to them (a reveal to some players: those players only)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" revealed "), group(state, targets, extra), text(f" to {audience}")],
+        reveal=RevealLog(player=owners.pop() if len(owners) == 1 else a.actor or ""))
 
 
 def hide(state: GameState, a: A.Hide) -> None:
@@ -391,7 +394,12 @@ def reveal_top(state: GameState, a: A.RevealTop) -> None:
     top = [state.cards[cid] for cid in state.zone(key)[: a.count]]
     for c in top:
         c.revealed_to = [ALL]
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed the top of {zone_label(state, key, a.actor)}: "), group(state, top)])
+    # -- public reveals -- 701.20a: everyone sees them; the engine names the spell or ability and, for "reveal … until", the card found
+    # ("Alice revealed cards from the top of her library (Nissa, Resurgent Animist): Forest, Forest and Llanowar Elves — found Llanowar Elves")
+    what = f"cards from the top of {zone_label(state, key, a.actor)}" if a.until else f"the top of {zone_label(state, key, a.actor)}"
+    tail = ([text(" — found "), ops.card_part(state, top[-1])] if a.found and top else [text(" — none found")] if a.until else [])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed {what}" + (f" ({a.source})" if a.source else "") + ": "), group(state, top), *tail],
+        reveal=RevealLog(player=pid, source=a.source, until=a.until, found=a.found and bool(top)))
 
 
 def reveal_until(state: GameState, a: A.RevealUntil) -> None:

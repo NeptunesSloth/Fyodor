@@ -227,6 +227,8 @@ export interface LogEntryView {
   roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[]; cannon?: CannonLog | null }; // ignored: indexes the rules ignored (Barbarian Class)
   /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
   dig?: DigLog;
+  /** -- public reveals -- cards this line turned face up for the table (701.20a); the cards are the ones its parts name to this viewer. */
+  reveal?: { player: string; source: string | null; until: boolean; found: boolean };
   /** -- table toys -- a chit drawn from the draw bag: `chit` is null for a hidden draw unless this viewer drew it. */
   bag?: BagLogView;
 }

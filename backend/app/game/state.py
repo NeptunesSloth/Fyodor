@@ -563,6 +563,17 @@ class DigLog(BaseModel):
     hit: str | None = None
 
 
+class RevealLog(BaseModel):
+    """-- public reveals -- a log line that turned cards face up for the table (701.20a: reveal_top, reveal): every viewer's table shows
+    the cards its rendered ``parts`` name to that viewer (printing ids only, never the cards' instance ids, so the library positions they
+    go back to stay unreadable). ``found``: the last card named is the one a "reveal … until" was looking for."""
+
+    player: str  # whose cards (the library's owner)
+    source: str | None = None
+    until: bool = False
+    found: bool = False
+
+
 class LogEntry(BaseModel):
     seq: int
     ts: float
@@ -575,6 +586,7 @@ class LogEntry(BaseModel):
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
     roll: DiceRollLog | None = None
     dig: DigLog | None = None
+    reveal: RevealLog | None = None  # -- public reveals --
     bag: BagLog | None = None  # -- table toys --
 
 

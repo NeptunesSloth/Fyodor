@@ -36,6 +36,7 @@ import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
+import { RevealNotice } from "./RevealNotice";
 import { TableImporter } from "./TableImporter";
 import { ExileCastables } from "./ExileCastablesRow";
 import { useTurnAlert } from "./turnAlert";
@@ -126,6 +127,7 @@ export function GameScreen() {
       {!three && <Motion2D />}
       <BagDraws />
       <DigDialog me={me} />
+      <RevealNotice />
       <TableImporter />
       <StackWidget me={me} />
       {/* -- planechase -- the face-up plane and the planar die (both tables: over the 3D view too) */}

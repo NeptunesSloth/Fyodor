@@ -18,6 +18,7 @@ from app.game.state import (
     CardInstance,
     DiceRollLog,
     DigLog,
+    RevealLog,
     GameState,
     LogEntry,
     LogPart,
@@ -284,10 +285,10 @@ def pname(state: GameState, player_id: str | None) -> LogPart:
 
 
 def log(state: GameState, actor: str | None, ts: float, parts: list[LogPart], kind: str = "action",
-        roll: DiceRollLog | None = None, dig: DigLog | None = None) -> None:
+        roll: DiceRollLog | None = None, dig: DigLog | None = None, reveal: RevealLog | None = None) -> None:
     state.log.append(
         LogEntry(seq=state.seq, ts=ts, turn=state.turn.number, phase=state.turn.phase, actor=actor, parts=parts, kind=kind,
-                 roll=roll, dig=dig)
+                 roll=roll, dig=dig, reveal=reveal)
     )
     if len(state.log) > LOG_LIMIT:
         del state.log[: len(state.log) - LOG_LIMIT]

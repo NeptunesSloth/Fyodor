@@ -3284,8 +3284,9 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         else:
             top = library[: _amount(plan, ctx, e["n"])]
         if top and e.get("reveal"):
-            if len(top) <= 100:
-                plan.do({"type": "reveal_top", "player": pid, "count": len(top)}, actor=ctx["controller"])
+            if len(top) <= 100:  # (-- public reveals -- the table's notice names the source and, revealing until, the card found)
+                plan.do({"type": "reveal_top", "player": pid, "count": len(top), **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {}),
+                         **({"until": True, "found": at is not None} if e.get("until") else {})}, actor=ctx["controller"])
             else:
                 # The table top-N action is bounded, but a rules instruction may reveal an entire large library.
                 for offset in range(0, len(top), 250):
