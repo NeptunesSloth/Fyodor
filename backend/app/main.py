@@ -110,7 +110,9 @@ def _mount_frontend(app: FastAPI, settings: Settings) -> None:
     if (dist / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
+    # the page itself is asked for again on every load (the hashed assets it names can be kept): a window kept from an older
+    # build otherwise opened that build's page against the new server
     @app.get("/", include_in_schema=False)
     def spa_index() -> FileResponse:
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
