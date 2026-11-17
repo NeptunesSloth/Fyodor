@@ -1028,6 +1028,9 @@ class PendingTrigger(BaseModel):
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
     event: TriggerEvent | None = None  # what it triggered on
+    # -- same target for all (playtest B3) -- the target its controller chose for every identical trigger of this batch ("Bob — same for
+    # all 68"): used as it is put on the stack if it is still a legal target (603.3d), else it is asked as usual
+    target_hint: str | None = None
 
 
 class DeferredPaymentWindow(BaseModel):

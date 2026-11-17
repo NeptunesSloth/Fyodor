@@ -3415,12 +3415,19 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                            resume={"step": "trigger_opp110d", "trigger": t.id})
                     return False
                 choice_player = picked or opponents[0]
-            if len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
+            if t.target_hint is not None and t.target_hint in legal and choice_player == t.controller:
+                target = t.target_hint  # -- same target for all (playtest B3) -- its controller chose it for the whole batch
+            elif len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
+                options = [DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal]
+                same = alike(plan, t) if choice_player == t.controller and 2 <= len(legal) <= SAME_FOR_ALL_MAX else []
+                if same:  # -- same target for all (playtest B3) -- after the plain answers: one answer for this trigger and its identical ones
+                    options += [DecisionOption(id=f"{SAME_FOR_ALL}{x}", label=f"{label(plan, x)} — same for all {len(same) + 1}")
+                                for x in legal]  # (no card id: the table's click on a card stays the plain answer; these are buttons)
                 decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
-                       options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-                       resume={"step": "trigger_target", "trigger": t.id})
+                       options=options, resume={"step": "trigger_target", "trigger": t.id})
                 return False
-            target = legal[0]
+            else:
+                target = legal[0]
         targets = [ref(plan, target)]
     if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
             and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
@@ -3585,8 +3592,32 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
-        put(plan, t, target=chosen[0])
+        target = chosen[0]
+        if target.startswith(SAME_FOR_ALL):  # -- same target for all (playtest B3) -- this one, and each identical trigger waiting with it
+            target = target[len(SAME_FOR_ALL):]
+            for other in alike(plan, t):
+                other.target_hint = target
+            plan.note(f"{plan.name(t.controller)} chose {label(plan, target)} as the target of each {t.name or 'triggered'} ability", actor=t.controller)
+        put(plan, t, target=target)
     flush(plan)
+
+
+# -- same target for all (playtest B3) -- a board wipe under Blood Artist and Falkenrath Noble (and Teysa Karlov) puts 136 "target player"
+# triggers on the stack, each asked on its own (603.3d: each trigger's target is chosen as it is put on the stack). Identical triggers —
+# the same ability of the same source object, controlled and targeted by the same player — may be given one answer for all of them:
+# each still takes the target only if it is legal for it as it is put on the stack, and is asked as usual otherwise.
+SAME_FOR_ALL = "all:"
+SAME_FOR_ALL_MAX = 8  # (a choice among a few targets: players, a handful of permanents)
+
+
+def alike(plan: Plan, t: PendingTrigger) -> list[PendingTrigger]:
+    """The other waiting triggers identical to ``t`` (same source object, same ability, same controller, a single target the same way)."""
+    if t.ability.get("targets") or t.ability.get("modes") or t.ability.get("target_choice") or not t.ability.get("target"):
+        return []
+    spec = json.dumps(t.ability.get("target"), sort_keys=True, default=str)
+    return [p for p in plan.rules.pending_triggers if p.id != t.id and p.controller == t.controller and p.source_object == t.source_object
+            and p.key == t.key and not p.ability.get("targets") and not p.ability.get("modes") and not p.ability.get("target_choice")
+            and json.dumps(p.ability.get("target"), sort_keys=True, default=str) == spec]
 
 
 def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:

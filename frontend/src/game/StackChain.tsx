@@ -38,19 +38,21 @@ function kindOf(c: GameCard | undefined): string {
 export type ChainEntry = StackGroup;
 
 /**
- * Top first; consecutive abilities that read the same (same source, same text, same controller, nothing noted on them) share a row
- * (stackGroups.ts). Never grouped: spells, face-down objects, anything with a target, and the object a pending decision is about (a
- * player must see what they answer).
+ * Top first; consecutive abilities that read the same (same source, same text, same controller, nothing noted on them, the same targets)
+ * share a row (stackGroups.ts). Never grouped: spells, face-down objects, and the object a pending decision is about (a player must see
+ * what they answer). -- playtest B3 -- 68 Blood Artist triggers all targeting Bob are one row "×68 → Bob", not 68 rows.
  */
 export function chainEntries(view: GameView): ChainEntry[] {
-  const targeted = new Set((view.arrows ?? []).map((a) => a.source));
+  const targetsOf = new Map<string, string[]>();
+  for (const a of view.arrows ?? []) targetsOf.set(a.source, [...(targetsOf.get(a.source) ?? []), ...a.targets]);
   const asked = view.rules?.decision?.source_id ?? null;
   return groupStack(view.stack, (id) => {
     const c = view.cards[id];
-    if (!c || !isVisible(c) || !c.ability || targeted.has(id) || id === asked) return null;
+    if (!c || !isVisible(c) || !c.ability || id === asked) return null;
     const info = c.stack_info;
     const notes = info && (info.x != null || info.modes.length || info.tags.length) ? JSON.stringify(info) : "";
-    return abilityKey(c.ability.source_name, c.ability.text ?? "", c.controller, notes);
+    const targets = targetsOf.get(id);
+    return abilityKey(c.ability.source_name, c.ability.text ?? "", c.controller, targets ? `${notes}→${JSON.stringify(targets)}` : notes);
   });
 }
 

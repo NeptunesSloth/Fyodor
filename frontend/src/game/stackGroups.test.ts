@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameCard, GameView } from "../types/game";
 import { chainEntries } from "./StackChain";
-import { abilityShortName, batchTitle, groupStack } from "./stackGroups";
+import { abilityShortName, arrowLines, batchTitle, groupStack, STACK_ARROW_CAP } from "./stackGroups";
 
 const key = (map: Record<string, string | null>) => (id: string) => map[id] ?? null;
 
@@ -81,5 +81,30 @@ describe("chainEntries", () => {
     expect(groups[0]!.ids).toHaveLength(1000);
     expect(groups[0]!.id).toBe("t999");
     expect(groups[0]!.no).toBe(1000);
+  });
+  it("groups targeted abilities that target the same, and keeps different targets apart (playtest B3)", () => {
+    const cards = ["a", "b", "c", "d"].map((id) => ability(id, "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life."));
+    const arrows = [{ id: "1", source: "a", targets: ["p2"] }, { id: "2", source: "b", targets: ["p2"] }, { id: "3", source: "c", targets: ["p1"] },
+      { id: "4", source: "d", targets: ["p1"] }];
+    expect(chainEntries(view(cards, { arrows })).map((g) => g.ids)).toEqual([["d", "c"], ["b", "a"]]);
+  });
+});
+
+describe("arrowLines (playtest B3)", () => {
+  const arrow = (id: string, source: string, targets: string[], kind: "target" | "custom" = "target") => ({ id, owner: "p1", source, targets, kind, label: "" });
+
+  it("a batch of identical stack objects points once at its target, marked ×N, from the batch's row", () => {
+    const arrows = Array.from({ length: 68 }, (_, i) => arrow(`a${i}`, `t${i}`, ["p2"]));
+    const groups = [{ id: "t67", ids: Array.from({ length: 68 }, (_, i) => `t${67 - i}`), no: 68 }];
+    expect(arrowLines(arrows, groups)).toEqual([{ key: "t67|p2|target", source: "t67", target: "p2", kind: "target", label: "×68", count: 68 }]);
+  });
+  it("at most STACK_ARROW_CAP lines leave from the stack, top first; other arrows are all kept", () => {
+    const n = STACK_ARROW_CAP + 30;
+    const groups = Array.from({ length: n }, (_, i) => ({ id: `s${i}`, ids: [`s${i}`], no: n - i }));
+    const arrows = [...groups.map((g, i) => arrow(`a${i}`, g.id, [`c${i}`])), arrow("x", "perm", ["c0"], "custom")];
+    const lines = arrowLines(arrows, groups);
+    expect(lines.filter((l) => l.source.startsWith("s"))).toHaveLength(STACK_ARROW_CAP);
+    expect(lines.filter((l) => l.source.startsWith("s"))[0]!.source).toBe("s0");
+    expect(lines.some((l) => l.source === "perm")).toBe(true);
   });
 });

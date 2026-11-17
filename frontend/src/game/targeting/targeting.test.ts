@@ -86,6 +86,13 @@ describe("targeting: which decisions the table answers", () => {
     expect(any.instruction).toBe("Choose target creature or player");
   });
 
+  it("the same target for every identical trigger: the board picks one, the bar offers \"Bob — same for all 68\" (playtest B3)", () => {
+    const same = [{ id: "all:p2", label: "Bob — same for all 68", card_id: null, group: null }, { id: "all:p3", label: "Carol — same for all 68", card_id: null, group: null }];
+    const t = targetingOf(table({ kind: "choose_one", prompt: "Blood Artist: choose a target", options: [...opts("p2", "p3"), ...same] }), "p1")!;
+    expect(t.candidates.map((c) => c.ref)).toEqual(["p2", "p3"]);
+    expect(t.others.map((o) => o.label)).toEqual(["Bob — same for all 68", "Carol — same for all 68"]);
+  });
+
   it("a card in a graveyard, and a sacrifice (a choice that isn't a target)", () => {
     const gy = targetingOf(table({ kind: "choose_one", prompt: "Choose a target for Reanimate", options: opts("zombie") }), "p1")!;
     expect(gy.instruction).toBe("Choose target card in a graveyard");

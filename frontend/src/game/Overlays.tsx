@@ -5,6 +5,8 @@ import { GameCardFace } from "./GameCardFace";
 import { attachmentLinks, tetherAnchor } from "./attachments";
 import { dropCaption, dropFacts, handDropKind } from "./handDrop";
 import { isLand } from "./rules/intents";
+import { chainEntries } from "./StackChain";
+import { arrowLines } from "./stackGroups";
 
 /** Card ghosts that follow the pointer while dragging. */
 export function DragLayer() {
@@ -70,26 +72,26 @@ function locate(ref: string): Element | null {
 /**
  * Arrows over the whole table: blockers → attackers, plus every arrow players drew
  * (targets, attacks, custom). Kept thin and translucent so a busy Commander board stays readable.
+ * -- playtest B3 -- a batch of identical stack objects points once at each target (×N, from its stack row), and at most
+ * STACK_ARROW_CAP lines leave from the stack (stackGroups.arrowLines).
  */
 export function CombatArrows() {
-  const cards = useGame((s) => s.view?.cards);
-  const arrows = useGame((s) => s.view?.arrows);
+  const view = useGame((s) => s.view);
+  const cards = view?.cards;
+  const arrows = view?.arrows;
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => {
-    if (!cards) return;
+    if (!cards || !view) return;
     const compute = () => {
       const out: Line[] = [];
       // blocks are shown by the combat strip (CombatStrip), not by lines across the table
-      for (const ar of arrows ?? []) {
-        const a = locate(ar.source);
-        if (!a) continue;
+      for (const l of arrowLines(arrows ?? [], view.stack.length ? chainEntries(view) : [])) {
+        const a = locate(l.source);
+        const b = a && locate(l.target);
+        if (!a || !b) continue;
         const p = center(a);
-        ar.targets.forEach((t, i) => {
-          const b = locate(t);
-          if (!b) return;
-          const q = center(b);
-          out.push({ key: `${ar.id}-${t}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: ar.kind, label: i === 0 ? ar.label : undefined });
-        });
+        const q = center(b);
+        out.push({ key: l.key, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: l.kind, label: l.label });
       }
       setLines(out);
     };
@@ -99,7 +101,7 @@ export function CombatArrows() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", compute);
     };
-  }, [cards, arrows]);
+  }, [cards, arrows, view]);
   if (!lines.length) return null;
   return (
     <svg className="combat-arrows" data-testid="table-arrows">
