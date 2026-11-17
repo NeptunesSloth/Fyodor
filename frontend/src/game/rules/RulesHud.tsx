@@ -19,6 +19,7 @@ import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { prettyPrompt } from "./promptWords";
 import { PassStopBanner, resolveAll } from "./PassStopBanner";
+import { extraTurn } from "./passStop";
 import { wheelEligible } from "./wheel";
 import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { CardFilterBar, filterCardOf } from "../CardFilterBar";
@@ -303,6 +304,7 @@ export function TurnDial() {
   const turn = view.turn;
   const active = view.players.find((p) => p.id === turn.active_player);
   const step = turn.phase as PhaseName;
+  const extra = extraTurn(view); // -- playtest (nov 16) -- an extra turn is marked
   const { auto, watching: dialWatching, mine, status } = dialState(view, me);
   const watching = dialWatching || !ctx.seated;
   // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
@@ -337,6 +339,7 @@ export function TurnDial() {
               onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
               {PHASE_LABEL[step] ?? turn.phase}
             </button>
+            {extra && <p className="td-extra" data-testid="extra-turn" title={`An extra turn (500.7), from ${extra}`}>Extra turn · {extra}</p>}
             <div className="td-status-row">
               <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
               {!watching && <NudgeButton view={view} me={me} />}

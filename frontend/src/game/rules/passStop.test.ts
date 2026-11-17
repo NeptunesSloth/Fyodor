@@ -81,3 +81,17 @@ describe("the Hold priority hint (playtest nov 16: Opt resolved before I could r
     expect(autoPassedMyCast(before, at([[1, "x"], [2, "Alice played Island"]], {}), "p1")).toBe(false);
   });
 });
+
+describe("an extra turn is marked (playtest nov 16)", () => {
+  it("reads the engine's line for the active player, this turn only", async () => {
+    const { extraTurn } = await import("./passStop");
+    const v = (active: string, number: number, lines: [number, string][]) => ({
+      players: [{ id: "p1", name: "Alice" }, { id: "p2", name: "Bob" }], turn: { number, active_player: active },
+      log: lines.map(([turn, t], i) => ({ seq: i, turn, parts: [{ t }] })),
+    }) as unknown as GameView;
+    const lines: [number, string][] = [[3, "Alice cast Final Fortune"], [3, "Alice takes an extra turn (Final Fortune, 500.7)"]];
+    expect(extraTurn(v("p1", 4, lines))).toBe("Final Fortune");
+    expect(extraTurn(v("p2", 5, [...lines, [4, "Alice passed"]]))).toBeNull(); // the next turn is a normal one
+    expect(extraTurn(v("p1", 4, [[3, "Alice cast Opt"]]))).toBeNull();
+  });
+});

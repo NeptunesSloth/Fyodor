@@ -124,3 +124,20 @@ export function holdHintDue(): boolean {
     return false;
   }
 }
+
+/**
+ * -- playtest (nov 16) -- this turn is an extra turn (500.7): its source ("Final Fortune"), or null. Read from the rules engine's public log line
+ * "Alice takes an extra turn (Final Fortune, 500.7)", written as the turn begins: the newest such line, from this turn or the one before,
+ * naming the active player. Extra turns weren't marked anywhere on the dial or the plates.
+ */
+export function extraTurn(view: Pick<GameView, "log" | "turn" | "players">): string | null {
+  const active = view.players.find((p) => p.id === view.turn.active_player)?.name;
+  if (!active) return null;
+  for (let i = view.log.length - 1; i >= 0; i--) {
+    const e = view.log[i]!;
+    if (e.turn < view.turn.number - 1) break;
+    const m = /^(.+) takes an extra turn \((.+), 500\.7\)$/.exec(logText(e));
+    if (m) return m[1] === active ? m[2]! : null;
+  }
+  return null;
+}
