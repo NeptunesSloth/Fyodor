@@ -285,3 +285,5 @@ body.t-dragging { cursor: grabbing; user-select: none; }
   .t-rows li { grid-template-columns: 90px minmax(0, 1fr); }
   .t-rows li .t-rowlines { grid-column: 1 / -1; } .t-rows li .t-rowacts { grid-column: 1 / -1; }
 }
+.t-label .t-glued { margin-left: -4px; } /* "card" + "s" glued to the chip before it */
+.t-work, .t-palette { user-select: none; }

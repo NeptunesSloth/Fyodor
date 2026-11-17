@@ -10,6 +10,7 @@ import { Icon } from "../components/Icon";
 import { ManaText } from "../cards/ManaText";
 import type { DragItem, DragState } from "./drag";
 import { CONTAINERS, type Node, type Path, type Script } from "./script";
+import { render } from "./sentence";
 import type { Piece, Slot, Value, Vocabulary } from "./types";
 
 export const spotKey = (path: Path) => `${path.ability}:${path.index.join(".")}`;
@@ -132,11 +133,13 @@ function Row({ node, path, isHat, pieces, voc, drag, chipTargets, onStartDrag, o
   let last = 0;
   let m: RegExpExecArray | null;
   const text = piece.text;
+  // words between chips: the card's own name and a slot's second mention ("card{n:s}" → "cards") written out, as the sentence says them
+  const words = (s: string) => render(s, node.values, voc, { me, n: null });
   while ((m = re.exec(text))) {
     const key = m[1]!;
     if (!(key in slots) || seen.has(key)) continue; // ({self}, a repeat of a slot: the label words carry it)
     seen.add(key);
-    const before = text.slice(last, m.index).replace(/\{self\}/g, me).replace(/\{[a-z]+(?::[a-z]+)?\}/g, "").trim();
+    const before = words(text.slice(last, m.index)).trim();
     if (before) parts.push(<span key={`t${m.index}`}>{before} </span>);
     last = m.index + m[0].length;
     const slot = slots[key]!;
@@ -155,9 +158,9 @@ function Row({ node, path, isHat, pieces, voc, drag, chipTargets, onStartDrag, o
       </span>,
     );
   }
-  const tail = text.slice(last).replace(/\{self\}/g, me).replace(/\{[a-z]+(?::[a-z]+)?\}/g, "").trim();
+  const tail = words(text.slice(last));
   if (parts.length === 0) parts.push(<span key="label">{piece.label}</span>);
-  else if (tail) parts.push(<span key="tail"> {tail}</span>);
+  else if (tail.trim()) parts.push(<span key="tail" className={tail.startsWith(" ") ? "" : "t-glued"}>{tail.trim()}</span>);
   const onKey = (e: React.KeyboardEvent) => {
     if (e.target !== el.current) return;
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); onRemove(path); }

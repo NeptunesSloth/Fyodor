@@ -51,6 +51,8 @@ describe("render", () => {
 describe("abilityText", () => {
   it("shows an unfinished ability with an ellipsis", () => {
     expect(abilityText({ hat: { id: "etb" }, body: [] }, voc)).toBe("When this creature enters, …");
+    expect(abilityText({ hat: { id: "etb" }, body: [{ id: "mill", values: { n: 2 } }, { id: "may", body: [] }] }, voc)).toBe("When this creature enters, mill two cards. You may ….");
+    expect(abilityText({ hat: { id: "attacks" }, body: [{ id: "pay_mana", values: { mana: "{2}" }, body: [] }] }, voc)).toBe("Whenever this creature attacks, you may pay {2}. If you do, ….");
     expect(abilityText({ hat: { id: "activated" }, body: [] }, voc)).toBe("…: …");
     expect(abilityText({ hat: { id: "static" }, body: [] }, voc)).toBe("….");
   });

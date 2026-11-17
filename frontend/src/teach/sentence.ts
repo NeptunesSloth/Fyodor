@@ -77,11 +77,11 @@ function sentences(stmts: Block[], voc: Vocabulary, voice: Voice): string[] {
     }
     let s: string;
     if (role === "effect") s = pieceText(st, voc, voice);
-    else if (role === "may") s = may(pieceText(st.body![0]!, voc, voice));
-    else if (role === "ifdo") s = "if you do, " + sentences(st.body ?? [], voc, voice).join(", then ");
+    else if (role === "may") s = st.body?.length ? may(pieceText(st.body[0]!, voc, voice)) : "you may …"; // (an empty group, mid-build)
+    else if (role === "ifdo") s = "if you do, " + (sentences(st.body ?? [], voc, voice).join(", then ") || "…");
     else if (role === "optional_cost") {
       out.push(pieceText(st, voc, voice));
-      s = "if you do, " + sentences(st.body ?? [], voc, voice).join(", then ");
+      s = "if you do, " + (sentences(st.body ?? [], voc, voice).join(", then ") || "…");
       join = false;
     } else continue;
     if (join && out.length) out[out.length - 1] += ", then " + s;

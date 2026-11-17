@@ -253,6 +253,13 @@ def try_it(body: TryIn, request: Request, services: ServicesDep) -> dict[str, An
     land_ids = [c for c in ids if session.state.cards[c].card_id in {land["id"] for land in lands if land}]
     session.perform("p1", {"type": "move", "card_ids": land_ids, "to": {"player": "p1", "zone": "battlefield"}}, trusted=True, host=True)
     session.perform("p1", {"type": "configure", "automation": "full"}, trusted=True, host=True)
+    for _ in range(3):  # into the first main phase, so the card can be cast at once
+        if session.state.turn.phase.startswith("main") or session.state.rules is None:
+            break
+        try:
+            session.perform("p1", {"type": "pass_priority"}, trusted=True, host=True)
+        except Exception:  # noqa: BLE001 (a prompt in the way: the player takes it from here)
+            break
     note = f" {card['name']} plays as a card with {stand_in['oracle_text']} here." if stand_in else ""
     session.notice(f"Try it: {entry['name']}.{note} Cast it and watch Fyodor play the taught ability.")
     return _create_room(services, session, "lan", None, "p1")
