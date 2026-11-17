@@ -2721,10 +2721,15 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # table picks (the recorded move says which, so replay is the same) and they are discarded at once (101.4)
         import secrets
 
+        from app.rules import (
+            randomness,  # -- random choices (wave MBC-D) -- each discarding player discards at random (Chira, All In)
+        )
+
         rng = plan.rng or secrets.SystemRandom()
         want = _amount(plan, ctx, e["n"])
-        picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
-                                                           min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
+        picked = [c for pid in order for c in randomness.sample(plan, rng, sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
+                                                                  min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))),
+                                                                  kind="discard", player=pid)]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"), e.get('to', 'graveyard'), link=bool(e.get('link')), face_down=bool(e.get('face_down')), blind=bool(e.get('blind')))
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
@@ -5346,7 +5351,9 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pool = found[-1:] if e.get("top") else sorted(found)
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
-        picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+
+        picked = randomness.sample(plan, plan.rng or secrets.SystemRandom(), pool, min(want, len(pool)), kind="card", player=ctx["controller"])
         return _return_cards(plan, ctx, e, picked)
     most = min(want, len(pool))
     least = 0 if e.get("upto") else most

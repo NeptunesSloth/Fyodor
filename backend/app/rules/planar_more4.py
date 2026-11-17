@@ -206,7 +206,8 @@ def yargle_pick(plan: Plan, ctx: dict[str, Any], e: Def) -> bool:
     from app.rules import card_copy_sources, effects
 
     rng = plan.rng or secrets.SystemRandom()
-    name = YARGLE_PICKS[rng.randint(0, len(YARGLE_PICKS) - 1)]
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    name = YARGLE_PICKS[randomness.randint(plan, rng, 0, len(YARGLE_PICKS) - 1, kind='other', player=ctx['controller'])]
     plan.note(f"{ctx.get('name') or 'Happy Yargle Day!'}: {name} is chosen at random", actor=ctx["controller"])
     found = getattr(plan.info, "resolve", lambda n: None)(name)
     source = plan.state.cards.get(ctx.get("source_card") or "")

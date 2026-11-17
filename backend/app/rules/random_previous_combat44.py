@@ -40,7 +40,8 @@ def consume(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
         return False
     pool = sorted(p for p in plan.live() if p != ctx['controller'] and p not in previous)
     if pool:
-        chosen = (plan.rng or secrets.SystemRandom()).choice(pool)
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        chosen = randomness.choice(plan, plan.rng or secrets.SystemRandom(), pool, kind='player', player=ctx['controller'])
         context.bind_players(ctx, 'r44_hellkite_player', [chosen])
         coin_recipes.insert(ctx, [{'do': 'restrict', 'who': 'self', 'player': 'ref:r44_hellkite_player',
                                   'rules': ['attack_player:@that'], 'duration': 'end_of_combat'}])

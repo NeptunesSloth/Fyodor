@@ -375,6 +375,9 @@ def _emit_group(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int],
                        "results": results, "naturals": naturals, "base": base, "start": end})
         return False
     emit(plan.state, "designation", counter="roll", player=pid, amount=max(results), dice_total=sum(results))
+    from app.rules import randomness
+
+    randomness.noted(plan, "die", pid)  # -- random choices (wave MBC-D) -- they rolled one or more dice (Chira, All In)
     track(plan.state)
     if not e.get("choose") or results[0] == results[-1]:
         ctx["die"], ctx["die_other"] = results[0], results[-1]

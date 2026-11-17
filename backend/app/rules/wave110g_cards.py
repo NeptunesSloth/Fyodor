@@ -1204,7 +1204,8 @@ def elkin(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if not hand:
         context.bind_objects(plan, ctx, "e0", [])
         return True
-    cid = (plan.rng or secrets.SystemRandom()).choice(hand)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    cid = randomness.choice(plan, plan.rng or secrets.SystemRandom(), hand, kind='card', player=pid)
     before = [r for r in [context.ref_of(plan, cid)] if r is not None]
     plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=pid)
     context.bind_moved(plan, ctx, "e0", before)

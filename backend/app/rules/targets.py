@@ -486,7 +486,11 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         if random_only and options and (lo, hi) == (1, 1):
             import secrets
 
-            targets = [(plan.rng or secrets.SystemRandom()).choice(sorted(options))]
+            from app.rules import (
+                randomness,  # -- random choices (wave MBC-D) -- its controller selects the target at random (Chira, All In)
+            )
+
+            targets = [randomness.choice(plan, plan.rng or secrets.SystemRandom(), sorted(options), kind="target", player=chooser)]
             out.counts.append(1)
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)

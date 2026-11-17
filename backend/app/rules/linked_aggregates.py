@@ -295,7 +295,8 @@ def random_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cards = current_pool(plan, ctx, {})
     if not cards:
         return True
-    card = (plan.rng or secrets.SystemRandom()).choice(cards)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    card = randomness.choice(plan, plan.rng or secrets.SystemRandom(), cards, kind='card', player=ctx['controller'])
     plan.note(f"{ctx.get('name') or 'It'}: chosen at random", [card.id], actor=ctx["controller"])
     return granted_casts.ask(
         plan,

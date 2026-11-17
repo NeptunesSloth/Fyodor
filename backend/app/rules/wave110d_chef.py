@@ -49,7 +49,8 @@ def reselect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                  and not (x in plan.state.cards and plan.state.cards[x].controller == me and plan.state.cards[x].zone.endswith(":battlefield"))]
         new = None
         while legal and new is None:
-            pick = legal.pop(rng.randrange(len(legal)))
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            pick = legal.pop(randomness.randrange(plan, rng, len(legal), kind='target', player=me))  # (its controller reselects the target at random)
             if copying._problem(plan, cand := copying._retargeted(entry, pos, [targets.ref(plan, pick)])) is None:
                 new = cand
         stack_interaction._apply(plan, sid, new)

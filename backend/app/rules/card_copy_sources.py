@@ -151,7 +151,8 @@ def select_originals(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     want = len(pool) if e['n'] == 'all' else max(0, values.evaluate(plan, ctx, e['n']))
     most = min(want, len(pool))
     if e.get('random'):
-        return effects._return_cards(plan, ctx, {**e, 'to': 'choose'}, (plan.rng or secrets.SystemRandom()).sample(pool, most))
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        return effects._return_cards(plan, ctx, {**e, 'to': 'choose'}, randomness.sample(plan, plan.rng or secrets.SystemRandom(), pool, most, kind='card', player=player))
     hidden = e.get('sel') and 'hand' in selectors.from_key(e['sel']).zones and bool(plan.state.zones.get(f'{player}:hand'))
     if not hidden and (most == 0 or (most == len(pool) and not e.get('upto'))):
         return effects._return_cards(plan, ctx, {**e, 'to': 'choose'}, pool[:most])

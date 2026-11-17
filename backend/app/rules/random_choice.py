@@ -183,7 +183,8 @@ def choose_random_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import selectors
 
     found = sorted(selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
-    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), found, kind="object", player=ctx["controller"]) if found else None
     if pick is not None:
         plan.note(f"{ctx.get('name') or 'It'}: chosen at random →", [pick], actor=ctx["controller"])  # (the card is shown as the log shows any card: a face-down one isn't named)
     if e.get("as"):
@@ -195,7 +196,8 @@ def choose_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The table picks one player of the pool (an opponent of the controller, or any player) at random and binds it as ``as``."""
     me = ctx["controller"]
     pool = [p for p in plan.live() if e["pool"] == "player" or p != me]
-    pick = (plan.rng or secrets.SystemRandom()).choice(pool) if pool else None
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), pool, kind="player", player=me) if pool else None
     if pick is not None:
         plan.note(f"{ctx.get('name') or 'It'}: {plan.name(pick)} is chosen at random", actor=me)
     if e.get("as"):
@@ -239,7 +241,8 @@ def reveal_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     picked: list[str] = []
     for pid in _players(plan, ctx, e["who"]):
         hand = sorted(plan.state.zones.get(f"{pid}:hand", []))
-        mine = rng.sample(hand, min(_amount(plan, ctx, e["n"]), len(hand)))
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        mine = randomness.sample(plan, rng, hand, min(_amount(plan, ctx, e["n"]), len(hand)), kind="card", player=me)
         if mine:
             plan.do({"type": "reveal", "card_ids": mine, **({"to": [me]} if e.get("private") else {})}, actor=pid if not e.get("private") else me)
         picked += mine

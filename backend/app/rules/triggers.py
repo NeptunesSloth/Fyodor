@@ -344,6 +344,9 @@ def collect(plan: Plan) -> None:
     history.note_events(plan, new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
+    from app.rules import left_game
+
+    left_game.on_events(plan, new)  # -- leaving the game (wave MBC-D) -- "when they lose the game" (603.7, 800.4a)
     # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
     from app.rules import sagas
 
@@ -690,6 +693,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if card is None or plan.oid(card) != e.object_id:
             return []
         return [('echo_paid76', card, plan.ch(card), e.player, {'oid': e.object_id})]
+    if e.kind == "planar" and e.counter == "roll" and e.player and not e.manual:  # -- random choices (wave MBC-D) -- 706.7, 901.9d: rolling the
+        return [("random_choice", None, None, e.player, {"random_kind": "die", "actor": e.player})]  # planar die is rolling one or more dice
     if e.kind == "designation":  # -- counters & designations (wave 3E) --
         from app.rules import designations
 
@@ -871,6 +876,12 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return False
     if event == 'deal_combat_damage_player' and cond.get('combat_recipient') == 'opponent' and info.get('recipient') == you:
         return False
+    if cond.get("random_kinds") is not None and info.get("random_kind") not in cond["random_kinds"]:  # -- random choices (wave MBC-D) -- Chira
+        return False
+    if cond.get("recipient_lacks_counter_mbc"):  # -- (wave MBC-D) -- "to a player who doesn't have a contract counter" (Miss Highwater), as it happens
+        recipient = plan.state.players.get(info.get("recipient") or "")
+        if recipient is None or recipient.resources.get(cond["recipient_lacks_counter_mbc"], 0) > 0:
+            return False
     if cond.get('played_linked_name'):
         from app.rules import card_names, exiled_with
 

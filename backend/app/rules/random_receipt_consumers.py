@@ -146,19 +146,22 @@ def receipt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             card = plan.state.cards[cards[0]]
             kinds = [k for k in ('flying', 'first strike', 'deathtouch', 'hexproof', 'lifelink', 'menace', 'reach', 'trample', 'vigilance', '+1/+1') if not card.counters.get(k, 0)]
             if kinds:
-                chosen = (plan.rng or secrets.SystemRandom()).choice(kinds)
+                from app.rules import randomness  # -- random choices (wave MBC-D) --
+                chosen = randomness.choice(plan, plan.rng or secrets.SystemRandom(), kinds, kind='other', player=ctx['controller'])
                 steps = [{'do': 'add_counters', 'who': 'self', 'kind': chosen, 'n': 1}]
     elif kind == 'tyrant':
         steps = [{'do': 'return_choice', 'sel': selectors.Selector(card=True, types=('Creature',), subtypes=('Zombie',), zones=('graveyard',), zone_owner='you').key(), 'n': 1, 'random': True, 'to': 'battlefield'}]
     elif kind == 'random_destroy':
         cards = effects._cards(plan, ctx, 'target')
         if cards:
-            cid = cards[0] if len(cards) == 1 else (plan.rng or secrets.SystemRandom()).choice(cards)
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            cid = cards[0] if len(cards) == 1 else randomness.choice(plan, plan.rng or secrets.SystemRandom(), cards, kind='object', player=ctx['controller'])
             context.bind_objects(plan, ctx, 'receipt_doomed', [cid])
             steps = [{'do': 'destroy', 'who': 'ref:receipt_doomed'}]
     elif kind == 'waltz':
         cards = effects._cards(plan, ctx, 'target')
-        picked = (plan.rng or secrets.SystemRandom()).sample(cards, min(2, len(cards))) if len(cards) > 2 else cards
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        picked = randomness.sample(plan, plan.rng or secrets.SystemRandom(), cards, min(2, len(cards)), kind='object', player=ctx['controller']) if len(cards) > 2 else cards
         context.bind_objects(plan, ctx, 'receipt_returns', picked)
         context.bind_objects(plan, ctx, 'receipt_bottom', [c for c in cards if c not in picked])
         steps = [{'do': 'return_card', 'who': 'ref:receipt_returns', 'to': 'battlefield'}, {'do': 'to_library', 'who': 'ref:receipt_bottom', 'place': 'bottom'}]

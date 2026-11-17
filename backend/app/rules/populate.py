@@ -149,7 +149,7 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
     battlefield before the instruction: 608.2h — the effect uses the object's last known information, its
     copiable values as it last existed (111.12: a copy of a nonexistent object is made only through last known
     information). Each entry: (recipe, the player who creates it), or (why it's left to the players, "")."""
-    from app.rules import context, copying
+    from app.rules import context
 
     snaps: list[Any] = []
     if who == "event" or who.startswith(context.PREFIX):  # -- review 32 -- or what an earlier instruction moved off the battlefield ("Exile
@@ -190,11 +190,20 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         card = plan.state.cards.get(host or "")
         if host and (card is None or not card.zone.endswith(":battlefield")):
             return [("a copy of the permanent it was attached to, which left the battlefield (608.2h)", "")]
+    return recipes_of(plan, snaps, lambda snap: snap.controller if their else ctx["controller"])
+
+
+def recipes_of(plan: Plan, snaps: list[Any], maker_of: Any) -> list[tuple[Any, str]]:
+    """Copiable values of objects as they last existed (707.2, 608.2h), from their snapshots: each entry (recipe, the player
+    ``maker_of(snap)`` names to create the copy), or (why it's left to the players, ""). -- (wave MBC-D) -- shared with
+    app/rules/left_game.py: the objects a player who left the game controlled (800.4a)."""
+    from app.rules import copying
+
     out: list[tuple[Any, str]] = []
     for snap in snaps:
         if snap is None:
             continue  # (nothing is known of it: no token, 111.12)
-        maker = snap.controller if their else ctx["controller"]
+        maker = maker_of(snap)
         name = snap.name or "it"
         if snap.face_down:
             out.append((f"a copy of {name} (a face-down object, 707.2)", ""))

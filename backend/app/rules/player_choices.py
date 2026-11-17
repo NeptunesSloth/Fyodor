@@ -200,7 +200,8 @@ def destroy_random(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     found = sorted(effects._cards(plan, ctx, e["who"]))
     if not found:
         return True
-    pick = (plan.rng or secrets.SystemRandom()).choice(found)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), found, kind='object', player=ctx['controller'])
     plan.note(f"{ctx.get('name') or 'It'}: chosen at random ->", [pick], actor=ctx["controller"])
     return effects._destroy_cards(plan, ctx, {**e, "as": e.get("as")}, [pick])
 

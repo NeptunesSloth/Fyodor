@@ -512,7 +512,9 @@ def grip(plan: Any, ctx: Def, e: Def) -> bool:
     legal = [x for x in _legal(plan, entry, positions[0], sid) if x == current or _fits(plan, entry, positions, x, sid)]
     if not legal:
         return True
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
     pick = pick_random(legal)
+    randomness.noted(plan, "target", ctx["controller"])  # (Grip of Chaos: its controller reselects the target at random)
     plan.note(f"{ctx.get('name') or 'It'}: the target of {plan.state.cards[sid].name or 'it'} is reselected at random", actor=ctx["controller"])
     if pick != current:
         _apply(plan, sid, _with(plan, entry, positions, pick))

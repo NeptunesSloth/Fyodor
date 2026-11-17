@@ -36,7 +36,7 @@ EXTRA = [
     real('Kessig Wolf Run', '', 0, 'Land', '{T}: Add {C}.\n{X}{R}{G}, {T}: Target creature gets +X/+0 and gains trample until end of turn.', None, ''),
     real('Hangarback Walker', '{X}{X}', 0, 'Artifact Creature — Construct', 'This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.', ("0", "0"), ''),  # noqa: E501
 ]
-REFUSED = ["Miss Highwater", "Chira, All In"]  # (not automated: see the module docstring of app/rules/mbc_c.py)
+REFUSED = ["Miss Highwater", "Chira, All In"]  # (once left by hand here; automated since wave MBC-D: app/rules/mbc_d.py, tests/test_rules_mbc_d.py)
 CARDS = [c["name"] for c in EXTRA[:12] if c["name"] not in REFUSED]
 
 
@@ -56,8 +56,8 @@ def test_full(cards, name):
 
 
 @pytest.mark.parametrize("name", REFUSED)
-def test_refused_stay_by_hand(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
+def test_once_refused_are_full_now(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 # -- table helpers ---------------------------------------------------------------------------------------------------------------------------

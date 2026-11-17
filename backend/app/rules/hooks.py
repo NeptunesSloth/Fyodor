@@ -327,6 +327,7 @@ DEFINE: tuple[Chain, ...] = (
         "planar_more4.definition",  # -- planechase more 4 (wave G2) -- Deceptive Divination, Happy Yargle Day! by exact wording; planes only
         "planar_playtest.definition",  # -- planechase playtest planes (wave G1) -- the defined lines of the playtest planes by exact wording; planes only
         "mbc_c.definition",  # -- Mystery Booster Commander (wave MBC-C) -- exact wordings of a few MBC cards
+        "mbc_d.definition",  # -- Mystery Booster Commander (wave MBC-D) -- Miss Highwater, Chira, All In
         "mbc_a.definition",  # -- Mystery Booster Commander (wave MBC-A) -- Rulebreaker, Werewolf Pack Leader, The Everforger, The Unluckiest Planeswalker
         "mbc_b.definition",  # -- Mystery Booster Commander (wave MBC-B) -- Rikala, Balefang, Venser, Selenia, Flitwing, Meatsqueak, Ekthi, Elda, Jandor, Homer, Massimo, Matoc, Sahir
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
@@ -1307,5 +1308,7 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "planar_events.PRIMITIVES",  # -- planechase events (wave E2) --
         "planar_deck.PRIMITIVES",  # -- planechase deck (wave D) -- reveal / put back / planeswalk to revealed planes (planar_deck_op)
         "planar_deck.RESUME",  # -- planechase deck (wave D) --
+        "left_game.PRIMITIVES",  # -- leaving the game (wave MBC-D) -- copies of what a player who left the game controlled (800.4a)
+        "mbc_d.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-D) --
     ),
 )

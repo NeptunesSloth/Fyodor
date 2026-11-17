@@ -961,7 +961,11 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
                 need = objects_needed(comp, record.x)  # (wave 25D: "discard X cards at random")
                 if len(pool) < need:
                     raise ActionError(f"You can't pay “{comp.text}”")
-                ids = secrets.SystemRandom().sample(pool, need)
+                from app.rules import (
+                    randomness,  # -- random choices (wave MBC-D) -- the payer discards at random (its own fresh randomizer, as before)
+                )
+
+                ids = randomness.sample(plan, secrets.SystemRandom(), pool, need, kind="discard", player=player)
             if comp.selector is None:  # -- ability words (wave 4F) -- "Discard this card" (channel)
                 ids = [card.id]
             if ids:  # (wave 25D: X may be 0, 107.3a: nothing to discard)

@@ -21,14 +21,8 @@ text has no rules meaning (207.2a). CR 2026-09-25.
   linked cast trigger; the helper's payment is recorded by assist.py on the spell's card for the turn.
 * Glava: X of the cast permanent spell / activated ability on the stack becomes 5 (``double_event_x``'s way), optional, once each turn.
 
-Not automated here (left by hand, with the reason):
-* Miss Highwater — "For as long as they have a contract counter, when they lose the game, for each artifact and creature they controlled, create a
-  token that's a copy of it": a delayed trigger on a player's loss that outlives its source, then copies of objects that leave the game with their
-  owner (800.4a) from last known information. The engine's delayed triggers watch objects and steps, not a player's loss, and its token copies are
-  made from objects still in the game; one ability, so the card stays PARTIAL rather than half-done.
-* Chira, All In — one trigger on five kinds of randomness (discard at random, targets at random, modes at random, coin flips, dice). Coin flips and
-  dice have events; random discards, random targets and random modes are picked at about 35 separate sampling sites in 24 modules with no common
-  event, so a trigger built on a few of them would silently miss the rest.
+-- (wave MBC-D) -- Miss Highwater and Chira, All In, once left by hand here, are automated in app/rules/mbc_d.py (a player leaving the game as an
+event with what they controlled, app/rules/left_game.py; every random choice of the engine as one event, app/rules/randomness.py).
 """
 
 from __future__ import annotations

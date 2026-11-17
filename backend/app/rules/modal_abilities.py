@@ -600,7 +600,11 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         if modal.get("random") and not picked:  # "choose one at random": among the modes that can be chosen (Umaro ruling), public
             import secrets
 
-            pick = (plan.rng or secrets.SystemRandom()).choice(allowed)
+            from app.rules import (
+                randomness,  # -- random choices (wave MBC-D) -- its controller chooses the mode at random (Chira, All In)
+            )
+
+            pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), allowed, kind="mode", player=t.controller)
             plan.note(f"{_name(plan, t)}: mode chosen at random — {_public_texts(plan, t.source_card, d, [pick])[0]}")
             return put_trigger(plan, t, {"modes": [pick], "targets": []})
         # -- end refused modal/conditional (wave 3R1) --

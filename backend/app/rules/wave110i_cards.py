@@ -1345,7 +1345,8 @@ def catalyst(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     refs = plan.rules.crafted_materials.get(ctx.get("source_object") or "", [])
     found = sorted(r.card for r in refs if (c := plan.state.cards.get(r.card)) is not None and plan.oid(c) == r.object_id and c.zone.endswith(":exile"))
-    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), found, kind='card', player=ctx['controller']) if found else None
     if pick is not None:
         plan.note(f"{ctx.get('name') or 'It'}: chosen at random \u2192", [pick], actor=ctx["controller"])
     context.bind_objects(plan, ctx, "crafted110i", [pick] if pick is not None else [])
