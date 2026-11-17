@@ -2095,7 +2095,7 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         explored(0)
         return not me or replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid, then={"do": "continue", "ctx": ctx})
     top = library[0]
-    plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
+    plan.do({"type": "reveal_top", "player": pid, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=pid)
     card = plan.state.cards[top]
     explored(1 if chars.of(card, plan.info).is_land else 2)
     if chars.of(card, plan.info).is_land:

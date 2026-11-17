@@ -767,7 +767,7 @@ def episode(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     effects.reveal_hand(plan, ctx, {"who": "target"})
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     if library:
-        plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
+        plan.do({"type": "reveal_top", "player": pid, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=pid)
     pool = [c for c in ctx.get("revealed") or [] if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "hand")] + library[:1]
     if not pool:
         return True
@@ -1015,7 +1015,7 @@ def psychic(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     for p in plan.apnap():
         library = plan.state.zones.get(zone_key(p, "library"), [])
         if library:
-            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+            plan.do({"type": "reveal_top", "player": p, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=p)
             shown[p] = stack_interaction.mana_value(plan.state.cards[library[0]], plan.ch(plan.state.cards[library[0]]))
     top = max(shown.values(), default=None)
     winners = [p for p, v in shown.items() if v == top]

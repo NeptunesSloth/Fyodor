@@ -67,6 +67,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.opening = None
     if hasattr(a, "keep_ids") and not trusted:
         a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
+    if isinstance(a, A.RevealTop) and not trusted:  # -- public reveals -- the notice's words (the source, "until … found") are the engine's only
+        a.source, a.until, a.found = None, False, False  # (a manual reveal is plain: no client text reaches the log or the notice)
     if isinstance(a, A.CopyCard) and a.saved_stack is not None and not trusted:
         raise ActionError("Only the rules engine can copy a preserved spell")
     if isinstance(a, A.ResponseOpen):
