@@ -2538,7 +2538,7 @@ export class TableScene {
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
     if (target && this.flick(d, e.timeStamp)) return;
     if (target && this.arrangedDrop(d.ids, d.anchor, target.zone)) return;
-    if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
+    if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey, at: { clientX: e.clientX, clientY: e.clientY } });
     else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
   }

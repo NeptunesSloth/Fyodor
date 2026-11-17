@@ -39,6 +39,8 @@ export interface DropResult {
   position?: "top" | "bottom";
   /** The manual-override modifier (Alt) was held: do it by hand, not as a rules intent. */
   manual?: boolean;
+  /** Where the pointer let go (screen px): a chooser the drop opens shows there (game/handDrop.ts). */
+  at?: { clientX: number; clientY: number };
 }
 
 const THRESHOLD = 5;
@@ -138,7 +140,7 @@ export function beginPointerDrag(
     setDrag(null);
     if (dragging) {
       const target = findDropTarget(ev.clientX, ev.clientY, offsetX, offsetY);
-      opts.onDrop(target ? { ...target, manual: ev.altKey } : null);
+      opts.onDrop(target ? { ...target, manual: ev.altKey, at: { clientX: ev.clientX, clientY: ev.clientY } } : null);
     }
   };
   const cancel = () => {

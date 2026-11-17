@@ -4,7 +4,9 @@ import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import type { CardData } from "../types/cards";
 import type { GameView } from "../types/game";
+import { useMenu } from "../components/ContextMenu";
 import { dropCaption, dropFromHand, handDropKind, ontoTable, type HandDropFacts } from "./handDrop";
+import { rulesMenu } from "./rules/rulesMenu";
 import { contrast, CHIP_INK, SEAT_CHIPS } from "./seatChips";
 import { SEAT_ACTIONS } from "./seatActions";
 
@@ -107,6 +109,62 @@ describe("dropFromHand (the intent sent)", () => {
     useGame.setState({ view: view(undefined) });
     expect(dropFromHand(["c2"], { zone: "p1:battlefield" })).toBe(false);
     expect(sent).toEqual([]);
+  });
+});
+
+describe("dropFromHand: a card with two halves or two faces asks which, as its menu does", () => {
+  const two = (id: string, layout: string, faces: { name: string; mana_cost?: string; type_line: string }[]) =>
+    ({ id, name: faces.map((f) => f.name).join(" // "), layout, type_line: faces.map((f) => f.type_line).join(" // "), oracle_text: "", faces }) as unknown as CardData;
+  const cards = {
+    giant: two("giant", "adventure", [{ name: "Bonecrusher Giant", mana_cost: "{2}{R}", type_line: "Creature — Giant" }, { name: "Stomp", mana_cost: "{1}{R}", type_line: "Instant — Adventure" }]),
+    fire: two("fire", "split", [{ name: "Fire", mana_cost: "{1}{R}", type_line: "Instant" }, { name: "Ice", mana_cost: "{1}{U}", type_line: "Instant" }]),
+    valakut: two("valakut", "modal_dfc", [{ name: "Valakut Awakening", mana_cost: "{2}{R}", type_line: "Instant" }, { name: "Valakut Stoneforge", type_line: "Land" }]),
+  };
+  const withHand = () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, castable: ["a1", "s1", "m1"] } });
+    return { ...base, cards: { ...base.cards, a1: card("a1", "p1:hand", "giant"), s1: card("s1", "p1:hand", "fire"), m1: card("m1", "p1:hand", "valakut") } } as unknown as GameView;
+  };
+  const labels = () => useMenu.getState().menu!.items.map((i) => (i === "separator" ? "-" : i.label));
+  const choose = (n: number) => (useMenu.getState().menu!.items[n] as { onClick: () => void }).onClick();
+  beforeEach(() => {
+    useMenu.setState({ menu: null });
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, ...cards } });
+    useGame.setState({ view: withHand() });
+  });
+
+  it("an adventure: the card menu's two Cast rows, at the drop point; the chosen half is cast", () => {
+    const v = withHand();
+    expect(dropFromHand(["a1"], { zone: "p1:battlefield", x: 10, y: 20, at: { clientX: 640, clientY: 380 } })).toBe(true);
+    expect(sent).toEqual([]); // nothing cast until the player chooses
+    const menu = useMenu.getState().menu!;
+    expect([menu.x, menu.y]).toEqual([640, 380]);
+    expect(labels()).toEqual(["Cast Bonecrusher Giant {2}{R}", "Cast Stomp {1}{R}"]);
+    // the same rows the right-click menu offers
+    const fromMenu = rulesMenu(v.cards.a1!, v, "p1").filter((i) => i !== "separator").map((i) => (i as { label: string }).label);
+    expect(fromMenu.slice(0, 2)).toEqual(labels());
+    choose(1);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "a1", face: 1, ask_optional: true }]);
+  });
+
+  it("a split card asks which half", () => {
+    expect(dropFromHand(["s1"], { zone: "stack" })).toBe(true);
+    expect(labels()).toEqual(["Cast Fire {1}{R}", "Cast Ice {1}{U}"]);
+    choose(0);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "s1", face: 0, ask_optional: true }]);
+  });
+
+  it("a modal double-faced card: cast its spell face, or play its land face where it was dropped", () => {
+    expect(dropFromHand(["m1"], { zone: "p1:battlefield", x: 30, y: 40 })).toBe(true);
+    expect(labels()).toEqual(["Cast Valakut Awakening {2}{R}", "Play Valakut Stoneforge (land)"]);
+    choose(1);
+    expect(dropFromHand(["m1"], { zone: "p2:battlefield", x: 30, y: 40 })).toBe(true);
+    choose(0);
+    expect(sent).toEqual([{ type: "play_land", card_id: "m1", face: 1, x: 30, y: 40 }, { type: "cast_spell", card_id: "m1", face: 0, ask_optional: true }]);
+  });
+
+  it("Alt-drop still places it by hand, with no question", () => {
+    expect(dropFromHand(["m1"], { zone: "p1:battlefield", x: 30, y: 40, manual: true })).toBe(false);
+    expect(useMenu.getState().menu).toBeNull();
   });
 });
 

@@ -8,11 +8,14 @@
  * Holding Alt as you let go is the manual override: the card is placed by hand, as with automation off (manual tabletop
  * freedom is never removed). With automation off (or paused) a drag is always a plain move.
  */
+import { openMenu } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
+import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
-import { splitZone } from "../types/game";
+import { isVisible, splitZone } from "../types/game";
 import type { DropResult } from "./dnd";
 import { automationOn, dropAsIntent, isLand, send } from "./rules/intents";
+import { faceChoices } from "./rules/rulesMenu";
 
 /**
  * What a drop means:
@@ -83,6 +86,19 @@ export function dropFromHand(ids: string[], target: DropResult | null, seat?: st
   // dropped on someone else's side (or the stack): it's still mine to play, onto my side (where it lands is the server's
   // choice; only my own mat's spot is passed on)
   const at = target.zone === mine ? target : { zone: target.zone === "stack" ? "stack" : mine };
+  // a split card, an adventure, a Room or a modal double-faced card: which half or face? The card menu's own rows, where it let
+  // go (an MDFC's land face is played there); Esc keeps it in hand
+  const card = view.cards[id]!;
+  if (splitZone(facts.from).zone === "hand") {
+    const land = at.x != null ? { x: at.x, y: at.y } : {};
+    const faces = faceChoices(card, view, { cast: { ask_optional: true }, land });
+    if (faces) {
+      const where = target.at ?? { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
+      const name = isVisible(card) ? (card.card_id ? useCardCache.getState().cards[card.card_id]?.name : undefined) ?? card.name : "Cast";
+      openMenu(where, faces, name ?? "Cast");
+      return true;
+    }
+  }
   // a land the engine says I can play (even before its card data has loaded here) is played, not cast
   if (splitZone(facts.from).zone === "hand" && !isLand(id, view) && view.rules?.hints?.playable_lands?.includes(id)) {
     void send({ type: "play_land", card_id: id, ...(at.x != null ? { x: at.x, y: at.y } : {}) });

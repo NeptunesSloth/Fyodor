@@ -15,6 +15,39 @@ const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: s
 const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
   data?.layout === "split" && data.faces.length === 2 && data.faces.every((f) => /\bRoom\b/.test(f.type_line ?? ""));
 
+/** 712.12: a modal double-faced card is cast as the face its player chooses, or played as a land if that face is one. */
+const isModal = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
+  data?.layout === "modal_dfc" && data.faces.length === 2;
+
+/**
+ * The ways a card in the hand is cast as one of its faces or halves: a Room's or a split card's half, an adventure or its creature
+ * (709.3, 709.5, 715.3), a modal double-faced card's face, or its land face played instead (712.12). The card menu lists these rows;
+ * a drop from the hand opens them as a chooser where it let go (game/handDrop.ts), so a drag asks what the menu asks. `cast` and
+ * `land` add to the intents sent (a drop asks for optional costs and keeps the land's spot). Null: the card is cast one way.
+ */
+export function faceChoices(card: GameCard, view: GameView, more: { cast?: { ask_optional?: boolean }; land?: { x?: number; y?: number } } = {}): MenuItem[] | null {
+  if (!isVisible(card)) return null;
+  const id = card.card_id;
+  const data = () => (id ? useCardCache.getState().cards[id] : undefined); // (each layout test reads it afresh: the guards overlap)
+  const hints = view.rules?.hints;
+  const cast = (i: number) => () => void send({ type: "cast_spell", card_id: card.id, face: i, ...more.cast });
+  const named = (f: { name: string; mana_cost?: string | null }) => `${f.name} ${f.mana_cost ?? ""}`.trim();
+  // 709.5: a Room is cast as one half (its door is unlocked as it enters)
+  const room = data();
+  if (isRoom(room)) return room.faces.map((f, i) => ({ label: `Cast ${named(f)}`, onClick: cast(i) }));
+  // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
+  const halves = data();
+  if (twoSpells(halves)) return halves.faces.map((f, i) => ({ label: `Cast ${named(f)}`, disabled: !hints?.castable?.includes(card.id), onClick: cast(i) }));
+  // (the server decides which face can be played now: the hints read only the face showing)
+  const modal = data();
+  if (isModal(modal)) {
+    return modal.faces.map((f, i) => (/\bLand\b/.test(f.type_line ?? "")
+      ? { label: `Play ${f.name} (land)`, onClick: () => void send({ type: "play_land", card_id: card.id, face: i, ...more.land }) }
+      : { label: `Cast ${named(f)}`, onClick: cast(i) }));
+  }
+  return null;
+}
+
 /**
  * An activated ability as a menu row: cost and effect split at the first ": " outside quotes (602.1), shown whole with mana
  * symbols, and when it can't be activated now, the likeliest plain reason (only facts the client sees; the server decides).
@@ -56,18 +89,13 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   // Other zones (your graveyard, exile, the top of your library): only when the server says a
   // permission lets you (flashback, "you may play that card this turn", "… from the top of your library").
   const elsewhere = zone === "graveyard" || zone === "exile" || zone === "library";
-  if (mine && zone === "hand" && isLand(card.id, view)) {
+  const faces = mine && zone === "hand" ? faceChoices(card, view) : null;
+  if (faces) {
+    items.push(...faces);
+  } else if (mine && zone === "hand" && isLand(card.id, view)) {
     items.push({ label: "Play land", disabled: !hints.playable_lands?.includes(card.id), onClick: () => void send({ type: "play_land", card_id: card.id }) });
   } else if (mine && elsewhere && isLand(card.id, view) && hints.playable_lands?.includes(card.id)) {
     items.push({ label: `Play land from ${zone}`, onClick: () => void send({ type: "play_land", card_id: card.id }) });
-  } else if (mine && zone === "hand" && isRoom(data)) {
-    // 709.5: a Room is cast as one half (its door is unlocked as it enters)
-    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(),
-      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
-  } else if (mine && zone === "hand" && twoSpells(data)) {
-    // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
-    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.castable?.includes(card.id),
-      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
