@@ -11,7 +11,6 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { ManaText } from "../cards/ManaText";
 import { GameCardFace } from "./GameCardFace";
-import { dropAsIntent } from "./rules/intents";
 import { dropFromHand } from "./handDrop";
 import { legalClass } from "./rules/RulesHud";
 import { customOrder, moveInOrder, saveCustomOrder, sortHand, type HandFacts } from "./handSort";
@@ -202,10 +201,20 @@ export function dropHandCards(ids: string[], target: DropResult | null, me: stri
   void moveCards(ids, zone, { player, position: target.position, index: target.index });
 }
 
-/** Play a card from my hand: double-click or Enter (with automation on, the land is played / the spell cast). */
-export function playFromHand(id: string, me: string): void {
-  if (dropAsIntent([id], { zone: `${me}:battlefield` }, me)) return;
+/**
+ * Play a card from my hand: double-click or Enter (with automation on, the land is played / the spell cast). It goes the way a drag
+ * onto my side does (handDrop.ts): -- playtest (nov 16) -- a split card, an adventure or a modal double-faced card asks which half or
+ * face at `at` (the double-click, or the card for Enter); a double-click cast Fire // Ice's left half without asking.
+ */
+export function playFromHand(id: string, me: string, at?: { clientX: number; clientY: number }): void {
+  if (dropFromHand([id], { zone: `${me}:battlefield`, ...(at ? { at } : {}) }, me)) return;
   void moveCards([id], "battlefield", { player: me });
+}
+
+/** Where a chooser a keyboard play opens shows: over the card. */
+export function centreOf(el: Element): { clientX: number; clientY: number } {
+  const r = el.getBoundingClientRect();
+  return { clientX: Math.round(r.left + r.width / 2), clientY: Math.round(r.top + r.height / 2) };
 }
 
 /** Start dragging a card of my hand (the selection, if it is part of it); a click with Shift/Ctrl adds to the selection. */
@@ -258,7 +267,7 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact, small = f
         } else if (e.key === "Enter" && !card.hidden) {
           // the keyboard way to play a card: the same as double-click (rules intents first)
           e.preventDefault();
-          playFromHand(id, me);
+          playFromHand(id, me, centreOf(e.currentTarget));
         } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") && !e.ctrlKey && !e.metaKey && !e.altKey) {
           // walk the hand with the arrows (a long hand scrolls along); the 3D view's arrow panning waits
           const el = e.currentTarget;
@@ -282,10 +291,10 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact, small = f
         if (e.button !== 0 || compact) return;
         grabHandCard(e, id, card, me, index);
       }}
-      onDoubleClick={() => {
+      onDoubleClick={(e) => {
         if (card.hidden) return;
         // with automation on this plays the land / casts the spell through the rules engine
-        playFromHand(id, me);
+        playFromHand(id, me, { clientX: e.clientX, clientY: e.clientY });
       }}
       onContextMenu={(e) => handCardMenu(e, id, card, me)}
       onMouseEnter={fresh ? () => useFreshDraws.getState().seen(id) : undefined}

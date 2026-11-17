@@ -12,7 +12,7 @@ import { GameCardFace } from "./GameCardFace";
 import { exileCastables, playFromExile } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
-import { displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
+import { centreOf, displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
 import { legalClass } from "./rules/RulesHud";
 import { useFreshDraws } from "./drawNotices";
 
@@ -125,14 +125,14 @@ const HandBrowserCard = memo(function HandBrowserCard({ id, me, index }: { id: s
           useGame.getState().select([id], e.shiftKey || e.ctrlKey || e.metaKey ? "toggle" : undefined);
         } else if (e.key === "Enter" && !card.hidden) {
           e.preventDefault();
-          playFromHand(id, me);
+          playFromHand(id, me, centreOf(e.currentTarget));
         }
       }}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         grabHandCard(e, id, card, me, index);
       }}
-      onDoubleClick={() => { if (!card.hidden) playFromHand(id, me); }}
+      onDoubleClick={(e) => { if (!card.hidden) playFromHand(id, me, { clientX: e.clientX, clientY: e.clientY }); }}
       onContextMenu={(e) => handCardMenu(e, id, card, me)}
       onMouseEnter={fresh ? () => useFreshDraws.getState().seen(id) : undefined}
       onFocus={fresh ? () => useFreshDraws.getState().seen(id) : undefined}

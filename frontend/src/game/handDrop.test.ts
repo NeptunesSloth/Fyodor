@@ -7,6 +7,7 @@ import type { GameView } from "../types/game";
 import { useMenu } from "../components/ContextMenu";
 import { dropCaption, dropFromHand, handDropKind, ontoTable, type HandDropFacts } from "./handDrop";
 import { rulesMenu } from "./rules/rulesMenu";
+import { playFromHand } from "./Hand";
 import { contrast, CHIP_INK, SEAT_CHIPS } from "./seatChips";
 import { SEAT_ACTIONS } from "./seatActions";
 
@@ -169,6 +170,20 @@ describe("dropFromHand: a card with two halves or two faces asks which, as its m
     expect(dropFromHand(["m1"], { zone: "p1:battlefield" })).toBe(true);
     const rows = useMenu.getState().menu!.items as { label: string; disabled?: boolean }[];
     expect(rows.map((r) => !!r.disabled)).toEqual([true, false]);
+  });
+
+  it("a double-click (or Enter) in the hand asks which half too, where it was clicked (playtest nov 16: Fire // Ice cast Fire)", () => {
+    playFromHand("s1", "p1", { clientX: 300, clientY: 900 });
+    expect(sent).toEqual([]);
+    const menu = useMenu.getState().menu!;
+    expect([menu.x, menu.y]).toEqual([300, 900]);
+    expect(labels()).toEqual(["Cast Fire {1}{R}", "Cast Ice {1}{U}"]);
+    choose(1);
+    playFromHand("a1", "p1");
+    expect(labels()).toEqual(["Cast Bonecrusher Giant {2}{R}", "Cast Stomp {1}{R}"]);
+    playFromHand("m1", "p1");
+    expect(labels()).toEqual(["Cast Valakut Awakening {2}{R}", "Play Valakut Stoneforge (land)"]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "s1", face: 1, ask_optional: true }]);
   });
 
   it("Alt-drop still places it by hand, with no question", () => {
