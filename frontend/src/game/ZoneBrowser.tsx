@@ -9,7 +9,7 @@ import { NO_FILTER, filterCards, filtering, type CardFilter } from "./cardFilter
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
-import { exileCastables, playFromExile } from "./exileCastables";
+import { castFromZone, zoneCastables } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
 import { centreOf, displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
@@ -53,6 +53,8 @@ export function ZoneBrowser({ me }: { me: string }) {
     const c = view.cards[id];
     return filterCardOf(id, c, c && !c.hidden && c.card_id ? cards[c.card_id] : undefined);
   }), filters ? filter : NO_FILTER).map((c) => c.id);
+  // -- playtest (nov 16) -- the hint says what a double-click does here: cast an outlined card
+  const castHere = !myHand && zoneCastables(view).some((c) => ids.includes(c.id));
   const libraryCount = !Array.isArray(view.zones[zoneKey]) ? (view.zones[zoneKey] as { count: number }).count : ids.length;
   const title =
     own?.title ??
@@ -91,7 +93,9 @@ export function ZoneBrowser({ me }: { me: string }) {
       <div className="zb-hint hint">
         {myHand
           ? "Drag a card onto the table to play or cast it · double-click or Enter plays it · right-click for more"
-          : "Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more"}
+          : castHere
+            ? "Outlined cards you may cast or play now: double-click one · drag cards to another zone · double-click any other to put it into hand · right-click for more"
+            : "Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more"}
       </div>
       <div className={`zb-cards${myHand ? " zb-hand" : ""}`} data-testid={myHand ? "hand-browser" : undefined}>
         {shown.length === 0 && <div className="hint">Nothing to show.</div>}
@@ -146,14 +150,17 @@ const HandBrowserCard = memo(function HandBrowserCard({ id, me, index }: { id: s
 const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; me: string; owner: string }) {
   const card = useCardView(id);
   const hover = useHoverCard();
-  // a card here you may cast or play now (Ian Malcolm's exile, impulse draw …): outlined, and double-click casts it
+  // a card here you may cast or play now (Ian Malcolm's exile, impulse draw, flashback, Snapcaster's grant, escape, Bolas's Citadel …):
+  // outlined, and double-click casts it (-- playtest nov 16 -- a flashback Bolt in the graveyard was put into the hand instead)
   const view = useGame((s) => s.view);
-  const castable = useMemo(() => exileCastables(view).find((c) => c.id === id), [view, id]);
+  const castable = useMemo(() => zoneCastables(view).find((c) => c.id === id), [view, id]);
   if (!card) return null;
+  const verb = castable?.play ? "Play" : "Cast";
   return (
     <div
       className={`zb-card${castable ? " rules-playable" : ""}`}
-      title={castable ? `${castable.play ? "Play" : "Cast"} it: double-click${castable.source ? ` · Exiled with ${castable.source}` : ""}` : undefined}
+      data-castable={castable ? "" : undefined}
+      title={castable ? `${verb} it: double-click${castable.free ? " (without paying its mana cost)" : castable.alt ? " (for an alternative cost)" : ""}${castable.source ? ` · Exiled with ${castable.source}` : ""}` : undefined}
       data-card-id={id}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
@@ -167,7 +174,11 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
           },
         });
       }}
-      onDoubleClick={() => void (castable ? playFromExile(castable) : moveCards([id], "hand", { player: owner }))}
+      onDoubleClick={(e) => {
+        const now = useGame.getState().view;
+        if (castable && now && castFromZone(card as GameCard, now, me, { clientX: e.clientX, clientY: e.clientY })) return;
+        void moveCards([id], "hand", { player: owner });
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const view = useGame.getState().view;
@@ -179,7 +190,7 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
       {...hover(id)}
     >
       <GameCardFace card={card} peek />
-      {castable && <span className="zb-exiled-with" data-testid="zb-castable">{castable.play ? "Play" : "Cast"}{castable.source ? ` · with ${castable.source.split(",")[0]}` : ""}</span>}
+      {castable && <span className="zb-exiled-with" data-testid="zb-castable">{verb}{castable.source ? ` · with ${castable.source.split(",")[0]}` : ""}</span>}
     </div>
   );
 });
