@@ -406,3 +406,19 @@ body.lands-clear:not(.paying) .decision-panel:not(.payment) {
   max-height: min(46vh, 440px, calc(100vh - var(--lands-clear) - 64px));
 }
 body.lands-clear .tgt-bar[data-dock="above-hand"] { bottom: max(calc(var(--hand-h, 158px) + 8px), var(--lands-clear)); }
+/* -- playtest (nov 17) -- the blockers prompt, compact: the attackers once, as chips with their power/toughness and combat keywords;
+   then one tight row per creature of yours (its stats, its chooser); a row that blocks is marked by a bar and in words (its select) */
+.decision-combat.blockers { gap: 4px; }
+.blockers-head { font: 700 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); padding-top: 2px; }
+.blockers-attacking { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding-bottom: 6px; }
+.blockers-attacking .blockers-head { flex: 0 0 100%; }
+.blockers-attacker {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 8px; font-size: 12.5px; cursor: default;
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line-2); border-radius: 3px;
+}
+.blockers-attacker:hover, .blocker-row:hover { border-color: var(--frame); }
+.combat-stat { font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.combat-row.blocker-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 46%); gap: 8px; padding: 3px 0 3px 8px; border-left: 2px solid transparent; }
+.combat-row.blocker-row.blocking { border-left-color: var(--accent); }
+.blocker-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 13px; }
+.blocker-row select { width: 100%; min-height: 26px; font-size: 12.5px; }

@@ -942,6 +942,19 @@ def blocks_declared(plan: Plan) -> None:
     triggers.unblocked(plan, [c for c in attackers_on(plan.state) if c.id not in plan.rules.blocked])
 
 
+# -- playtest (nov 17) -- what the blockers prompt shows beside each name: the keywords a block is decided on (702.9 flying, 702.17 reach,
+# 702.7 first strike, 702.4 double strike, 702.2 deathtouch, 702.110 menace, 702.19 trample, 702.15 lifelink, 702.12 indestructible)
+COMBAT_KEYWORDS = ("flying", "reach", "first strike", "double strike", "deathtouch", "menace", "trample", "lifelink", "indestructible")
+
+
+def combat_stats(plan: Plan, card: CardInstance) -> dict[str, Any]:
+    """A creature's power/toughness now (counters included) and its combat keywords, for the blockers prompt (public: both are on the
+    battlefield)."""
+    ch = plan.ch(card)
+    p, t = power(card, ch), toughness(card, ch)
+    return {"pt": f"{'*' if p is None else p}/{'*' if t is None else t}", "keywords": [k for k in COMBAT_KEYWORDS if k in ch.keywords]}
+
+
 def ask_next_blocker(plan: Plan) -> None:
     r = plan.rules
     state = plan.state
@@ -960,6 +973,7 @@ def ask_next_blocker(plan: Plan) -> None:
             return
         who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
         decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
+               display={"kind": "blockers", "stats": {c.id: combat_stats(plan, c) for c in [*attackers, *blockers]}},
                options=[DecisionOption(id=f"b:{c.id}", label=c.name or "Creature", card_id=c.id) for c in blockers]
                + [DecisionOption(id=f"a:{c.id}", label=c.name or "Attacker", card_id=c.id) for c in attackers],
                min_choices=0, max_choices=len(blockers), resume={"step": "declare_blockers"})

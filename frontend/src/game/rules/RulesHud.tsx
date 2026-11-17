@@ -29,6 +29,7 @@ import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
 import { DUMMIES_WIN, OPPONENTS_WIN, gameEnded } from "../nightEnding";
 import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { combatStats, numberedNames, statLine } from "./blockerLabels";
 import { groupByController } from "./decisionGroups";
 import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
 import { usePrefs } from "../../state/prefs";
@@ -1104,19 +1105,34 @@ function DeclareBlockers({ d }: { d: DecisionView }) {
   const blockers = opts.filter((o) => o.id.startsWith("b:"));
   const attackers = opts.filter((o) => o.id.startsWith("a:"));
   const [plan, setPlan] = useState<Record<string, string>>({});
+  const hover = useHoverCard();
+  // -- playtest (nov 17) -- each creature's power/toughness and combat keywords on both sides, two of one name numbered, the
+  // attackers listed once above the rows; hovering a name shows that card (its preview), so "Doombot #2" is findable on the table
+  const stats = combatStats(d);
+  const names = numberedNames(opts);
+  const stat = (o: DecisionOptionView) => statLine(o.card_id ? stats[o.card_id] : undefined);
   const declare = () => void send({
     type: "declare_blockers",
     blocks: Object.entries(plan).map(([b, a]) => ({ blocker_id: b.slice(2), attacker_id: a.slice(2) })),
   });
   return (
-    <div className="decision-combat">
+    <div className="decision-combat blockers">
+      <div className="blockers-attacking" data-testid="blockers-attacking">
+        <span className="blockers-head">Attacking</span>
+        {attackers.map((a) => (
+          <span key={a.id} className="blockers-attacker" {...(a.card_id ? hover(a.card_id) : {})} data-testid={`attacker-${a.id.slice(2)}`}>
+            {names[a.id]}{stat(a) && <span className="combat-stat">{stat(a)}</span>}
+          </span>
+        ))}
+      </div>
+      <span className="blockers-head">Your creatures</span>
       {blockers.map((b) => (
-        <label key={b.id} className="combat-row">
-          <span>{b.label}</span>
-          <select data-testid={`block-${b.id.slice(2)}`} value={plan[b.id] ?? ""}
+        <label key={b.id} className={`combat-row blocker-row${plan[b.id] ? " blocking" : ""}`} {...(b.card_id ? hover(b.card_id) : {})}>
+          <span className="blocker-name">{names[b.id]}{stat(b) && <span className="combat-stat">{stat(b)}</span>}</span>
+          <select data-testid={`block-${b.id.slice(2)}`} value={plan[b.id] ?? ""} aria-label={`${names[b.id]} blocks`}
             onChange={(e) => setPlan((p) => { const n = { ...p }; if (e.target.value) n[b.id] = e.target.value; else delete n[b.id]; return n; })}>
             <option value="">Doesn't block</option>
-            {attackers.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+            {attackers.map((a) => <option key={a.id} value={a.id}>{[names[a.id], stat(a)].filter(Boolean).join(" · ")}</option>)}
           </select>
         </label>
       ))}
