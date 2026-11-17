@@ -51,7 +51,8 @@ export function CardBrowser() {
     <div className="page card-browser">
       <header className="cb-head">
         <h1>Cards</h1>
-        <p>Every card Fyodor knows, for looking things up. Choose one for its rules text, tokens and printings.</p>
+        <p>Every card Fyodor knows, for looking things up. Choose one for its rules text, tokens and printings. A mechanic Fyodor
+          doesn't play yet? <a href="#/teach">Teach Fyodor</a>.</p>
       </header>
       <div className="toolbar cb-bar">
         <label className="cb-search">

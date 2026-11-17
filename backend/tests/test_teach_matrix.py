@@ -10,7 +10,7 @@ import pytest
 
 from app.rules import taught
 from app.rules.taught_vocab import CATEGORIES, OPTIONS, PIECE, PIECES, vocabulary
-from tests.teach_matrix import FIXTURE, matrix, sentences
+from tests.teach_matrix import FIXTURE, VOCABULARY_FIXTURE, matrix, sentences
 
 CASES = matrix()
 
@@ -41,3 +41,5 @@ def test_sentence_fixture_is_current():
     path = Path(__file__).resolve().parent.parent / FIXTURE
     assert path.is_file(), "run: python -m tests.teach_matrix"
     assert json.loads(path.read_text("utf-8")) == sentences(), "the sentence fixture is stale: run python -m tests.teach_matrix"
+    voc = Path(__file__).resolve().parent.parent / VOCABULARY_FIXTURE
+    assert json.loads(voc.read_text("utf-8")) == vocabulary(), "the vocabulary fixture is stale: run python -m tests.teach_matrix"

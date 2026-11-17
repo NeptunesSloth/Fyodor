@@ -233,7 +233,7 @@ def try_it(body: TryIn, request: Request, services: ServicesDep) -> dict[str, An
     if card is None:
         raise HTTPException(404, "No card to try it on")
     others = [r["entry"] for r in services.taught.list_all() if r["enabled"] and taught.match_key_of(r["entry"]) != taught.match_key_of(entry)]
-    filler = _resolve_first(services, _FILLER)
+    filler = next((f for f in (services.cards.resolve(n) for n in _FILLER) if f is not None and f["id"] != card["id"]), None)  # (not the card itself)
     colors = [c for c in (card.get("color_identity") or card.get("colors") or []) if c in _BASICS] or ["G"]
     lands = [services.cards.resolve(_BASICS[c]) for c in colors]
     cards = [DeckCard("main", 1, card["name"], card["id"])]

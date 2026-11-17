@@ -16,11 +16,13 @@ import { Home } from "./pages/Home";
 import { PlayPage } from "./pages/PlayPage";
 import { PodStatsPage } from "./pages/PodStatsPage";
 import { SettingsPanel } from "./pages/SettingsPanel";
+import { TeachPage } from "./pages/TeachPage";
 
 const NAV = [
   { href: "#/play", label: "Play", key: "play" },
   { href: "#/decks", label: "Decks", key: "decks" },
   { href: "#/cards", label: "Cards", key: "cards" },
+  { href: "#/teach", label: "Teach", key: "teach" }, // -- Teach Fyodor -- (pages/TeachPage.tsx)
   { href: "#/stats", label: "Pod stats", key: "stats" },
   { href: "#/assets", label: "Assets", key: "assets" },
   { href: "#/settings", label: "Settings", key: "settings" },
@@ -49,6 +51,9 @@ export function App() {
   switch (section) {
     case "cards":
       page = <CardBrowser />;
+      break;
+    case "teach":
+      page = <TeachPage />;
       break;
     case "decks":
       page = sub ? <DeckEditor key={sub} id={sub} jobId={route.query.get("job")} /> : <DeckLibrary />;

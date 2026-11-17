@@ -72,6 +72,7 @@ def matrix() -> list[tuple[str, dict[str, Any]]]:
 
 
 FIXTURE = "tests/fixtures/teach_sentences.json"
+VOCABULARY_FIXTURE = "tests/fixtures/teach_vocabulary.json"
 
 
 def sentences() -> list[dict[str, Any]]:
@@ -94,6 +95,11 @@ if __name__ == "__main__":  # python -m tests.teach_matrix  (regenerates the sha
     import json
     from pathlib import Path
 
-    path = Path(__file__).resolve().parent.parent / FIXTURE
+    from app.rules.taught_vocab import vocabulary
+
+    root = Path(__file__).resolve().parent.parent
+    path = root / FIXTURE
     path.write_text(json.dumps(sentences(), indent=1, ensure_ascii=False) + "\n", "utf-8")
-    print(f"wrote {path}")
+    voc = root / VOCABULARY_FIXTURE  # (the page's tests read the vocabulary from here too)
+    voc.write_text(json.dumps(vocabulary(), indent=1, ensure_ascii=False) + "\n", "utf-8")
+    print(f"wrote {path} and {voc}")
