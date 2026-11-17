@@ -69,3 +69,31 @@ def matrix() -> list[tuple[str, dict[str, Any]]]:
     add("N everywhere", {"hat": _b("activated"), "body": [_b("cost_mana", mana="{N}"), _b("pump", p="N", t="N")]},
         {"hat": _b("static"), "body": [_b("enters_counters", n="N")]}, param=True)
     return cases
+
+
+FIXTURE = "tests/fixtures/teach_sentences.json"
+
+
+def sentences() -> list[dict[str, Any]]:
+    """Every matrix case with the sentences the backend reads it back as (N unbound, then N = 2 for a keyword with a number):
+    ``frontend/src/teach/sentence.test.ts`` checks that the page says exactly the same words."""
+    from app.rules import taught
+
+    out = []
+    for name, entry in matrix():
+        clean = taught.clean_entry(entry)
+        case: dict[str, Any] = {"name": name, "entry": clean, "lines": taught.compile_entry(clean, me="this creature")}
+        if clean.get("param"):
+            case["lines_n2"] = taught.compile_entry(clean, n=2, me="this creature")
+        case["lines_artifact"] = taught.compile_entry(clean, me="this artifact")
+        out.append(case)
+    return out
+
+
+if __name__ == "__main__":  # python -m tests.teach_matrix  (regenerates the shared fixture)
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / FIXTURE
+    path.write_text(json.dumps(sentences(), indent=1, ensure_ascii=False) + "\n", "utf-8")
+    print(f"wrote {path}")
