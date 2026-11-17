@@ -202,3 +202,15 @@ def test_a_slow_window_is_left_open_and_the_console_says_what_to_do(tmp_path, in
     launcher.open_table("http://127.0.0.1:8000", load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")}), watch=True)
     assert launched == ["Fyodor's own window"]  # not replaced by the default browser (an offline PC's old Edge)
     assert "hasn't appeared" in capsys.readouterr().out
+
+
+def test_fyodors_own_window_runs_without_the_network_service_sandbox(tmp_path, monkeypatch):
+    # a portable Fyodor unpacked on the Desktop: its Chromium's sandboxed network service can't read its own folder
+    started: list[list[str]] = []
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda args, **kw: started.append(args) or object())
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")})
+    launcher._launch("Fyodor's own window", tmp_path / "chrome.exe", "http://127.0.0.1:8000", settings)
+    launcher._launch("Chrome", tmp_path / "chrome.exe", "http://127.0.0.1:8000", settings)
+    own, chrome = ([a for a in args if a.startswith("--disable-features=")] for args in started)
+    assert own == ["--disable-features=Translate,MediaRouter,NetworkServiceSandbox"]
+    assert chrome == ["--disable-features=Translate,MediaRouter"]  # an installed browser keeps its sandbox

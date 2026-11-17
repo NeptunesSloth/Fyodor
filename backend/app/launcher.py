@@ -189,13 +189,19 @@ def forget_old_page(profile: Path, settings: Settings) -> bool:
 
 
 def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Popen[bytes] | None:
-    profile = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}")  # its own profile
+    own = name.startswith("Fyodor")
+    profile = settings.data_dir / ("window" if own else f"window-{name.lower()}")  # its own profile
     forget_old_page(profile, settings)
+    # Chromium's network service runs in an AppContainer, which can only read a program folder that grants
+    # ALL APPLICATION PACKAGES (Program Files does). A portable copy unpacked under the user's profile
+    # (Desktop, Downloads) doesn't: the network service dies and the window never asks for the page.
+    # Fyodor's own window only opens this computer's server, so it runs that service unboxed.
+    features = "Translate,MediaRouter" + (",NetworkServiceSandbox" if own else "")
     try:
         return subprocess.Popen(  # noqa: S603 - a browser opening our own local address
             [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
              "--disable-background-networking", "--disable-component-update", "--disable-sync",
-             "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
+             f"--disable-features={features}", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
              "--enable-logging", f"--log-file={profile / 'browser.log'}",  # why, if it ever shows nothing
              "--start-maximized"],
             close_fds=True,
