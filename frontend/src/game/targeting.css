@@ -123,7 +123,9 @@
 .tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -52px; }
 .tgt-fan > .tgt-thumb + .tgt-thumb .tgt-art { box-shadow: -3px 0 5px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.7); }
 .tgt-fan > .tgt-thumb:not(:last-child) :is(.tgt-label, .tgt-note, .tgt-pt) { visibility: hidden; }
-.tgt-fan > .tgt-thumb:is(:hover, :focus-visible) { z-index: 2; }
+/* -- second pass S4 -- only keyboard focus lifts a sliver over its neighbours: a hovered one lifted whole covered the next sliver, so the
+   click aimed at that one landed on the card the pointer had just crossed (each sliver stays where it shows) */
+.tgt-fan > .tgt-thumb:focus-visible { z-index: 2; }
 .tgt-fan > .tgt-thumb:is(:hover, :focus-visible) .tgt-pt { visibility: visible; }
 .tgt-twins {
   position: absolute; z-index: 1; top: 2px; right: 2px; padding: 0 4px; border-radius: 3px;

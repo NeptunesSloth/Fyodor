@@ -560,6 +560,11 @@ def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[Dec
            blind: bool = False) -> None:
     from app.game.ops import shown  # (review 18F: a granter is read as its name)
 
+    if source is None and isinstance(ctx := resume.get("ctx"), dict) and isinstance(sid := ctx.get("stack_id"), str):
+        # -- second pass S5 -- a choice made while a spell or ability resolves (Delirium Skeins: "Discard three cards") is about that object,
+        # still on the stack (608.2): the decision names it, so the prompt can show its card (display only)
+        held = plan.state.cards.get(sid)
+        source = held if held is not None and held.zone == "stack" else None
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
     options = [o.model_copy(update={"label": shown(plan.state, o.label)}) if "‹" in o.label else o for o in options]
     plan.rules.decision = Decision(

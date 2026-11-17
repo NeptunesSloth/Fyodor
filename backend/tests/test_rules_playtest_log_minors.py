@@ -96,3 +96,27 @@ def test_the_engines_attack_bookkeeping_is_not_logged_or_shown(cards):
     assert not any(ENGAGED in _line(e) for e in s.state.log)
     assert ENGAGED not in (s.view("p1")["cards"][bear.id].get("choices") or {})
     check(s)
+
+
+def test_a_choice_made_while_a_spell_resolves_names_the_spell(cards):
+    """(second pass S5: "Discard three cards" from Delirium Skeins showed an empty source frame: the decision named no source)"""
+    mine = ["Grizzly Bears", "Llanowar Elves", "Wrath of God", "Lightning Bolt", "Opt"]  # (more than three: a real choice)
+    s = build(cards, ["Delirium Skeins", *mine], ["Llanowar Elves"])
+    to_phase(s, "main1", turn=3)
+    for name in mine:
+        to_hand(s, name)
+    to_hand(s, "Llanowar Elves", "p2")
+    to_hand(s, "Delirium Skeins")
+    mana(s, B=1, C=2)
+    skeins = card_named(s, "Delirium Skeins")
+    act(s, "p1", type="cast_spell", card_id=skeins.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and "iscard" in d.prompt:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.source_id == skeins.id
+    assert s.view("p1")["rules"]["decision"]["source_id"] == skeins.id
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    check(s)
