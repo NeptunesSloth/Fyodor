@@ -77,6 +77,7 @@ _HARM = ("destroy", "exile target", "damage", "gets -", "-1/-1", "return target"
          "sacrifice")
 _HELP = ("gets +", "+1/+1 counter", "gains ", "untap target", "hexproof", "indestructible")
 _DRAW_RAMP = ("draw", "search your library", "add {", "put a land", "lands you control")
+_TARGET_CREATURE = re.compile(r"target (?:[\w-]+ )?creature")
 _PUMP = re.compile(r"gets \+(\d+)/\+(\d+)")
 _BAD_COST = ("sacrifice", "discard", "pay ", "life", "exile", "return", "remove", "put ", "untapped", "reveal")
 _EQUIP_TEXT = "target creature you control gets +"  # (an equip ability's choice reads as help for its own creature)
@@ -138,6 +139,9 @@ def step(session: GameSession) -> str | None:
         try:
             session.perform_bot(pid, payload)
         except (ActionError, ValidationError):
+            continue
+        except Exception:  # noqa: BLE001 - never breaks the table: it plays on without them
+            log.exception("The test opponent couldn't set its stops")
             continue
         if pending(session.state) != pid:
             return str(payload["type"])
@@ -536,7 +540,7 @@ def _fresh(memory: dict[str, Any], cid: str, index: Any) -> bool:
 def _harm_targets(b: Board, source: Seen, eff: str) -> list[str]:
     """The opponents' things (and the opponents, when it may target a player) a harmful ability is worth aiming at, best first."""
     players = any(w in eff for w in ("any target", "target player", "target opponent", "player or planeswalker"))
-    creatures = "any target" in eff or "target creature" in eff or "creature or" in eff
+    creatures = "any target" in eff or _TARGET_CREATURE.search(eff) is not None or "creature or" in eff
     among: list[Any] = []
     if creatures:
         among += [c for c in b.foes_creatures()
@@ -557,7 +561,7 @@ def _want(b: Board, card: Seen, eff: str) -> tuple[int, list[str]] | None:
         dmg = _damage_text(eff)
         if "target" not in eff:
             return (2, []) if "each opponent" in eff else None
-        if "tap target" in eff or dmg is None and ("damage" in eff or "target creature" not in eff):
+        if "tap target" in eff or dmg is None and ("damage" in eff or _TARGET_CREATURE.search(eff) is None):
             return None
         best = _harm_targets(b, source, eff)
         return (3, best[:1]) if best else None
@@ -623,6 +627,8 @@ def _loyalty(b: Board, card: Seen, cost: str, eff: str) -> tuple[int, list[str]]
         return found
     if found is not None:
         return (found[0] + 1, found[1])
+    if cost.startswith("+") and "target opponent" in eff and b.foe is not None and eff.count("target") == 1:
+        return (1, [b.foe])
     return (1, []) if cost.startswith("+") and "target" not in eff else None
 
 
