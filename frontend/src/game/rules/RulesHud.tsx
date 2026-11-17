@@ -494,7 +494,10 @@ export function DecisionPanel() {
   const selection = useGame((s) => s.selection); // (the card just cast, when the prompt names a card I hold twice)
   useCardCache((s) => s.cards); // the targeting bar names what to choose from the candidates' type lines
   const [listed, setListed] = useState<string | null>(null); // the decision whose wheel the player closed (Esc): it shows as the list
-  if (!ctx || !ctx.rules?.decision) return null;
+  // -- resolving progress -- an interim view's decision is one the chain answers itself (a Repeat's same answers): shown, it flickered
+  // as a prompt to click part way through; a real one comes with the action's own update
+  const interim = useGame((s) => s.interim);
+  if (!ctx || !ctx.rules?.decision || interim) return null;
   const { view, me } = ctx;
   const d = ctx.rules.decision;
   if (d.player !== me || !d.options) {

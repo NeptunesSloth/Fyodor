@@ -78,6 +78,9 @@ export function RepeatPanel({ view, me, labels, onClose }: { view: GameView; me:
       void go();
     }
   };
+  // -- resolving progress -- while the repeats are worked out the dialog steps aside, so the table shows them as they go (the turn
+  // dial's Resolving plaque counts them); it comes back with its choices only if the server refused the repeat
+  if (busy) return null;
   return (
     <Modal title="Repeat" onClose={onClose} footer={
       <>
