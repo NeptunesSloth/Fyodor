@@ -182,7 +182,7 @@ function EndingScreen({ view, me, ending }: { view: GameView; me: string; ending
             <button className="te-btn" disabled={busy} data-testid="test-ending-restart"
               onClick={() => void run(() => send({ type: "restart_game", draw: 7, fresh: true }))}>
               <span className="te-btn-name">Start over</span>
-              <span className="te-btn-hint">Same decks and dummies, reshuffled</span>
+              <span className="te-btn-hint">{view.players.some((p) => p.bot) ? "Same decks and seats, reshuffled" : "Same decks and dummies, reshuffled"}</span>
             </button>
           )}
           <button className="te-btn" data-testid="test-ending-keep" onClick={look}>

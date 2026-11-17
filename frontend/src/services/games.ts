@@ -1,5 +1,5 @@
 import { ApiError, api } from "./api";
-import type { GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
+import type { BotSpeed, GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
 import type { NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
@@ -116,6 +116,11 @@ const seatHeaders = (gameId: string): Record<string, string> => {
 export const tableAction = (gameId: string, action: Record<string, unknown>) =>
   api.post<unknown>(`/games/${encodeURIComponent(gameId)}/actions`, { action }, seatHeaders(gameId));
 const lobbyPath = (gameId: string, rest = "") => `/games/${encodeURIComponent(gameId)}/lobby${rest}`;
+/** -- test opponent -- seat an opponent with a saved deck (the host); the bot speed; Step's button (app/api/bot.py). */
+const botPath = (gameId: string, rest = "") => `/games/${encodeURIComponent(gameId)}/bot${rest}`;
+export const addBot = (gameId: string, body: { deck_id: string; name?: string }) => api.post<unknown>(botPath(gameId), body, seatHeaders(gameId));
+export const setBotSpeed = (gameId: string, speed: BotSpeed) => api.post<unknown>(botPath(gameId, "/speed"), { speed }, seatHeaders(gameId));
+export const botStep = (gameId: string) => api.post<unknown>(botPath(gameId, "/step"), {}, seatHeaders(gameId));
 
 export const getLobby = (gameId: string) => api.get<LobbyView | { phase: "playing" }>(lobbyPath(gameId), seatHeaders(gameId));
 export const syncPersonalCollection = (gameId: string) => api.post<LobbyView>(lobbyPath(gameId, "/collection"), { collection: personalCollection() }, seatHeaders(gameId));

@@ -196,6 +196,8 @@ export interface PlayerView {
   dummy?: boolean;
   /** -- target dummy -- how it blocks with automation on (the host sets it: Solo tools, Dummy blocks). */
   dummy_blocks?: DummyBlocks;
+  /** -- test opponent -- a seat with a deck that the server plays for (Sandbox: Add an opponent); its policy. */
+  bot?: "simple" | null;
   sleeve?: string | null;
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
@@ -325,6 +327,8 @@ export interface GameMeta {
   night?: NightInfo;
   /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
   events?: MajorEvent[];
+  /** -- test opponent -- at a table with one: how fast the server plays its actions, and whether one is waiting (Step plays it). */
+  bot?: { speed: BotSpeed; waiting: boolean; stuck?: boolean };
   /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
   practice?: PracticeInfo;
   /** Spectators' fake-point predictions, revealed once the game has a result (docs/SPECTATOR_ACTIVITIES_MILESTONE.md). */
@@ -638,6 +642,9 @@ export interface CommanderRef {
 }
 
 export type Action = { type: string } & Record<string, unknown>;
+
+/** -- test opponent -- how fast the server plays its actions (app/multiplayer/bots.py): a short pause, a very short one, or one per click. */
+export type BotSpeed = "normal" | "fast" | "step";
 
 /** -- target dummy -- how it blocks with automation on: never, chump the biggest attacker, or block with everything it can. */
 export type DummyBlocks = "never" | "chump" | "all";

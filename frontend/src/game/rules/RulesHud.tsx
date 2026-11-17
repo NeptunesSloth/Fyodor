@@ -22,7 +22,7 @@ import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { CardFilterBar, filterCardOf } from "../CardFilterBar";
 import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
-import { DUMMIES_WIN } from "../nightEnding";
+import { DUMMIES_WIN, OPPONENTS_WIN } from "../nightEnding";
 import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
@@ -117,7 +117,7 @@ export function AutomationHud() {
           ))}
         </details>
       )}
-      {view.rules?.draw_reason && <span className="auto-pill winner" title={view.rules.draw_reason}>{view.rules.draw_reason === DUMMIES_WIN ? "Dummies win" : "Draw"}</span>}
+      {view.rules?.draw_reason && <span className="auto-pill winner" title={view.rules.draw_reason}>{view.rules.draw_reason === DUMMIES_WIN ? "Dummies win" : view.rules.draw_reason === OPPONENTS_WIN ? "Opponents win" : "Draw"}</span>}
       {view.rules?.winner && <span className="auto-pill winner">{playerName(view, view.rules.winner)} wins</span>}
     </div>
   );

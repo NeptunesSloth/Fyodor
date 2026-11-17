@@ -15,6 +15,7 @@ import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
 import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
 import { AutomationHud } from "./rules/RulesHud";
+import { BotSpeed } from "./BotSpeed";
 import { BoardPressure } from "./TokenMathDialog";
 import { COMBAT_FILTERS, cycleCombatFilter, type CombatFilter } from "./combatFilter";
 import { keyLabel } from "./hotkeys";
@@ -53,6 +54,7 @@ export function TopBar() {
       {/* what the rules engine does, and Concede: in the bar, not over the last seat's plaque */}
       <BoardPressure />
       <AutomationHud />
+      <BotSpeed />
       {dayNight && (
         <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
           onClick={() => void send({ type: "set_day_night", value: dayNight === "day" ? "night" : null })}>

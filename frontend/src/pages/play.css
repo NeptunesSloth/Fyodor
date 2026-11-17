@@ -549,6 +549,15 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-dummy-opts .pg-rule { min-width: 0; }
 .play .pg-dummy-opts .pg-rule select { width: 100%; max-width: 100%; font-size: 13.5px; }
 .play .pg-dummy-opts .pg-dummy-life input[type="number"] { width: 5.5ch; }
+/* -- test opponent -- the two empty chairs stacked (a dummy, an opponent with a deck); an opponent's plinth: its deck window, "Plays" */
+.pg-add-dummy { flex-direction: column; gap: 8px; }
+.pg-add-dummy .pg-add { flex: 1 1 0; }
+.pg-add:disabled { cursor: default; opacity: 0.55; }
+.pg-add:disabled:hover { border-color: color-mix(in srgb, var(--frame) 45%, transparent); background: rgba(0, 0, 0, 0.14); color: inherit; }
+.pg-bot .pg-deck { flex: 1 1 auto; }
+.pg-bot-opts { align-items: center; }
+.pg-bot-plays { flex-direction: row; align-items: baseline; gap: 6px; }
+.pg-bot-plays > b { font: 600 13.5px/1.2 var(--font-ui); color: var(--text); }
 @container (max-width: 210px) {
   /* three dummies on a laptop: a smaller, tighter name ("Target Dummy 3" whole) and a smaller seat chip */
   .play .pg-dummy .pg-plate { gap: 6px; padding-left: 8px; }

@@ -132,6 +132,18 @@ describe("the test-table ending (target dummies)", () => {
     expect(a).not.toBe(b);
   });
 
+  it("covers a test opponent the server plays for too", () => {
+    const withBot = (rules: Record<string, unknown>) => {
+      const v = table(rules, { dummies: [] });
+      return { ...v, players: v.players.map((p) => ({ ...p, bot: p.id === "p2" ? "simple" : null })) } as unknown as GameView;
+    };
+    expect(testEnding(withBot({}), "p1")).toBeNull();
+    expect(testEnding(withBot({ lost: { p1: "0 or less life" }, winner: "p2" }), "p1")).toMatchObject({ kind: "lost", line: "You lost: 0 or less life. Ben wins." });
+    expect(testEnding(withBot({ winner: "p1", lost: { p2: "0 or less life" } }), "p1")).toMatchObject({ kind: "won", title: "Ben defeated",
+      line: "Every opponent is out. Start over deals a new game." });
+    expect(testEnding(withBot({ conceded: ["p1"] }), "p1")!.line).toBe("You conceded. Your opponents are still standing.");
+  });
+
   it("takes the place of the Eliminated hub", () => {
     expect(showEliminated(table({ lost: { p1: "0 or less life" } }), "p1")).toBe(false);
     expect(showEliminated(table({ lost: { p1: "0 or less life" } }, { dummies: [] }), "p1")).toBe(true);

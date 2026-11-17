@@ -8,6 +8,8 @@ import { SPECTATOR, type GameView, type NightProposal } from "../types/game";
 
 /** -- target dummy -- the rules' ending of a test with only target dummies left in the game (app/rules/dummy_ending.py: their win). */
 export const DUMMIES_WIN = "Only target dummies are left in the game: the dummies win";
+/** -- test opponent -- the same, with an opponent the server plays for among them (app/rules/dummy_ending.py OPPONENTS_WIN). */
+export const OPPONENTS_WIN = "Only the test opponents are left in the game: they win";
 
 /** Players still in the game: not removed from the table, not conceded or lost (800.4a). */
 export function stillIn(view: GameView): string[] {
@@ -41,18 +43,22 @@ export interface TestEnding { kind: "lost" | "won" | "draw"; title: string; line
 export function testEnding(view: GameView, me: string): TestEnding | null {
   const r = view.rules;
   if (!r || view.viewer === SPECTATOR || !view.seat_order.includes(me)) return null;
-  const dummies = view.players.filter((p) => p.dummy && !p.left);
+  // -- test opponent -- the seats nobody sits in: target dummies, and opponents the server plays for
+  const dummies = view.players.filter((p) => (p.dummy || p.bot) && !p.left);
   if (!dummies.length) return null;
+  const bots = dummies.some((p) => p.bot);
   const name = (pid: string) => view.players.find((p) => p.id === pid)?.name ?? pid;
   const key = (kind: string, why: string) => `${kind}|${r.winner ?? ""}|${why}|${view.turn?.number ?? 0}`;
   const out = r.conceded.includes(me) ? "You conceded" : me in r.lost ? `You lost: ${r.lost[me]}` : null;
   if (out) {
-    const then = r.winner ? ` ${name(r.winner)} wins.` : r.draw_reason ? ` ${r.draw_reason}.` : " The dummies are still standing.";
+    const then = r.winner ? ` ${name(r.winner)} wins.` : r.draw_reason ? ` ${r.draw_reason}.`
+      : bots ? " Your opponents are still standing." : " The dummies are still standing.";
     return { kind: "lost", title: "You lost", line: `${out}.${then}`, key: key("lost", out) };
   }
   if (r.winner === me) {
-    const title = dummies.length > 1 ? "Target dummies defeated" : `${dummies[0]!.name} defeated`;
-    return { kind: "won", title, line: "Every dummy is out. Reset dummy (Solo tools) brings one back.", key: key("won", "") };
+    const title = dummies.length > 1 ? (bots ? "Opponents defeated" : "Target dummies defeated") : `${dummies[0]!.name} defeated`;
+    const line = bots ? "Every opponent is out. Start over deals a new game." : "Every dummy is out. Reset dummy (Solo tools) brings one back.";
+    return { kind: "won", title, line, key: key("won", "") };
   }
   if (r.draw_reason) return { kind: "draw", title: "A draw", line: `${r.draw_reason}.`, key: key("draw", r.draw_reason) };
   return null;

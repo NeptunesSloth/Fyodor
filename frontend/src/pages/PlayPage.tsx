@@ -11,13 +11,15 @@ import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
-import { DUMMY_BLOCKS, DUMMY_COLOR, MAX_DUMMIES, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
+import { DUMMY_BLOCKS, DUMMY_COLOR, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
+import { BOT_COLOR, BOT_POLICY_NAME, botName, botRequests, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
 import {
+  addBot,
   closeGame,
   createGame,
   tableAction,
@@ -199,6 +201,7 @@ interface LastNight {
   dummies?: DummySeat[]; // -- target dummy -- (Sandbox) the dummy seats beside yours
   dummy?: boolean; // (older records: one dummy, a checkbox)
   dummyBlocks?: DummyBlocks;
+  bots?: BotSeat[]; // -- test opponent -- (Sandbox) the opponents with a deck that the server plays for
 }
 const lastNight = (): LastNight | null => {
   try { return JSON.parse(localStorage.getItem(LAST_NIGHT) ?? "null") as LastNight | null; } catch { return null; }
@@ -238,6 +241,13 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   // -- target dummy -- Sandbox: opponents with no deck to aim damage at, seated beside yours (none until the host adds them)
   const [dummies, setDummies] = useState<DummySeat[]>([]);
   const updateDummy = (i: number, patch: Partial<DummySeat>) => setDummies((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  // -- test opponent -- Sandbox: opponents with a deck that the server plays for (they need rules automation at Full)
+  const [bots, setBots] = useState<BotSeat[]>([]);
+  const [pickingBot, setPickingBot] = useState<number | null>(null);
+  const updateBot = (i: number, patch: Partial<BotSeat>) => setBots((bs) => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+  const free = seatsLeft(dummies.length, bots.length);
+  const botsNeedFull = sandbox && bots.length > 0;
+  const missingBotDeck = sandbox && bots.some((b) => !b.deck_id);
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
@@ -259,7 +269,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   }, [players, picking]);
 
   const remember = () => {
-    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummies };
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummies, bots };
     try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
   };
   const [last] = useState(lastNight);
@@ -270,6 +280,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
     setHostDeck(known(last.hostDeck));
     setDummies(rememberedDummies(last));
+    setBots(rememberedBots(last, (id) => decks.some((d) => d.id === id)));
     if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
     toast("Set up as last time");
   };
@@ -297,10 +308,14 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         });
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
+        for (const add of botRequests(bots)) { // -- test opponent -- beside you first, each with its deck (before the rules start)
+          await addBot(res.game.id, add).catch(toastError);
+        }
         for (const add of dummyActions(dummies)) { // (seated in order, before the rules start)
           await tableAction(res.game.id, add).catch(toastError);
         }
-        if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
+        const auto: AutomationLevel = bots.length ? "full" : automation; // (an opponent plays through the rules engine: Full)
+        if (auto !== "off") await tableAction(res.game.id, { type: "configure", automation: auto }).catch(toastError);
         remember();
         navigate(`/game/${res.game.id}`);
         return;
@@ -405,14 +420,56 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)}
                 note={decks.length ? "Choose the deck you want to test." : "No decks yet: import one on the Decks page."} />
             </li>
+            {bots.map((b, i) => {
+              const deck = decks.find((d) => d.id === b.deck_id);
+              const label = b.name.trim() || botName(i);
+              return (
+                <li key={`bot-${i}`} className="pg-seat pg-dummy pg-bot" style={chipStyle(BOT_COLOR)} data-testid="bot-seat">
+                  <div className="pg-plate">
+                    <SeatChip color={BOT_COLOR} text={String(i + 2)} />
+                    <label className="pg-name-field">
+                      <span className="pg-name-label">Opponent</span>
+                      <input className="pg-name" value={b.name} maxLength={40} placeholder={botName(i)} onChange={(e) => updateBot(i, { name: e.target.value })}
+                        aria-label={`Seat ${i + 2}: opponent name`} data-testid="bot-name" />
+                    </label>
+                    <button className="tt-icon pg-remove" onClick={() => setBots((bs) => bs.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${label}`} title="Remove this opponent" data-testid="bot-remove">
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+                  <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={() => setPickingBot(i)} disabled={!decks.length} data-testid="bot-deck"
+                    aria-label={`${label}'s deck: ${deck ? deckTitle(deck) : "none"}. Choose a deck`}>
+                    {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : (
+                      <span className="pg-slot"><Icon name="cards" size={26} /><span>Choose a deck</span></span>
+                    )}
+                  </button>
+                  <div className="pg-deck">
+                    {deck ? (
+                      <>
+                        <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
+                        <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
+                      </>
+                    ) : (
+                      <p className="pg-note">{decks.length ? "Choose the deck it plays." : "No decks yet: import one on the Decks page."}</p>
+                    )}
+                  </div>
+                  <div className="pg-seat-foot pg-dummy-opts pg-bot-opts">
+                    <span className="pg-rule pg-bot-plays" title="How it plays: lands, its commander, its biggest spells; attacks where it is safe, blocks when it pays (Full automation)">
+                      <span>Plays</span><b data-testid="bot-plays">{BOT_POLICY_NAME.simple}</b>
+                    </span>
+                    {decks.length > 0 && <button className="tt-btn" onClick={() => setPickingBot(i)}>{deck ? "Change deck" : "Choose deck"}</button>}
+                  </div>
+                </li>
+              );
+            })}
             {dummies.map((d, i) => (
               <li key={i} className="pg-seat pg-dummy" style={chipStyle(DUMMY_COLOR)} data-testid="dummy-seat">
                 <div className="pg-plate">
-                  <SeatChip color={DUMMY_COLOR} text={String(i + 2)} />
+                  <SeatChip color={DUMMY_COLOR} text={String(bots.length + i + 2)} />
                   <label className="pg-name-field">
                     <span className="pg-name-label">Target dummy</span>
                     <input className="pg-name" value={d.name} maxLength={40} placeholder={dummyName(i)} onChange={(e) => updateDummy(i, { name: e.target.value })}
-                      aria-label={`Seat ${i + 2}: target dummy name`} data-testid="dummy-name" />
+                      aria-label={`Seat ${bots.length + i + 2}: target dummy name`} data-testid="dummy-name" />
                   </label>
                   <button className="tt-icon pg-remove" onClick={() => setDummies((ds) => ds.filter((_, j) => j !== i))}
                     aria-label={`Remove ${d.name.trim() || dummyName(i)}`} title="Remove this dummy" data-testid="dummy-remove">
@@ -440,13 +497,20 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </div>
               </li>
             ))}
-            {dummies.length < MAX_DUMMIES && (
+            {free > 0 && (
               <li className="pg-add-wrap pg-add-dummy">
                 <button className="pg-add" data-testid="add-dummy"
                   onClick={() => setDummies((ds) => [...ds, { name: dummyName(ds.length), blocks: "never", life: "" }])}>
                   <span className="pg-add-mark"><Icon name="target" size={26} /></span>
                   <span>Add a target dummy</span>
-                  <span className="pg-add-note">{dummies.length ? `${MAX_DUMMIES - dummies.length} more at most` : "An opponent with no deck to aim damage at"}</span>
+                  <span className="pg-add-note">{dummies.length || bots.length ? `${free} more at most` : "An opponent with no deck to aim damage at"}</span>
+                </button>
+                <button className="pg-add pg-add-bot" data-testid="add-bot" disabled={!decks.length}
+                  title={decks.length ? undefined : "Import a deck on the Decks page first"}
+                  onClick={() => { setBots((bs) => [...bs, { name: botName(bs.length), deck_id: null }]); setPickingBot(bots.length); }}>
+                  <span className="pg-add-mark"><Icon name="cards" size={26} /></span>
+                  <span>Add an opponent</span>
+                  <span className="pg-add-note">{bots.length || dummies.length ? `${free} more at most` : "It plays a deck back at you (Full automation)"}</span>
                 </button>
               </li>
             )}
@@ -538,7 +602,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             {(
               <label className="pg-rule">
                 <span>Automation</span>
-                <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
+                <select data-testid="automation-level" value={botsNeedFull ? "full" : automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint"
+                  disabled={botsNeedFull} title={botsNeedFull ? "An opponent plays through the rules engine: Full automation" : undefined}>
                   {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
                 </select>
               </label>
@@ -562,7 +627,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </select>
               </label>
             )}
-            {level === "off" && (
+            {level === "off" && !botsNeedFull && (
               <label className="pg-rule">
                 <span>Response helper</span>
                 <select value={helper} onChange={(e) => setHelper(e.target.value as typeof helper)}>
@@ -574,16 +639,20 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           </div>
           <p className="pg-rail-note">
             <span id="pg-auto-hint">{sandbox ? <><b>Sandbox.</b> {SANDBOX_RAIL}</> : <><b>Automation {AUTOMATION_NAME[level]}.</b> {AUTOMATION_HINT[level]}</>}</span>{" "}
-            {sandbox ? `Automation ${AUTOMATION_NAME[level]}: ${AUTOMATION_HINT[level]}` : useLobby ? "The pod brings decks in the lobby; you start from there."
+            {sandbox ? `Automation ${AUTOMATION_NAME[botsNeedFull ? "full" : level]}: ${AUTOMATION_HINT[botsNeedFull ? "full" : level]}${botsNeedFull ? " Your opponent plays through the rules engine." : ""}` : useLobby ? "The pod brings decks in the lobby; you start from there."
               : `The pod joins with the room code.${mulligan === "none" ? " With “None” everyone draws by hand." : ""}`}
           </p>
-          <button className="pg-start" disabled={busy || (sandbox && !hostDeck)} onClick={() => void start()} data-testid="create-game"
-            title={sandbox && !hostDeck ? "Choose the deck to test first" : undefined}>
+          <button className="pg-start" disabled={busy || (sandbox && (!hostDeck || missingBotDeck))} onClick={() => void start()} data-testid="create-game"
+            title={sandbox && !hostDeck ? "Choose the deck to test first" : missingBotDeck ? "Choose a deck for each opponent first" : undefined}>
             {busy ? "Setting up…" : sandbox ? "Start testing" : useLobby ? "Open the table" : "Deal and start"}
           </button>
         </footer>
       </div>
 
+      {pickingBot !== null && bots[pickingBot] && (
+        <DeckPicker decks={decks} value={bots[pickingBot]!.deck_id} seat={bots[pickingBot]!.name.trim() || botName(pickingBot)} usedBy={new Map()}
+          onClose={() => setPickingBot(null)} onPick={(id) => { updateBot(pickingBot, { deck_id: id }); setPickingBot(null); }} />
+      )}
       {pickingHost && (
         <DeckPicker decks={decks} value={hostDeck} seat={players[0]?.name.trim() || "You"} usedBy={new Map()}
           onClose={() => setPickingHost(false)} onPick={(id) => { setHostDeck(id); setPickingHost(false); }} />
