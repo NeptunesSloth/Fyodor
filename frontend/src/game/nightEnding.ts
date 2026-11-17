@@ -51,8 +51,10 @@ export interface TestEnding { kind: "lost" | "won" | "draw"; title: string; line
 export function testEnding(view: GameView, me: string): TestEnding | null {
   const r = view.rules;
   if (!r || view.viewer === SPECTATOR || !view.seat_order.includes(me)) return null;
-  // -- test opponent -- the seats nobody sits in: target dummies, and opponents the server plays for
-  const dummies = view.players.filter((p) => (p.dummy || p.bot) && !p.left);
+  // -- test opponent -- the seats nobody sits in: target dummies, and opponents the server plays for. (-- LAN bots -- a bot the host
+  // seated at a game night holds its seat, as the server's bot_seat: that table is a game night, with its own result flow and hub)
+  const lanBot = (pid: string) => view.game.mode === "lan" && !!view.game.seats[pid]?.claimed;
+  const dummies = view.players.filter((p) => (p.dummy || (p.bot && !lanBot(p.id))) && !p.left);
   if (!dummies.length) return null;
   const bots = dummies.some((p) => p.bot);
   const name = (pid: string) => view.players.find((p) => p.id === pid)?.name ?? pid;

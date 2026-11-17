@@ -304,7 +304,8 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   const winnerLine = result.winner_names.length ? `${result.winner_names.join(" & ")} ${winners.length > 1 ? "win" : "wins"}` : "";
   const commanderOf = (pid: string) => view.players.find((p) => p.id === pid)?.commanders.map((c) => c.name).join(" & ");
   const local = view.game.mode === "local";
-  const voters = view.seat_order.filter((pid) => local || view.game.seats[pid]?.claimed);
+  // (-- LAN bots -- a bot never votes, and the vote never waits for it: not listed as "Deciding…")
+  const voters = view.seat_order.filter((pid) => (local || view.game.seats[pid]?.claimed) && !view.players.find((p) => p.id === pid)?.bot);
   const myVote = night.votes[me];
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
   const bar = boardBar(view, me);

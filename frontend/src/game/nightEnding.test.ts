@@ -144,6 +144,18 @@ describe("the test-table ending (target dummies)", () => {
     expect(testEnding(withBot({ conceded: ["p1"] }), "p1")!.line).toBe("You conceded. Your opponents are still standing.");
   });
 
+  it("leaves a LAN game night with a bot the host seated to the night's own result flow (-- LAN bots --)", () => {
+    // (the bot holds its seat with the server's token: claimed; a Sandbox opponent's seat is open)
+    const night = (rules: Record<string, unknown>) => {
+      const v = table(rules, { dummies: [] });
+      return { ...v, players: v.players.map((p) => ({ ...p, bot: p.id === "p2" ? "simple" : null })),
+        game: { ...v.game, seats: { p1: { claimed: true }, p2: { claimed: true }, p3: { claimed: true } } } } as unknown as GameView;
+    };
+    expect(testEnding(night({ lost: { p1: "0 or less life" }, winner: "p2" }), "p1")).toBeNull();
+    expect(testEnding(night({ conceded: ["p1"] }), "p1")).toBeNull();
+    expect(showEliminated(night({ conceded: ["p1"] }), "p1")).toBe(true); // (out while the others play on: the hub, as at any night)
+  });
+
   it("takes the place of the Eliminated hub", () => {
     expect(showEliminated(table({ lost: { p1: "0 or less life" } }), "p1")).toBe(false);
     expect(showEliminated(table({ lost: { p1: "0 or less life" } }, { dummies: [] }), "p1")).toBe(true);
