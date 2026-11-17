@@ -6155,6 +6155,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if parsed.chooses:  # -- refused copy/mana (wave 3R3) --
         _activate_choosing(plan, card, ch, parsed, a)
         return
+    if _ask_to_tap_for_mana_ability(plan, card, ch, parsed, a):
+        return
     options = parsed.options
     if len(options) == 1:
         _manual_produce(plan, card, parsed, options[0], a.ability, option_index=0)
@@ -7222,6 +7224,26 @@ def _who(plan: Plan, card: CardInstance) -> str:
     from app.rules import wave110j_final
 
     return plan.actor if wave110j_final.piracy_land(plan, plan.actor, card) else card.controller
+
+
+def _ask_to_tap_for_mana_ability(plan: Plan, card: CardInstance, ch: Characteristics, parsed: M.ManaAbility, a: A.ActivateAbility) -> bool:
+    """-- playtest (nov 17) -- a mana ability with a mana cost (Cabal Coffers: "{2}, {T}: Add {B} for each Swamp you control") activated
+    by a player who taps their own mana (payment "self") with the pool short: the "tap your mana" prompt opens for that cost, as for a
+    spell (``ask_to_tap``; 605.3a: other mana abilities may be activated while paying it, the source itself is no source for its own
+    cost), and the activation goes on as soon as the pool covers it (``after_tapping`` reruns this intent). True: the prompt is open."""
+    player = _who(plan, card)
+    if payment_mode(plan, player) != "self" or player != plan.actor:
+        return False
+    cost = mana_activation_cost(plan.state, card, ch, parsed, plan.info)
+    if cost.is_free:
+        return False
+    purpose = Purpose(ability_of=ch, player=player, selected_cost_has_x='{X}' in (parsed.extra_cost or ''),
+                      cost_colorless='{C}' in (parsed.extra_cost or ''))
+    if pool_covers(plan.state, player, cost, purpose=purpose, info=plan.info):
+        return False
+    ask_to_tap(plan, cost, f"{ch.name}'s mana ability", {"step": "pay_mana", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                                                       "exclude": [card.id], "cost": cost.text(), "what": f"{ch.name}'s mana ability"})
+    return True
 
 
 def _manual_produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
