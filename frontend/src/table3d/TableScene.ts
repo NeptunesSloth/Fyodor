@@ -64,11 +64,11 @@ import {
 } from "./layout";
 import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { abilityCardTexture, backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
+import { abilityCardTexture, backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, pileBadgeCanvas, setMaxAnisotropy, textCardTexture } from "./textures";
 import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
 import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
-import { freeCovers } from "./covers";
+import { freeCovers, pileBadgeSpot } from "./covers";
 import { litCards } from "../game/combatFilter";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
@@ -118,6 +118,13 @@ const MAT_FELT = "#36302a";
 const MAT_NAP = "#40392f";
 /** A card's face over its body's top, and its badges over the face. */
 export const FACE_LIFT = 0.0012;
+/** -- token piles -- a ×N badge's least height on screen (CSS px), and its height bounds on the table (world units). */
+const PILE_BADGE_PX = 26;
+const BADGE_MIN_H = 0.2;
+const BADGE_MAX_H = 0.62;
+const badgeA = new THREE.Vector3();
+const badgeB = new THREE.Vector3();
+const badgeDir = new THREE.Vector3();
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 /** The pale core of a card, glimpsed now and then along a pile's edge. */
@@ -157,6 +164,9 @@ interface CardObj {
   /** -- token piles -- the card it lies wholly under on a battlefield (table3d/covers.ts): while that one sits still over it,
    * it is not drawn, picked or shadowed. */
   cover?: string;
+  /** -- token piles -- the ×N badge of a pile's top card (free placement), sized each frame to stay readable (setBadge). */
+  badge?: THREE.Mesh | null;
+  badgeN?: number;
 }
 
 interface PileObj {
@@ -352,6 +362,8 @@ export class TableScene {
   onFrame: (() => void) | null = null;
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
+  /** A unit square lying flat: a pile's ×N badge, scaled to its size each frame (sizeBadges). */
+  private badgeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   private fanGeo = twoBackGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
@@ -1420,6 +1432,7 @@ export class TableScene {
     this.world.remove(c.group);
     (c.glow.material as THREE.Material).dispose();
     this.clearOverlay(c);
+    this.setBadge(c, 0);
   }
 
   private clearOverlay(c: CardObj): void {
@@ -1433,6 +1446,13 @@ export class TableScene {
 
   /** Arena-style badges on the card face; rebuilt only when what they say changes. */
   private setOverlay(c: CardObj, o: CardOverlay | null): void {
+    // a free pile's ×N is its own badge, kept readable from the default camera (an arranged tile draws it in its overlay)
+    const pile = !c.tile ? o?.pile ?? 0 : 0;
+    this.setBadge(c, pile);
+    if (pile && o) {
+      const { pile: _n, ...rest } = o;
+      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.keywords.length || rest.counters.length ? rest : null;
+    }
     const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
     const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
     if (c.overlayKey === key) return;
@@ -1449,6 +1469,62 @@ export class TableScene {
     m.renderOrder = 2;
     c.group.add(m);
     c.overlay = m;
+  }
+
+  /** -- token piles -- the ×N badge on a pile's top card (0: none); loop() sizes and turns it (sizeBadges). */
+  private setBadge(c: CardObj, n: number): void {
+    if ((c.badgeN ?? 0) === n) return;
+    c.badgeN = n;
+    if (c.badge) {
+      c.group.remove(c.badge);
+      const m = c.badge.material as THREE.MeshBasicMaterial;
+      m.map?.dispose();
+      m.dispose();
+      c.badge = null;
+    }
+    if (!n) return;
+    const canvas = pileBadgeCanvas(n);
+    const mat = new THREE.MeshBasicMaterial({ map: canvasTexture(canvas), transparent: true, depthWrite: false, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const m = new THREE.Mesh(this.badgeGeo, mat);
+    m.position.y = THICK + FACE_LIFT * 3;
+    m.renderOrder = 3;
+    m.raycast = () => undefined; // (clicks go to the card under it)
+    m.userData = { aspect: canvas.width / canvas.height };
+    c.group.add(m);
+    c.badge = m;
+  }
+
+  /**
+   * -- token piles -- each ×N badge keeps at least PILE_BADGE_PX of height on screen however far the camera is (bigger on a
+   * near card, never past a cap), reads upright from my seat, and sits on the corner of its card that is top right from
+   * here, half hanging off it so it covers as little of the art as it can.
+   */
+  private sizeBadges(): void {
+    const h = this.canvas.clientHeight; // (NDC spans the canvas, a view offset or not)
+    if (!h) return;
+    const mine = this.myRot();
+    for (const c of this.cards.values()) {
+      const b = c.badge;
+      if (!b || !c.group.visible) continue;
+      // screen pixels per world unit of depth at the card (toward the camera, along the table: foreshortening included)
+      const at = c.group.position;
+      badgeA.copy(at).project(this.camera);
+      badgeDir.set(this.camera.position.x - at.x, 0, this.camera.position.z - at.z);
+      if (badgeDir.lengthSq() < 1e-9) badgeDir.set(0, 0, 1);
+      badgeB.copy(at).addScaledVector(badgeDir.normalize(), 0.5).project(this.camera);
+      const pxPerUnit = Math.hypot(((badgeA.x - badgeB.x) / 2) * this.canvas.clientWidth, ((badgeA.y - badgeB.y) / 2) * h) / 0.5;
+      const bh = Math.min(BADGE_MAX_H, Math.max(BADGE_MIN_H, pxPerUnit > 0 ? PILE_BADGE_PX / pxPerUnit : BADGE_MAX_H));
+      const bw = bh * (b.userData.aspect as number);
+      const gs = c.group.scale.x || 1;
+      // turned from the card's frame to mine: the badge reads upright, on the corner that is top right from my seat
+      const r = mine - c.group.rotation.y;
+      const at2 = pileBadgeSpot(r, bw, bh, CARD_W, CARD_H);
+      b.position.x = at2.x / gs;
+      b.position.z = at2.z / gs;
+      b.rotation.y = r;
+      b.scale.set(bw / gs, 1, bh / gs);
+    }
   }
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
@@ -2778,6 +2854,7 @@ export class TableScene {
       c.group.visible = !cover || !!cover.flying || !!cover.fresh || !!c.flying || !lyingOn(c.group, cover.group);
       if (c.group.visible) n = this.writeBody(c.group, n, 1, !(c.tile && this.placed.get(c.id)?.under));
     }
+    this.sizeBadges();
     if (moving) {
       this.bodyN = n;
       this.motion.standIns(this.pushStandIn);

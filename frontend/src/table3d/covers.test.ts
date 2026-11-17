@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrangedCovers, freeCovers, type FreeFacts } from "./covers";
+import { arrangedCovers, freeCovers, pileBadgeSpot, type FreeFacts } from "./covers";
 import { arrangeMat } from "./arrange3d";
 import { type ArrangeCard } from "../game/arrange";
 import { zonePileTops } from "../game/piles";
@@ -62,5 +62,25 @@ describe("free placement ×N on token piles (2D and 3D alike)", () => {
     const row = [tok("r1", 300, 63), tok("r2", 390, 63)];
     const tops = zonePileTops(viewOf([...pile, odd, ...row]), "p1:battlefield");
     expect([...tops]).toEqual([["s199", 200]]);
+  });
+});
+
+describe("pileBadgeSpot", () => {
+  const W = 0.84;
+  const H = 1.17;
+  it("puts the badge on the card's top right corner, half off it, for a card read upright", () => {
+    const at = pileBadgeSpot(0, 0.5, 0.2, W, H);
+    expect(at.x).toBeCloseTo(0.42 - 0.15);
+    expect(at.z).toBeCloseTo(-0.585 + 0.044);
+  });
+  it("keeps it top right from the viewer on an opponent's card (turned half round) and on a tapped one", () => {
+    // an opponent's card: the viewer's top right is the card's own bottom left
+    const op = pileBadgeSpot(Math.PI, 0.5, 0.2, W, H);
+    expect(op.x).toBeCloseTo(-(0.42 - 0.15));
+    expect(op.z).toBeCloseTo(0.585 - 0.044);
+    // a tapped card lies sideways: the corner is out by half its height to the side
+    const tap = pileBadgeSpot(Math.PI / 2, 0.5, 0.2, W, H);
+    const viewerX = Math.cos(-Math.PI / 2) * tap.x + Math.sin(-Math.PI / 2) * tap.z;
+    expect(viewerX).toBeCloseTo(0.585 - 0.15);
   });
 });

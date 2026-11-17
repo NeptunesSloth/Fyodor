@@ -57,3 +57,20 @@ export function arrangedCovers(layout: BoardLayout): Map<string, string> {
   }
   return out;
 }
+
+/**
+ * Where a pile's ×N badge sits on its top card (TableScene.sizeBadges), in the card's own frame: on the corner that is top right
+ * from the viewer, the badge's centre a little in from it (it half hangs off the card, covering as little art as it can).
+ * `r` turns the viewer's frame into the card's (viewer rotation − card rotation); `w`/`h` are the badge's and `cardW`/`cardH`
+ * the card's sizes. The viewer's frame has x to the right and −z up the screen.
+ */
+export function pileBadgeSpot(r: number, w: number, h: number, cardW: number, cardH: number): { x: number; z: number } {
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  // the card's footprint as the viewer sees it (a tapped card lies sideways)
+  const hx = (Math.abs(c) * cardW + Math.abs(s) * cardH) / 2;
+  const hz = (Math.abs(s) * cardW + Math.abs(c) * cardH) / 2;
+  const vx = hx - w * 0.3;
+  const vz = -hz + h * 0.22;
+  return { x: c * vx + s * vz, z: -s * vx + c * vz };
+}

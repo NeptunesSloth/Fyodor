@@ -910,6 +910,38 @@ function plate(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
   g.stroke();
 }
 
+/** The pile badge's canvas height; its width follows the figure (pileBadgeCanvas). */
+export const PILE_BADGE_H = 96;
+
+/**
+ * The ×N of a token pile or land pile on the 3D table, as its own badge (TableScene sizes it to stay readable at any camera
+ * distance): the figure in heavy bone type on a near-black plate with a brass rim, wide enough for "×131,072".
+ */
+export function pileBadgeCanvas(n: number): HTMLCanvasElement {
+  const text = countText(n);
+  const h = PILE_BADGE_H;
+  const font = "900 68px Inter, Arial, sans-serif";
+  const [, mg] = canvas(4, 4);
+  mg.font = font;
+  const w = Math.ceil(Math.max(h * 1.45, mg.measureText(text).width + 40));
+  const [c, g] = canvas(w, h);
+  g.fillStyle = "rgba(0, 0, 0, 0.5)"; // a soft drop, so the plate stands off a pale card frame or the felt
+  roundRect(g, 2, 7, w - 4, h - 8, (h - 8) * 0.32);
+  g.fill();
+  g.fillStyle = "#120d08";
+  roundRect(g, 4, 3, w - 8, h - 10, (h - 10) * 0.32);
+  g.fill();
+  g.strokeStyle = BRASS;
+  g.lineWidth = 5;
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = font;
+  g.fillStyle = "#fff6e2";
+  g.fillText(text, w / 2, h / 2 - 2);
+  return c;
+}
+
 /** Transparent overlay drawn on top of a card face: P/T plate, damage, keyword badges, counters. */
 export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
   const W = OVERLAY_W;
