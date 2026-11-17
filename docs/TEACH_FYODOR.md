@@ -165,6 +165,20 @@ The file looks like this — it is only names, piece ids and choices:
   evasion *this turn / until your next turn / until it deals combat damage (while attacking)*, add mana, investigate,
   proliferate) and statics (keywords, +X/+X, anthems, evasion, cost reduction, enters with counters / tapped). A mechanic that
   needs something outside this set (a new zone, a new kind of counter, a new timing rule) still needs a code change.
+* The expressiveness sweep added: triggers when it *becomes blocked*, *blocks or becomes blocked*, *is dealt damage*, *a creature
+  of yours attacks alone*, *you attack*, *any creature dies*; conditions for what happened this turn (raid, morbid, revolt …),
+  what is true now (lieutenant, ferocious, hellbent, delirium …) and *it had no +1/+1 (−1/−1) counters*; costs *discard this
+  card* (cycling-like) and *exile this card from your graveyard*, and a boast-like limit; effects *sacrifice it [unless you pay
+  …]* (echo-like), *return it* after it died (undying, persist), *counter that spell or ability unless its controller pays …*
+  (ward-like, only under *Becomes a target*), exalted- and battle-cry-like pumps; statics for combat rules (defender, "attacks
+  each combat if able" …), evasion *except by* flying/reach, two or more creatures (menace), artifact and/or black creatures
+  (fear), *by* creatures with greater power (skulk), landwalk, *if it would die, exile it instead*, damage prevention, *can't be
+  countered*, *this spell costs {N} less …* (affinity, undaunted), extra and alternative costs (spectacle-, surge-like),
+  casting a permanent card from the graveyard (escape-like, retrace) and the **Kicker** and **Flashback** pieces (the engine's
+  own wording for an optional additional cost and for a spell exiled as it leaves the stack: a mechanic built on them is still
+  your own, e.g. "Rekindle 2" = Flashback {2}). Some pieces only read under certain When pieces; the page only lets them snap
+  there. What every keyword, keyword action and ability word of the rules can and can't be taught as:
+  [TEACH_FYODOR_COVERAGE.md](TEACH_FYODOR_COVERAGE.md).
 * A keyword's name must be one Fyodor doesn't already know (you can't redefine *Flying*); an action's verb must not be a keyword
   action of the rules (you can't redefine *explore*). An action is one word and one stack of Do pieces; "each creature you
   control dives" is left to the players (a group can't stop being unblockable one creature at a time).
@@ -173,5 +187,7 @@ The file looks like this — it is only names, piece ids and choices:
 For developers: the vocabulary is `backend/app/rules/taught_vocab.py` (pieces are Oracle templates), the checker and applier
 `backend/app/rules/taught.py`, storage `backend/app/storage/taught.py` (migration 12), API `backend/app/api/teach.py`, the page
 `frontend/src/pages/TeachPage.tsx` with `frontend/src/teach/`. `python -m tests.teach_matrix` regenerates the fixtures that keep
-the page's readback and the backend's sentences identical; `tests/test_teach.py` and `tests/test_teach_matrix.py` cover it. The
+the page's readback and the backend's sentences identical; `tests/test_teach.py` and `tests/test_teach_matrix.py` cover it.
+`python -m tests.teach_coverage` regenerates TEACH_FYODOR_COVERAGE.md from `tests/teach_coverage.py` (`tests/test_teach_coverage.py`
+checks every row with the engine; `tests/test_teach_playtests.py` plays the representative ones against their native keyword). The
 native dive is `backend/app/rules/dive.py` with `tests/test_rules_dive.py`.
