@@ -604,6 +604,10 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         held = _cards(plan, ctx, inner[0]["who"])
         until_player = plan.state.cards[held[0]].controller if held else until_player
     for x in inner:
+        if duration in ("until_combat_damage_attacking", "until_combat_damage") and x["do"] == "restrict":
+            # -- dive (wave DV) -- "creatures you control dive" / "… can't be blocked until it deals combat damage while attacking": the duration
+            # ends one object at a time (app/rules/dive.py), so the restriction is locked to the creatures there as it resolves (each of them dived)
+            x = {**x, "locked": True}
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
     label = LABELS[duration].replace("~", ctx.get("name") or "it")

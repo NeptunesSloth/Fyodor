@@ -13,8 +13,12 @@ wording the engine already reads, so nothing about blocks or durations is modell
   leaves), so a diving creature that is bounced no longer dives.
 * **The keyword action** "X dives": "X can't be blocked until it deals combat damage while attacking" — the text is rewritten
   (``scripts.self_text``) and read by the ordinary grammar, so "it", "~", "that creature", "target creature" and "target creature you
-  control" come out as that grammar reads them. "Each creature you control dives" is left alone: a group restriction can't end for one
-  creature at a time, so that line stays manual.
+  control" come out as that grammar reads them. A group dives too ("Each creature you control dives", "Creatures you control dive", "Up to
+  two target creatures dive", "Each other attacking creature dives"): each creature it names performs the action as it resolves, so the
+  restriction is locked to those objects (``delayed.apply_duration`` locks it, 611.2c: never a group effect read anew), and each one stops
+  diving on its own as it connects or leaves. A creature that comes under your control later never dived. The subjects are the ones a taught
+  action reads (``taught.ACTION_SUBJECTS`` / ``ACTION_GROUP_SUBJECTS``), so a taught dive and this one route the same.
+  Dive is a keyword *action*, not a keyword ability: no object "has" or "gains" dive, and there is no graveyard or other-zone form.
 * **The condition** "if it devoured a creature" / "if it devoured two or more creatures" (an intervening if on the devourer's own enters
   trigger, 603.4; 702.82b: what it sacrificed to its own devour, ``RulesState.devoured`` — a new object devoured nothing).
 
@@ -27,6 +31,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.rules import taught as _taught  # (a leaf: it imports only taught_vocab)
+
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
@@ -35,17 +41,19 @@ MEANING = "can't be blocked until it deals combat damage while attacking"
 ATTACKING = "until_combat_damage_attacking"
 ANY = "until_combat_damage"
 
-_DIVES = re.compile(r"(?<![A-Za-z])(?P<who>~|[Ii]t|[Tt]hat creature|[Tt]arget creature(?: you control)?) dives\b")
+# "X dives" / "creatures you control dive": the subjects a taught action reads (app/rules/taught.py); the verb is lowercase (an ability
+# named "Dragonfire Dive" is no action)
+_DIVES = re.compile(rf"(?<![A-Za-z])(?:(?P<who>~|(?i:{_taught.ACTION_SUBJECTS})) dives|(?P<group>(?i:{_taught.ACTION_GROUP_SUBJECTS})) dive)\b")
 _DEVOURED = re.compile(r"^(?:it|this creature|this permanent|~) devoured (?:an? creature|(?P<n>\w+) or more creatures)$")
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
 def rewrite(text: str) -> str:
-    """"It dives." / "Target creature dives." → "… can't be blocked until it deals combat damage while attacking" (``scripts.self_text``: the
+    """"It dives." / "Target creature dives." / "Creatures you control dive." → "… can't be blocked until it deals combat damage while attacking" (``scripts.self_text``: the
     text the grammar reads, the card's own name already "~"; a reminder text was stripped before)."""
-    if "dives" not in text:
+    if "dive" not in text:
         return text
-    return _DIVES.sub(lambda m: f"{m['who']} {MEANING}", text)
+    return _DIVES.sub(lambda m: f"{m['who'] or m['group']} {MEANING}", text)
 
 
 def devoured_condition(t: str) -> dict[str, Any] | None:

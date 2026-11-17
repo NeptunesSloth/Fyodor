@@ -28,6 +28,11 @@ EXTRA = [
     real("Undertow Lurker", "{2}{U}", 3, "Creature — Merfolk", "When this creature enters, it can't be blocked until it deals combat damage.",
          ("3", "3"), "U"),
     real("Depth Charge", "{U}", 1, "Sorcery", "Target creature dives.", None, "U"),
+    # -- group dive (wave DV) -- a group dives: each creature it names, as it resolves (the restriction is locked to them, 611.2c)
+    real("School Dive", "{1}{U}", 2, "Sorcery", "Creatures you control dive.", None, "U"),
+    real("Paired Plunge", "{U}", 1, "Sorcery", "Up to two target creatures dive.", None, "U"),
+    real("Spelled School", "{1}{U}", 2, "Sorcery", "Creatures you control can't be blocked until it deals combat damage while attacking.",
+         None, "U"),
 ]
 
 
@@ -41,7 +46,8 @@ def card_db(settings):
 
 
 # -- coverage ----------------------------------------------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Devouring Diver", "Reef Diver", "Undertow Lurker", "Depth Charge"])
+@pytest.mark.parametrize("name", ["Devouring Diver", "Reef Diver", "Undertow Lurker", "Depth Charge", "School Dive", "Paired Plunge",
+                                  "Spelled School"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", coverage.of_card_data(cards.resolve(name)).manual_parts
 
@@ -50,8 +56,16 @@ def test_the_spelled_out_reminder_reads_the_same(cards):
     spelled = dict(cards.resolve("Devouring Diver"), oracle_text="Devour 3\nWhen this creature enters, if it devoured a creature, "
                                                                 "it can't be blocked until it deals combat damage while attacking.")
     assert coverage.of_card_data(spelled).level == "FULL"
-    group = dict(cards.resolve("Depth Charge"), oracle_text="Each creature you control dives.")  # (a group restriction: left to the players)
-    assert coverage.of_card_data(group).level != "FULL"
+    for text in ("Each creature you control dives.", "Creatures you control dive.", "Each other creature you control dives.",
+                 "Each attacking creature dives.", "Up to two target creatures dive.", "Other creatures you control dive."):
+        group = dict(cards.resolve("Depth Charge"), name=f"Group {text}", oracle_text=text)  # -- group dive (wave DV) -- each one dives
+        assert coverage.of_card_data(group).level == "FULL", (text, coverage.of_card_data(group).manual_parts)
+    assert dive.rewrite("Creatures you control dive.") == "Creatures you control can't be blocked until it deals combat damage while attacking."
+    assert dive.rewrite("Each other creature you control dives.") == \
+        "Each other creature you control can't be blocked until it deals combat damage while attacking."
+    # an ability named for a dive is no action (Dion, Bahamut's Dominant: "Dragonfire Dive — …"), nor is a player
+    assert dive.rewrite("Dragonfire Dive — During your turn, Dion has flying.") == "Dragonfire Dive — During your turn, Dion has flying."
+    assert dive.rewrite("Each player dives.") == "Each player dives."
     assert dive.rewrite("When ~ enters, if it devoured a creature, it dives.") == \
         "When ~ enters, if it devoured a creature, it can't be blocked until it deals combat damage while attacking."
     assert dive.rewrite("Whenever ~ attacks, ~ dives.") == "Whenever ~ attacks, ~ can't be blocked until it deals combat damage while attacking."
@@ -253,4 +267,76 @@ def test_until_it_deals_combat_damage_ends_as_a_blocker_too(cards):
     assert not _dive_effects(s) and not _marker(s, lurker.id)  # it dealt combat damage (as a blocker): the plain form ends
     to_phase(s, "main1", turn=3)
     assert _attack(s, lurker.id, _live(s, "Grizzly Bears", "p2").id) is True
+    check(s)
+
+
+# -- group dive (wave DV) ----------------------------------------------------------------------------------------------------------------------
+def _bears_out(s):
+    """Every Grizzly Bears onto its owner's battlefield; Alice's, in order."""
+    for pid in ("p1", "p2"):
+        for c in [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == pid]:
+            act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+
+
+@pytest.mark.parametrize("spell", ["School Dive", "Spelled School"])
+def test_creatures_you_control_dive_each_until_it_connects(cards, spell):
+    s = build(cards, [spell, "Grizzly Bears", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Grizzly Bears"])
+    a, b = _bears_out(s)
+    mana(s, "p1", U=1, C=1)
+    _cast(s, spell)
+    _resolve(s)
+    oid = s.state.rules.object_id
+    effects = _dive_effects(s)
+    # each creature dived as it resolved: one effect locked to those two objects, not a group read anew (611.2c)
+    assert len(effects) == 1 and effects[0].who is None and sorted(effects[0].affected) == sorted([oid(a.id), oid(b.id)])
+    assert _marker(s, a.id) and _marker(s, b.id)
+    # a creature that comes under Alice's control later never dived
+    giant = card_named(s, "Llanowar Elves", "p1")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="pass_priority")
+    assert oid(giant.id) not in _dive_effects(s)[0].affected and not _marker(s, giant.id)
+    # turn 3: the first Bears can't be blocked and connect — that one stops diving; the other still dives
+    to_phase(s, "main1", turn=3)
+    assert _attack(s, a.id, _live(s, "Grizzly Bears", "p2").id) is False
+    assert s.state.players["p2"].life == 38
+    assert [e.affected for e in _dive_effects(s)] == [[oid(b.id)]] and not _marker(s, a.id) and _marker(s, b.id)
+    # turn 5: the first can be blocked again; the second, turns later, still can't — and connecting ends the effect
+    to_phase(s, "main1", turn=5)
+    assert _attack(s, a.id, _live(s, "Grizzly Bears", "p2").id) is True
+    to_phase(s, "main1", turn=7)
+    assert _attack(s, b.id, _live(s, "Grizzly Bears", "p2").id) is False
+    assert not _dive_effects(s) and not _marker(s, b.id)
+    check(s)
+
+
+def test_a_group_member_that_leaves_stops_diving_the_rest_keep_it(cards):
+    s = build(cards, ["School Dive", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears"])
+    a, b = _bears_out(s)
+    mana(s, "p1", U=1, C=1)
+    _cast(s, "School Dive")
+    _resolve(s)
+    act(s, "p1", type="move", card_ids=[a.id], to={"zone": "hand"})  # (bounced: 400.7, what comes back is a new object)
+    act(s, "p1", type="pass_priority")
+    oid = s.state.rules.object_id
+    assert [e.affected for e in _dive_effects(s)] == [[oid(b.id)]] and not _marker(s, a.id) and _marker(s, b.id)
+    act(s, "p1", type="move", card_ids=[a.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="pass_priority")
+    assert [e.affected for e in _dive_effects(s)] == [[oid(b.id)]] and not _marker(s, a.id)
+    to_phase(s, "main1", turn=3)
+    assert _attack(s, a.id, _live(s, "Grizzly Bears", "p2").id) is True  # (the new object never dived)
+    check(s)
+
+
+def test_up_to_two_target_creatures_dive(cards):
+    s = build(cards, ["Paired Plunge", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears"])
+    a, b = _bears_out(s)
+    mana(s, "p1", U=1)
+    _cast(s, "Paired Plunge", targets=[a.id, b.id])
+    _resolve(s)
+    oid = s.state.rules.object_id
+    assert len(_dive_effects(s)) == 1 and sorted(_dive_effects(s)[0].affected) == sorted([oid(a.id), oid(b.id)])
+    to_phase(s, "main1", turn=3)
+    assert _attack(s, b.id, _live(s, "Grizzly Bears", "p2").id) is False
+    assert [e.affected for e in _dive_effects(s)] == [[oid(a.id)]] and _marker(s, a.id)
     check(s)

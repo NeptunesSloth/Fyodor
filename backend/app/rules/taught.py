@@ -30,7 +30,12 @@ MAX_ENTRIES = 500
 NAME_RE = re.compile(r"[A-Z][A-Za-z'\-]{1,23}(?: [A-Za-z'\-]{1,23}){0,2}")
 ACTION_RE = re.compile(r"[a-z][a-z\-]{1,23}")  # (one lowercase verb: cards say "it dives", "target creature dives")
 # the subjects a card's text gives a keyword action ("it dives", "target creature dives"); the card's own name is added per card
-ACTION_SUBJECTS = r"it|this creature|this permanent|that creature|target creature(?: you control)?|each creature you control"
+ACTION_SUBJECTS = (r"it|this creature|this permanent|that creature|(?:up to one |another )?target creature(?: you control)?"
+                   r"|each (?:other )?(?:attacking |blocking |tapped |untapped )?creature(?: you control)?")
+# -- dive (wave DV) -- the plural subjects, which take the bare verb ("creatures you control dive", "up to two target creatures dive"); shared with
+# the native dive (app/rules/dive.py), so a taught action and the built-in one read the same subjects
+ACTION_GROUP_SUBJECTS = (r"(?:all )?(?:other )?(?:attacking |blocking |tapped |untapped )?creatures you control"
+                         r"|(?:up to )?(?:two|three|four|five|any number of) target creatures(?: you control)?|those creatures")
 MANA_RE = re.compile(r"(?:\{(?:[0-9]|1[0-9]|20|W|U|B|R|G|C|N|W/U|U/B|B/R|R/G|G/W|W/B|U/R|B/G|R/W|G/U)\}){1,8}")
 COLORED_MANA_RE = re.compile(r"(?:\{[WUBRGC]\}){1,6}")
 _WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
@@ -463,13 +468,13 @@ def action_pattern(entry: dict[str, Any], card_name: str = "") -> re.Pattern[str
     name = re.escape(entry["name"])
     if entry.get("param"):
         return re.compile(rf"(?<![A-Za-z])(?:(?P<subj>{subjects}) )?{name}s? (?P<n>\d{{1,2}})\b", re.I)
-    return re.compile(rf"(?<![A-Za-z])(?P<subj>{subjects}) {name}s\b", re.I)
+    return re.compile(rf"(?<![A-Za-z])(?:(?P<subj>{subjects}) {name}s|(?P<psubj>{ACTION_GROUP_SUBJECTS}) {name})\b", re.I)  # (dive, wave DV: a plural subject)
 
 
 def _swap_action(m: re.Match[str], entry: dict[str, Any], type_line: str, card_name: str, used: list[str]) -> str:
     """One phrase of the action → the sentences it stands for, said of the subject the card used (capitalised where the card's words were)."""
     n = int(m["n"]) if m.groupdict().get("n") else None
-    subj = m.group("subj")
+    subj = m.group("subj") or m.groupdict().get("psubj")
     me = self_word(type_line) if subj is None else subj if subj[:1].islower() or subj == card_name else subj[:1].lower() + subj[1:]
     said = action_sentences(entry, n=n, me=me)
     first = m.start() == 0 or m.string[max(0, m.start() - 2):m.start()] in (". ", "— ") or subj is not None and subj[:1].isupper()

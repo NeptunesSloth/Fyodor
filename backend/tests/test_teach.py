@@ -137,6 +137,25 @@ def test_an_action_is_read_as_the_sentences_it_stands_for(cards):
     assert taught.match_key_of(taught.clean_entry(PLUNGE)) == "action:plunge"
 
 
+def test_a_taught_action_said_of_a_group_routes_like_the_native_dive(cards):
+    """-- group dive (wave DV) -- a plural subject takes the bare verb ("creatures you control plunge"), a group with "each" the -s form: the same
+    subjects the native dive reads (app/rules/dive.py), so the taught text and the built-in one come out alike and both are FULL."""
+    from app.rules import dive
+
+    data = cards.resolve("Plunging Tester")
+    for said, subject in (("Creatures you control plunge.", "Creatures you control"),
+                          ("Each other creature you control plunges.", "Each other creature you control"),
+                          ("Up to two target creatures plunge.", "Up to two target creatures")):
+        other = dict(data, name=f"Group {said}", type_line="Sorcery", power=None, toughness=None, oracle_text=said)  # (a spell that says it)
+        after = taught.apply(other, [taught.clean_entry(PLUNGE)])
+        assert after["oracle_text"] == f"{subject} can't be blocked until it deals combat damage while attacking.", said
+        assert after["oracle_text"] == dive.rewrite(said.replace("plunges", "dives").replace("plunge", "dive"))
+        assert coverage.of_card_data(after).level == "FULL", (said, coverage.of_card_data(after).manual_parts)
+    # the verb's number follows its subject: "creatures you control plunges" is no phrase of the action
+    wrong = dict(data, name="Group wrong", oracle_text="Creatures you control plunges.")
+    assert taught.apply(wrong, [taught.clean_entry(PLUNGE)]) is wrong
+
+
 def test_a_numbered_action_reads_its_number(cards):
     result = taught.check(SURGE)
     assert result["ok"], result["problems"]

@@ -180,8 +180,10 @@ The file looks like this — it is only names, piece ids and choices:
   there. What every keyword, keyword action and ability word of the rules can and can't be taught as:
   [TEACH_FYODOR_COVERAGE.md](TEACH_FYODOR_COVERAGE.md).
 * A keyword's name must be one Fyodor doesn't already know (you can't redefine *Flying*); an action's verb must not be a keyword
-  action of the rules (you can't redefine *explore*). An action is one word and one stack of Do pieces; "each creature you
-  control dives" is left to the players (a group can't stop being unblockable one creature at a time).
+  action of the rules (you can't redefine *explore*). An action is one word and one stack of Do pieces. A group can perform it
+  too: "each creature you control dives", "creatures you control dive", "up to two target creatures dive" — each creature named
+  as it resolves dives, and each one stops being unblockable on its own as it connects or leaves (a creature you get later never
+  dived). Taught and native dive read the same subjects. Dive is an action, not a keyword ability: no card "has" or "gains" dive.
 * Up to 4 abilities per entry, 12 pieces per ability, 500 entries.
 
 For developers: the vocabulary is `backend/app/rules/taught_vocab.py` (pieces are Oracle templates), the checker and applier
