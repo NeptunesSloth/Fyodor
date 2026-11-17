@@ -93,6 +93,14 @@ describe("automation intents", () => {
     expect(sent).toEqual([{ type: "cast_spell", card_id: "r1", kicker: 1 }]);
   });
 
+  it("opens the kicker chooser where the card was clicked or dropped (second pass S1)", async () => {
+    const { useMenu } = await import("../../components/ContextMenu");
+    const base = view(RULES);
+    useGame.setState({ view: { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView });
+    expect(dropAsIntent(["r1"], { zone: "stack", at: { clientX: 312, clientY: 845 } })).toBe(true);
+    expect(useMenu.getState().menu).toMatchObject({ x: 312, y: 845 });
+  });
+
   it("turns a drop from hand into play_land or cast_spell", () => {
     useGame.setState({ view: view(RULES) });
     expect(dropAsIntent(["c1"], { zone: "p1:battlefield", x: 10, y: 20 })).toBe(true);

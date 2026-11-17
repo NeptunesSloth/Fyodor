@@ -87,7 +87,8 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
     const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
     if (kicker) {
-      const at = { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
+      // -- second pass S1 -- the chooser opens where the card was clicked or dropped (`at`, as handDrop.ts's face chooser), else mid-screen
+      const at = target.at ?? { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
       openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot }) },
         ...kickerItems(card.id, kicker, true, spot)], `${data?.name ?? "Cast"}: kicker?`);
       return true;
