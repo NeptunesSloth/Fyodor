@@ -54,6 +54,14 @@ export function lossSource(log: LogEntryView[], name: string): { name: string; c
   return null;
 }
 
+/**
+ * -- loss sources -- the card that made ``me`` lose: the one the rules recorded with the loss (``rules.lost_source``: Final Fortune's
+ * delayed trigger, the Lightning Bolt that took the life to 0), else the log's guess (``lossSource``), else null.
+ */
+export function endingSource(view: Pick<GameView, "rules" | "log">, me: string, name: string): { name: string; card_id: string | null } | null {
+  return view.rules?.lost_source?.[me] ?? lossSource(view.log ?? [], name);
+}
+
 function findLast<T>(xs: T[], ok: (x: T) => boolean): number {
   for (let i = xs.length - 1; i >= 0; i--) if (ok(xs[i]!)) return i;
   return -1;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameView, LogEntryView } from "../types/game";
-import { ENDING_WORD, causeLine, endingVariant, lifeTick, lossSource, otherLine, tickAt } from "./testEndingBits";
+import { ENDING_WORD, causeLine, endingSource, endingVariant, lifeTick, lossSource, otherLine, tickAt } from "./testEndingBits";
 
 const line = (turn: number, ...parts: LogEntryView["parts"]): LogEntryView =>
   ({ seq: 0, ts: 0, turn, phase: "end", actor: null, kind: "rules", parts }) as LogEntryView;
@@ -37,6 +37,16 @@ describe("the test-table ending screen", () => {
     expect(lossSource([line(5, c("Lightning Bolt"))], "Alice")).toBeNull(); // (no loss in the log)
     const far = [line(5, c("Sol Ring")), ...Array.from({ length: 8 }, () => line(5, t("…"))), line(5, t("Alice loses the game"))];
     expect(lossSource(far, "Alice")).toBeNull();
+  });
+
+  it("prefers the card the rules recorded with the loss over the log's guess (loss sources)", () => {
+    const log = [line(5, c("Grizzly Bears"), t(" attacks")), line(5, t("Alice loses the game (an effect)"))];
+    const rules = { lost: { p1: "an effect" }, lost_source: { p1: { name: "Final Fortune", card_id: "id-ff" } } };
+    expect(endingSource({ log, rules } as unknown as GameView, "p1", "Alice")).toEqual({ name: "Final Fortune", card_id: "id-ff" });
+    // (an older server, or no source known: the log's guess)
+    expect(endingSource({ log, rules: { lost: { p1: "an effect" } } } as unknown as GameView, "p1", "Alice"))
+      .toEqual({ name: "Grizzly Bears", card_id: "id-Grizzly Bears" });
+    expect(endingSource({ log: [], rules: null } as unknown as GameView, "p1", "Alice")).toBeNull();
   });
 
   it("ticks the life from where the last turn's changes began to where it ended", () => {

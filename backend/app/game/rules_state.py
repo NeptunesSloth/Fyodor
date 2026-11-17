@@ -115,6 +115,15 @@ class TurnCount(BaseModel):
     count: int = 0
 
 
+class LossSource(BaseModel):
+    """-- loss sources -- the card that made a player lose the game (app/rules/loss_sources.py): public facts only, a card every player could
+    see as it acted (its name; its printing, None for a token). ``at``: for a harm mark only, the life total (or poison count) it left."""
+
+    name: str = Field(default="", max_length=200)
+    card_id: str | None = Field(default=None, max_length=64)
+    at: int | None = None
+
+
 class ControlMark(BaseModel):
     """When a permanent came under its current controller's control (for summoning sickness)."""
 
@@ -1606,6 +1615,10 @@ class RulesState(BaseModel):
     named_combat_history_notice: bool = False
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
+    # -- loss sources -- player -> the card that made them lose (shown to everyone); "player:life|poison|draw" -> the last public source that lowered
+    # their life, gave them poison counters, or made them draw from an empty library (app/rules/loss_sources.py); old saves: none
+    lost_source: dict[str, LossSource] = Field(default_factory=dict)
+    harm_sources: dict[str, LossSource] = Field(default_factory=dict)
     winner: str | None = None
     draw_reason: str | None = None  # 104.4: explicit draw; old saves default to unfinished
     # -- casting extras (wave 18E) -- miracle (app/rules/miracle.py): the cards whose owner may reveal them now (never sent to anyone else),

@@ -561,6 +561,8 @@ export interface RulesView {
   attacking_bands?: string[][]; // Public card IDs; bands last until their members leave combat.
   conceded: string[];
   lost: Record<string, string>;
+  /** -- loss sources -- the card the rules recorded with each player's loss (public: name and printing; a token has no printing). */
+  lost_source?: Record<string, { name: string; card_id: string | null }>;
   winner: string | null;
   draw_reason?: string | null;
   overrides: number;

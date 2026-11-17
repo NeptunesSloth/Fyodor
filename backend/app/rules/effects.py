@@ -4184,10 +4184,12 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 
 def _run_body(plan: Plan, ctx: Context) -> bool:
     before110g, plan.cause110g = plan.cause110g, ctx.get("controller")  # -- wave 110G -- stamps the zone changes this body causes
+    source_before, plan.effect_source = plan.effect_source, ctx.get("source_card")  # -- loss sources -- what harm this body does comes from
     try:
         return _run_effects(plan, ctx)
     finally:
         plan.cause110g = before110g
+        plan.effect_source = source_before
 
 
 def _run_effects(plan: Plan, ctx: Context) -> bool:

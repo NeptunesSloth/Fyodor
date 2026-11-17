@@ -91,6 +91,9 @@ def extra_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         n = int(e.get("n") or 1)
         for _ in range(n):
             plan.rules.extra_turns.append({"player": pid, "label": name, **({"lose": True} if e.get("then_lose") else {}),
+                                           # -- loss sources -- 603.7d: the delayed trigger's source is the spell that made it
+                                           **({"source_card": ctx["source_card"], "source_object": ctx.get("source_object")}
+                                              if e.get("then_lose") and ctx.get("source_card") else {}),
                                            **({"no_power_up": True} if e.get("no_power_up") else {}),
                                            **({"skip_untap89": True} if e.get("skip_untap89") else {}),
                                            **({"no_prevent110l": ctx.get("source_object") or ""} if e.get("no_prevent110l") else {})})  # (wave 110L)
@@ -130,6 +133,7 @@ def take(plan: Plan) -> str | None:
         if rec.get("lose"):  # (created between the turns: "a later turn" is that one, delayed._step_due)
             plan.rules.delayed.append(DelayedTrigger(
                 id=secrets.token_hex(4), controller=pid, name=str(rec.get("label") or ""), when={"kind": "step", "step": "end", "whose": "next_turn"},
+                source_card=rec.get("source_card"), source_object=rec.get("source_object"),  # (603.7d; older records: none)
                 effects=[{"do": "lose_game", "who": "you"}], refs={}, turn=plan.state.turn.number, step=plan.state.turn.phase, once=True,
                 until_turn=plan.state.turn.number + 1))  # (review 19: only that turn's end step; one skipped or ended early, 724.1, is no loss later)
         return pid

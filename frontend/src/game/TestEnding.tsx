@@ -11,7 +11,7 @@ import { send } from "./actions";
 import { useIsHost } from "./HostTools";
 import { playEndScene, type EndPlay } from "./motion/endScene";
 import { testEnding, type TestEnding as Ending } from "./nightEnding";
-import { ENDING_WORD, causeLine, endingVariant, lifeTick, lossSource, otherLine, tickAt } from "./testEndingBits";
+import { ENDING_WORD, causeLine, endingSource, endingVariant, lifeTick, otherLine, tickAt } from "./testEndingBits";
 import "./testEnding.css";
 
 /** -- test-table ending -- undo back to just before the action that ended the test for this seat (app/api/games.py, test/take-back). */
@@ -29,7 +29,8 @@ const TICK_MS = 750;
 /**
  * -- test-table ending -- a test against target dummies has no pod result to confirm, so when it ends at this seat (you lost or
  * conceded, every dummy is out, or a draw) the game ends here like a game: the table dims and greys under a heavy vignette, DEFEAT
- * (or VICTORY, or DRAW) settles in, then the cause, the card the log names just before it, and your life ticking to its last value,
+ * (or VICTORY, or DRAW) settles in, then the cause, the card the rules recorded with the loss (else the one the log names just before
+ * it), and your life ticking to its last value,
  * and a game menu. Take it back undoes the action that ended it; Start over deals a new game at the same table; Look at the board
  * (or Escape) fades it away to a small tab that brings it back; Leave goes back to the Play page. The table reacts with the
  * end-of-game scene (motion/endScene.ts: both renderers, and its sting when sound is on). Click or Space skips the settling in;
@@ -59,7 +60,7 @@ function EndingScreen({ view, me, ending }: { view: GameView; me: string; ending
   const mine = view.players.find((p) => p.id === me);
   const tick = lifeTick(mine);
   const [life, setLife] = useState(reduced ? tick.to : tick.from);
-  const source = variant === "defeat" && mine ? lossSource(view.log ?? [], mine.name) : null;
+  const source = variant === "defeat" && mine ? endingSource(view, me, mine.name) : null;
   const card = useCard(source?.card_id ?? null);
   const r = view.rules;
   const line = variant === "defeat" ? causeLine(r?.lost[me], !!r?.conceded.includes(me)) : otherLine(view, variant);

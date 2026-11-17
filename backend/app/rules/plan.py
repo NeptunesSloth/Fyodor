@@ -117,6 +117,7 @@ class Plan:
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     probe_stickers101: list[tuple[str, str, list[str]]] | None = None
+    effect_source: str | None = None  # -- loss sources -- the source card of the spell or ability whose effects are being carried out (effects._run_body)
     world_depth80: int = 0
     world_candidates80: tuple[tuple, tuple[str, ...]] | None = None
 
@@ -234,7 +235,12 @@ class Plan:
         from app.rules import world_durations80
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
+        from app.rules import loss_sources
+
+        harmed = loss_sources.before(self) if resolved.type in loss_sources.HARM_STEPS and self.state.rules is not None else None
         HANDLERS[resolved.type](self.state, resolved)
+        if harmed is not None:  # -- loss sources -- who lowered a life total or gave poison counters
+            loss_sources.after(self, resolved, harmed)
         if self.state.planechase is not None:  # -- planechase automation -- the face-up card's object follows the planar controller (311.5)
             from app.game.handlers import planechase
 

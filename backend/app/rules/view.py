@@ -17,7 +17,7 @@ from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules import read_pass, wave110c_chorus
+from app.rules import loss_sources, read_pass, wave110c_chorus
 from app.rules.casting import (
     activatable,
     alt_castable,
@@ -84,6 +84,7 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "attacking_bands": banding.live_bands(state),
         "conceded": list(r.conceded),
         "lost": dict(r.lost),
+        "lost_source": loss_sources.view(r),  # -- loss sources -- the card that made each player lose (public)
         "winner": r.winner,
         "draw_reason": r.draw_reason,
         "overrides": r.overrides,

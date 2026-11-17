@@ -308,8 +308,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         from app.rules import life_game_history
 
         life_game_history.loss_events(plan, [pid for pid, _ in found.losers])
+    from app.rules import loss_sources
+
     for pid, reason in found.losers:
         r.lost[pid] = reason
+        loss_sources.lost(plan, pid, loss_sources.for_sba(plan, pid, reason))  # -- loss sources --
         plan.note(f"{state.players[pid].name} loses the game ({reason})")
         happened = True
     for card, n in found.annihilate:

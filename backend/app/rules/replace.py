@@ -1698,6 +1698,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             r.replace_step_draws[pid] = r.replace_step_draws.get(pid, 0) + drawn
         if drawn < k and pid not in r.drew_from_empty:
             r.drew_from_empty.append(pid)  # 704.5b at the next check
+            from app.rules import loss_sources
+
+            loss_sources.drew_from_empty(plan, pid)  # -- loss sources -- the spell or ability that made them draw
 
     for before, out in actions:
         if [f for f in out if f["kind"] != "draw" or f["player"] != before["player"]] or len(out) != 1:
@@ -1739,9 +1742,13 @@ def _win(plan: Plan, pid: str) -> None:
     if game_result.cannot_win(plan, pid):
         plan.note(f"{plan.name(pid)} would win the game, but can't")
         return
+    from app.rules import loss_sources
+
+    source = loss_sources.of_card(plan, plan.effect_source)  # -- loss sources -- the effect that won (Thassa's Oracle, Felidar Sovereign)
     for other in plan.live():
         if other != pid:
             r.lost[other] = f"{plan.name(pid)} won the game"
+            loss_sources.lost(plan, other, source)
     r.winner = pid
     r.priority = pid
     plan.note(f"{plan.name(pid)} wins the game")
