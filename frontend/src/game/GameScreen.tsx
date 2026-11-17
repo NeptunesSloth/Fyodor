@@ -17,6 +17,7 @@ import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
 import { toast } from "../components/Toasts";
+import { CrashScreen } from "../components/CrashScreen";
 import { cycleCombatFilter } from "./combatFilter";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
@@ -45,6 +46,18 @@ import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
 import { BagDraws } from "./BagDraws";
 import { PlanechasePlaque } from "./PlanechasePlaque";
+
+/**
+ * -- 3D fallback -- the 3D table couldn't start on this computer (no working WebGL, a graphics driver refusing it, its part of
+ * the page not loading): the table switches to 2D (a saved preference, Settings brings 3D back) instead of the whole page failing.
+ */
+function Fall2D() {
+  useEffect(() => {
+    usePrefs.getState().set({ renderer: "2d" });
+    toast("The 3D table couldn't start on this computer, so the table is in 2D. Settings can switch it back.", "error");
+  }, []);
+  return null;
+}
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -101,7 +114,7 @@ export function GameScreen() {
       <TurnDial />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
-          {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
+          {three ? <CrashScreen quiet={<Fall2D />}><Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense></CrashScreen> : <TablePlaymat />}
           {!three && <FocusKeys others={others} me={me} />}
           {!three && <FocusKeys2D />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
