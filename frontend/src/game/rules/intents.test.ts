@@ -4,7 +4,7 @@ import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
 import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
-import { canSubmitChoice, dialState, doneLabel, legalClass, paidSymbol } from "./RulesHud";
+import { canSubmitChoice, clickAnswer, dialState, doneLabel, justAnswered, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 import { libraryTopActions } from "../ZonePile";
 import type { MenuItem } from "../../components/ContextMenu";
@@ -164,6 +164,22 @@ describe("automation intents", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "cr", ability: 0, convoke: true }]);
     expect(paidSymbol("1")).toBe("{1}");
     expect(paidSymbol("G")).toBe("{G}");
+  });
+
+  it("during a payment, a plain click on a highlighted land taps it (and a quick second click doesn't tap it back)", () => {
+    const base = view({ ...RULES, options: { highlights: "on" }, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: ["f1"], convoke: [], improvise: [] }, options: [] } });
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:battlefield", "forest"), l1: card("l1", "p1:battlefield", "looter") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(legalClass(v, "f1", "p1")).toBe("rules-mana-source");
+    expect(clickAnswer(v, "f1", "p1", legalClass(v, "f1", "p1"), 1000)).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true }]);
+    expect(justAnswered("f1", 1200)).toBe(true);
+    expect(clickAnswer(v, "f1", "p1", "rules-mana-source", 1200)).toBe(true); // the double-click's second click: swallowed
+    expect(sent).toHaveLength(1);
+    expect(justAnswered("f1", 2000)).toBe(false);
+    expect(clickAnswer(v, "l1", "p1", legalClass(v, "l1", "p1"), 3000)).toBe(false); // not highlighted: a click selects as before
+    expect(clickAnswer(v, "l1", "p1", "rules-playable", 3000)).toBe(false);
   });
 
   it("splits ability lines without reminder text", () => {

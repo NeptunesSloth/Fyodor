@@ -9,7 +9,7 @@ import { dropCards } from "./drop";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
-import { answerByClick, legalClass } from "./rules/RulesHud";
+import { clickAnswer, justAnswered, legalClass } from "./rules/RulesHud";
 import { TargetMark } from "./targeting/TargetMark";
 import { Icon } from "../components/Icon";
 import { countMark, countText } from "./piles";
@@ -54,7 +54,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     if (e.button !== 0) return;
     e.stopPropagation();
     const store = useGame.getState();
-    if (legal === "rules-target" && answerByClick(store.view, id, me)) return; // click-to-target
+    if (clickAnswer(store.view, id, me, legal)) return; // click-to-target, and click a highlighted land to pay
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       store.select([id], "toggle");
       return;
@@ -77,6 +77,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
+        if (justAnswered(id)) return; // the click already tapped it for mana (or chose it): don't tap it back
         tapGesture(targetsFor(id), (x) => void tapCards(x));
       }}
       onContextMenu={(e) => {

@@ -28,7 +28,7 @@ import type { DropResult } from "../game/dnd";
 import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
-import { answerByClick, legalClass } from "../game/rules/RulesHud";
+import { answerByClick, clickAnswer, legalClass } from "../game/rules/RulesHud";
 import { targetBeams } from "../game/targeting/beams";
 import { useTargeting } from "../game/targeting/store";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
@@ -2423,7 +2423,7 @@ export class TableScene {
       pickClick(id);
       return;
     }
-    if (legalClass(store.view, id, this.me) === "rules-target" && answerByClick(store.view, id, this.me)) return;
+    if (clickAnswer(store.view, id, this.me, legalClass(store.view, id, this.me))) return; // a target, or a highlighted land to pay
     const now = performance.now();
     if (this.lastClick.id === id && now - this.lastClick.at < 320) {
       this.lastClick = { id: "", at: 0 };

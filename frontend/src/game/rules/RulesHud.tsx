@@ -1051,6 +1051,27 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   return "";
 }
 
+// -- playtest (nov 16) -- the highlights a plain click on a table card answers: a target, and while I pay a cost a mana source to tap
+// (the payment plaque says "click a highlighted card on the table"; a click only selected the land) or a convoke / improvise card
+// (a committed one: click again to take it back)
+const CLICK_ANSWERS = new Set(["rules-target", "rules-mana-source", "rules-committed"]);
+/** A second click on the card a click just answered with (a double-click out of habit) is swallowed, not sent again or tapped back. */
+const REPEAT_MS = 450;
+let lastAnswer = { id: "", at: 0 };
+
+/** Whether a click on `id` just answered the pending decision (TableCard's double-click and the 3D table skip their tap then). */
+export function justAnswered(id: string, now = Date.now()): boolean {
+  return lastAnswer.id === id && now - lastAnswer.at < REPEAT_MS;
+}
+
+/** A plain click on a table card whose highlight is `legal`: answers the pending decision when it can (true: handled). */
+export function clickAnswer(view: GameView | null, id: string, me: string, legal: string, now = Date.now()): boolean {
+  if (justAnswered(id, now)) return true;
+  if (!CLICK_ANSWERS.has(legal) || !answerByClick(view, id, me)) return false;
+  lastAnswer = { id, at: now };
+  return true;
+}
+
 /**
  * Clicking a card or player that the pending decision offers answers it (click-to-target): a choose-one at once, a
  * choose-cards on the targeting bar (chosen or un-chosen, then Done).
