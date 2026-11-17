@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GameView, PlayerView } from "../types/game";
-import { dummyIsOut, dummyMenu, dummyOf, spawnOwners } from "./targetDummy";
+import { dummyActions, dummyIsOut, dummyMenu, dummyName, dummyOf, rememberedDummies, spawnOwners } from "./targetDummy";
 
 const player = (id: string, extra: Partial<PlayerView> = {}) => ({ id, name: id === "p2" ? "Target Dummy" : "Alice", life: 40, ...extra }) as PlayerView;
 const table = (players: PlayerView[], extra: Partial<GameView> = {}) =>
@@ -41,7 +41,7 @@ describe("target dummy", () => {
     expect(reset!.hint).toBe("12 life");
     vi.stubGlobal("window", { confirm: () => true });
     reset!.onClick!();
-    expect(send).toHaveBeenLastCalledWith({ type: "reset_dummy" });
+    expect(send).toHaveBeenLastCalledWith({ type: "reset_dummy", player: "p2" });
     vi.unstubAllGlobals();
     const lost = table([player("p1"), player("p2", { dummy: true, life: 0 })], { rules: { lost: { p2: "0 or less life" }, conceded: [] } } as unknown as Partial<GameView>);
     expect((dummyMenu(lost, true, send) as Entry[])[0]!.label).toBe("Restore dummy…");
@@ -57,8 +57,52 @@ describe("target dummy", () => {
       ["Never", undefined, false], ["Chump the biggest attacker", "current", true], ["Block with everything it can", undefined, false],
     ]);
     blocks.submenu![2]!.onClick!();
-    expect(send).toHaveBeenCalledWith({ type: "set_dummy", blocks: "all" });
+    expect(send).toHaveBeenCalledWith({ type: "set_dummy", blocks: "all", player: "p2" });
     const manual = (dummyMenu(table([player("p1"), player("p2", { dummy: true })]), true, send) as Entry[]).find((e) => e.label === "Dummy blocks")!;
     expect(manual.hint).toBe("with automation on"); // (automation off: the dummy's cards are moved by hand)
+  });
+
+  it("with several dummies: each its own Reset and blocks, Spawn for each, and Add until there are three", () => {
+    const send = vi.fn();
+    const d = (id: string, name: string) => player(id, { dummy: true, name });
+    const two = table([player("p1"), d("p2", "Wall"), d("p3", "Target Dummy 2")]);
+    expect(spawnOwners(two).map((o) => o.label)).toEqual(["You", "Wall", "Target Dummy 2"]);
+    const labels = (dummyMenu(two, true, send) as Entry[]).map((e) => e.label);
+    expect(labels).toEqual(["Reset Wall…", "Wall blocks", "Reset Target Dummy 2…", "Target Dummy 2 blocks", "Add another target dummy"]);
+    const three = table([player("p1"), d("p2", "A"), d("p3", "B"), d("p4", "C")]);
+    expect((dummyMenu(three, true, send) as Entry[]).map((e) => e.label)).not.toContain("Add another target dummy");
+    vi.stubGlobal("window", { confirm: () => true });
+    (dummyMenu(three, true, send) as Entry[]).find((e) => e.label === "Reset C…")!.onClick!();
+    expect(send).toHaveBeenLastCalledWith({ type: "reset_dummy", player: "p4" });
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("the Sandbox start's dummy seats", () => {
+  it("names them as the server does", () => {
+    expect([0, 1, 2].map(dummyName)).toEqual(["Target Dummy", "Target Dummy 2", "Target Dummy 3"]);
+  });
+
+  it("seats them in order, a blank name and life falling back to the defaults, three at most", () => {
+    expect(dummyActions([
+      { name: " Wall ", blocks: "all", life: "" },
+      { name: "", blocks: "never", life: "20" },
+      { name: "C", blocks: "chump", life: "abc" },
+      { name: "D", blocks: "never", life: "" },
+    ])).toEqual([
+      { type: "add_dummy", blocks: "all", name: "Wall" },
+      { type: "add_dummy", blocks: "never", name: "Target Dummy 2", life: 20 },
+      { type: "add_dummy", blocks: "chump", name: "C" },
+    ]);
+    expect(dummyActions([])).toEqual([]);
+  });
+
+  it("remembers them for Same as last time, older one-checkbox records included", () => {
+    expect(rememberedDummies(null)).toEqual([]);
+    expect(rememberedDummies({ dummy: false })).toEqual([]);
+    expect(rememberedDummies({ dummy: true, dummyBlocks: "chump" })).toEqual([{ name: "Target Dummy", blocks: "chump", life: "" }]);
+    const seats = [{ name: "Wall", blocks: "all" as const, life: "20" }];
+    expect(rememberedDummies({ dummies: seats, dummy: true })).toEqual(seats);
+    expect(rememberedDummies({ dummies: [{ name: "X", blocks: "bogus" as never, life: "" }] })).toEqual([{ name: "X", blocks: "never", life: "" }]);
   });
 });

@@ -693,6 +693,8 @@ class AddDummy(Base):
 
     type: Literal["add_dummy"] = "add_dummy"
     blocks: Literal["never", "chump", "all"] = "never"  # how it blocks with automation on (state.DummyBlocks)
+    name: str | None = Field(default=None, max_length=40)  # (None: "Target Dummy", "Target Dummy 2" …)
+    life: int | None = Field(default=None, ge=1, le=10000)  # its starting life (None: the table's)
 
 
 class ResetDummy(Base):
@@ -700,6 +702,7 @@ class ResetDummy(Base):
     card it was given goes back to its owner), and back in the game if it lost."""
 
     type: Literal["reset_dummy"] = "reset_dummy"
+    player: Id | None = None  # which dummy (None: the first)
 
 
 class SetDummy(Base):
@@ -707,6 +710,7 @@ class SetDummy(Base):
 
     type: Literal["set_dummy"] = "set_dummy"
     blocks: Literal["never", "chump", "all"]
+    player: Id | None = None  # which dummy (None: the first)
 
 
 class RestartGame(Base):

@@ -12,6 +12,7 @@ export function SpawnDialog({ onClose }: { onClose: () => void }) {
   const owners = spawnOwners(view); // -- target dummy -- a test card for it: a blocker or a removal target
   const [owner, setOwner] = useState<string | null>(null);
   const forDummy = owner !== null && owners.some((o) => o.id === owner);
+  const whose = owners.find((o) => o.id === owner)?.label ?? "the dummy";
   return (
     <Modal title="Spawn a card (test object)" onClose={onClose}>
       <p className="hint">Spawned cards are marked TEST and are removed by Reset deck — they never become part of your deck.</p>
@@ -26,10 +27,10 @@ export function SpawnDialog({ onClose }: { onClose: () => void }) {
       <CardSearchBox placeholder="Search any card…" autoFocus onPick={(card, e) => {
         const zone = e.shiftKey && !forDummy ? "hand" : "battlefield"; // (the dummy has no hand to play from)
         void send({ type: "spawn_card", card_id: card.id, zone, ...(forDummy ? { player: owner } : {}) })
-          .then((ok) => ok && toast(`Spawned ${card.name}${forDummy ? " for the dummy" : ""}`));
+          .then((ok) => ok && toast(`Spawned ${card.name}${forDummy ? ` for ${whose}` : ""}`));
         if (zone === "battlefield") onClose();
       }} />
-      <p className="hint">{forDummy ? "Enter puts it onto the dummy's battlefield; Reset dummy removes it." : "Enter puts it on the battlefield; Shift+Enter into your hand."}</p>
+      <p className="hint">{forDummy ? `Enter puts it onto ${whose}'s battlefield; Reset dummy removes it.` : "Enter puts it on the battlefield; Shift+Enter into your hand."}</p>
     </Modal>
   );
 }

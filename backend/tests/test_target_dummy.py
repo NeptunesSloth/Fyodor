@@ -78,10 +78,82 @@ def test_add_a_target_dummy(cards):
     assert dummy.dummy and dummy.name == "Target Dummy" and dummy.life == 40
     assert dummy.resources["poison"] == 0 and dummy.commander_damage == {}
     assert st.zones["p2:library"] == [] and st.zones["p2:battlefield"] == []
-    with pytest.raises(ActionError, match="already has a target dummy"):
-        act(s, "p1", type="add_dummy")
+    act(s, "p1", type="add_dummy")  # (up to three: the second is numbered)
+    assert st.players["p3"].name == "Target Dummy 2"
     with pytest.raises(ActionError, match="acts on its own"):  # (a hot-seat table can act as any seat: not as the dummy)
         act(s, "p2", type="life", player="p2", delta=-1)
+    replay_matches(s)
+
+
+def test_up_to_three_dummies_each_with_its_name_blocks_and_life(cards):
+    """The Sandbox start seats up to three dummies, each as the host set it up; Reset dummy and Dummy blocks name the one they mean."""
+    s = sandbox(cards)
+    act(s, "p1", type="add_dummy", name="Wall", blocks="all")
+    act(s, "p1", type="add_dummy", blocks="chump", life=20)
+    act(s, "p1", type="add_dummy", name="  ")  # (a blank name: the numbered default)
+    st = s.state
+    assert st.seat_order == ["p1", "p2", "p3", "p4"]
+    got = [(st.players[p].name, st.players[p].dummy_blocks, st.players[p].life, st.players[p].dummy) for p in ("p2", "p3", "p4")]
+    assert got == [("Wall", "all", 40, True), ("Target Dummy 2", "chump", 20, True), ("Target Dummy 3", "never", 40, True)]
+    # (a refused action leaves the session on a restored copy of the state: read s.state from here on)
+    with pytest.raises(ActionError, match="already has 3 target dummies"):
+        act(s, "p1", type="add_dummy")
+    act(s, "p1", type="set_dummy", player="p4", blocks="chump")
+    assert s.state.players["p4"].dummy_blocks == "chump" and s.state.players["p2"].dummy_blocks == "all"
+    act(s, "p1", type="set_dummy", blocks="never")  # (no player: the first, as older histories recorded it)
+    assert s.state.players["p2"].dummy_blocks == "never"
+    with pytest.raises(ActionError, match="no such target dummy"):
+        act(s, "p1", type="set_dummy", player="p1", blocks="all")
+    act(s, "p1", type="set_life", player="p3", value=3)
+    act(s, "p1", type="set_life", player="p2", value=5)
+    act(s, "p1", type="reset_dummy", player="p3")
+    assert s.state.players["p3"].life == 20 and s.state.players["p2"].life == 5  # (its own starting life; the others untouched)
+    replay_matches(s)
+    loaded = GameState.model_validate(s.state.model_dump(mode="json"))  # save / load
+    again = GameSession(loaded, cards=cards, history=History.from_dict(s.history.to_dict()))
+    assert again.history.rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")
+    assert [again.state.players[p].name for p in ("p2", "p3", "p4")] == ["Wall", "Target Dummy 2", "Target Dummy 3"]
+
+
+def test_with_the_rules_on_several_dummies_never_hold_the_game_up(cards):
+    """Every dummy is answered for (not only the first): turns cycle straight back to Alice, and a reload replays them all."""
+    s = sandbox(cards)
+    act(s, "p1", type="add_dummy")
+    act(s, "p1", type="add_dummy", life=10)
+    act(s, "p1", type="add_dummy", blocks="all")
+    turn_on(s, "full")
+    pass_until(s, 1, "main1")
+    pass_until(s, 2, "main1")
+    pass_until(s, 3, "main1")
+    r = s.state.rules
+    assert s.state.turn.active_player == "p1" and r.lost == {} and r.winner is None
+    replay_matches(s)
+    loaded = GameState.model_validate(s.state.model_dump(mode="json"))
+    again = GameSession(loaded, cards=cards, history=History.from_dict(s.history.to_dict()))
+    assert again.history.rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")
+    pass_until(again, 4, "main1")
+
+
+def test_the_third_dummy_blocks_as_set(cards):
+    """The server answers for every dummy, not only the first: the third declares its own blocks when it is attacked."""
+    s = sandbox(cards)
+    act(s, "p1", type="add_dummy")
+    act(s, "p1", type="add_dummy")
+    act(s, "p1", type="add_dummy", blocks="all")
+    wall = spawned(s, cards, "Grizzly Bears", "p4")
+    bears = spawned(s, cards, "Grizzly Bears")
+    turn_on(s, "full")
+    engine_pays(s.state)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears, "target": "p4"}])
+    declared = [a for a in s.history.actions[:s.history.cursor] if a.type == "declare_blockers"]
+    assert [a.actor for a in declared] == ["p4"] and {b.blocker_id: b.attacker_id for b in declared[-1].blocks} == {wall: bears}
+    d = s.state.rules.decision
+    assert d is None or d.player == "p1"  # (nothing left waiting on a dummy)
     replay_matches(s)
 
 
@@ -358,6 +430,23 @@ def test_the_play_pages_sandbox_start_with_a_dummy(client):
     res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "set_dummy", "blocks": "chump"}}, headers=host)
     assert res.status_code == 200, res.text
     assert next(p for p in res.json()["players"] if p["id"] == "p2")["dummy_blocks"] == "chump"  # (in the table's view: the menu marks it)
+
+
+def test_the_play_pages_sandbox_start_with_three_dummies(client):
+    """The Play page's Sandbox start with three dummy seats set up: each added as the host, in order, before the rules start."""
+    res = client.post("/api/games", json={"name": "Deck test", "format": "sandbox", "mode": "lan", "lobby": False, "seats": 1,
+                                          "players": [{"name": "Alice"}], "first_player": 0, "starting_life": 30})
+    assert res.status_code == 201, res.text
+    gid, host = res.json()["game"]["id"], {"X-Seat-Token": res.json()["seat"]["token"]}
+    for body in ({"name": "Wall", "blocks": "all"}, {"name": "Target Dummy 2", "life": 20}, {"blocks": "chump"}):
+        res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "add_dummy", **body}}, headers=host)
+        assert res.status_code == 200, res.text
+    res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "configure", "automation": "full"}}, headers=host)
+    assert res.status_code == 200, res.text
+    seats = [(p["name"], p["life"], p.get("dummy_blocks"), p.get("dummy")) for p in res.json()["players"]]
+    assert seats[1:] == [("Wall", 30, "all", True), ("Target Dummy 2", 20, "never", True), ("Target Dummy 3", 30, "chump", True)]
+    refused = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "add_dummy"}}, headers=host)
+    assert refused.status_code != 200
 
 
 # ---------------------------------------------------------------------------- how it blocks (the host's setting)

@@ -35,6 +35,8 @@ const PATHS = {
   trash: "M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 10.5v6M14 10.5v6",
   // a folder: the deck shelf's folders
   folder: "M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z",
+  // a practice target, rings and a bullseye: the Sandbox's target dummy
+  target: "M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 11.4v1.2",
   // a padlock: a table with a password
   lock: "M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9.5H6zM12 14.5v2.5",
 } as const;

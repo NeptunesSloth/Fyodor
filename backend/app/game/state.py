@@ -330,6 +330,7 @@ class PlayerState(BaseModel):
     # its priority and decisions at once (app/game/dummy.py)
     dummy: bool = False
     dummy_blocks: DummyBlocks = "never"  # (the dummy's only: never / chump the biggest attacker / block with everything it can)
+    dummy_life: int | None = None  # (the dummy's only: the life it starts with and Reset dummy restores; None: the table's)
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
     playmat: Playmat | None = None

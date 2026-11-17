@@ -34,7 +34,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from app.game.control import decider_of
-from app.game.handlers.dummy import dummy_of
+from app.game.handlers.dummy import dummies_of
 from app.game.rules_state import Decision
 from app.game.state import CardInstance, GameState
 
@@ -59,10 +59,15 @@ def is_dummy(state: GameState, pid: str | None) -> bool:
 
 
 def to_answer(state: GameState, info: CardInfo | None = None) -> tuple[str, list[dict[str, Any]]] | None:
-    """The dummy and the answers to try in turn (the first the server accepts is the one), or None when it has nothing to do."""
-    pid = dummy_of(state)
-    if pid is None or state.players[pid].left:
-        return None
+    """A dummy and the answers to try in turn (the first the server accepts is the one), or None when none has anything to do (a
+    table may seat several: the first, in seat order, that has something to answer)."""
+    for pid in dummies_of(state):
+        if not state.players[pid].left and (out := _to_answer(state, pid, info)) is not None:
+            return out
+    return None
+
+
+def _to_answer(state: GameState, pid: str, info: CardInfo | None) -> tuple[str, list[dict[str, Any]]] | None:
     pregame = state.pregame
     if pregame is not None and not pregame.finished:
         seat = pregame.seats.get(pid)

@@ -528,3 +528,33 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-you-deck-acts { display: inline-flex; gap: 14px; }
 .pg-you-note { margin: 0 0 0 auto; max-width: 34ch; font-size: 13px; line-height: 1.45; color: var(--text-dim); }
 .pg-same { margin-left: auto; align-self: flex-start; }
+
+/* ---------------------------------------------------------------- Sandbox: your seat and the target dummies beside it */
+/* the row fills the felt: your plinth, up to three dummies, and the empty chair to add one (it takes the room left over) */
+.pg-seats.pg-solo { flex-wrap: nowrap; }
+.pg-seats.pg-solo > .pg-seat { flex: 1 1 0; max-width: 300px; }
+.pg-seats.pg-solo > .pg-add-dummy { flex: 1 1 0; min-width: 0; min-height: 0; }
+.pg-add-dummy .pg-add { gap: 10px; padding: 18px 16px; }
+.pg-add-mark { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--frame) 55%, transparent); background: rgba(0, 0, 0, 0.2); }
+.pg-add-note { max-width: 26ch; font: 400 13px/1.4 var(--font-ui); letter-spacing: 0; color: var(--text-dim); }
+/* a dummy's plinth: an unpainted seat, its deck window an empty practice ring */
+.pg-dummy .pg-plate { position: relative; padding-right: 30px; }
+.play .pg-dummy .pg-plate .pg-remove { position: absolute; top: 5px; right: 4px; width: 24px; height: 24px; }
+.pg-slot-dummy { border-style: dashed; color: color-mix(in srgb, var(--room-bone) 60%, var(--frame)); }
+.pg-dummy .pg-deck { flex: 0 0 auto; }
+.pg-dummy-opts { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 12px; margin-top: auto; }
+.pg-dummy-opts .pg-rule { min-width: 0; }
+.play .pg-dummy-opts .pg-rule select { width: 100%; max-width: 100%; font-size: 13.5px; }
+.play .pg-dummy-opts .pg-dummy-life input[type="number"] { width: 5.5ch; }
+@container (max-width: 210px) {
+  .pg-dummy .pg-plate .pg-name { font-size: 14.5px; }
+  .pg-dummy .pg-note { font-size: 12.5px; }
+}
+@media (max-width: 1100px) {
+  .pg-seats.pg-solo { flex-wrap: wrap; }
+  .pg-seats.pg-solo > :is(.pg-seat, .pg-add-dummy) { flex: 1 1 200px; }
+}
+@media (max-width: 700px) {
+  .pg-seats.pg-solo > :is(.pg-seat, .pg-add-dummy) { flex-basis: 100%; max-width: none; }
+}

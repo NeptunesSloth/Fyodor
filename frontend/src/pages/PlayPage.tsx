@@ -11,7 +11,7 @@ import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
-import { DUMMY_BLOCKS } from "../game/targetDummy";
+import { DUMMY_BLOCKS, DUMMY_COLOR, MAX_DUMMIES, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
@@ -188,12 +188,16 @@ export function PlayPage({ route }: { route: Route }) {
  * A new game is a LAN night: the pod joins from their own computers with the room code (the host alone at the table is solo
  * testing). Its format is Commander, or Sandbox: free play with the same Commander decks.
  */
+/** -- target dummy -- how a dummy seat blocks, in the few words its plinth has room for (the full words: its title). */
+const BLOCKS_SHORT: Record<DummyBlocks, string> = { never: "Never", chump: "Chump the biggest", all: "With everything" };
+
 /** -- same as last time -- the host's last table setup (this browser only; never the password). */
 const LAST_NIGHT = "fyodor.lastNight";
 interface LastNight {
   name: string; format: TableFormat; life: string; lobby: boolean; privacy: "private" | "commander_only" | "public"; mulligan: string;
   policy: MulliganPolicy | null; helper: "off" | "simple"; automation: AutomationLevel; hostDeck: string | null; players: CreatePlayer[];
-  dummy?: boolean; // -- target dummy -- (Sandbox)
+  dummies?: DummySeat[]; // -- target dummy -- (Sandbox) the dummy seats beside yours
+  dummy?: boolean; // (older records: one dummy, a checkbox)
   dummyBlocks?: DummyBlocks;
 }
 const lastNight = (): LastNight | null => {
@@ -231,8 +235,9 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   // never a default; everyone else, and a host who chose none, brings a deck in the lobby
   const [hostDeck, setHostDeck] = useState<string | null>(preselect);
   const [pickingHost, setPickingHost] = useState(false);
-  const [dummy, setDummy] = useState(false); // -- target dummy -- Sandbox: an opponent with no deck to aim damage at
-  const [dummyBlocks, setDummyBlocks] = useState<DummyBlocks>("never"); // (how it blocks with automation on)
+  // -- target dummy -- Sandbox: opponents with no deck to aim damage at, seated beside yours (none until the host adds them)
+  const [dummies, setDummies] = useState<DummySeat[]>([]);
+  const updateDummy = (i: number, patch: Partial<DummySeat>) => setDummies((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
@@ -254,7 +259,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   }, [players, picking]);
 
   const remember = () => {
-    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummy, dummyBlocks };
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummies };
     try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
   };
   const [last] = useState(lastNight);
@@ -264,8 +269,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setName(last.name); setFormat(last.format); setLife(last.life); setLobby(last.lobby); setPrivacy(last.privacy);
     setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
     setHostDeck(known(last.hostDeck));
-    setDummy(!!last.dummy);
-    setDummyBlocks(last.dummyBlocks ?? "never");
+    setDummies(rememberedDummies(last));
     if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
     toast("Set up as last time");
   };
@@ -293,7 +297,9 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         });
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
-        if (dummy) await tableAction(res.game.id, { type: "add_dummy", blocks: dummyBlocks }).catch(toastError); // (seated before the rules start)
+        for (const add of dummyActions(dummies)) { // (seated in order, before the rules start)
+          await tableAction(res.game.id, add).catch(toastError);
+        }
         if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
         remember();
         navigate(`/game/${res.game.id}`);
@@ -386,8 +392,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         </div>
 
         {sandbox ? (
-          // -- Sandbox -- one seat: yours, with the deck you're testing
-          <ul className="pg-seats pg-lobby pg-solo" aria-label="Your seat" data-testid="sandbox-seat">
+          // -- Sandbox -- your seat, with the deck you're testing, and the target dummies you add beside it (up to three)
+          <ul className="pg-seats pg-dealt pg-solo" aria-label="Seats" data-testid="sandbox-seat">
             <li className="pg-seat host">
               <div className="pg-plate">
                 <SeatChip color={COLORS[0]} text="1" />
@@ -399,6 +405,51 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)}
                 note={decks.length ? "Choose the deck you want to test." : "No decks yet: import one on the Decks page."} />
             </li>
+            {dummies.map((d, i) => (
+              <li key={i} className="pg-seat pg-dummy" style={chipStyle(DUMMY_COLOR)} data-testid="dummy-seat">
+                <div className="pg-plate">
+                  <SeatChip color={DUMMY_COLOR} text={String(i + 2)} />
+                  <label className="pg-name-field">
+                    <span className="pg-name-label">Target dummy</span>
+                    <input className="pg-name" value={d.name} maxLength={40} placeholder={dummyName(i)} onChange={(e) => updateDummy(i, { name: e.target.value })}
+                      aria-label={`Seat ${i + 2}: target dummy name`} data-testid="dummy-name" />
+                  </label>
+                  <button className="tt-icon pg-remove" onClick={() => setDummies((ds) => ds.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${d.name.trim() || dummyName(i)}`} title="Remove this dummy" data-testid="dummy-remove">
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+                <div className="pg-art no-deck" aria-hidden>
+                  <span className="pg-slot pg-slot-dummy"><Icon name="target" size={26} /><span>No deck</span></span>
+                </div>
+                <div className="pg-deck">
+                  <p className="pg-note" title="It never takes a turn; the server answers for it">No deck · takes hits, blocks as set</p>
+                </div>
+                <div className="pg-seat-foot pg-dummy-opts">
+                  <label className="pg-rule" title="With automation on, how this dummy blocks your attacks (Solo tools changes it mid-game)">
+                    <span>Blocks</span>
+                    <select data-testid="dummy-blocks" value={d.blocks} onChange={(e) => updateDummy(i, { blocks: e.target.value as DummyBlocks })}>
+                      {DUMMY_BLOCKS.map(([k, v]) => <option key={k} value={k} title={v}>{BLOCKS_SHORT[k]}</option>)}
+                    </select>
+                  </label>
+                  <label className="pg-rule pg-dummy-life" title="Its starting life (empty: the table's Starting life; Reset dummy goes back to it)">
+                    <span>Life</span>
+                    <input type="number" min={1} value={d.life} placeholder={life || "40"} onChange={(e) => updateDummy(i, { life: e.target.value })}
+                      aria-label={`${d.name.trim() || dummyName(i)}: starting life`} data-testid="dummy-life" />
+                  </label>
+                </div>
+              </li>
+            ))}
+            {dummies.length < MAX_DUMMIES && (
+              <li className="pg-add-wrap pg-add-dummy">
+                <button className="pg-add" data-testid="add-dummy"
+                  onClick={() => setDummies((ds) => [...ds, { name: dummyName(ds.length), blocks: "never", life: "" }])}>
+                  <span className="pg-add-mark"><Icon name="target" size={26} /></span>
+                  <span>Add a target dummy</span>
+                  <span className="pg-add-note">{dummies.length ? `${MAX_DUMMIES - dummies.length} more at most` : "An opponent with no deck to aim damage at"}</span>
+                </button>
+              </li>
+            )}
           </ul>
         ) : useLobby ? (
           // only your own seat until the room opens: one compact row (the others take theirs with the room code)
@@ -489,20 +540,6 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 <span>Automation</span>
                 <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
                   {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
-                </select>
-              </label>
-            )}
-            {sandbox && (
-              <label className="pg-rule pg-rule-check" title="An opponent with no deck and the starting life: it never takes a turn; Solo tools resets it">
-                <span>Target dummy</span>
-                <span><input type="checkbox" checked={dummy} onChange={(e) => setDummy(e.target.checked)} data-testid="target-dummy" /> Add one</span>
-              </label>
-            )}
-            {sandbox && dummy && (
-              <label className="pg-rule" title="With automation on, how the dummy blocks your attacks (Solo tools changes it mid-game)">
-                <span>Dummy blocks</span>
-                <select data-testid="dummy-blocks" value={dummyBlocks} onChange={(e) => setDummyBlocks(e.target.value as DummyBlocks)}>
-                  {DUMMY_BLOCKS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </label>
             )}
