@@ -65,3 +65,19 @@ describe("why automatic passing stopped", () => {
     expect(usePassStop.getState()).toMatchObject({ stop: null, armed: null });
   });
 });
+
+describe("the Hold priority hint (playtest nov 16: Opt resolved before I could respond to it)", () => {
+  const at = (log: [number, string][], rules: Record<string, unknown>, stack: string[] = []) => ({
+    game: { id: "g" }, stack, log: log.map(([seq, t]) => ({ seq, actor: "p1", kind: "action", parts: [{ t }] })),
+    rules: { paused: false, priority: "p2", decision: null, prefs: { response: "auto", hold_priority: false, full_control: false }, ...rules },
+  }) as unknown as GameView;
+  it("fires when my own cast went by without my priority over it, with responses on Auto and Hold priority off", async () => {
+    const { autoPassedMyCast } = await import("./passStop");
+    const before = at([[1, "x"]], {});
+    expect(autoPassedMyCast(before, at([[1, "x"], [2, "Alice cast Opt"]], { decision: { id: "scry" }, priority: "p1" }, ["opt"]), "p1")).toBe(true);
+    expect(autoPassedMyCast(before, at([[1, "x"], [2, "Alice cast Opt"]], { priority: "p1" }, ["opt"]), "p1")).toBe(false); // (I hold priority over it)
+    const held = at([[1, "x"], [2, "Alice cast Opt"]], { prefs: { response: "auto", hold_priority: true } });
+    expect(autoPassedMyCast(before, held, "p1")).toBe(false);
+    expect(autoPassedMyCast(before, at([[1, "x"], [2, "Alice played Island"]], {}), "p1")).toBe(false);
+  });
+});

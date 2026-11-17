@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { perspective, useGame } from "../../state/gameStore";
 import { gameEnded } from "../nightEnding";
-import { passOrResolve, passPriority } from "./intents";
-import { usePassStop } from "./passStop";
+import { passOrResolve, passPriority, setPrefs } from "./intents";
+import { autoPassedMyCast, HOLD_HINT, holdHintDue, usePassStop } from "./passStop";
+import { toast } from "../../components/Toasts";
 
 /** Resolve all, remembering to explain a stop (passStop.ts). */
 export function resolveAll(): void {
@@ -22,7 +23,9 @@ export function PassStopBanner({ mine }: { mine: boolean }) {
   useEffect(() => useGame.subscribe((s, prev) => {
     const next = s.view;
     if (!next || next === prev.view || next.viewer === "__spectator__") return;
-    usePassStop.getState().update(prev.view, next, perspective(next, s.actingAs));
+    const me = perspective(next, s.actingAs);
+    usePassStop.getState().update(prev.view, next, me);
+    if (autoPassedMyCast(prev.view, next, me) && holdHintDue()) toast(HOLD_HINT, "info", { label: "Hold priority", run: () => void setPrefs({ hold_priority: true }) });
   }), []);
   if (!stop || !view || gameEnded(view, perspective(view, actingAs))) return null;
   const dismiss = () => usePassStop.getState().dismiss();

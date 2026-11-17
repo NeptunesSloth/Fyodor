@@ -95,3 +95,32 @@ export const usePassStop = create<PassStopStore>((set, get) => ({
     if (stop && (stop.stack !== stack || next.rules?.decision || !next.rules)) set({ stop: null });
   },
 }));
+
+/**
+ * -- playtest (nov 16) -- "Stop for responses: Auto" passes for me right after my own cast (as Arena does): Opt resolved before I could
+ * respond to it, and nothing on screen pointed at Hold priority. True when this update holds my own cast and I didn't get priority over
+ * my spell (it resolved, or someone else holds priority, or a decision came up), with Hold priority off and responses on Auto.
+ */
+export function autoPassedMyCast(prev: GameView | null | undefined, next: GameView, me: string): boolean {
+  const r = next.rules;
+  if (!prev || prev.game.id !== next.game.id || !r || r.paused || !r.prefs || r.prefs.hold_priority || r.prefs.full_control) return false;
+  if (r.prefs.response !== "auto") return false;
+  const seen = prev.log.length ? prev.log[prev.log.length - 1]!.seq : -1;
+  const cast = next.log.some((e) => e.seq > seen && e.actor === me && e.kind === "action" && / cast /.test(logText(e)) && !/ cast a copy /.test(logText(e)));
+  if (!cast) return false;
+  return r.priority !== me || !!r.decision || !next.stack.length;
+}
+
+/** The one-time hint (per browser) for autoPassedMyCast. */
+export const HOLD_HINT = "Fyodor passed priority for you after your cast (Stop for responses: Auto). To respond to your own spell, turn on Hold priority on the turn dial.";
+const HOLD_HINT_KEY = "fyodor.hint.holdPriority";
+
+export function holdHintDue(): boolean {
+  try {
+    if (globalThis.localStorage?.getItem(HOLD_HINT_KEY)) return false;
+    globalThis.localStorage?.setItem(HOLD_HINT_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
