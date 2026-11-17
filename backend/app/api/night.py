@@ -29,7 +29,7 @@ from app.game.state import GameState, PlayerState
 from app.game.visibility import publicly_visible
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
-from app.multiplayer.night import Night, Proposal, bot_seat
+from app.multiplayer.night import Night, Proposal, bot_seat, rematch_missing
 from app.services import Services
 
 router = APIRouter(tags=["game night"])
@@ -160,6 +160,8 @@ async def vote(game_id: str, body: VoteIn, request: Request, services: ServicesD
             decision: str | None = body.choice
         else:
             actor = _actor(room, request, x_seat_token, body.as_player)
+            if body.choice == "rematch" and (missing := rematch_missing(room)):  # (-- restart rematch -- refused before it counts)
+                raise HTTPException(409, f"The decks for {', '.join(missing)} aren't known here; return to the lobby instead")
             night.votes[actor] = body.choice
             voters = [pid for pid in room.session.state.seat_order if room.mode == "local" or room.seats[pid].token
                       and not bot_seat(room, pid)]  # -- LAN bots -- a bot never holds up the rematch vote

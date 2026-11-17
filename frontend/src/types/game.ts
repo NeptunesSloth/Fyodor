@@ -411,6 +411,8 @@ export interface NightInfo {
   }[];
   /** The host's table-wide switch for spectators' reactions (absent: on). */
   reactions?: boolean;
+  /** -- restart rematch -- names of the seats whose decks this table doesn't know: a same-decks rematch can't start (absent: none). */
+  rematch_missing?: string[];
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */

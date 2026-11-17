@@ -307,6 +307,9 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   // (-- LAN bots -- a bot never votes, and the vote never waits for it: not listed as "Deciding…")
   const voters = view.seat_order.filter((pid) => (local || view.game.seats[pid]?.claimed) && !view.players.find((p) => p.id === pid)?.bot);
   const myVote = night.votes[me];
+  // -- restart rematch -- the server doesn't know every deck (a table saved before decks were kept): say so, don't offer it
+  const missing = night.rematch_missing ?? [];
+  const noRematch = missing.length ? `A same-decks rematch isn't possible: the decks for ${missing.join(", ")} weren't saved with this table. ${local ? "Start a new game from Play." : "Return to the lobby to pick decks."}` : null;
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
   const bar = boardBar(view, me);
   const viewBoard = () => {
@@ -376,11 +379,13 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
                 <button className={`tt-btn ${myVote === "lobby" ? "on" : ""}`} disabled={busy} data-testid="vote-lobby" onClick={() => void vote("lobby")}>Return to lobby</button>
               )}
               {seated && (
-                <button className={`tt-btn brass ${myVote === "rematch" ? "on" : ""}`} disabled={busy || myVote === "rematch"} data-testid="vote-rematch" onClick={() => void vote("rematch")}>
+                <button className={`tt-btn brass ${myVote === "rematch" ? "on" : ""}`} disabled={busy || myVote === "rematch" || !!noRematch}
+                  data-testid="vote-rematch" onClick={() => void vote("rematch")} title={noRematch ?? undefined}>
                   {myVote === "rematch" ? "Rematch — waiting" : "Rematch — same decks"}
                 </button>
               )}
             </div>
+            {seated && noRematch && <p className="night-note" data-testid="rematch-unavailable">{noRematch}</p>}
             {!local && (
               <ul className="night-votes" aria-label="Votes">
                 {voters.map((pid) => (

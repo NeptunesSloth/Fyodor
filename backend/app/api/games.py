@@ -385,6 +385,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
     room = services.hub.get(state.id)
     if room is not None:
         room.night.setups = dict(zip(state.seat_order, setups, strict=True))
+        services.hub.persist(room)  # -- restart rematch -- the crash record keeps the decks for a same-decks rematch
     return created
 
 

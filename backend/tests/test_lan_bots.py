@@ -169,3 +169,33 @@ def test_back_to_the_lobby_after_a_restart_keeps_the_table_settings_and_the_bot_
     assert body["settings"]["automation"] == "full" and body["settings"]["mulligan_rule"] == "commander_london"
     assert next(s for s in body["seats"] if s.get("bot"))["bot"] == "advanced"
     assert not any("Full" in b for b in body["start_blockers"])
+
+
+def test_after_a_restart_the_rematch_and_the_lobby_still_know_the_bots_deck(lobby):
+    """-- restart rematch -- the crash record keeps the setups: a same-decks rematch works after a restart (the bot's deck too),
+    and back in the lobby the bot still has its deck (it used to sit at "choosing a deck" until kicked)."""
+    from app.multiplayer.night import Night
+
+    client, gid, code, alice, deck_id = lobby
+    add_bot(client, gid, alice, deck_id, level="advanced")
+    start(client, gid, alice)
+    _play_until(client, gid, alice, lambda v: (v.get("rules") or {}).get("priority") == v["viewer"]
+                and not (v.get("pregame") and not v["pregame"].get("finished")))
+    room = client.app.state.services.hub.get(gid)
+    room.lobby, room.night = None, Night.from_meta(json.loads(json.dumps(room.night.meta())))  # (what a restart keeps)
+    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "concede"}}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(alice)).status_code == 200
+    assert view(client, gid, alice)["game"]["night"]["rematch_missing"] == []
+    res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch"}, headers=h(alice))
+    assert res.status_code == 200 and res.json()["decision"] == "rematch", res.text
+    v = view(client, gid, alice)
+    assert [p["bot_level"] for p in v["players"] if p["bot"]] == ["advanced"]
+    _play_until(client, gid, alice, lambda v: (v.get("rules") or {}).get("priority") == v["viewer"]
+                and not (v.get("pregame") and not v["pregame"].get("finished")))
+    room = client.app.state.services.hub.get(gid)
+    room.lobby, room.night = None, Night.from_meta(json.loads(json.dumps(room.night.meta())))
+    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "concede"}}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/vote", json={"choice": "lobby"}, headers=h(alice)).json()["decision"] == "lobby"
+    bot = next(s for s in client.get(f"/api/games/{gid}/lobby", headers=h(alice)).json()["seats"] if s.get("bot"))
+    assert bot["deck"]["name"] == "Gruul" and bot["ready"]

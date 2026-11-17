@@ -31,7 +31,7 @@ from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer import bots  # -- test opponent -- the server's pacing of its actions
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
-from app.multiplayer.night import Night, follow_rules
+from app.multiplayer.night import Night, follow_rules, rematch_missing
 from app.multiplayer.spectate import Predictions
 from app.storage.journal import RoomJournal
 
@@ -736,7 +736,7 @@ class GameHub:
             "revision": room.revision,
             "result_id": room.result_id,
             "assets": self._assets(room),
-            "night": room.night.public(room.seat_name),
+            "night": {**room.night.public(room.seat_name), "rematch_missing": rematch_missing(room)},
             # -- undo policy (gap 3) -- the host's own seat at a LAN table, anyone at a hot-seat one (as the API decides)
             **undo_rights.view_fields(room.session.state, room.session.history, host=host),
             # -- quick undo request -- the request waiting for the table, and whether this viewer's undo would ask it

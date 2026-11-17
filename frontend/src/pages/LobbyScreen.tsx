@@ -181,6 +181,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               arranging={arrangingFor(seat)}
               own={seat.id === lobby.viewer ? own : null}
               onPick={(d) => void run(() => bringDeck(gameId, d.body, { remember: !own?.brought }).finally(() => setSavedVersion((v) => v + 1)))}
+              onBotDeck={() => setAddingBot(seat.id)}
             />
           ))}
           {open.length > 0 && (
@@ -259,7 +260,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
           onDone={(l) => { setLobby(l); setChoosing(false); setSavedVersion((v) => v + 1); }} />
       )}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
-      {addingBot && <AddBotDialog lobby={lobby} seat={addingBot} onClose={() => setAddingBot(null)}
+      {addingBot && <AddBotDialog lobby={lobby} seat={addingBot} bot={lobby.seats.find((s) => s.id === addingBot && s.bot) ?? null} onClose={() => setAddingBot(null)}
         onDone={(l) => { setLobby(l); setAddingBot(null); }} />}
     </div>
   );
@@ -568,7 +569,7 @@ function dropProps(arranging: Arranging | null) {
 }
 
 /** A taken seat: the player's name plate, their commander on the felt (lit once they're ready) and their deck. */
-function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, onPick }: {
+function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, onPick, onBotDeck }: {
   seat: LobbySeat;
   mine: boolean;
   lobby: LobbyView;
@@ -579,8 +580,11 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
   /** the decks this player brought (their own seat only), one click each */
   own: OwnDecks | null;
   onPick: (deck: OwnDeck) => void;
+  /** -- LAN bots -- the host picks (or changes) the deck of the bot in this seat */
+  onBotDeck: () => void;
 }) {
   const gameId = lobby.game.id;
+  const hostsBot = !!seat.bot && lobby.is_host;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(seat.name);
   const deck = seat.deck;
@@ -676,7 +680,7 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
         )}
         {!(mine && !deck) && ( // (my own empty seat: Choose deck and the footer already say there's no deck)
           <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
-            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
+            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine || seat.bot ? "No deck yet" : "Choosing a deck…"}
           </span>
         )}
       </div>
@@ -727,13 +731,20 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
           </>
         ) : (
           mine && own ? <OwnDeckPicks own={own} busy={busy} onPick={onPick} onMore={onChoose} /> : (
-            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.` : `${seat.name} is choosing a deck.`}</p>
+            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.`
+              : seat.bot ? (lobby.is_host ? `${seat.name} needs a deck: choose one from this computer's library.` : `${seat.name} needs a deck: the host chooses it.`)
+              : `${seat.name} is choosing a deck.`}</p>
           )
         )}
       </div>
 
-      {(mine && deck) || (!mine && deck?.list) ? (
+      {(mine && deck) || (!mine && deck?.list) || hostsBot ? (
         <div className="pl-actions">
+          {hostsBot && ( // (-- LAN bots -- a bot back from a restart may have no deck; the host gives it one here, no kick needed)
+            <button className={`tt-btn ${deck ? "" : "brass"}`} disabled={busy} onClick={onBotDeck} data-testid={`bot-deck-${seat.id}`}>
+              <Icon name="cards" size={14} />{deck ? "Change bot deck" : "Choose bot deck"}
+            </button>
+          )}
           {mine && deck && (
             <>
               <button className="tt-btn" disabled={busy} onClick={onChoose} data-testid="choose-deck">Change deck</button>
@@ -817,9 +828,14 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging, onAddBot }: {
 }
 
 /** -- LAN bots -- the host seats a bot: a deck from this computer's library and how well it plays (Full automation plays it). */
-function AddBotDialog({ lobby, seat, onClose, onDone }: { lobby: LobbyView; seat: string; onClose: () => void; onDone: (l: LobbyView) => void }) {
+function AddBotDialog({ lobby, seat, bot, onClose, onDone }: {
+  lobby: LobbyView; seat: string;
+  /** the bot already in this seat (the host is choosing its deck), null for a new bot */
+  bot: LobbySeat | null;
+  onClose: () => void; onDone: (l: LobbyView) => void;
+}) {
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
-  const [level, setLevel] = useState<BotLevel>(DEFAULT_BOT_LEVEL);
+  const [level, setLevel] = useState<BotLevel>(bot?.bot ?? DEFAULT_BOT_LEVEL);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     listDecks().then(setDecks, (e) => {
@@ -838,7 +854,7 @@ function AddBotDialog({ lobby, seat, onClose, onDone }: { lobby: LobbyView; seat
     }
   };
   return (
-    <Modal title={`Add a bot to seat ${seat.slice(1)}`} onClose={onClose}>
+    <Modal title={bot ? `Choose ${bot.name}'s deck` : `Add a bot to seat ${seat.slice(1)}`} onClose={onClose}>
       <p className="hint">The server plays it, through the same rules as everyone (rules automation must be Full). It never sees your hands.</p>
       <div className="lobby-bot-levels" role="radiogroup" aria-label="Bot level">
         {BOT_LEVELS.map((l) => (
