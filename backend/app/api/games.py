@@ -1388,10 +1388,11 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
         raise HTTPException(409, "A practice table has no result to record")
     state = room.session.state
     participants = []
+    shown: dict[str, str] = {}  # (-- LAN bots -- the names the table shows: a bot by its own name, its seat says it is a bot)
     for pid in state.seat_order:
         p = state.players[pid]
         commanders = sorted({c.name for c in state.cards.values() if c.commander_key and c.owner == pid})
-        name = clean_text((names or {}).get(pid, ""), 40) or p.name
+        name = shown[pid] = clean_text((names or {}).get(pid, ""), 40) or p.name
         if p.bot is not None and not name.endswith(" (bot)"):
             name = f"{name[:34]} (bot)"  # -- LAN bots -- pod stats record a bot as a bot (never as a person of the pod)
         participants.append(Participant(seat=pid, name=name, deck_key=deck_key_for(p.deck_id, p.deck_name, commanders),
@@ -1416,12 +1417,14 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
     room.result_id = result["id"]
     night = room.night
     night.proposal = None
-    night.result = {"result_type": result_type, "winners": list(winners), "winner_names": list(result["winners"]),
+    # (the table's result, history and log name a bot as the table does, "Bot wins"; pod stats keep "Bot (bot)")
+    winner_names = [shown[pid] for pid in state.seat_order if pid in winners] if len(result["winners"]) == len(winners) else list(result["winners"])
+    night.result = {"result_type": result_type, "winners": list(winners), "winner_names": winner_names,
                     "agreed": agreed, "rules": rules is not None}
     night.votes = {}
     single = result_type == "single" and len(winners) == 1
     night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
-    night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
+    night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(winner_names),
                           "agreed": agreed, "rules": rules is not None, "order": [state.players[pid].name for pid in state.seat_order],
                           # -- seating -- how the order was set, and the d20 rounds that set it (by name, like the order)
                           "order_source": night.order_source,
@@ -1434,7 +1437,7 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
                           "eliminations": recap.elimination_order(state, {}), "result_id": result["id"]})
     services.hub.persist(room)
     services.autobackups.soon("after a recorded game")
-    what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
+    what = {"single": f"{', '.join(winner_names)} won", "multiple": f"{' and '.join(winner_names)} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[result_type]
     if agreed:
         room.session.notice(f"Game over by agreement — {what}. This result was agreed by the players, not decided by the rules.")

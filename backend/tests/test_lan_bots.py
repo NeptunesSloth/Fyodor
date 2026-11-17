@@ -144,6 +144,9 @@ def test_a_bot_never_holds_up_the_result_or_the_rematch(lobby):
     assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(alice)).status_code == 200
     recorded = client.get(f"/api/games/{gid}/result").json()
     assert recorded["winners"] == ["Bot (bot)"]  # (pod stats: the bot as a bot)
+    shown = view(client, gid, alice)
+    assert shown["game"]["night"]["result"]["winner_names"] == ["Bot"]  # (the table names it as it shows it: "Bot wins", not "Bot (bot)")
+    assert shown["game"]["night"]["history"][-1]["winner_names"] == ["Bot"] and "(bot)" not in json.dumps(shown["log"])
     res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch"}, headers=h(alice))
     assert res.status_code == 200 and res.json()["decision"] == "rematch"
     v = view(client, gid, alice)
