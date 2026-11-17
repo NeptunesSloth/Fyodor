@@ -235,6 +235,14 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
 }
 .decision-remember { display: flex; gap: 6px; align-items: center; color: var(--text-dim); font-size: 12px; margin-top: 0; order: 8; height: 30px; padding: 0 8px; }
 .decision-combat, .decision-reconcile { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+/* -- playtest (nov 16) -- 200 hasty Pestermite copies made the attackers list 12 000px tall and put All attack / No attack under
+   all of it: the plaque scrolls, its declare buttons stay at its bottom edge (and paint over the plaque's padding under them, so no
+   row shows through below) */
+.decision-combat > .decision-options {
+  position: sticky; bottom: 0; z-index: 1; padding: 8px 0 2px;
+  background: linear-gradient(180deg, transparent, var(--steel-lo) 8px); box-shadow: 0 14px 0 var(--steel-lo);
+}
+.decision-combat > [data-testid="declare-blockers"] { position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -8px 10px var(--steel-lo), 0 14px 0 var(--steel-lo); }
 /* Ordering (603.3b): compact rows that scroll inside the plaque; the buttons below them never scroll away or cover a row */
 .decision-panel[data-kind="order"] { display: flex; flex-direction: column; overflow: hidden; }
 .decision-panel[data-kind="order"] > .decision-prompt { flex: none; }
