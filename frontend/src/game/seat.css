@@ -183,6 +183,10 @@ body.hud-minimal .seat-add { display: none; }
 /* on the 3D table the steppers sit at the plaque's right end (the heart is the usual way: click, right-click, wheel) */
 .t3d-seat:not(.seat-2d) .seat-steps { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); }
 .seat-presence { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+/* -- bot levels -- a seat the server plays for: a small "Bot" badge before its level */
+.seat-bot-badge { display: inline-block; padding: 0 5px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--accent-ink, #1a1208); background: var(--accent); }
+.seat-presence.connected:has(.seat-bot-badge)::before { content: none; }
 .seat-presence.connected::before { content: "● "; color: var(--ok); }
 .seat-presence.reconnecting::before, .seat-presence.disconnected::before { content: "● "; color: var(--danger); }
 .t3d-seat-panel.down { bottom: auto; top: calc(100% + 8px); }

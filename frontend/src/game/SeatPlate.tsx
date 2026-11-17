@@ -4,6 +4,7 @@ import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
 import { isOut } from "./outOfGame";
+import { botLevel, botLevelName, seatName } from "./botSeat";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { Icon } from "../components/Icon";
 import type { PlayerView } from "../types/game";
@@ -207,7 +208,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       )}
       {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
       {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
-      {flat && (p.dummy || p.bot) && <span className="seat-presence connected" data-testid={`presence-${player}`}>{p.bot ? "Plays itself" : "Target dummy"}</span>}
+      {flat && (p.dummy || p.bot) && <span className="seat-presence connected" data-testid={`presence-${player}`}>{p.bot ? <><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</> : "Target dummy"}</span>}
     </span>
   );
   if (!flat) {
@@ -240,7 +241,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
           <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
-          <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
+          <span className="t3d-seat-name">{seatName(p)}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}

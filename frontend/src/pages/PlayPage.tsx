@@ -12,7 +12,7 @@ import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
 import { DUMMY_BLOCKS, DUMMY_COLOR, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
-import { BOT_COLOR, BOT_POLICY_NAME, botName, botRequests, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
+import { BOT_COLOR, BOT_LEVELS, DEFAULT_BOT_LEVEL, botName, botRequests, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
@@ -454,8 +454,19 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                     )}
                   </div>
                   <div className="pg-seat-foot pg-dummy-opts pg-bot-opts">
-                    <span className="pg-rule pg-bot-plays" title="How it plays: lands, its commander, its biggest spells; attacks where it is safe, blocks when it pays (Full automation)">
-                      <span>Plays</span><b data-testid="bot-plays">{BOT_POLICY_NAME.simple}</b>
+                    <span className="pg-rule pg-bot-plays" title="How well it plays (Full automation); the table's top bar changes it mid-game">
+                      <span id={`pg-bot-level-${i}`}>Plays</span>
+                      <span className="pg-segs pg-bot-levels" role="radiogroup" aria-labelledby={`pg-bot-level-${i}`} data-testid="bot-plays">
+                        {BOT_LEVELS.map((l) => {
+                          const on = (b.level ?? DEFAULT_BOT_LEVEL) === l.id;
+                          return (
+                            <label key={l.id} className={on ? "on" : ""} title={l.hint}>
+                              <input type="radio" name={`bot-level-${i}`} checked={on} onChange={() => updateBot(i, { level: l.id })}
+                                data-testid={`bot-level-${l.id}`} />{l.label}
+                            </label>
+                          );
+                        })}
+                      </span>
                     </span>
                     {decks.length > 0 && <button className="tt-btn" onClick={() => setPickingBot(i)}>{deck ? "Change deck" : "Choose deck"}</button>}
                   </div>
@@ -507,7 +518,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </button>
                 <button className="pg-add pg-add-bot" data-testid="add-bot" disabled={!decks.length}
                   title={decks.length ? undefined : "Import a deck on the Decks page first"}
-                  onClick={() => { setBots((bs) => [...bs, { name: botName(bs.length), deck_id: null }]); setPickingBot(bots.length); }}>
+                  onClick={() => { setBots((bs) => [...bs, { name: botName(bs.length), deck_id: null, level: DEFAULT_BOT_LEVEL }]); setPickingBot(bots.length); }}>
                   <span className="pg-add-mark"><Icon name="cards" size={26} /></span>
                   <span>Add an opponent</span>
                   <span className="pg-add-note">{bots.length || dummies.length ? `${free} more at most` : "It plays a deck back at you (Full automation)"}</span>

@@ -198,6 +198,8 @@ export interface PlayerView {
   dummy_blocks?: DummyBlocks;
   /** -- test opponent -- a seat with a deck that the server plays for (Sandbox: Add an opponent); its policy. */
   bot?: "simple" | null;
+  /** -- bot levels -- how well it plays (the host sets it: the Play page, the table's top bar); none: Intermediate. */
+  bot_level?: BotLevel;
   sleeve?: string | null;
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
@@ -642,6 +644,9 @@ export interface CommanderRef {
 }
 
 export type Action = { type: string } & Record<string, unknown>;
+
+/** -- bot levels -- how well a test opponent plays (app/game/bot.py). */
+export type BotLevel = "simple" | "intermediate" | "advanced";
 
 /** -- test opponent -- how fast the server plays its actions (app/multiplayer/bots.py): a short pause, a very short one, or one per click. */
 export type BotSpeed = "normal" | "fast" | "step";

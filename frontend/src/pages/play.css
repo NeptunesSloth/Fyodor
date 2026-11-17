@@ -556,8 +556,9 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-add:disabled:hover { border-color: color-mix(in srgb, var(--frame) 45%, transparent); background: rgba(0, 0, 0, 0.14); color: inherit; }
 .pg-bot .pg-deck { flex: 1 1 auto; }
 .pg-bot-opts { align-items: center; }
-.pg-bot-plays { flex-direction: row; align-items: baseline; gap: 6px; }
-.pg-bot-plays > b { font: 600 13.5px/1.2 var(--font-ui); color: var(--text); }
+.pg-bot-plays { flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* -- bot levels -- Simple / Intermediate / Advanced: the segmented chips, a size smaller to fit the seat tile */
+.play .pg-bot-levels label { height: 26px; padding: 0 8px; font-size: 12px; }
 @container (max-width: 210px) {
   /* three dummies on a laptop: a smaller, tighter name ("Target Dummy 3" whole) and a smaller seat chip */
   .play .pg-dummy .pg-plate { gap: 6px; padding-left: 8px; }

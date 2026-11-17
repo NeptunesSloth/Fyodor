@@ -4,6 +4,7 @@
 .bot-speed-label.waiting { color: var(--text); }
 .bot-speed-dot { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
 .bot-speed .tt-split { margin: 0; }
+.bot-speed .bot-levels { margin-left: 4px; align-items: center; }
 .bot-speed .tt-btn[aria-pressed="true"] { color: var(--text); background: var(--frame-inner, var(--panel)); box-shadow: inset 0 -2px 0 var(--accent); }
 .bot-speed .tt-btn[aria-pressed="false"] { color: var(--text-dim, var(--text-faint)); }
 .bot-speed-next { min-width: 52px; }

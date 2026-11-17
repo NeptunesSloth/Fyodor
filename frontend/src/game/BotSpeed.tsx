@@ -2,7 +2,9 @@ import { useState } from "react";
 import { toastError } from "../components/Toasts";
 import { botStep, setBotSpeed } from "../services/games";
 import { useGame } from "../state/gameStore";
-import { BOT_SPEEDS, botsOf } from "./botSeat";
+import { BOT_LEVELS, BOT_SPEEDS, botLevel, botsOf } from "./botSeat";
+import { send } from "./actions";
+import { useIsHost } from "./HostTools";
 import "./botSpeed.css";
 
 /**
@@ -10,9 +12,12 @@ import "./botSpeed.css";
  * Step waits for Next before each of its actions; the dot says it has one waiting. The server keeps the setting (for the table, not
  * the game: it never enters the history).
  */
+const LEVEL_SHORT = { simple: "Simple", intermediate: "Mid", advanced: "Adv" } as const;
+
 export function BotSpeed() {
   const view = useGame((s) => s.view);
   const [busy, setBusy] = useState(false);
+  const isHost = useIsHost();
   const bot = view?.game.bot;
   if (!view || !bot || !botsOf(view).length) return null;
   const id = view.game.id;
@@ -40,6 +45,17 @@ export function BotSpeed() {
           </button>
         ))}
       </span>
+      {isHost && botsOf(view).map((p, _i, all) => ( // -- bot levels -- how well each opponent plays (the host's: recorded like any action)
+        <span key={p.id} className="tt-split bot-levels" role="group" aria-label={`${p.name}: level`} data-testid={`bot-level-${p.id}`}>
+          {all.length > 1 && <span className="bot-speed-label" title={p.name}>{p.name.slice(0, 1).toUpperCase()}{p.name.match(/\d+$/)?.[0] ?? ""}</span>}
+          {BOT_LEVELS.map((l) => (
+            <button key={l.id} className="tt-btn ghost" aria-pressed={botLevel(p) === l.id} title={`${p.name} plays at ${l.label}: ${l.hint}`}
+              data-testid={`bot-level-${p.id}-${l.id}`} onClick={() => { if (botLevel(p) !== l.id) void send({ type: "set_bot_level", player: p.id, level: l.id }); }}>
+              {LEVEL_SHORT[l.id]}
+            </button>
+          ))}
+        </span>
+      ))}
       {step && (
         <button className="tt-btn bot-speed-next" disabled={busy || !bot.waiting} data-testid="bot-step"
           title={bot.waiting ? "Play the opponent's next action" : "The opponent has nothing to do right now"} onClick={() => void run(() => botStep(id))}>
