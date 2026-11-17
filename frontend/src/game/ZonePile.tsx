@@ -260,9 +260,19 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
   const players = useGame((s) => s.view?.players);
   const list = commanders ?? [];
   const others = ids.filter((id) => !list.some((c) => c.instance_id === id));
+  const label = LABEL.command!;
+  // the zone browser, as Library / Graveyard / Exile open theirs (clicking the commander itself still previews it)
+  const open = () => useGame.getState().openBrowser({ zone: key, title: label });
+  const onCard = (e: { target: EventTarget }) => (e.target as HTMLElement).closest(".command-card, .tax-btn") != null;
   return (
-    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}>
-      {ids.length === 0 && list.length === 0 && <span className="pile-label">Command</span>}
+    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}
+      title={`${label}: click to see everything in it`}
+      onClick={(e) => { if (!onCard(e)) open(); }}
+      onContextMenu={(e) => {
+        if (onCard(e)) return;
+        e.preventDefault();
+        openMenu(e, [{ label: `View command zone (${ids.length})`, onClick: open }], label);
+      }}>
       {list.map((c, i) => (
         <div key={c.key} className="command-slot">
           {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
@@ -275,6 +285,11 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
       {others.map((id) => (
         <CommandCard key={id} id={id} me={me} player={player} />
       ))}
+      <button type="button" className="pile-label command-label" data-testid={`command-browse-${player}`}
+        aria-label={`${label} zone: ${ids.length} ${ids.length === 1 ? "card" : "cards"}. Open it`}
+        onClick={(e) => { e.stopPropagation(); open(); }}>
+        {label}
+      </button>
     </div>
   );
 }

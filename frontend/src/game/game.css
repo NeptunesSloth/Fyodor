@@ -217,6 +217,14 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
   background: rgba(212, 168, 82, 0.06); border: 1px solid rgba(212, 168, 82, 0.25); position: relative;
 }
 .command-zone > .pile-label { position: static; margin: auto; }
+/* its name opens the zone browser, as the piles' names do (a button: reachable by keyboard) */
+.command-zone > .command-label {
+  flex: 1 0 100%; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 10.5px; line-height: 14px;
+  color: var(--text-dim); cursor: pointer; border-radius: 3px;
+}
+.command-zone > .command-label:hover { color: var(--text); }
+.command-zone > .command-label:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 1px; }
+.command-zone { cursor: pointer; }
 .command-card { width: 58px; position: relative; cursor: grab; touch-action: none; }
 .tax-badge { position: absolute; bottom: 2px; right: 2px; background: #6b4a0f; color: #ffe0a6; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 5px; }
 .player-area.compact .piles { gap: 4px; }
