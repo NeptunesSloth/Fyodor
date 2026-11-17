@@ -1,3 +1,4 @@
+import "./polyfills"; // (first: what an older Chrome or Edge lacks)
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
