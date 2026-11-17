@@ -92,3 +92,20 @@ def test_rules_off_tables_are_untouched(cards):
     s = GameSession(state, cards=cards)
     s.begin_first_turn()
     assert (s.state.turn.number, s.state.turn.phase) == (1, "untap") and s.state.rules is None
+
+
+def test_a_restart_and_a_table_for_one_begin_past_the_untap_step_too(cards):
+    s = table(cards)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="restart_game", draw=7)  # (the plain Restart, not Start over)
+    assert at(s)[:2] == (1, "main1")
+    replay_matches(s)
+    a = deck(cards, "Krenko, Mob Boss", [(20, "Mountain")])
+    state = new_game([PlayerSetup("Alice", cards=a)], shuffle=False)  # a LAN night with only the host: its turns go on
+    state.settings.automation = "full"
+    state.settings.automation_options = AUTOMATION_PRESETS["full"].model_copy()
+    start_rules(state)
+    solo = GameSession(state, cards=cards)
+    solo.begin_first_turn()
+    assert at(solo) == (1, "main1", "p1")

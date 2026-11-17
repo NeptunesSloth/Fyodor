@@ -228,7 +228,7 @@ def compile_opening(state: GameState, actor: str, info: CardInfo, rng: Any) -> l
 def compile_first_turn(state: GameState, info: CardInfo, rng: Any) -> list[dict[str, Any]] | None:
     """-- first turn (S7) -- 502.4: no player gets priority in the untap step. A new game with no pregame (no mulligans) begins in its
     first untap step; the engine goes on at once to the first step that gives priority, as after the mulligans (opening_hand.finish:
-    priority none, then settle). None when there is nothing to do (rules off, opening hands still to settle, not at an untap step)."""
+    priority none, then the priority loop). None when there is nothing to do (rules off, opening hands still to settle, not at an untap step)."""
     r = state.rules
     if not automation_on(state) or r is None or state.pregame is not None or r.decision is not None or r.draw_reason is not None:
         return None
@@ -236,7 +236,7 @@ def compile_first_turn(state: GameState, info: CardInfo, rng: Any) -> list[dict[
         return None
     plan = Plan(state, state.turn.active_player, info, rng)
     plan.rules.priority, plan.rules.passed = None, []
-    settle(plan)
+    advance(plan)  # (not settle: a table seated for one plays its turns too, test_solo_rules_table.py)
     permissions.refresh_reveals(plan.state, plan.info)
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
