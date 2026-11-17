@@ -815,7 +815,9 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const sentences = options.length > 0 && options.every((o) => !o.card_id) && options.some((o) => o.label.length > 28) ? { "data-modes": "" } : {};
   const oneClick = d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution";
   const answers = options.filter((o) => o.group !== "seen").length;
-  useDigitPicks(oneClick && answers > 1 && options[0]?.id !== NAME_OPTION && options[0]?.id !== NUMBER_OPTION, d.id);
+  // (a pick-some list: a digit toggles that option, Done still sends; a long filterable one is typed into instead)
+  const toggles = d.kind === "choose_cards" && options.filter((o) => o.card_id).length <= FILTER_MIN;
+  useDigitPicks((oneClick || toggles) && answers > 1 && options[0]?.id !== NAME_OPTION && options[0]?.id !== NUMBER_OPTION, d.id);
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
@@ -886,6 +888,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         {doneLabel(picked.length, min, max)}
       </button>
       {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
+      {toggles && answers > 1 && answers <= 10 && <span className="decision-keys hint" data-testid="decision-keys">Keys 1–{answers === 10 ? "9, 0" : answers} choose in order</span>}
     </div>
   );
 }
