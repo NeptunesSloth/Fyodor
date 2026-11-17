@@ -9,6 +9,7 @@ import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { Icon } from "../components/Icon";
 import type { PlayerView } from "../types/game";
 import "./seat.css";
+import { PlayerInitial } from "./PlayerInitial";
 
 /**
  * Taps on a counter gathered into one change: three quick clicks send "−3" once (one log line, one undo step),
@@ -225,6 +226,8 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
             <HandGlyph />
             <span className="seat-hand-n">{p.hand_count}</span>
           </button>
+          {/* -- playtest (nov 17) -- a bot's seat says so on the 3D table too, with its level (as the 2D plaque's badge) */}
+          {p.bot && <span className="t3d-bot-tag" data-testid={`bot-badge-${player}`} title={seatName(p)}><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</span>}
           {counters && <span className="seat-side">{trackers}</span>}
         </div>
         {open && (
@@ -240,7 +243,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       {flat && flags}
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
-          <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
+          <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}><PlayerInitial p={p} size={20} /></span>
           {/* (a bot's level is on its Bot badge below: the name alone fits the plaque, the full "Opponent (Advanced)" on hover) */}
           <span className="t3d-seat-name" title={p.bot ? seatName(p) : undefined}>{p.bot ? p.name : seatName(p)}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>

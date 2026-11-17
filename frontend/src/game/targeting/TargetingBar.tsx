@@ -20,6 +20,7 @@ import { progress, ptOf, step, traySeats, type Candidate, type Targeting } from 
 import { TargetArrows } from "./TargetArrows";
 import { useHoverCard } from "../hoverCard";
 import "../targeting.css";
+import { PlayerInitial } from "../PlayerInitial";
 
 const NONE: Pick[] = [];
 
@@ -115,7 +116,7 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
               return (
                 <div key={g.seat ?? "-"} className="tgt-seat" style={p ? { ["--player-color" as string]: p.color } : undefined}>
                   {p && !(g.runs.length === 1 && g.runs[0]![0]!.kind === "player") && ( /* (a player alone is their own chip) */
-                    <span className="tgt-chip" title={p.name} aria-hidden>{p.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="tgt-chip" title={p.name} aria-hidden><PlayerInitial p={p} size={12} /></span>
                   )}
                   {g.runs.map((run) => run.length === 1 ? <Thumb key={run[0]!.ref} {...thumbOf(t, run[0]!, pickNumber(picked, run[0]!.ref), 0, me)} /> : (
                     // alike candidates fan out like a pile: each is its own button (and its own card on the table)
@@ -191,7 +192,7 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
       onBlur={() => { s().setFocus(null); if (useGame.getState().hover === refId) useGame.getState().setHover(null); }}>
       <span className="tgt-art" aria-hidden>
         {card ? <GameCardFace card={card} size="small" />
-          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}>{(player?.name ?? label).slice(0, 1).toUpperCase()}</span>}
+          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}><PlayerInitial p={player} name={label} size={20} /></span>}
         {pt && <span className={`tgt-pt ${plus > 0 ? "up" : plus < 0 ? "down" : ""}`}>{pt}</span>}
         {player && <span className="tgt-pt tgt-life" title="Life">{player.life}</span>}
         {card?.tapped && <span className="tgt-tapped" title="Tapped">↷</span>}

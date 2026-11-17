@@ -22,6 +22,7 @@ import { cameraKey, combatCardIds } from "./focus";
 import { offDice, offMat } from "./framing";
 import { PLATE } from "./layout";
 import "./table3d.css";
+import { PlayerInitial } from "../game/PlayerInitial";
 
 declare global {
   interface Window {
@@ -471,7 +472,7 @@ function PlayerChip({ player }: { player: string }) {
   const p = useGame((s) => s.view?.players.find((x) => x.id === player));
   return (
     <span className="cam-player">
-      <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden>{p?.name.slice(0, 1).toUpperCase()}</i>
+      <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden><PlayerInitial p={p} size={12} /></i>
       {p?.name ?? "?"}
     </span>
   );

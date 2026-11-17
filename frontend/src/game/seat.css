@@ -229,3 +229,9 @@ body.hud-minimal .seat-add { display: none; }
 .seat-hand-chip:hover .seat-hand-glyph { transform: translateY(-1px); }
 .seat-hand-chip:focus-visible { outline: 2px solid var(--player-color); outline-offset: 3px; border-radius: 6px; }
 .t3d-chip.active .seat-hand-n { color: #fff; }
+/* -- playtest (nov 17) -- the 3D chip's bot tag: the 2D plaque's Bot badge and level, on a dark plate so it reads over the wood */
+.t3d-bot-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 600; color: var(--room-bone, #e8dfcc); background: rgba(10, 11, 13, 0.82); border: 1px solid var(--player-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+/* a bot's robot glyph in a round portrait or chip, where a person's initial goes */
+.player-bot-glyph { display: block; margin: auto; }

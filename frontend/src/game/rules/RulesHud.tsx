@@ -39,6 +39,7 @@ import { useTargeting } from "../targeting/store";
 import { Icon } from "../../components/Icon";
 import { SANDBOX_HINT, isSandbox } from "../tableFormat";
 import { useHoverCard } from "../hoverCard";
+import { PlayerInitial } from "../PlayerInitial";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -343,7 +344,7 @@ export function TurnDial() {
           <PhaseDial step={step} turn={turn.number} color={active?.color} />
           <div className="td-read">
             <header className="td-head" data-testid="turn-tracker">
-              <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
+              <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden><PlayerInitial p={active} size={12} /></span>
               <span className="td-turn">Turn {turn.number} · {active?.id === me ? <span className="td-whose">your turn</span> : active?.name}</span>
               {/* the playtest: the dial covered cards; folded, it keeps the step, the status and the pass button */}
               <button type="button" className="td-fold" data-testid="dial-fold" aria-pressed={folded}
@@ -831,7 +832,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         {options.some((o) => o.card_id) ? groupByController(options.filter((o) => o.group !== "seen"), view, d.player).map((g) => (
           // a target list: each player's objects together, behind their seat colour and initial (decisionGroups.ts)
           <div key={g.player ?? "-"} className="decision-group" style={g.player ? { ["--player-color" as string]: view.players.find((p) => p.id === g.player)?.color } : undefined}>
-            {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden>{playerName(view, g.player).slice(0, 1).toUpperCase()}</span>}
+            {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden><PlayerInitial p={view.players.find((x) => x.id === g.player)} name={playerName(view, g.player)} size={13} /></span>}
             {g.options.map((o) => <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>)}
           </div>
         )) : (
