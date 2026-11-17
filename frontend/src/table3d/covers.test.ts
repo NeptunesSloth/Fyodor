@@ -32,6 +32,13 @@ describe("token piles cost what shows of them", () => {
     expect([...rc]).toEqual([["a", "d"]]); // only a, wholly under d; c is tapped over b, which still shows
   });
 
+  it("free placement: only a card that looks the same hides another (playtest nov 16: Marina's Grimoire vanished under Shabraz)", () => {
+    const two = [spot("grimoire", 300, 200, { look: "c-grimoire|0|0" }), spot("shabraz", 300, 200, { look: "c-shabraz|0|0" })];
+    expect(freeCovers(two).size).toBe(0);
+    const tokens = [spot("t1", 300, 200, { look: "token:Goblin|0|0" }), spot("t2", 300, 200, { look: "token:Goblin|0|0" })];
+    expect([...freeCovers(tokens)]).toEqual([["t1", "t2"]]);
+  });
+
   it("arranged: a pile of 200 identical tokens draws its few visible edges", () => {
     const swarm = Array.from({ length: 200 }, (_, i) => card(`s${i}`));
     const m = arrangeMat(swarm, false);

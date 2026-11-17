@@ -19,17 +19,22 @@ export interface FreeFacts {
   turn: number;
   /** Raised off the felt (selected, a targeting choice, a move on its way): it neither hides nor hides anything. */
   lifted?: boolean;
+  /**
+   * -- playtest (nov 16) -- what it looks like (its printing and face, or "hidden"): only a card that looks the same hides another (a
+   * token pile). A different card lying exactly under one (Marina's Grimoire under Shabraz) stays drawn, its edge-on face the hint.
+   */
+  look?: string;
 }
 
 /** How near two spots must be to count as one (virtual units: a card is 84 wide; tokens put on one spot sit exactly on it). */
 const SAME = 0.5;
 
-/** Free placement: card id → the card covering it, the top one of the cards lying on exactly its spot and turned the same way. */
+/** Free placement: card id → the card covering it, the top one of the cards that look the same lying on exactly its spot, turned the same way. */
 export function freeCovers(cards: FreeFacts[]): Map<string, string> {
   const spots = new Map<string, string[]>();
   for (const c of cards) {
     if (c.lifted) continue;
-    const key = `${Math.round(c.x / SAME)}|${Math.round(c.y / SAME)}|${Math.round(c.turn * 1000)}`;
+    const key = `${Math.round(c.x / SAME)}|${Math.round(c.y / SAME)}|${Math.round(c.turn * 1000)}|${c.look ?? ""}`;
     const at = spots.get(key);
     if (at) at.push(c.id);
     else spots.set(key, [c.id]);

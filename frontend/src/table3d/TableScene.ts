@@ -1617,7 +1617,8 @@ export class TableScene {
         const card = view.cards[id];
         if (!card) return [];
         const [x, y] = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
-        return [{ id, x, y, turn: (card.tapped ? 1 : 0) + (card.flipped ? 2 : 0) + (card.rotation ?? 0) * 4, lifted: lifted(id) || hosts.has(id) }];
+        const look = isVisible(card) ? `${card.card_id ?? `token:${card.name}`}|${card.face ?? 0}|${card.face_down ? 1 : 0}` : "hidden";
+        return [{ id, x, y, turn: (card.tapped ? 1 : 0) + (card.flipped ? 2 : 0) + (card.rotation ?? 0) * 4, lifted: lifted(id) || hosts.has(id), look }];
       }));
       bf.forEach((id, i) => {
         const card = view.cards[id];
