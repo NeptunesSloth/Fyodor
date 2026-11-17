@@ -158,8 +158,39 @@ def windows_to_try() -> list[tuple[str, Path]]:
     return installed_browsers() + ([("Fyodor's own window", own)] if own else [])
 
 
+# what a window's profile keeps of the page between starts (Chromium's layout under the profile folder)
+_PAGE_CACHES = ("Cache", "Code Cache", "GPUCache", "Service Worker")
+
+
+def forget_old_page(profile: Path, settings: Settings) -> bool:
+    """A window kept from an older build could open that build's page against this server (its saved copy, sent before
+    the page was served no-cache): when the built page differs from the one this profile last opened, its caches go.
+    Returns whether they were cleared. Logins, settings and anything else in the profile stay."""
+    dist = settings.frontend_dist
+    index = dist / "index.html" if dist is not None else None
+    if index is None or not index.is_file():
+        return False
+    stamp = profile / "fyodor-page"
+    page = index.read_bytes()
+    with contextlib.suppress(OSError):
+        if stamp.read_bytes() == page:
+            return False
+    cleared = False
+    for root in (profile, profile / "Default"):
+        for name in _PAGE_CACHES:
+            target = root / name
+            if target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+                cleared = True
+    with contextlib.suppress(OSError):
+        profile.mkdir(parents=True, exist_ok=True)
+        stamp.write_bytes(page)
+    return cleared
+
+
 def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Popen[bytes] | None:
     profile = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}")  # its own profile
+    forget_old_page(profile, settings)
     try:
         return subprocess.Popen(  # noqa: S603 - a browser opening our own local address
             [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
