@@ -8,9 +8,9 @@ import { useEffect, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
-import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
+import { isVisible, PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete, imageUrl } from "../../services/cards";
-import { canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { isLand, canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
@@ -673,6 +673,25 @@ const PROMPT = {
 } as const;
 
 /** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
+/**
+ * -- playtest (nov 16) -- the X prompt's guide: my untapped lands and floating mana, and the largest X they leave after the rest of the
+ * cost (each land counted as one mana; the server checks the real cost). Null when the card isn't known here.
+ */
+export function xEstimate(view: GameView, me: string, action: { card_id?: unknown; type?: unknown }): { line: string; max: number } | null {
+  const lands = ((view.zones[`${me}:battlefield`] as string[] | undefined) ?? []).filter((id) => !view.cards[id]?.tapped && isLand(id, view)).length;
+  const pool = Object.values(view.players.find((p) => p.id === me)?.mana ?? {}).reduce((a, b) => a + b, 0);
+  const card = typeof action.card_id === "string" ? view.cards[action.card_id] : undefined;
+  const data = isVisible(card) && card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
+  const now = typeof action.card_id === "string" ? view.rules?.hints.cost_now?.[action.card_id] : undefined; // (taxes and reductions: the server's)
+  const cost = action.type !== "cast_spell" ? "" : now ?? (isVisible(card) ? data?.faces?.[card.face ?? 0]?.mana_cost ?? data?.mana_cost ?? "" : "");
+  const symbols = cost.match(/\{[^}]+\}/g) ?? [];
+  const xs = symbols.filter((m) => m === "{X}").length;
+  const fixed = symbols.reduce((n, m) => n + (m === "{X}" ? 0 : /^\{\d+\}$/.test(m) ? Number(m.slice(1, -1)) : 1), 0);
+  const have = lands + pool;
+  const line = `You have ${lands} untapped ${lands === 1 ? "land" : "lands"}${pool ? ` and ${pool} mana floating` : ""}.`;
+  return { line, max: xs ? Math.max(0, Math.floor((have - fixed) / xs)) : 0 };
+}
+
 export function XPrompt() {
   const action = useXPrompt((s) => s.action);
   const field = useXPrompt((s) => s.field);
@@ -681,12 +700,19 @@ export function XPrompt() {
   const close = () => { useXPrompt.setState({ action: null, field: "x_value", slot: undefined }); setX("0"); };
   const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
   const go = () => { if (submitNumericPrompt(x)) setX("0"); };
+  // -- playtest (nov 16) -- it started at 0 with nothing to go by: what I have to spend, and (for X) the most that leaves, as an estimate
+  const view = useGame.getState().view;
+  const me = view ? perspective(view, useGame.getState().actingAs) : "";
+  const est = view && field === "x_value" ? xEstimate(view, me, action) : null;
   return (
     <div className="decision-panel frame" data-testid="x-prompt">
       <div className="decision-prompt">{PROMPT[field][0]}</div>
+      {est && <div className="decision-hint" data-testid="x-mana">{est.line}</div>}
       <div className="decision-options">
-        <input className="decision-name" data-testid="x-input" type="number" min={0} max={1000} autoFocus value={x}
+        <input className="decision-name" data-testid="x-input" type="number" min={0} max={1000} autoFocus value={x} onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setX(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") go(); if (e.key === "Escape") close(); }} />
+        {est && est.max > 0 && <button className="tt-btn" data-testid="x-max" title="The most your untapped lands and floating mana pay for (an estimate: the server checks the cost)"
+          onClick={() => setX(String(est.max))}>≈ Max {est.max}</button>}
         <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>{PROMPT[field][1]}</button>
         <button className="tt-btn" data-testid="x-cancel" onClick={close}>Cancel</button>
       </div>

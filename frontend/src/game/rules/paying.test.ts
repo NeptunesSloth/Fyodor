@@ -28,3 +28,21 @@ describe("the tap-mana plaque's title (playtest nov 16: \"Cast cost … for the 
     expect(payTitle("Lightning Bolt")).toBe("Cast cost");
   });
 });
+
+describe("the X prompt's guide (playtest nov 16: it started at 0 with no max)", () => {
+  it("counts untapped lands and floating mana, and the X they leave after the rest of the cost", async () => {
+    const { xEstimate } = await import("./RulesHud");
+    const { useCardCache } = await import("../../state/cardCache");
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      plains: { id: "plains", name: "Plains", type_line: "Basic Land — Plains", faces: [] },
+      secure: { id: "secure", name: "Secure the Wastes", type_line: "Instant", mana_cost: "{X}{W}", faces: [] },
+      fireball: { id: "fireball", name: "Fireball", type_line: "Sorcery", mana_cost: "{X}{X}{R}", faces: [] } } as never });
+    const lands = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`l${i}`, { id: `l${i}`, zone: "p1:battlefield", card_id: "plains", tapped: i === 0 }]));
+    const v = {
+      zones: { "p1:battlefield": Object.keys(lands) }, players: [{ id: "p1", mana: { W: 2 } }], rules: { hints: {} },
+      cards: { ...lands, s: { id: "s", zone: "p1:hand", card_id: "secure" }, f: { id: "f", zone: "p1:hand", card_id: "fireball" } },
+    } as unknown as GameView;
+    expect(xEstimate(v, "p1", { type: "cast_spell", card_id: "s" })).toEqual({ line: "You have 5 untapped lands and 2 mana floating.", max: 6 });
+    expect(xEstimate(v, "p1", { type: "cast_spell", card_id: "f" })!.max).toBe(3); // (7 - 1) / 2
+  });
+});
