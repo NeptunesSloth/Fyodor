@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { groupText } from "./logGroups";
 import { Modal } from "../components/Modal";
 import { askText } from "../components/Prompt";
 import { toast, toastError } from "../components/Toasts";
@@ -39,7 +40,7 @@ export function stepHeads(items: HistoryItem[]): Map<number, StepHead> {
   return heads;
 }
 
-const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...p.group.map((g) => g.card.name), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
+const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...(p.group.length ? [groupText(p.group)] : []), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
 
 /** The event history, newest first (the same request the History tab makes). */
 export async function fetchHistory(view: GameView): Promise<HistoryItem[]> {

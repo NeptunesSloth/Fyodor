@@ -23,6 +23,7 @@ import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 import { clearHover, hoverElement, placePreview, previewKey, type Box } from "./hoverCard";
 import { toyIconUrl } from "./seatIcons";
+import { groupText } from "./logGroups";
 
 /** The hovered card's rectangle on screen: its picture on the page, or where the 3D table draws it. */
 function cardBox(id: string): Box | null {
@@ -181,9 +182,9 @@ export function LogDrawer() {
   const open = useGame((s) => s.logOpen);
   const setOpen = (v: boolean) => useGame.getState().setLayout({ logOpen: v });
   // the last real entry (step dividers like "— Precombat main —" read as empty)
-  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("");
+  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : groupText(p.group))).join("");
   const last = [...log].reverse().find((e) => !entryText(e).trim().startsWith("—"));
-  const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("") : "";
+  const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : groupText(p.group))).join("") : "";
   return (
     <div className={`log-drawer ${open ? "open" : ""}`} data-testid="log-drawer">
       {open ? (

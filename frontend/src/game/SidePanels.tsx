@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from "react";
+import { countedGroup, countedName } from "./logGroups";
 import { CardFace } from "../cards/CardFace";
 import { ManaText, OracleText } from "../cards/ManaText";
 import { openMenu } from "../components/ContextMenu";
@@ -137,11 +138,11 @@ function Part({ part }: { part: LogPartView }) {
       </span>
     );
   }
-  const names = part.group;
+  const names = countedGroup(part.group); // (-- playtest nov 16 -- "Mountain ×42", not 42 names)
   const hidden = part.hidden;
   const pieces: React.ReactNode[] = names.map((n, i) => (
     <span key={i} className="log-card" {...hover(n.card.card_id)}>
-      {n.card.name}
+      {countedName(n)}
     </span>
   ));
   if (hidden) pieces.push(<span key="h" className="log-hidden">{hidden === 1 ? (names.length ? "1 other card" : "a card") : `${hidden} ${names.length ? "other " : ""}cards`}</span>);
