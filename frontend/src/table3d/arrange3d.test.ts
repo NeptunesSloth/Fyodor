@@ -155,3 +155,20 @@ describe("arranged 3D boards: rearranging", () => {
     expect(toArrange(m.layout, 0, 0)[0]).toBeCloseTo((MAT_W / 2) * 100 - m.layout.w / 2);
   });
 });
+
+describe("a crowded mat (playtest nov 16: 300 permanents)", () => {
+  it("stays inside the mat and its front rows stay on the felt: ranks count within a line", () => {
+    const cards: ArrangeCard[] = [];
+    for (let i = 0; i < 90; i++) cards.push(card(`c${i}`, "creature"));
+    for (let i = 0; i < 45; i++) cards.push(card(`o${i}`, "other"));
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 40; j++) cards.push(card(`l${i}_${j}`, "land", { key: `L${i}` }));
+    const m = arrangeMat(cards, false);
+    const d = m.layout.h / 100;
+    for (const s of m.spots.values()) {
+      expect(Math.abs(s.lz) + d / 2).toBeLessThanOrEqual(MAT_D / 2 + 1e-6);
+      expect(Math.abs(s.lx) + s.w / 2).toBeLessThanOrEqual(MAT_W / 2 + 1e-6);
+    }
+    // TableScene lifts a tile 0.0035 per rank: across the whole mat 300 ranks lifted the creatures a full unit
+    expect(Math.max(...[...m.spots.values()].map((s) => s.rank)) * 0.0035).toBeLessThan(0.15);
+  });
+});

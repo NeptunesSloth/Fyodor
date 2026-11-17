@@ -52,6 +52,9 @@ main.table.is-3d > .hand.hand {
   background: transparent; pointer-events: none; overflow: visible;
 }
 .table.is-3d > .hand > * { pointer-events: auto; }
+/* -- playtest (nov 16) -- the 3D fan is centred by CSS and leans outward, wider than the 2D row the tools are placed beside: "Hand 7"
+   covered its first card. Here the tools stand in the bottom left corner, over the Hand-sort pill. */
+.table.is-3d > .hand .hand-tools { right: auto; left: 12px; align-items: flex-start; }
 .table.is-3d > .hand .hand-cards {
   --w: clamp(112px, 8.4vw, 184px);
   --overlap: calc(var(--w) * clamp(0.12, calc((var(--n) - 3) * 0.07), 0.6));

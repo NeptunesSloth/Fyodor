@@ -58,6 +58,9 @@ export interface Mat {
   zone: string;
 }
 
+/** The arranged layout's z for one line (game/arrange.ts: (lines - r) * 10000 + slot * 100 + …). */
+const LINE_Z = 10000;
+
 /** A tile's group scale for its width: uniform on x (and y), squashed on z by TILE_SQUASH. */
 export function tileScale(w: number): number {
   return w / CARD_W;
@@ -69,9 +72,14 @@ export function arrangeMat(cards: Parameters<typeof arrangeBoard>[0], mirrored: 
   const spots = new Map<string, MatSpot>();
   const covers = arrangedCovers(layout);
   // a stack's buried cards share one height: a pile of 80 tokens lies as low as a pile of 5
+  // -- playtest (nov 16) -- and each line counts its own ranks from the felt (lines never overlap): counted across the whole mat, 300
+  // permanents lifted the front creature rows a full unit off the table, and they rose over the mat's gold edge as the camera saw them
   let rank = -1;
   let prevBuried = false;
+  let line = NaN;
   [...layout.place.entries()].sort((a, b) => a[1].z - b[1].z).forEach(([id, p]) => {
+    const at = Math.floor(p.z / LINE_Z);
+    if (at !== line) { line = at; rank = -1; prevBuried = false; }
     if (!(p.buried && prevBuried)) rank++;
     prevBuried = !!p.buried;
     spots.set(id, {
