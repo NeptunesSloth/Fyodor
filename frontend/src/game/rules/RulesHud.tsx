@@ -321,7 +321,7 @@ export function TurnDial() {
   const { auto, watching: dialWatching } = dial;
   const mine = dial.mine && !over;
   // -- playtest (nov 17) -- while a long chain resolves nobody holds priority yet: say so, not "Your priority" under the plaque
-  const status = over ? "The game is over" : resolving !== null && dial.auto ? resolvingStatus(resolving.left) : dial.status;
+  const status = over ? "The game is over" : resolving != null && dial.auto ? resolvingStatus(resolving.left) : dial.status;
   const watching = dialWatching || !ctx.seated;
   // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
   const out = isOut(view, me);
@@ -333,7 +333,7 @@ export function TurnDial() {
   // passing is refused while my own decision is open: grey the buttons out instead of erroring
   const deciding = auto && rules!.decision?.player === me;
   // -- resolving progress -- a long chain is being worked out: another pass would only wait behind it (and pass again after it)
-  const busy = resolving !== null;
+  const busy = resolving != null;
   const blocked = deciding ? "Answer your decision first" : busy ? "Resolving… wait for the chain to finish" : undefined;
   return (
     <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
