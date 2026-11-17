@@ -964,7 +964,7 @@ def _answer(b: Board, d: dict[str, Any], info: CardInfo, memory: dict[str, Any])
         return [choose(["pay"]), *_fallback(d, info)]
     if kind == "divide":
         return [*_divide(b, d), *_fallback(d, info)]
-    if kind == "choose_one" and "keep" in ids:  # 707.10c: a copy's target, kept or changed
+    if kind == "choose_one" and "keep" in ids and str(d.get("prompt") or "").startswith("Copy of "):  # 707.10c: a copy's target, kept or changed
         return [choose([_copy_target(b, d, options)]), *_fallback(d, info)]
     targetish = [o for o in options if o.get("group") != "seen" and (o.get("card_id") in b.cards or o["id"] in b.players)]
     if targetish and len(targetish) == len(ids) and kind in ("choose_cards", "choose_one"):
