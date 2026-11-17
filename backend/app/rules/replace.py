@@ -963,6 +963,7 @@ def _make_tokens_now(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list
     diverted_ids: set[str] = set()
     pick_index = 0
     stack_of = _stack_formation(plan, pid, ev, picks, left, individual)  # -- engine token stacks -- one object for N (docs/TOKEN_STACKS.md)
+    spot: dict[str, Any] = {}  # -- token piles -- the later table steps of one creation land where the first one did (one pile, not several)
     while left > 0:
         k = 1 if individual else min(left, MAX_TOKENS_STEP)
         if stack_of:
@@ -981,7 +982,10 @@ def _make_tokens_now(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list
                            **({'quantity': k} if stack_of else {}),
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
                            'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
-                           'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)
+                           'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {}),
+                           **(spot if not diverted else {})}, actor=pid)
+        if not spot and not diverted and not individual and getattr(created, 'x', None) is not None and getattr(created, 'y', None) is not None:
+            spot = {'x': created.x, 'y': created.y}
         new_ids = getattr(created, 'r', None)
         ids = list(new_ids.ids) if new_ids is not None else []
         made += ids
