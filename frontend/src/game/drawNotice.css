@@ -46,3 +46,5 @@
   color: #1a140c; background: var(--frame-hi, #c9a25c);
 }
 .zb-card { position: relative; }
+/* -- playtest (nov 16) -- in a long hand strip only a sliver of each card shows: the tag stands on its side there ("NEW" was cut to "NE") */
+.hand-cards[data-mode="strip"] > .hand-card.fresh-draw::after { writing-mode: vertical-rl; transform: rotate(180deg); left: 2px; padding: 5px 0; }

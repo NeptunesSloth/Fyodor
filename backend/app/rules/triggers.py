@@ -3425,7 +3425,7 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
-                                     event=t.event, x=cast_x(plan, t),
+                                     event=t.event, x=cast_x(plan, t), ability_index=_key_index(t),
                                      x_from_event_spell=(t.event is not None and t.event.kind == 'cast'
                                          and t.source_card in plan.state.cards
                                          and x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) == 'cast'), **extra)  # (x: wave 4J, 107.3m)

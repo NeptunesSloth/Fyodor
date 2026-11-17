@@ -1821,8 +1821,12 @@ def choose(plan: Plan, a: A.Choose) -> None:
             raise ActionError("This answer can't be remembered")
         prefs = plan.prefs(decider_of(plan.state, d))  # (-- controlling another player (wave 18H) -- the decider's own preference)
         prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
-        prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
-                                  turn=plan.state.turn.number))
+        # A yes-or-no question remembers the answer given: "Same answer this turn" after a No is a No this turn, and "Always" keeps
+        # whichever answer it was (603.5: each later "you may" of that ability is answered alike)
+        answer = chosen[0] if len(chosen) == 1 and chosen[0] in ("yes", "no") else ""
+        kind = ("no_this_turn" if answer == "no" else "yes_this_turn") if answer and a.remember in ("yes_this_turn", "no_this_turn") else a.remember
+        prefs.yields.append(Yield(kind=kind, key=d.memory_key, context=d.memory_context,
+                                  turn=plan.state.turn.number, answer=answer))
     effects.check_total_power(plan, d, chosen)  # -- per-player choices (wave 30K) -- "total power 4 or less" (Slaughter the Strong)
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
@@ -2029,7 +2033,7 @@ def remembered(plan: Plan, player: str, key: str, context: str) -> str | None:
         if y.key != key or (y.context and y.context != context):
             continue
         if y.kind == "always_yield":
-            return "yield"
+            return y.answer or "yield"  # (the answer to a yes-or-no question; a yield to a priority stop has none)
         if y.turn == plan.state.turn.number:
             return "yes" if y.kind == "yes_this_turn" else "no"
     return None

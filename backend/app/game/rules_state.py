@@ -208,6 +208,9 @@ class Yield(BaseModel):
     key: str = Field(max_length=120)
     context: str = Field(default="", max_length=200)
     turn: int = 0  # for the *_this_turn kinds
+    # The answer given ("yes" / "no") when the remembered prompt is a yes-or-no question ("Always", "Same answer this turn" on a
+    # "you may", 603.5); "" for a yield (a priority stop) and for records saved before answers were kept
+    answer: str = Field(default="", max_length=16)
 
 
 class PlayerPrefs(BaseModel):
@@ -1124,6 +1127,7 @@ class StackEntry(BaseModel):
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
     # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
     copy_of: str | None = None
+    ability_index: int | None = None  # a triggered ability: its index on the source (PendingTrigger.key), the remembered-answer key (603.5)
     chooser110i: str | None = None  # -- cards (wave 110I) -- 608.2b: a target chosen by this player (Necrotic Plague) must still be a creature they don't control
 
 

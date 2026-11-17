@@ -86,10 +86,12 @@ export function stripRange(count: number, layout: HandLayout, scrollLeft: number
 
 /**
  * Where my hand may spread on the screen: the screen width less a margin each side (kept equal, so a fan stays centred).
- * On the 3D table the turn dial sits over the bottom right corner, so the hand keeps clear of it on both sides.
+ * On the 3D table the turn dial sits over the bottom right corner, and on a wide 2D screen the log ticker does, so the hand keeps clear
+ * of it on both sides.
  */
 export function handRoom(width: number, three: boolean): number {
-  const margin = three ? (width >= 1100 ? 340 : 150) : 150;
+  // (-- playtest nov 16 -- 2D: the log ticker, 340px at the bottom right, covered the end of a long hand strip; a wide screen keeps clear of it)
+  const margin = three ? (width >= 1100 ? 340 : 150) : width >= 1400 ? 360 : 150;
   return Math.max(0, width - 2 * margin);
 }
 

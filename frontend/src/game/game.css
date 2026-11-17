@@ -165,6 +165,8 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .stat-badge i { font-style: normal; font-size: 10px; opacity: 0.9; }
 .stat-badge.up { background: #1e5a36; border-color: #3fae6c; }
 .stat-badge.down { background: #6a1f1f; border-color: #c24a4a; }
+/* -- playtest (nov 16) -- a creature's counters ride over its P/T badge, not under it ("+58/+" ran under "61/61") */
+.table-card:not([data-tile]):has(.stat-badge) .counters { bottom: calc(3% + 22px); }
 .counter.kind-loyalty { background: #2b2b35; border-color: #b9b9d6; }
 .face-down-known { position: relative; }
 .peek-badge { position: absolute; top: 6%; left: 6%; font-size: 11px; background: rgba(0,0,0,0.7); border-radius: 4px; padding: 0 3px; }

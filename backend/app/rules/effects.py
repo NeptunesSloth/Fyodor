@@ -4153,6 +4153,8 @@ def may_key(entry: StackEntry) -> str:
     import hashlib
     import json
 
+    if entry.ability_index is not None:  # (a triggered ability: the source's ability itself, whatever one trigger of it carries)
+        return f"may:{(entry.source_card or entry.name)[:90]}:{entry.ability_index}"
     what = hashlib.sha1(json.dumps(entry.effects, sort_keys=True, default=str).encode()).hexdigest()[:12]
     return f"may:{(entry.source_card or entry.name)[:90]}:{what}"  # (a Yield key is at most 120 characters)
 
