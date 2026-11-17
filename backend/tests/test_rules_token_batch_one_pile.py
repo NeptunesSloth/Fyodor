@@ -10,7 +10,7 @@ from app.rules import replace
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 EXTRA = [
     real("Secure the Wastes", "{X}{W}", 1, "Instant", "Create X 1/1 white Warrior creature tokens.", None, "W"),
@@ -40,9 +40,11 @@ def test_two_hundred_fifty_tokens_of_one_instruction_lie_in_one_pile(cards):
     for c in (100, 100, 50):
         mana(s, C=c)
     mana(s, W=1)
+    before = life(s)
     act(s, "p1", type="cast_spell", card_id=wastes.id, x_value=250)
     settle(s, limit=400)
     made = _warriors(s)
-    assert len(made) == 250 and sum(c.quantity for c in made) == 250
+    # (-- engine token stacks -- an announced X makes one stack now, playtest B5; the watcher still sees each of the 250 enter)
+    assert sum(c.quantity for c in made) == 250 and life(s) - before == 250
     assert 250 > replace.MAX_TOKENS_STEP and len({(c.x, c.y) for c in made}) == 1  # one spot: one pile ×250
     check(s)
