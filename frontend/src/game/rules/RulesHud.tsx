@@ -571,9 +571,9 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
       )}
       <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (mana: auto)</label>
       <div className="pay-actions">
-        <button className="act-btn primary" data-testid="option-pay" onClick={pay}>Auto Pay</button>
+        <button className="act-btn gold" data-testid="option-pay" onClick={pay}><Icon name="check" size={15} />Auto Pay</button>
         <button className="act-btn" data-testid="option-manual" onClick={() => void choose(d.id, ["manual"])}>Edit Payment</button>
-        <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
+        <button className="act-btn cancel" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}><Icon name="close" size={13} />Cancel</button>
       </div>
     </div>
   );
@@ -652,8 +652,9 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
       {helperRow("improvise", "Improvise: tap an artifact to pay {1}")}
       {helperRow("delve", "Delve: exile a card from your graveyard to pay {1}")}
       <div className="pay-actions two">
-        <button className="act-btn primary" data-testid="option-pay" onClick={() => void choose(d.id, ["pay"])}>Pay</button>
-        <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
+        {/* -- playtest (nov 17) -- the table's palette: brass for the step forward, blackened steel to back out (and a check / a cross, never colour alone) */}
+        <button className="act-btn gold" data-testid="option-pay" onClick={() => void choose(d.id, ["pay"])}><Icon name="check" size={15} />Pay</button>
+        <button className="act-btn cancel" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}><Icon name="close" size={13} />Cancel</button>
       </div>
     </div>
   );
