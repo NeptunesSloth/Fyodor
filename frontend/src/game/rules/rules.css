@@ -90,12 +90,14 @@ details.auto-pill { height: auto; min-height: 30px; }
 .phase-dial .pd-turn { font-family: var(--font-display); font-weight: 700; fill: #e8cf98; letter-spacing: 0.04em; }
 .phase-dial .pd-needle { transform-origin: 70px 70px; transition: transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1); }
 body.reduced-motion .phase-dial .pd-needle { transition: none; }
-.td-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+.td-head { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .td-seat {
   width: 20px; height: 20px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
   font: 700 11px/1 var(--font-display); color: var(--text); background: var(--steel-lo); border: 2px solid var(--player-color, var(--frame));
 }
-.td-turn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* (-- playtest nov 16 -- "Turn 1 · your t…" was always cut at 1920: it may take a second line, and only a very long name is clamped) */
+.td-turn { flex: 1; min-width: 0; overflow: hidden; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.td-whose { white-space: nowrap; }
 .td-fold {
   all: unset; flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
   border-radius: 4px; color: var(--text-dim);

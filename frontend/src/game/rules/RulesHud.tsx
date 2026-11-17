@@ -323,7 +323,7 @@ export function TurnDial() {
           <div className="td-read">
             <header className="td-head" data-testid="turn-tracker">
               <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
-              <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
+              <span className="td-turn">Turn {turn.number} · {active?.id === me ? <span className="td-whose">your turn</span> : active?.name}</span>
               {/* the playtest: the dial covered cards; folded, it keeps the step, the status and the pass button */}
               <button type="button" className="td-fold" data-testid="dial-fold" aria-pressed={folded}
                 title={folded ? "Unfold the turn dial" : "Fold the turn dial (it covers less of the table)"}
