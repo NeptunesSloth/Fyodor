@@ -38,7 +38,7 @@ export interface WorkspaceProps {
 const numberWord = (v: Value) => (v === "N" ? "N" : v === "-N" ? "−N" : typeof v === "number" && v > 0 ? `${v}` : String(v));
 
 function chipText(slot: Slot, value: Value, voc: Vocabulary, me: string): ReactNode {
-  if (slot.kind === "choice") return (voc.options[String(value)]?.text ?? String(value)).replace("{self}", me);
+  if (slot.kind === "choice") return (voc.options[String(value)]?.text ?? String(value)).replace("{self}", me).trim() || "(none)"; // (an empty choice — no token keyword, a cost with no condition — still shows a chip to click)
   if (slot.kind === "mana") return <ManaText text={String(value)} />;
   if (slot.kind === "signed" && typeof value === "number") return value >= 0 ? `+${value}` : String(value);
   return numberWord(value);
