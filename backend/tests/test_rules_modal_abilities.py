@@ -100,6 +100,10 @@ EXTRA = [
          oracle_text="{1}{W}, {T}, Exile this artifact: Choose one —\n• Return target creature card with mana value 4 or less "
                      "from your graveyard to the battlefield tapped.\n• Exile target Skeleton, Spirit, or Zombie.",
          colors=["W"], color_identity=["W"]),
+    # (not a real card: Knight of Autumn's header over the wording wave G2 reads, a mode opening "You may"; the real card with that generic
+    # reading is a plane, Event Horizon: tests/test_rules_planechase_more4.py)
+    card("Test Hesitant Sage", set_code="tst", number="X3", mana_cost="{1}", cmc=1.0, type_line="Creature — Human Wizard",
+         oracle_text="When this creature enters, choose one —\n• You may draw a card.\n• You gain 1 life.", power="1", toughness="1"),
     card("Kimoyo Beads", set_code="tst", number="M10", mana_cost="{4}", cmc=4.0, type_line="Artifact",
          oracle_text="At the beginning of your end step, choose one that hasn't been chosen —\n• AV Bead — Draw a card.\n"
                      "• Communication Bead — Create two 1/1 white Soldier creature tokens.\n• Prime Bead — You gain 3 life. "
@@ -1181,7 +1185,7 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
     # (Bumi, King of Three Trials: "choose up to X, where X is …" is read since wave 50I, tests/test_rules_wave50i_modal_modes.py)
     "Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. "
     "Create a creature token with those characteristics.\n• Draw a card.\n• You gain 1 life.",  # Genku, Future Shaper
-    "When this creature enters, choose one —\n• You may draw a card.\n• You gain 1 life.",  # (a mode with "you may")
+    # ("• You may draw a card." is read since wave G2, 608.2d: test_a_mode_opening_you_may_is_its_own_choice_as_it_resolves)
     # Fixed activated groups are now read (Bow of Nylea); activated X-sized groups remain refused.
     "{T}: Choose one —\n• Put a +1/+1 counter on each of up to X target creatures.\n• You gain 1 life.",  # (an X-sized target group in an activated ability)
     "When this creature enters, choose one —\n• Put a +1/+1 counter on each of up to X target creatures.\n• You gain 1 life.",  # (X: not a plain group)
@@ -1197,6 +1201,37 @@ def test_refused_wordings_stay_manual(text):
     c = characteristics("Thing", "Creature", text)
     assert not any(d.get("modes") for d in scripts.definitions(c).values())
     assert coverage.of_characteristics(c).level == "PARTIAL"
+
+
+# -- a mode opening "You may" (wave G2, 608.2d): the mode is announced with the ability (700.2b, 603.3c); its "you may" is asked as it
+# resolves, and declining skips only that mode's instruction (not an optional trigger, 603.5: the ability goes on the stack all the same)
+def test_a_mode_opening_you_may_reads_as_the_modes_own_choice():
+    c = characteristics("Thing", "Creature", "When this creature enters, choose one —\n• You may draw a card.\n• You gain 1 life.")
+    d = next(d for d in scripts.definitions(c).values() if d.get("modes"))
+    assert not d["optional"] and [m["effects"] for m in d["modes"]] == [
+        [{"do": "may_rest", "skip": 1}, {"do": "draw", "who": "you", "n": 1}], [{"do": "gain_life", "who": "you", "n": 1}]]
+    assert coverage.of_characteristics(c).level == "FULL"
+
+
+@pytest.mark.parametrize("answer", ["yes", "no"])
+def test_a_mode_opening_you_may_is_its_own_choice_as_it_resolves(cards, answer):
+    s = build(cards, "Test Hesitant Sage")
+    cast(s, "Test Hesitant Sage", C=1)
+    pass_until_stack_empty(s)
+    assert step(s) == "trigger_modes" and offered(s) == ["0:0", "1:0"]
+    hand_before, life_before = len(zone(s.state, "p1", "hand")), s.state.players["p1"].life
+    choose(s, "0:0")  # You may draw a card.
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and d.kind == "confirm" and {"yes", "no"} <= set(offered(s))  # (asked as it resolves, 608.2d)
+    assert stack_modes(s) == [["You may draw a card."]]  # (the ability is resolving: on the stack with its chosen mode)
+    choose(s, answer)
+    pass_until_stack_empty(s)
+    assert rules(s).decision is None and s.state.zones.get("stack", []) == []
+    assert len(zone(s.state, "p1", "hand")) == hand_before + (answer == "yes")
+    assert s.state.players["p1"].life == life_before  # (the other mode wasn't chosen)
+    replay_matches(s)
+    replay_matches(reloaded(s))
 
 
 def test_a_triggers_intervening_if_belongs_to_the_whole_ability():
