@@ -373,6 +373,7 @@ def self_text(text: str, name: str) -> str:
     # battlefield" (Michelangelo) is up to one of each, two optional puts
     out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
     out = _dive.rewrite(out)  # -- dive (wave DV) -- "it dives" is "it can't be blocked until it deals combat damage while attacking" (app/rules/dive.py)
+    out = _restriction_and_grant(out)  # -- dive (wave DV) -- "it dives and gains haste …" / "it gets +1/+0 … and dives": two instructions on one object
     out = re.sub(r"(?<=combat damage to a player, )you may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
                  r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
     # -- trigger other (wave 44B) -- 102.2: with no teams every other player is an opponent, so "you and another target player each draw a card" (Splinter) is "you and
@@ -430,6 +431,29 @@ def self_text(text: str, name: str) -> str:
     out = out.replace("choose target face-up exiled card. Its owner shuffles it into their library.",
                       "shuffle target face-up card in exile into its owner's library.")
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
+
+
+# -- dive (wave DV) -- one creature, a can't-be-blocked restriction and a grant joined by "and", restriction first ("it can't be blocked this turn and
+# gains flying until end of turn", "it dives and gains haste until end of turn") or a grant first with the dive's duration ("it gets +1/+0 until end of turn
+# and dives"): two instructions on the same object in the order written (608.2c), each with its own duration (611.2a) — the second sentence's "It" is
+# the object the first named, so in a trigger about another creature it stays the event's creature. (A grant first with "this turn" is already read as a
+# pump's rider, language.py.) Singular subjects only: a group's restriction and grant are left to their own readers.
+_ONE = r"(?P<o>(?i:it|that creature|(?:up to one )?(?:another )?target creature(?: you control| an opponent controls)?)|~)"
+_UNBLOCKED_DUR = r"can't be blocked (?:this turn|until it deals combat damage(?: while attacking)?)"
+_RESTRICTION_THEN_GRANT = re.compile(rf"(?<![A-Za-z']){_ONE} (?P<r>{_UNBLOCKED_DUR}) and (?P<g>(?:gains|gets|has|loses) [^.\n\"]+?)\.")
+_GRANT_THEN_DIVE = re.compile(rf"(?<![A-Za-z']){_ONE} (?P<g>(?:gains|gets) [^.\n\"]+? until end of turn) and "
+                              r"(?P<r>can't be blocked until it deals combat damage(?: while attacking)?|dives)\.")
+
+
+def _restriction_and_grant(text: str) -> str:
+    if "can't be blocked" not in text and " and dives." not in text:  # ("… and dives": the action with no subject of its own, the grant's object)
+        return text
+
+    def again(o: str) -> str:
+        return "~" if o == "~" else "It"
+
+    text = _RESTRICTION_THEN_GRANT.sub(lambda m: f"{m['o']} {m['r']}. {again(m['o'])} {m['g']}.", text)
+    return _GRANT_THEN_DIVE.sub(lambda m: f"{m['o']} {m['g']}. {again(m['o'])} {_dive.MEANING if m['r'] == 'dives' else m['r']}.", text)
 
 
 # -- counters sweep (wave 19D) -- "Put a ribbon counter on ~. Then if it has three or more ribbon counters on it, remove those counters
