@@ -20,7 +20,8 @@ export const useToasts = create<ToastState>((set, get) => ({
   toasts: [],
   push: (text, kind = "info", action) => {
     const id = nextId++;
-    set((s) => ({ toasts: [...s.toasts.slice(-4), { id, text, kind, action }] }));
+    // -- second pass (nov 17) -- the same message again replaces the one on screen (five clicks on Pay stacked five identical toasts over the plaque)
+    set((s) => ({ toasts: [...s.toasts.filter((t) => t.text !== text).slice(-4), { id, text, kind, action }] }));
     setTimeout(() => get().dismiss(id), action ? 10000 : kind === "error" ? 8000 : 3500);
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
