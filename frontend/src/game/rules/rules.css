@@ -371,7 +371,7 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
 /* -- playtest (nov 16) -- paying a cost (body.paying: RulesHud.paying): the land row stays in view. A question that says to tap mana first
    moves up where the payment plaque sits; the zone browser folds to its header (ZoneBrowser.tsx) at the top of the table. */
 body.paying .decision-panel:not(.payment):not(.waiting) { top: 14%; bottom: auto; }
-main.table > .zone-browser.folded { top: 8px; bottom: auto; max-height: none; }
+main.table > .zone-browser.folded { top: 8px; bottom: auto; max-height: none; left: auto; width: max-content; max-width: min(720px, 60vw); }
 .zone-browser.folded .zb-head { border-bottom: 0; }
 .zb-paying { color: var(--accent-2, #e0b860); }
 
