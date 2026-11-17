@@ -109,7 +109,7 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
 
 HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat", "restart_game", "configure",
                      "planar_start", "planar_end"}  # -- planechase -- dealing or putting away the planar deck: a table setting
-HOST_ONLY_ACTIONS |= {"add_dummy", "reset_dummy", "set_dummy"}  # -- target dummy -- the host seats it, resets it and sets how it blocks
+HOST_ONLY_ACTIONS |= {"add_dummy", "reset_dummy", "set_dummy", "set_bot_level"}  # -- target dummy -- the host seats it, resets it and sets how it blocks
 
 
 def _planar_pool(services: Services, settings: GameSettings) -> Callable[[], list[PlanarCard]] | None:

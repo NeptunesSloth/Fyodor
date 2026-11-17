@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -30,6 +30,7 @@ router = APIRouter(tags=["games"])
 class BotIn(BaseModel):
     deck_id: str = Field(min_length=1, max_length=64)
     name: str | None = Field(default=None, max_length=40)
+    level: Literal["simple", "intermediate", "advanced"] = "intermediate"  # -- bot levels -- how well it plays
     as_player: str | None = Field(default=None, alias="as", max_length=16)
 
 
@@ -64,7 +65,7 @@ async def add_bot(game_id: str, body: BotIn, request: Request, services: Service
         raise HTTPException(403, "Only the host can seat an opponent")
     deck_name, cards = await run_in_threadpool(_cards, services, body.deck_id)
     name = clean_text(body.name or "", 40) or None
-    action = A.AddBot(name=name, deck_name=deck_name[:120], deck_id=body.deck_id, cards=cards)
+    action = A.AddBot(name=name, level=body.level, deck_name=deck_name[:120], deck_id=body.deck_id, cards=cards)
     async with room.lock:
         _check_table_open(room)
         try:

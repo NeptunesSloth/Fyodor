@@ -70,6 +70,8 @@ MAX_TRIES = 6
 ABILITY_CAP = 2  # activations of one ability in a turn (a repeatable ability never loops: the stack resolving opens a new window)
 TURN_CAP = 10  # activations in a turn, all its abilities together
 MAIN = ("main1", "main2")
+LEVEL = {"simple": 0, "intermediate": 1, "advanced": 2}  # -- bot levels -- (state.PlayerState.bot_level; a seat without one: Intermediate)
+SIMPLE, INTERMEDIATE, ADVANCED = 0, 1, 2
 STOPS_MINE = ("main1", "main2", "declare_blockers")  # (where it takes priority: :func:`_stops`)
 STOPS_THEIRS = ("declare_blockers", "end")
 _DAMAGE = re.compile(r"deals? (\d+) damage")
@@ -80,6 +82,8 @@ _DRAW_RAMP = ("draw", "search your library", "add {", "put a land", "lands you c
 _TARGET_CREATURE = re.compile(r"target (?:[\w-]+ )?creature")
 _PUMP = re.compile(r"gets \+(\d+)/\+(\d+)")
 _BAD_COST = ("sacrifice", "discard", "pay ", "life", "exile", "return", "remove", "put ", "untapped", "reveal")
+_COUNTER = "counter target"
+_WIPE = ("destroy all creatures", "exile all creatures", "to each creature", "all creatures get -", "destroy all nonland", "each creature you don't control")
 _EQUIP_TEXT = "target creature you control gets +"  # (an equip ability's choice reads as help for its own creature)
 _BASIC_COLOR = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}
 
@@ -228,6 +232,8 @@ class Board:
         self.rules: dict[str, Any] = view.get("rules") or {}
         self.hints: dict[str, Any] = self.rules.get("hints") or {}
         self.players = {p["id"]: p for p in view["players"]}
+        level = self.players.get(self.me, {}).get("bot_level")
+        self.level: int = LEVEL.get(level or "", LEVEL["intermediate"])  # -- bot levels -- 0 Simple, 1 Intermediate, 2 Advanced
         stats = self.rules.get("stats") or {}
         lost = set(self.rules.get("lost") or {}) | set(self.rules.get("conceded") or [])
         self.live = [pid for pid in view["seat_order"] if not self.players[pid].get("left") and pid not in lost]
@@ -351,8 +357,9 @@ def _stops(view: dict[str, Any]) -> list[dict[str, Any]]:
     blockers step (a trick once the blocks are known; the step only happens when creatures attack) and the end of another player's
     turn (instant-speed abilities and flash). Otherwise the engine passes for it there and it never gets the chance."""
     prefs = (view.get("rules") or {}).get("prefs") or {}
-    if not prefs:
-        return []
+    me = next((p for p in view.get("players") or [] if p.get("id") == view.get("viewer")), {})
+    if not prefs or LEVEL.get(me.get("bot_level") or "", INTERMEDIATE) == SIMPLE:
+        return []  # (Simple plays in its main phases only, as it always did)
     mine, theirs = list(prefs.get("stops_my_turn") or []), list(prefs.get("stops_their_turn") or [])
     want_mine = list(dict.fromkeys([*mine, *STOPS_MINE]))
     want_theirs = list(dict.fromkeys([*theirs, *STOPS_THEIRS]))
@@ -392,7 +399,8 @@ def _opening_hand(b: Board, seat: dict[str, Any]) -> list[dict[str, Any]]:
     hand = b.zone(b.me, "hand")
     lands = [c for c in hand if c.land]
     if seat.get("status") == "deciding":
-        if seat.get("mulligans", 0) == 0 and not 2 <= len(lands) <= 5:
+        early = [c for c in hand if not c.land and c.mv <= 3]
+        if seat.get("mulligans", 0) == 0 and (not 2 <= len(lands) <= 5 or b.level >= ADVANCED and not early):  # (Advanced: and a play early)
             return [{"type": "mulligan_take"}, {"type": "mulligan_keep"}]
         return [{"type": "mulligan_keep"}]
     if seat.get("status") == "bottoming":
@@ -414,33 +422,48 @@ def _opening_hand(b: Board, seat: dict[str, Any]) -> list[dict[str, Any]]:
 def _plays(b: Board, memory: dict[str, Any]) -> list[dict[str, Any]]:
     tried = set(memory.get("tried") or ())
     castable = [cid for cid in b.hints.get("castable") or [] if cid in b.cards and cid not in tried]
+    cards = [b.cards[c] for c in castable]
     stack_empty = not b.view.get("stack")
-    if b.phase == "declare_blockers" and stack_empty:  # (blocks are known: a trick that wins or saves a fight, either player's turn)
-        return _tricks(b, [b.cards[c] for c in castable], memory)[:MAX_TRIES]
-    if not b.my_turn:  # instant speed: a creature with flash and its instant-speed abilities, at the end of another player's turn
-        if b.phase == "end" and stack_empty:
-            flash = [b.cards[c] for c in castable if b.cards[c].creature and b.cards[c].has("flash")]
-            return [*[_cast(b, c, memory) for c in sorted(flash, key=lambda c: -c.mv)][:2], *_activations(b, memory, "end")][:MAX_TRIES]
+    if not stack_empty:  # (something on the stack: Advanced counters another player's threat; nothing else)
+        return _responses(b, cards) if b.level >= ADVANCED else []
+    if b.phase == "declare_blockers":  # (blocks are known: a trick that wins or saves a fight, either player's turn; removal at an attacker)
+        if b.level < INTERMEDIATE:
+            return []
+        return [*_tricks(b, cards, memory), *(_kill_attacker(b, cards) if not b.my_turn and b.level >= ADVANCED else [])][:MAX_TRIES]
+    if not b.my_turn:  # instant speed at the end of another player's turn: flash creatures, instants worth it, instant-speed abilities
+        if b.phase == "end":
+            flash = [c for c in cards if c.creature and c.has("flash")]
+            instants = [c for c in cards if b.level >= INTERMEDIATE and _instant(c) and not c.ch.is_permanent_card  # type: ignore[union-attr]
+                        and _COUNTER not in c.text and _worth_casting(b, c)]
+            return [*[_cast(b, c, memory) for c in sorted([*flash, *instants], key=lambda c: (-c.mv, c.id))][:3],
+                    *(_activations(b, memory, "end") if b.level >= INTERMEDIATE else [])][:MAX_TRIES]
         return []
-    if b.phase not in MAIN or not stack_empty:
+    if b.phase not in MAIN:
         return []
     out: list[dict[str, Any]] = []
     lands = [b.cards[c] for c in b.hints.get("playable_lands") or [] if c in b.cards and c not in tried]
     if lands:
         best = max(lands, key=lambda land: _land_score(b, land))
         out.append({"type": "play_land", "card_id": best.id})
-    cards = [b.cards[c] for c in castable]
     commanders = [c for c in cards if c.commander and c.zone == "command"]
-    permanents = sorted((c for c in cards if c not in commanders and c.ch is not None and c.ch.is_permanent_card and not c.land),
-                        key=lambda c: (-c.mv, not c.creature))
-    spells = sorted((c for c in cards if c.ch is not None and c.ch.is_instant_or_sorcery and _worth_casting(b, c)), key=lambda c: -c.mv)
-    lethal = [c for c in spells if _lethal(b, c)]  # (burn that wins the game: first)
-    for c in [*lethal, *commanders, *permanents, *(c for c in spells if c not in lethal)]:
-        if c.ch is not None and "Aura" in c.ch.subtypes and not _target_for(b, c, b.creatures(b.me) + b.foes_creatures()):
-            continue
-        out.append(_cast(b, c, memory))
+    permanents = [c for c in cards if c not in commanders and c.ch is not None and c.ch.is_permanent_card and not c.land]
+    spells = [c for c in cards if c.ch is not None and c.ch.is_instant_or_sorcery and _worth_casting(b, c)]
+    lethal = [c for c in spells if _lethal(b, c)]  # (burn that wins the game: first, whatever it costs)
+    wanted = [c for c in [*commanders, *permanents, *spells] if c not in lethal and not (
+        c.ch is not None and "Aura" in c.ch.subtypes and not _target_for(b, c, b.creatures(b.me) + b.foes_creatures()))]
+    if b.level >= ADVANCED:  # (the set of spells that uses its mana best, mana kept for a counterspell, the commander's tax counted)
+        reserve = _reserve(b)
+        planned = _spend(b, wanted, max(0, _mana(b) - reserve))
+        order = [*lethal, *planned]
+        if not reserve:  # (what its mana count may have missed: the rest, most expensive first, as the engine allows)
+            order += sorted((c for c in wanted if c not in planned), key=lambda c: (-_cost(b, c), not c.creature, c.id))
+    else:  # (its commander, then the most expensive permanent it can cast, then other spells)
+        order = [*lethal, *[c for c in commanders if c in wanted],
+                 *sorted((c for c in wanted if c in permanents), key=lambda c: (-c.mv, not c.creature, c.id)),
+                 *sorted((c for c in wanted if c in spells), key=lambda c: (-c.mv, c.id))]
+    out += [_cast(b, c, memory) for c in order]
     # (then its abilities: after the spells, so the mana goes to the spells first; the list stays short enough that the pass is tried)
-    return [*out[: MAX_TRIES], *_activations(b, memory, b.phase)[:3]]
+    return [*out[: MAX_TRIES], *(_activations(b, memory, b.phase)[:3] if b.level >= INTERMEDIATE else [])]
 
 
 def _cast(b: Board, c: Seen, memory: dict[str, Any]) -> dict[str, Any]:
@@ -448,9 +471,18 @@ def _cast(b: Board, c: Seen, memory: dict[str, Any]) -> dict[str, Any]:
     return {"type": "cast_spell", "card_id": c.id}
 
 
+def _instant(c: Seen) -> bool:
+    return c.ch is not None and ("Instant" in c.ch.types or c.has("flash"))
+
+
 def _worth_casting(b: Board, c: Seen) -> bool:
     """An instant or sorcery worth casting in its main phase: card draw and ramp, removal with an opposing creature to hit, burn that
-    kills something (or the player). Pump and tricks wait (it doesn't cast them)."""
+    kills something (or the player), a board wipe only when it is behind on the board. Pump and tricks wait (after blockers),
+    counterspells wait for a spell to counter."""
+    if _COUNTER in c.text:
+        return False
+    if _wipe(c) and b.level >= ADVANCED:
+        return _wipe_worth(b, c)
     kind = _kind(c)
     if kind == "harm":
         dmg = _damage(c)
@@ -461,6 +493,140 @@ def _worth_casting(b: Board, c: Seen) -> bool:
     if kind == "help":
         return False
     return any(w in c.text for w in _DRAW_RAMP) or not c.text
+
+
+# (sequencing and mana)
+
+
+def _cost_mv(cost: str) -> int:
+    """A mana cost's total ("{4}{R}{R}" → 6; X counts 0)."""
+    return sum(int(s) if s.isdigit() else 0 if s in ("X", "Y", "Z") else 1 for s in re.findall(r"\{([^}]+)\}", cost))
+
+
+def _cost(b: Board, c: Seen) -> int:
+    """What casting ``c`` costs now (the engine's current cost when it differs: commander tax, cost changers), as a mana total."""
+    now = (b.hints.get("cost_now") or {}).get(c.id)
+    if now:
+        return _cost_mv(now)
+    return _cost_mv(c.ch.mana_cost) if c.ch is not None and c.ch.mana_cost else int(c.mv)
+
+
+def _mana(b: Board) -> int:
+    """About how much mana it can make now: its untapped lands, and its untapped mana rocks and dorks that can tap (public facts)."""
+    sick = set(b.hints.get("summoning_sick") or ())
+    n = 0
+    for c in b.zone(b.me, "battlefield"):
+        if c.controller != b.me or c.tapped:
+            continue
+        if c.land:
+            n += 1
+        elif "{t}: add" in c.text and not (c.creature and c.id in sick):
+            n += 2 if "add {c}{c}" in c.text else 1
+    return n
+
+
+def _ramp(c: Seen) -> bool:
+    t = c.text
+    return not c.land and ("search your library for" in t and "land" in t or "put a land" in t or "{t}: add" in t)
+
+
+def _value(b: Board, c: Seen) -> float:
+    """What a spell is worth to cast this turn: its mana value, more for ramp while it has few lands, its commander, a creature."""
+    lands = sum(1 for x in b.zone(b.me, "battlefield") if x.land and x.controller == b.me)
+    return _cost(b, c) + (3 if _ramp(c) and lands < 5 else 0) + (2 if c.commander else 0) + (0.5 if c.creature else 0) + 0.1
+
+
+def _spend(b: Board, cards: list[Seen], budget: int) -> list[Seen]:
+    """The set of spells that uses its mana best this turn (most value within ``budget``; at most twelve looked at), ramp first, then the
+    most expensive: e.g. two 2-drops rather than one 3-drop with four mana."""
+    pool = sorted(cards, key=lambda c: (-_value(b, c), c.id))[:12]
+    costs = [_cost(b, c) for c in pool]
+    values = [_value(b, c) for c in pool]
+    best: tuple[float, int] = (0.0, 0)
+    for mask in range(1, 1 << len(pool)):
+        total = sum(costs[i] for i in range(len(pool)) if mask >> i & 1)
+        if total > budget:
+            continue
+        v = sum(values[i] for i in range(len(pool)) if mask >> i & 1)
+        if v > best[0] + 1e-9:
+            best = (v, mask)
+    chosen = [pool[i] for i in range(len(pool)) if best[1] >> i & 1]
+    return sorted(chosen, key=lambda c: (not _ramp(c), -_cost(b, c), c.id))
+
+
+def _reserve(b: Board) -> int:
+    """Mana to keep open on its own turn for a counterspell it holds, once it has a creature on the table (not before: it develops
+    first). 0 when it holds none."""
+    held = [c for c in b.zone(b.me, "hand") if _COUNTER in c.text and _instant(c)]
+    if not held or not b.creatures(b.me):
+        return 0
+    return min(_cost(b, c) for c in held)
+
+
+# (interaction)
+
+
+def _wipe(c: Seen) -> bool:
+    return any(w in c.text for w in _WIPE)
+
+
+def _wipe_worth(b: Board, c: Seen) -> bool:
+    """A board wipe only when it is behind: what it kills of the opponents' is worth clearly more than what it loses (two creatures
+    or more of theirs)."""
+    dmg = _damage(c)
+
+    def dies(x: Seen) -> bool:
+        return not x.has("indestructible") and (dmg is None or x.toughness <= dmg)
+
+    def worth(cs: list[Seen]) -> int:
+        return sum(max(0, x.power) + max(0, x.toughness) + (6 if x.commander else 0) for x in cs if dies(x))
+
+    theirs = [x for x in b.foes_creatures() if dies(x)]
+    return len(theirs) >= 2 and worth(theirs) >= worth(b.creatures(b.me)) + 4
+
+
+def _menace(b: Board, c: Seen) -> bool:
+    """Another player's spell worth a counterspell: a commander, a board wipe, a big creature, anything of mana value 4 or more, burn
+    that would kill it."""
+    dmg = _damage(c)
+    return c.commander or _wipe(c) or c.mv >= 4 or c.creature and c.power >= 4 or dmg is not None and dmg >= b.life(b.me)
+
+
+def _responses(b: Board, cards: list[Seen]) -> list[dict[str, Any]]:
+    """With a spell of another player's on top of the stack: counter it when it is a threat (:func:`_menace`), with a counterspell
+    whose restriction it meets ("creature spell", "noncreature spell")."""
+    stack = b.view.get("stack") or []
+    top = b.cards.get(stack[-1]) if stack else None
+    if top is None or top.controller == b.me or top.ch is None or not _menace(b, top):
+        return []
+    out: list[dict[str, Any]] = []
+    for c in sorted(cards, key=lambda c: (_cost(b, c), c.id)):
+        t = c.text
+        if _COUNTER not in t or not _instant(c):
+            continue
+        if "noncreature spell" in t and top.creature or "creature spell" in t and "noncreature" not in t and not top.creature:
+            continue
+        out += [{"type": "cast_spell", "card_id": c.id, "targets": [top.id]}, {"type": "cast_spell", "card_id": c.id}]
+    return out[:4]
+
+
+def _kill_attacker(b: Board, cards: list[Seen]) -> list[dict[str, Any]]:
+    """On another player's turn, after blockers: instant removal at the most dangerous attacker it kills (it hits it or its creature)."""
+    attackers = [c for c in b.foes_creatures() if c.extra.get("attacking")]
+    if not attackers:
+        return []
+    out: list[dict[str, Any]] = []
+    for c in sorted(cards, key=lambda c: (_cost(b, c), c.id)):
+        if not _instant(c) or c.ch is None or c.ch.is_permanent_card or _kind(c) != "harm" or _wipe(c) or _COUNTER in c.text:
+            continue
+        if "target" not in c.text or _TARGET_CREATURE.search(c.text) is None and "any target" not in c.text:
+            continue
+        dmg = _damage(c)
+        hit = [a for a in attackers if a.power >= 2 and (dmg is None and not a.has("indestructible") or dmg is not None and a.toughness <= dmg)]
+        if hit:
+            best = max(hit, key=lambda a: (_threat(a), a.id))
+            out.append({"type": "cast_spell", "card_id": c.id, "targets": [best.id]})
+    return out[:2]
 
 
 def _lethal(b: Board, c: Seen) -> bool:
@@ -775,6 +941,8 @@ def _target_for(b: Board, source: Seen | None, among: list[Seen] | list[str]) ->
         else:
             c, p, mv = _threat(x)
             score = c * 500 + p * 10 + mv + (5 if x.creature else 0)
+            if b.level >= INTERMEDIATE:  # (threat: an engine, a planeswalker)
+                score += (15 if "whenever" in x.text or "{t}:" in x.text.replace("{t}: add", "") else 0) + (30 if x.ch is not None and "Planeswalker" in x.ch.types else 0)
             if dmg is not None and x.creature:
                 score = score + 200 if x.toughness <= dmg else score - 300
         scored.append((score, x.id))
@@ -856,25 +1024,57 @@ def _kills(source: Seen, victim: Seen) -> bool:
     return source.power > 0 and (source.has("deathtouch") or source.power >= victim.toughness)
 
 
+def _attack_plan(b: Board, attackers: list[Seen], target: str) -> tuple[bool, float, list[Seen]]:
+    """Its attack at ``target``: (lethal, the damage it expects through, the attackers). Each creature that no untapped blocker could
+    kill (or that can't be blocked), everything when that is lethal even if the biggest are blocked."""
+    defender = target if target in b.players else (b.cards[target].controller if target in b.cards else target)
+    blockers = [c for c in b.creatures(defender) if not c.tapped]
+    chosen = [a for a in attackers if not any(_kills(x, a) for x in blockers if _can_block(x, a))]
+    every = sorted(attackers, key=lambda c: (-c.power, c.id))
+    unblocked = sum(c.power * (2 if c.has("double strike") else 1) for c in every[len(blockers):])
+    lethal = target in b.players and unblocked >= b.life(target) > 0
+    if lethal:
+        chosen = every
+    through = sum(c.power * (1 if not any(_can_block(x, c) for x in blockers) else 0.5) for c in chosen)
+    return lethal, through, chosen
+
+
+def _hold_back(b: Board, chosen: list[Seen]) -> list[Seen]:
+    """-- crack-back -- keep home what it needs so the opponents' creatures can't kill it on their turn (each creature it keeps home
+    stops one of theirs, the biggest first; its attackers stay tapped through their turn, vigilance aside)."""
+    chosen = list(chosen)
+    life = b.life(b.me)
+    powers = sorted((max(0, c.power) * (2 if c.has("double strike") else 1) for c in b.foes_creatures()), reverse=True)
+    home = [c for c in b.creatures(b.me) if not c.tapped and (c not in chosen or c.has("vigilance"))]
+    while chosen and sum(powers[len(home):]) >= life:
+        keep = [c for c in chosen if not c.has("vigilance")]
+        if not keep:
+            break
+        stay = max(keep, key=lambda c: (c.toughness, c.power, c.id))
+        chosen.remove(stay)
+        home.append(stay)
+    return chosen
+
+
 def _attacks(b: Board, d: dict[str, Any]) -> list[dict[str, Any]]:
     options = d.get("options") or []
     attackers = [b.cards[o["id"][2:]] for o in options if o["id"].startswith("a:") and o["id"][2:] in b.cards]
     targets = [o["id"][2:] for o in options if o["id"].startswith("t:")]
     if not attackers or not targets:
         return []
-    order = b.opponents
-    target = next((p for p in order if p in targets), targets[0])
+    players = [p for p in b.opponents if p in targets]
+    if b.level >= INTERMEDIATE and players:
+        # the opponent it does the most to (Advanced: one it kills first), the one with less life, the human first on a tie
+        plans = {p: _attack_plan(b, attackers, p) for p in players}
+        target = max(players, key=lambda p: (b.level >= ADVANCED and plans[p][0], plans[p][1], -b.life(p), -players.index(p)))
+        lethal, _, chosen = plans[target]
+        if not lethal:
+            chosen = _hold_back(b, chosen)
+    else:
+        target = next(iter(players), targets[0])
+        lethal, _, chosen = _attack_plan(b, attackers, target)
     defender = target if target in b.players else (b.cards[target].controller if target in b.cards else target)
     blockers = [c for c in b.creatures(defender) if not c.tapped]
-    chosen: list[Seen] = []
-    for a in attackers:
-        able = [x for x in blockers if _can_block(x, a)]
-        if not able or not any(_kills(x, a) for x in able):
-            chosen.append(a)
-    every = sorted(attackers, key=lambda c: -c.power)
-    unblocked = sum(c.power * (2 if c.has("double strike") else 1) for c in every[len(blockers):])
-    if target in b.players and unblocked >= b.life(target) > 0:
-        chosen = every  # (lethal even if the biggest are blocked: everything)
 
     def declare(group: list[Seen]) -> dict[str, Any]:
         return {"type": "declare_attackers", "attackers": [{"card_id": c.id, "target": target} for c in group]}

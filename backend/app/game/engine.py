@@ -99,6 +99,7 @@ HANDLERS: dict[str, Handler] = {
     "add_dummy": dummy.add_dummy,
     "reset_dummy": dummy.reset_dummy,
     "set_dummy": dummy.set_dummy,
+    "set_bot_level": bot_seat.set_bot_level,  # -- bot levels --
     "add_bot": bot_seat.add_bot,  # -- test opponent -- (app/game/handlers/bot_seat.py)
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,

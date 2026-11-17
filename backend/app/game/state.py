@@ -338,6 +338,9 @@ class PlayerState(BaseModel):
     # -- test opponent -- a seat nobody sits in that plays a deck (Sandbox: "Add an opponent"): it takes turns like anyone, and the server
     # plays for it through the same intents a player sends (app/game/bot.py); "simple" is its only policy
     bot: Literal["simple"] | None = None
+    # -- bot levels -- how well it plays (app/game/bot.py): Simple, Intermediate or Advanced; chosen when it is seated and changeable at the
+    # table (set_bot_level, recorded like any action). A save from before the levels reads as Intermediate.
+    bot_level: Literal["simple", "intermediate", "advanced"] = "intermediate"
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
     playmat: Playmat | None = None

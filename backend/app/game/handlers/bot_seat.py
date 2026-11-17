@@ -21,6 +21,7 @@ from app.game.state import PLAYER_ZONES, GameState, PlayerState, PregameSeat, zo
 NAME = "Opponent"
 COLOR = "#7d6b9e"  # muted violet: a seat colour no pod seat starts with (its name and the bot mark say what it is)
 POLICIES = {"simple": "Simple"}
+LEVELS = {"simple": "Simple", "intermediate": "Intermediate", "advanced": "Advanced"}  # -- bot levels -- (app/game/bot.py)
 
 
 def add_bot(state: GameState, a: A.AddBot) -> None:
@@ -43,7 +44,7 @@ def add_bot(state: GameState, a: A.AddBot) -> None:
     name = (a.name or "").strip() or (NAME if not bots else f"{NAME} {bots + 1}")
     life = state.settings.starting_life
     state.players[pid] = PlayerState(id=pid, name=name, color=COLOR, life=life, bot=a.policy, deck_id=a.deck_id,
-                                     deck_name=a.deck_name)
+                                     deck_name=a.deck_name, bot_level=a.level)
     state.seat_order.append(pid)
     for zone in PLAYER_ZONES:
         state.zones.setdefault(zone_key(pid, zone), [])
@@ -63,4 +64,17 @@ def add_bot(state: GameState, a: A.AddBot) -> None:
         assert state.pregame is not None
         state.pregame.seats[pid] = PregameSeat()  # it decides on its opening hand like anyone (app/game/bot.py)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" added an opponent: "), pname(state, pid),
-                               text(f" plays {a.deck_name} ({POLICIES[a.policy]})")])
+                               text(f" plays {a.deck_name} ({LEVELS[a.level]})")])
+
+
+def set_bot_level(state: GameState, a: A.SetBotLevel) -> None:
+    """-- bot levels -- how well an opponent the server plays for plays from now on (recorded: a replay plays it the same)."""
+    bots = [pid for pid in state.seat_order if state.players[pid].bot is not None and not state.players[pid].left]
+    pid = a.player if a.player is not None else next(iter(bots), None)
+    if pid is None or pid not in bots:
+        raise ActionError("No such opponent at this table")
+    p = state.players[pid]
+    if p.bot_level == a.level:
+        raise ActionError(f"{p.name} already plays at {LEVELS[a.level]}")
+    p.bot_level = a.level
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" set "), pname(state, pid), text(f" to {LEVELS[a.level]}")])

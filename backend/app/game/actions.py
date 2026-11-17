@@ -713,10 +713,19 @@ class AddBot(Base):
     type: Literal["add_bot"] = "add_bot"
     name: str | None = Field(default=None, max_length=40)
     policy: Literal["simple"] = "simple"
+    level: Literal["simple", "intermediate", "advanced"] = "intermediate"  # -- bot levels -- (state.PlayerState.bot_level)
     deck_name: str = Field(default="Deck", max_length=120)
     deck_id: str | None = Field(default=None, max_length=64)
     cards: list[LoadDeckCard] = Field(max_length=600)
     r: LoadDeckData | None = None
+
+
+class SetBotLevel(Base):
+    """-- bot levels -- how well a test opponent plays from now on: Simple, Intermediate or Advanced (app/game/bot.py)."""
+
+    type: Literal["set_bot_level"] = "set_bot_level"
+    level: Literal["simple", "intermediate", "advanced"]
+    player: Id | None = None  # which opponent (None: the first)
 
 
 class ResetDummy(Base):
@@ -1781,6 +1790,7 @@ Action = Annotated[
     | ResetDeck
     | AddDummy
     | AddBot
+    | SetBotLevel
     | ResetDummy
     | SetDummy
     | RestartGame
