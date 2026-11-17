@@ -54,7 +54,7 @@ def attach_to(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if (name := e.get("did")) and name not in context.refs(ctx):  # -- block events (wave 53C) -- "attach it to target creature you control. When you do / If you do, …": it was done if it is attached there
         context.refs(ctx)[name] = {"kind": "probe", "attached": {c: hosts[0] for c in src} if hosts else {}}
     if hosts:
-        for cid in src:  # (-- attach all (wave 30S) -- "any number of target Equipment": each one, 701.3a)
+        for cid in attachments.apnap(plan, list(src)):  # (-- attach all (wave 30S) -- "any number of target Equipment": each one, 701.3a; 613.7m: APNAP)
             attachments.attach(plan, cid, hosts[0], ctx["controller"])
     return True
 
@@ -86,8 +86,8 @@ def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not pool:
         return True
     if e.get("n") == "all":
-        for cid in pool:
-            attachments.attach(plan, cid, host, me)  # (613.7m: the order they receive their timestamps is the table's)
+        for cid in attachments.apnap(plan, pool):
+            attachments.attach(plan, cid, host, me)  # (613.7e, 613.7m: attached at once, they receive their timestamps in APNAP order)
         return True
     effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Attach'}: attach which to {label(plan, host)}?",
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Equipment", card_id=c) for c in pool],
@@ -99,7 +99,7 @@ def resume_choose(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import attachments
     from app.rules.effects import continue_effects
 
-    for cid in chosen:
+    for cid in attachments.apnap(plan, list(chosen)):  # (613.7e, 613.7m: attached at once, timestamped in APNAP order)
         attachments.attach(plan, cid, d.resume["host"], d.player)
     continue_effects(plan, d.resume["ctx"])
 

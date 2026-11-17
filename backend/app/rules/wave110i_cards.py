@@ -913,7 +913,7 @@ def attach_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         here = context._same(plan, ref)
         snap = context.snapshot(plan, ref)
         ids = [c.id for c in plan.state.cards.values() if c.attached_to == here.id] if here is not None else list(snap.attached) if snap else []
-        for cid in ids:
+        for cid in attachments.apnap(plan, ids):  # (613.7e, 613.7m: attached at once, timestamped in APNAP order)
             gear = plan.state.cards.get(cid)
             if gear is not None and gear.zone.endswith(":battlefield") and "Equipment" in plan.ch(gear).subtypes:
                 attachments.attach(plan, cid, me.id, ctx["controller"])

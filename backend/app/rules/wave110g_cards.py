@@ -843,7 +843,7 @@ def glamer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 def _glamer_move(plan: Any, ctx: dict[str, Any], auras: list[str], host: str) -> bool:
     from app.rules import attachments
 
-    for a in auras:
+    for a in attachments.apnap(plan, list(auras)):  # (613.7e, 613.7m: attached at once, timestamped in APNAP order)
         card = plan.state.cards[a]
         if attachments.host_problem(plan, card, host, ctx["controller"]) is None:
             attachments.attach(plan, a, host, ctx["controller"])
