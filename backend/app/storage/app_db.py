@@ -167,5 +167,9 @@ MIGRATIONS: list[str] = [
 
 def open_app_db(path: Path | str) -> sqlite3.Connection:
     conn = connect(path)
-    migrate(conn, MIGRATIONS, name="app")
+    try:
+        migrate(conn, MIGRATIONS, name="app")
+    except BaseException:
+        conn.close()  # a damaged file gets moved aside next: Windows can't move a file this process still holds open
+        raise
     return conn

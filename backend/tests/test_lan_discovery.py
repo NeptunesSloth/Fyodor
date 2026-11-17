@@ -371,6 +371,8 @@ def test_the_launcher_tells_the_host_friends_will_find_the_table(tmp_path, monke
 
     monkeypatch.setattr(tools.update_cards, "main", lambda argv: 0)
     monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)
+    # never really serve: the launcher runs its own uvicorn.Server, which would wait for Ctrl+C forever
+    monkeypatch.setattr(launcher, "serve", lambda settings: None)
     monkeypatch.setattr(launcher, "lan_addresses", lambda: ["192.168.1.7"])
     launcher.main(["--port", "0", "--no-browser"])
     out = capsys.readouterr().out

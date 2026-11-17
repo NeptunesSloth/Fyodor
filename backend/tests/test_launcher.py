@@ -17,6 +17,8 @@ def install_dir(tmp_path, monkeypatch):
     root = tmp_path / "install"
     root.mkdir()
     monkeypatch.setattr(launcher, "_install_dir", lambda: root)
+    # nor a Chrome/Edge of this computer's: a developer's Windows usually has one, which would always win
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [])
     return root
 
 

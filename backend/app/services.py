@@ -152,7 +152,11 @@ class Services:
         pre_migration_backup(path, len(APP_MIGRATIONS))
         try:
             conn = open_app_db(path)
-            check = conn.execute("PRAGMA quick_check").fetchone()[0]
+            try:
+                check = conn.execute("PRAGMA quick_check").fetchone()[0]
+            except sqlite3.DatabaseError:
+                conn.close()  # closed before the file is moved aside (Windows can't move an open file)
+                raise
             if check != "ok":
                 conn.close()
                 raise sqlite3.DatabaseError(f"integrity check: {check}")
