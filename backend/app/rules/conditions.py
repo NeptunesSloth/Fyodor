@@ -318,6 +318,12 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"event_attack_excludes": "you"}
     if (pair := merged.condition(t)) is not None:
         return pair
+    from app.rules import (
+        dive,  # -- dive (wave DV) -- "it devoured a creature" (702.82b), the intervening if of the first card with dive
+    )
+
+    if (devoured := dive.devoured_condition(t)) is not None:
+        return devoured
     if t.lower() in ("you control a ring-bearer", "you don't control a ring-bearer"):  # (wave 25B: before the "you control a …" selector reading)
         return {"status": _DESIGNATIONS[t.lower()]}
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"

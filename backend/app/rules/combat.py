@@ -1559,6 +1559,11 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
 
 
 def after_damage(plan: Plan, dealt: list[tuple[str, str, int]]) -> None:
+    from app.rules import (
+        dive,  # -- dive (wave DV) -- "until it deals combat damage while attacking" ends as it does (611.2a)
+    )
+
+    dive.combat_damage_dealt(plan, dealt)
     hit_players = [plan.state.cards[src] for src, tgt, n in dealt
                    if tgt in plan.state.players and n > 0 and src in plan.state.cards]
     if hit_players:

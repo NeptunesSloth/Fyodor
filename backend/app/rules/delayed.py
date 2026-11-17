@@ -111,6 +111,10 @@ DURATIONS: dict[str, str] = {
     # (Gabriel's ruling: it still has the ability through the untap step, not in the upkeep); ``at_step``, and 800.4m for a player who left
     "until your next upkeep": "next_upkeep",
     "for as long as they're the monarch": "monarch_player",  # -- durations (wave 110D) -- 611.2b, 725.2: the target's controller (Garland, Royal Kidnapper)
+    # -- dive (wave DV) -- 611.2a: "it can't be blocked until it deals combat damage while attacking" (the keyword action dive, app/rules/dive.py):
+    # ends as that object deals combat damage as an attacking creature (510.2); "until it deals combat damage": attacking or blocking
+    "until it deals combat damage while attacking": "until_combat_damage_attacking",
+    "until it deals combat damage": "until_combat_damage",
 }
 # -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
 # duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
@@ -123,6 +127,7 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
           "monarch_player": "for as long as they're the monarch",
+          "until_combat_damage_attacking": "until it deals combat damage while attacking", "until_combat_damage": "until it deals combat damage",  # (dive, wave DV)
           "creature_cast110m": "until a player casts a creature spell",
           "roll1_110f": "until end of turn or until any player rolls a 1"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
 LABELS["planeswalk_pcb"] = "until a player planeswalks"  # -- planechase chaos (wave B) -- 611.2a: ended by planar_chaos.on_events
@@ -811,8 +816,9 @@ def expire(plan: Plan) -> None:
                 _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
-    from app.rules import permissions
+    from app.rules import dive, permissions
 
+    dive.departed(plan)  # -- dive (wave DV) -- "until it deals combat damage [while attacking]": the creature it named left the battlefield (400.7)
     permissions.expire_source(plan)  # -- durations (wave 30M) -- "You may play that card for as long as you control ~" (a stored permission)
     from app.rules import wave110j_cards
 

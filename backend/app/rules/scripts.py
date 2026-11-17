@@ -372,6 +372,7 @@ def self_text(text: str, name: str) -> str:
     # (608.2c: the condition is read as that part is carried out, after the explore's counter); "you may put a creature card and/or a land card from your hand onto the
     # battlefield" (Michelangelo) is up to one of each, two optional puts
     out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
+    out = _dive.rewrite(out)  # -- dive (wave DV) -- "it dives" is "it can't be blocked until it deals combat damage while attacking" (app/rules/dive.py)
     out = re.sub(r"(?<=combat damage to a player, )you may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
                  r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
     # -- trigger other (wave 44B) -- 102.2: with no teams every other player is an opponent, so "you and another target player each draw a card" (Splinter) is "you and
@@ -8305,6 +8306,7 @@ _CHOSEN.update({"exile_top": "n", "look_top": "n", "reveal_hand_cards": "n"})
 # earlier instructions of the same ability: 603.7c). "… until your next turn" / "for as long as ~
 # remains on the battlefield" become an ``until`` effect over a pump / grant / restriction (611.2).
 from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rules_state)
+from app.rules import dive as _dive  # noqa: E402  -- dive (wave DV) -- (a leaf module)
 
 # A deferred move of "it" after "When ~ dies" / "Whenever a creature dies" still means the new
 # object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a

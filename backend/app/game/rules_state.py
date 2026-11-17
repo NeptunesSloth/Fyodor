@@ -425,6 +425,7 @@ class ObjectSnapshot(BaseModel):
 EventKind = Literal[
     "fought",  # CR 701.14: actual fight participants, independent of damage.
     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
+    "player_left_game",  # -- (wave MBC-D) -- 800.4a: ``player`` left the game; ``left_with`` the permanents they controlled, as they last existed
     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
     "library_shuffled",
     "zone_change",  # an object moved between zones (or ceased to exist: to_zone None)
@@ -486,6 +487,7 @@ class Event(BaseModel):
     fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
+    left_with: list[ObjectSnapshot] = Field(default_factory=list)  # -- (wave MBC-D) -- player_left_game: their permanents just before 800.4a
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
     sticker101: dict[str, Any] | None = None  # Native placement receipt, absent in old saves.
@@ -824,7 +826,7 @@ class ContinuousEffect(BaseModel):
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
                       "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d",
-                      "planeswalk_pcb"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "planeswalk_pcb", "until_combat_damage_attacking", "until_combat_damage"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     created_step110d: int = 0  # -- (wave 110D) -- next_end_step110d: the step counter when it began (an end step already begun does not end it)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
