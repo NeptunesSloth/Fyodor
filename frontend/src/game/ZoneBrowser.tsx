@@ -40,11 +40,13 @@ export function ZoneBrowser({ me }: { me: string }) {
 
   if (!view || !zoneKey) return null;
   const { zone, player } = splitZone(zoneKey);
+  // the filters only where there's something to sift: never the Command zone, nor a handful of cards
+  const filters = zone !== "command" && (searching || zone === "library" || ids.length > 8);
   // only what this viewer already sees of each card here (a hidden one has nothing to match: filterCardOf)
   const shown = filterCards(ids.map((id) => {
     const c = view.cards[id];
     return filterCardOf(id, c, c && !c.hidden && c.card_id ? cards[c.card_id] : undefined);
-  }), filter).map((c) => c.id);
+  }), filters ? filter : NO_FILTER).map((c) => c.id);
   const libraryCount = !Array.isArray(view.zones[zoneKey]) ? (view.zones[zoneKey] as { count: number }).count : ids.length;
   const title =
     own?.title ??
@@ -63,9 +65,9 @@ export function ZoneBrowser({ me }: { me: string }) {
       <div className="zb-head">
         <b>{title}</b>
         <span className="hint">
-          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} cards`}
+          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filters && filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} cards`}
         </span>
-        <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus />
+        {filters && <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus />}
         <span className="spacer" />
         {searching ? (
           <>
@@ -76,7 +78,7 @@ export function ZoneBrowser({ me }: { me: string }) {
           <button className="btn small" onClick={() => close()}>Close</button>
         )}
       </div>
-      <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : "Newest first"} />
+      {filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : "Newest first"} />}
       <div className="zb-hint hint">Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more</div>
       <div className="zb-cards">
         {shown.length === 0 && <div className="hint">Nothing to show.</div>}
