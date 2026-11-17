@@ -9,7 +9,8 @@ import { ManaText } from "../cards/ManaText";
 import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
-import { isVisible } from "../types/game";
+import { isVisible, type GameView } from "../types/game";
+import { gameEnded } from "./nightEnding";
 import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { cardEditRefusal } from "./cardPermissions";
@@ -225,6 +226,11 @@ export function ToolTray() {
   );
 }
 
+/** What the selection bar's moment is: the stack and the open decision (either changing closes the bar). */
+export function barMoment(view: GameView): string {
+  return `${view.stack.join(",")}|${view.rules?.decision?.id ?? ""}`;
+}
+
 /** Contextual toolbar for the current selection on the battlefield, attached to the card it acts on. */
 export function SelectionBar() {
   const selection = useGame((s) => s.selection);
@@ -232,7 +238,14 @@ export function SelectionBar() {
   const actingAs = useGame((s) => s.actingAs);
   const ref = useRef<HTMLDivElement>(null);
   const onTable = view ? selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield")) : [];
-  const anchor = onTable[0] ?? null;
+  // -- playtest (nov 16) -- the bar is for the moment the card was picked: once the stack or a decision moves on (an activation from the
+  // bar opens targets, then triggers, then choices) it closes, and it never stays over the ending (it sat over the Defeat screen); a click
+  // on the card opens it again. The selection itself stays (a decision reads it).
+  const moment = view ? barMoment(view) : "";
+  const pickedAt = useRef<{ sel: string[]; at: string } | null>(null);
+  if (pickedAt.current?.sel !== selection) pickedAt.current = { sel: selection, at: moment }; // (a fresh pick is a new array)
+  const stale = !!view && (pickedAt.current.at !== moment || gameEnded(view, perspective(view, actingAs)));
+  const anchor = stale ? null : onTable[0] ?? null;
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node || !anchor) return;

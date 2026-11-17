@@ -23,6 +23,14 @@ export function overByRules(view: GameView): boolean {
 }
 
 /**
+ * -- playtest (nov 16) -- the game is over at this seat: the rules ended it, the night has a result, or this seat's test ended (the Defeat /
+ * Victory strips). The table's live controls (the stack's Respond, a card's action bar, a draw notice) step aside then.
+ */
+export function gameEnded(view: GameView, me: string): boolean {
+  return overByRules(view) || !!view.game.night?.result || !!testEnding(view, me);
+}
+
+/**
  * The eliminated player's own moment ("Eliminated — the game continues" and its hub): for a seated player who conceded or
  * lost while the game goes on. Gone once the game has a result, and once the rules have ended the game (the last player to
  * lose then confirms the result instead of being told the game continues).

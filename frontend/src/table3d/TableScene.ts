@@ -2436,7 +2436,8 @@ export class TableScene {
       store.select([id], "toggle");
       return;
     }
-    if (!store.selection.includes(id)) store.select([id]);
+    // (a click on the one selected card selects it afresh: its action bar, closed when the stack moved on, opens again: Hud.tsx SelectionBar)
+    if (!store.selection.includes(id) || store.selection.length === 1) store.select([id]);
     const ids = targetsFor(id);
     const grab = this.tablePoint(e.clientX, e.clientY) ?? new THREE.Vector3();
     const offsets = new Map<string, THREE.Vector3>();

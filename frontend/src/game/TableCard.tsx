@@ -59,7 +59,8 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       store.select([id], "toggle");
       return;
     }
-    if (!store.selection.includes(id)) store.select([id]);
+    // (a click on the one selected card selects it afresh: its action bar, closed when the stack moved on, opens again: Hud.tsx SelectionBar)
+    if (!store.selection.includes(id) || store.selection.length === 1) store.select([id]);
     const ids = targetsFor(id);
     beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t) });
   };
