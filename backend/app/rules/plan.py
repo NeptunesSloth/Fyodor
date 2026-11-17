@@ -125,6 +125,7 @@ class Plan:
     shuffle_retained: tuple[ObjectRef, ...] = ()  # Same look instruction only; never a general shuffle immunity.
 
     began: dict[str, bool] | None = None
+    chain: Any = None  # -- runaway chains -- the objects this action resolved (engine._Chain, engine.loop_pause)
 
     def renumber_face_down(self) -> bool:
         """406.3, 708.5: at the end of the intent (so nothing that is still working with the old ids breaks), the cards that became face

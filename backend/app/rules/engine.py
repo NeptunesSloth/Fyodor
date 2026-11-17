@@ -448,6 +448,7 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
                 elif plan.rules.decision is not None:
                     raise _Stop("it needed a choice")
                 intent = A.parse_action(payload)
+                plan.chain = None  # (-- runaway chains -- each repeated intent counts its own resolutions, as it would played by hand)
                 INTENTS[intent.type](plan, intent)
                 settle(plan)
                 if plan.rules.decision is not None and (i + 1 == len(seq) or seq[i + 1]["type"] != "choose"):
@@ -542,10 +543,14 @@ def is_stop(plan: Plan, player: str) -> bool:
             prefs.stop_after = None
             return True
     if prefs.pass_until is not None:
-        if not pass_until_met(plan, player, prefs):
+        if not pass_until_met(plan, player, prefs) and not new_response(plan, player, prefs):
             return False
-        prefs.pass_until, prefs.pass_mark = None, ""
-        return True
+        until = prefs.pass_until
+        prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
+        if until != "stack_changes" or plan.state.zones.get(STACK):
+            return True
+        # RESOLVE (the top object) emptied the stack: the usual stops decide, as after any pass (a lone spell resolves and play
+        # goes on with one press). With something still on the stack the player gets priority back (117.3b): one object a press.
     if prefs.full_control or not plan.options.auto_priority_pass or prefs.response == "on":
         return True
     phase = plan.state.turn.phase
@@ -558,6 +563,35 @@ def is_stop(plan: Plan, player: str) -> bool:
         # Only a turn's first main phase, and only if there is something at all to do there.
         return mine and phase == "main1" and casting.can_act(plan.state, player, plan.info)
     return (mine and phase == "main1") or phase in prefs.stops(mine)
+
+
+def new_response(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
+    """-- runaway chains -- while a PASS UNTIL … passes for ``player``: did a card arrive in their hand since (drawn while a chain of
+    triggers resolved) that they could cast right now at instant speed? Then the passing stops and they get priority (117.3b): they
+    chose to pass over what they had, not over what they hadn't seen yet. Only the player's own hand is read (nothing is revealed:
+    the stop looks like any other)."""
+    hand = plan.state.zones.get(zone_key(player, "hand"), [])
+    if not hand:
+        return False
+    before = set(prefs.pass_hand)
+    fresh = [cid for cid in hand if cid not in before]
+    if not fresh:
+        return False
+    state, info = plan.state, plan.info
+    for cid in fresh:
+        card = state.cards.get(cid)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        if ch.is_land:
+            continue
+        instant = "Instant" in ch.types or ch.has_flash or casting._flash_granted(state, player, card, ch, info) \
+            or casting.flash_if(ch) is not None
+        if instant and (casting.castable(state, player, card, info, check_priority=False)
+                        or casting.free_castable(state, player, card, info, check_priority=False)
+                        or casting.alt_castable(state, player, card, info, check_priority=False)):
+            return True
+    return False
 
 
 def advance(plan: Plan, *, checked: bool = False) -> None:
@@ -595,6 +629,7 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
             if plan.state.zones.get(STACK) and loop_pause(plan, players):
                 return
             if plan.state.zones.get(STACK):
+                _count_resolution(plan)
                 resolve_top_of_stack(plan)
             else:
                 next_step(plan)
@@ -624,10 +659,43 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
 # automatic passing stops between two resolutions and every player gets their choices back; each pass after that
 # carries on, and the pod can agree to a draw (End game → Propose).
 LOOP_PAUSE_SHARE = 0.6  # of plan.max_steps: past this, no further automatic resolution in this action
+# -- runaway chains -- a chain of mandatory triggers that keeps refilling the stack (Shabraz, the Skyshark and Marina Vendrell's Grimoire:
+# each draw gains life, each life gain draws) resolved dozens of objects in one action, passing for a player who had nothing to cast
+# yet, and showed nothing in between. At most this many objects resolve on automatic passes in one action once the stack has been
+# refilled (more resolved than were on it when the first one resolved: a tall stack of landfall triggers that only empties isn't a loop).
+LOOP_RESOLUTIONS = 20
+
+
+class _Chain:
+    """The objects resolved in this action (``Plan.chain``): how many, how tall the stack was before the first, and the cards each
+    player had drawn this turn by then (a public count)."""
+
+    __slots__ = ("base", "drew", "n")
+
+    def __init__(self, base: int, drew: dict[str, int]) -> None:
+        self.base, self.drew, self.n = base, drew, 0
+
+
+def _count_resolution(plan: Plan) -> None:
+    chain = getattr(plan, "chain", None)
+    if chain is None:
+        from app.rules import history
+
+        chain = plan.chain = _Chain(len(plan.state.zones.get(STACK, [])), dict(history.log_for(plan).drew))
+    chain.n += 1
+
+
+def runaway(plan: Plan) -> int:
+    """How many objects this action resolved, once that is a runaway chain (else 0)."""
+    chain = getattr(plan, "chain", None)
+    if chain is None or chain.n < LOOP_RESOLUTIONS or chain.n <= chain.base:
+        return 0
+    return chain.n
 
 
 def loop_pause(plan: Plan, players: list[str]) -> bool:
-    if not plan.max_steps or len(plan.steps) < plan.max_steps * LOOP_PAUSE_SHARE:
+    looping = runaway(plan)
+    if not looping and (not plan.max_steps or len(plan.steps) < plan.max_steps * LOOP_PAUSE_SHARE):
         return False
     r = plan.rules
     r.passed, r.auto_pass = [], None
@@ -635,7 +703,18 @@ def loop_pause(plan: Plan, players: list[str]) -> bool:
     for pid in players:
         prefs = plan.rules.prefs.get(pid)
         if prefs is not None:
-            prefs.pass_until, prefs.pass_mark = None, ""
+            prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
+    if looping:
+        from app.rules import history
+
+        chain, drew = plan.chain, history.log_for(plan).drew
+        told = ", ".join(f"{plan.state.players[pid].name} drew {n}" for pid in plan.state.seat_order
+                         if (n := drew.get(pid, 0) - chain.drew.get(pid, 0)) > 0)
+        plan.chain = None  # (a pass after this one starts a new count)
+        plan.note(f"This keeps repeating: {looping} objects resolved in a row{f' ({told})' if told else ''}. Automatic passing stopped so "
+                  "you can respond. Resolve to go on one object at a time, or Resolve all for another round; if it can never end, "
+                  "the game is a draw (104.4b): propose one from End game.")
+        return True
     plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
               "the game is a draw (104.4b): propose one from End game.")
     return True
@@ -649,6 +728,7 @@ def pass_priority(plan: Plan, a: A.PassPriority) -> None:
             raise ActionError("The stack is empty")
         prefs = plan.prefs(plan.actor)
         prefs.pass_until, prefs.pass_mark = a.until, pass_mark(plan, a.until)
+        prefs.pass_hand = list(plan.state.zones.get(zone_key(plan.actor, "hand"), []))  # (-- runaway chains -- new_response)
     if plan.actor not in plan.rules.passed:
         plan.rules.passed.append(plan.actor)
     plan.rules.priority = plan.after(plan.actor)
@@ -1901,7 +1981,7 @@ def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
         if value is not None:
             setattr(prefs, key, list(value) if isinstance(value, list) else value)
     if a.cancel_pass:
-        prefs.pass_until, prefs.pass_mark, prefs.stop_after = None, "", None
+        prefs.pass_until, prefs.pass_mark, prefs.stop_after, prefs.pass_hand = None, "", None, []
     if a.forget_trigger_orders:  # -- trigger order memory --
         prefs.trigger_orders = []
     elif a.forget_trigger_order is not None and a.forget_trigger_order < len(prefs.trigger_orders):

@@ -185,7 +185,7 @@ Response = Literal["off", "auto", "on"]
 # is theirs (targets, blockers, discard…), and a forced stop always wins.
 PassUntil = Literal[
     "next_action",  # until another player does something (casts, activates, plays, attacks)
-    "stack_changes",  # until an object is added to or leaves the stack ("resolve one")
+    "stack_changes",  # until an object is added to or leaves the stack ("resolve": the top object; with the stack empty then, the usual stops)
     "stack_empty",  # until the stack is empty ("resolve all until decision")
     "next_step",  # until the next step or phase
     "next_turn",  # until the next turn
@@ -239,6 +239,9 @@ class PlayerPrefs(BaseModel):
     force_stop: bool = False  # the next priority is a stop, whatever else is set (consumed)
     pass_until: PassUntil | None = None
     pass_mark: str = Field(default="", max_length=400)  # the situation when pass_until was set
+    # -- runaway chains -- the cards in hand when pass_until was set: a card that arrives while passing (drawn during a chain of triggers)
+    # and could be cast at instant speed ends the passing (engine.new_response). Private like the hand itself (never in a view)
+    pass_hand: list[str] = Field(default_factory=list)
     stop_after: str | None = None  # object id: stop once it has left the stack ("hold after this resolves")
     yields: list[Yield] = Field(default_factory=list, max_length=50)
 

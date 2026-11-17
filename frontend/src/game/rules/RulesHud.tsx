@@ -10,7 +10,7 @@ import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete, imageUrl } from "../../services/cards";
-import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
@@ -236,6 +236,26 @@ const NEXT_VERB: Record<PhaseName, string> = {
   main2: "To end step", end: "End turn", cleanup: "Next turn",
 };
 
+/** The big button's tooltip: with a stack, RESOLVE is the top object only (intents.passOrResolve). */
+export function passTitle(stack: boolean): string {
+  return stack
+    ? "Resolve the top object of the stack. You get priority back after it resolves while anything is left on the stack, so you can respond to each trigger (P)"
+    : "Pass priority (P)";
+}
+
+export const RESOLVE_ALL_TITLE =
+  "Keep passing until the stack is empty. Stops when you draw a card you could cast now, and after 20 objects if the stack keeps refilling (a loop)";
+
+const PASSING: Record<string, string> = {
+  stack_changes: "Resolving the top object", stack_empty: "Resolving all", next_action: "Passing until someone acts",
+  next_step: "Passing to the next step", next_turn: "Passing to the next turn", my_turn: "Passing until my turn", combat: "Passing until combat",
+};
+
+/** The banner of a PASS UNTIL … in progress (its cancel button). */
+export function passingLabel(until: string): string {
+  return PASSING[until] ?? `Passing until ${until.replace(/_/g, " ")}`;
+}
+
 /** What someone else's decision is, in a few words ("Waiting for Casey: choosing blockers"). */
 const DECIDING: Partial<Record<string, string>> = {
   declare_attackers: "declaring attackers", declare_blockers: "choosing blockers", choose_one: "choosing an option",
@@ -333,13 +353,12 @@ export function TurnDial() {
         </div>
         {auto && mine && (
           <>
-            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>
+            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? passTitle(stack)} disabled={deciding} onClick={() => void passOrResolve(view.stack.length)}>
               {verb}
             </button>
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked ?? RESOLVE_ALL_TITLE} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
@@ -365,7 +384,7 @@ export function TurnDial() {
         )}
         {auto && prefs?.pass_until && (
           <button className="tt-btn ghost td-cancel" data-testid="cancel-pass" onClick={() => void setPrefs({ cancel_pass: true })}>
-            Passing until {prefs.pass_until.replace("_", " ")}: cancel
+            {passingLabel(prefs.pass_until)}: cancel
           </button>
         )}
         {auto && prefs && (

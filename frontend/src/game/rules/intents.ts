@@ -167,6 +167,14 @@ export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): vo
 }
 
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });
+/**
+ * RESOLVE (the priority bar's big button, and P): with something on the stack, resolve the top object only. The server passes for you
+ * until the stack changes, so you get priority back after each resolution while anything is left on it (CR 117.3b, 608.2): a chain of
+ * triggers resolves one press at a time and every draw is seen. Once the stack is empty your usual stops decide (a lone spell: one
+ * press, then play goes on as before). With an empty stack it is a plain pass (the next step).
+ */
+export const RESOLVE_UNTIL = "stack_changes";
+export const passOrResolve = (stackSize: number) => passPriority(stackSize > 0 ? RESOLVE_UNTIL : undefined);
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });
 /** Answer a "choose a card name" decision (CR 201.4): the typed Oracle name (the server checks it). */

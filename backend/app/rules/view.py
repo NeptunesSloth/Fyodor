@@ -90,7 +90,7 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "overrides": r.overrides,
         "decision": None,
         # Only your own preferences (your yields and payment settings are nobody else's business).
-        "prefs": prefs.model_dump(exclude={"pass_mark"}) if prefs else None,
+        "prefs": prefs.model_dump(exclude={"pass_mark", "pass_hand"}) if prefs else None,
         "reconcile": [i.model_dump() for i in r.reconcile],
         "card_modes": {cid: m for cid, m in r.card_modes.items()
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
