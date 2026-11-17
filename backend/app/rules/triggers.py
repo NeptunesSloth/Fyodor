@@ -3183,8 +3183,14 @@ def remember_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
-    return plan.rules.prefs_for(player).auto_order_identical_triggers and len({t.key for t in mine}) == 1 \
-        and not any(t.ability.get("target") or t.ability.get("targets") for t in mine)
+    if not plan.rules.prefs_for(player).auto_order_identical_triggers or len({t.key for t in mine}) != 1:
+        return False
+    if not any(t.ability.get("target") or t.ability.get("targets") for t in mine):
+        return True
+    # -- second pass S3 -- one object's ability triggering again on the same event (Panharmonicon, Teysa Karlov: 603.2d) is the same
+    # ability twice: whichever goes first, each gets its own targets as it is put on the stack (603.3d), so there is no order to choose
+    return len({t.source_object for t in mine}) == 1 and len({t.event.model_dump_json() if t.event is not None else "" for t in mine}) == 1 \
+        and len({json.dumps(t.ability, sort_keys=True, default=str) for t in mine}) == 1
 
 
 # -- damage wordings (wave 6B) --
