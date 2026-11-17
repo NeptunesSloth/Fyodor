@@ -221,7 +221,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         <div className="t3d-seat-main">
           <button className="seat-who seat-hand-chip" onClick={onToggle} data-testid={`seat-${player}`} aria-expanded={open}
             aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.hand_count} cards in hand, ${p.life} life${active ? ", their turn" : ""}. Open player panel`}
-            title={`${p.name}${player === me ? " (you)" : ""}${monarch ? " ♚ (the monarch)" : ""}: ${p.hand_count} cards in hand. Click for commander damage and counters`}>
+            title={`${seatName(p)}${player === me ? " (you)" : ""}${monarch ? " ♚ (the monarch)" : ""}: ${p.hand_count} cards in hand. Click for commander damage and counters`}>
             <HandGlyph />
             <span className="seat-hand-n">{p.hand_count}</span>
           </button>
@@ -241,7 +241,8 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
           <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
-          <span className="t3d-seat-name">{seatName(p)}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
+          {/* (a bot's level is on its Bot badge below: the name alone fits the plaque, the full "Opponent (Advanced)" on hover) */}
+          <span className="t3d-seat-name" title={p.bot ? seatName(p) : undefined}>{p.bot ? p.name : seatName(p)}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}
