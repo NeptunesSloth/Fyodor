@@ -763,6 +763,37 @@ function NumberChoice({ d }: { d: DecisionView }) {
   );
 }
 
+/** -- playtest (nov 17) -- the list form of a one-click choice: digit `key` picks the option at that place (1–9, 0 for the tenth), or
+ * null (not a digit). The camera's player keys 2–6 moved the view instead. */
+export function digitPick(key: string): number | null {
+  if (!/^\d$/.test(key)) return null;
+  return key === "0" ? 9 : Number(key) - 1;
+}
+
+/** The answer buttons of the open decision panel, in the order shown (not Cancel, not the filter box). */
+const PICKS = '[data-testid="decision-panel"] button[data-testid^="option-"]:not([data-testid="option-cancel"]):not(:disabled)';
+
+/** Digits pick the open list's options while it is shown (capture phase: ahead of the camera keys), unless the player is typing. */
+function useDigitPicks(on: boolean, id: string) {
+  useEffect(() => {
+    if (!on) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (t?.closest("input, textarea, select, [contenteditable]") || document.querySelector(".modal-backdrop, .ctx-menu")) return;
+      const at = digitPick(e.key);
+      if (at === null) return;
+      const button = document.querySelectorAll<HTMLButtonElement>(PICKS)[at];
+      if (!button) return;
+      e.preventDefault();
+      e.stopImmediatePropagation(); // (the digit is the list's, not the camera's)
+      button.click();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [on, id]);
+}
+
 function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
@@ -781,6 +812,9 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const exactly = typeof d.display?.exactly === "number" ? d.display.exactly : undefined; // (pod audit: "Sacrifice two …": none or both)
   // modes and other sentences (no card, a long label): one per line, read left to right (rules.css)
   const sentences = options.length > 0 && options.every((o) => !o.card_id) && options.some((o) => o.label.length > 28) ? { "data-modes": "" } : {};
+  const oneClick = d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution";
+  const answers = options.filter((o) => o.group !== "seen").length;
+  useDigitPicks(oneClick && answers > 1 && options[0]?.id !== NAME_OPTION && options[0]?.id !== NUMBER_OPTION, d.id);
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
@@ -820,6 +854,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
           </select>
         )}
         {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
+        {answers > 1 && answers <= 10 && !filter && <span className="decision-keys hint" data-testid="decision-keys">Keys 1–{answers === 10 ? "9, 0" : answers} pick in order</span>}
       </div>
     );
   }
