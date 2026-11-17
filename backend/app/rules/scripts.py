@@ -6297,6 +6297,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     nm = re.match(r"^if it isn't a mana ability, ", body)
                     if nm:
                         body = body[nm.end():]
+                        cond["nonmana"] = True  # (603.4: the intervening if — mana abilities fire "activate" too, with mana_ability set)
                     elif not cond["nonmana"] and not cond.get("ability_targets"):  # (wave 23B: an ability with a target is no mana ability, 605.1a)
                         from app.rules import mana_activation_watchers50
 
