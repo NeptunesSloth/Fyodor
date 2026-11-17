@@ -25,6 +25,7 @@ SUMMARY_COLUMNS = (
     "p.legalities, p.released_at, p.artist, p.edhrec_rank"
 )
 # Layouts whose faces each have their own image and which can be turned over.
+MAX_TOKEN_ART_FALLBACK = 120  # -- engine token art -- token printings of a name token_art looks through
 DOUBLE_FACED_LAYOUTS = {"transform", "modal_dfc", "double_faced_token", "reversible_card", "meld", "battle"}
 
 
@@ -46,6 +47,9 @@ class CardRepository:
         # the rules engine's reads (rules_card): one per printing per open database
         self._rules: dict[str, dict[str, Any] | None] = {}
         self._rules_for: sqlite3.Connection | None = None
+        # -- engine token art -- token_art's answers, per open database
+        self._token_art: dict[tuple[Any, ...], tuple[str, int] | None] = {}
+        self._token_art_for: sqlite3.Connection | None = None
         # -- same-card art -- a printing without a picture here shows another printing's of the same card (app/cards/art_fallback.py)
         self.art = ArtFallback(images, self._art_family)
 
@@ -351,6 +355,58 @@ class CardRepository:
         if not card:
             return []
         return card["related_tokens"]
+
+    # -- engine token art (app/cards/token_match.py) ------------------------------------
+    def token_art(self, source_id: str | None, name: str, type_line: str, power: str | None, toughness: str | None,
+                  colors: list[str]) -> tuple[str, int] | None:
+        """The token printing (and its picture face) that pictures a token the rules engine described, preferring the source
+        printing's related tokens; None when no token printing matches. Remembered per open database."""
+        from app.cards import token_match
+
+        want = token_match.wanted(name, type_line, power, toughness, colors)
+        key = (source_id, want)
+        with self._lock:
+            conn = self._connection()
+            if conn is not self._token_art_for:
+                self._token_art, self._token_art_for = {}, conn
+            if key in self._token_art:
+                return self._token_art[key]
+        source = self.rules_card(source_id) if source_id else None
+        related = [t["id"] for t in (source or {}).get("related_tokens") or []]
+        found = token_match.choose(related, self.rules_card, want, self._has_art)
+        if found is None:
+            found = token_match.choose(self._token_ids_named(name), self.rules_card, want, self._has_art)
+        with self._lock:
+            if len(self._token_art) > 4096:
+                self._token_art.clear()
+            self._token_art[key] = found
+        return found
+
+    def _token_ids_named(self, name: str) -> list[str]:
+        """Token printings named ``name`` (or with a face of that name), single-faced first, then newest first: ``token_art``'s
+        fallback."""
+        n = name.strip()
+        if not n:
+            return []
+        like = n.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        rows = self._query(
+            "SELECT id FROM printings WHERE is_token = 1 AND (name = ? COLLATE NOCASE OR name LIKE ? ESCAPE '\\' "
+            "OR name LIKE ? ESCAPE '\\') ORDER BY instr(name, ' // ') > 0, released_at DESC, set_code, collector_number, id "
+            f"LIMIT {int(MAX_TOKEN_ART_FALLBACK)}",
+            (n, like + " // %", "% // " + like),
+        )
+        return [r["id"] for r in rows]
+
+    def _has_art(self, card_id: str, face: int) -> bool:
+        """A picture of this printing's face shows here: its own (the cache or an art folder) or another printing's of it."""
+        if self.images.has(card_id, face):
+            return True
+        rows = self._query("SELECT oracle_id, layout, image_uris, card_faces FROM printings WHERE id = ?", (card_id,))
+        if not rows or not rows[0]["oracle_id"]:
+            return False
+        r = rows[0]
+        return self.art.find(card_id, r["oracle_id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"]),
+                             face=face) is not None
 
     # -- same-card art ----------------------------------------------------------------
     def _art_family(self, oracle_id: str) -> list[Sibling]:

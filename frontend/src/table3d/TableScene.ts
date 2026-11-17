@@ -74,6 +74,7 @@ import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
+import { tokenArtFace, tokenArtId } from "../game/tokenArt";
 import { Cursors3D, type CursorMessage } from "./cursors3d";
 import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
@@ -1328,7 +1329,10 @@ export class TableScene {
       return `ability:${card.ability.source_card_id ?? ""}:${src?.has_image ? "img" : "txt"}:${card.ability.kind}:${card.ability.source_name ?? ""}:${card.ability.text}`;
     }
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-    const look = data ? (data.has_image ? "img" : "txt") : "pending";
+    // -- engine token art -- a described token pictured by a token printing: that picture, once it is known to be here
+    const artId = tokenArtId(card);
+    const art = artId ? useCardCache.getState().cards[artId] : undefined;
+    const look = data ? (data.has_image ? "img" : "txt") : art?.has_image ? `art-${art.id}-${tokenArtFace(card)}` : "pending";
     // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
@@ -1354,10 +1358,13 @@ export class TableScene {
     const vis = card as Extract<GameCard, { hidden?: undefined }>;
     const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
     const text = () => textCardTexture(data, vis.face ?? 0, vis.name);
+    const artId = tokenArtId(card); // -- engine token art --
     let tex: THREE.Texture;
     if (data?.has_image) {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
+    } else if (!data && artId && useCardCache.getState().cards[artId]?.has_image) {
+      tex = this.loadTexture(imageUrl(artId, tokenArtFace(card), this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
     // printed card stock with a faint satin sheen from the room reflections
     // matte card stock: a glossy face catches the overhead light and washes the art out
@@ -1374,7 +1381,9 @@ export class TableScene {
       const vis = card as Extract<GameCard, { hidden?: undefined }>;
       const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
       const imgFace = data?.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
-      const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
+      const artId = tokenArtId(card); // -- engine token art -- the picture only; the tile's words stay the token's
+      const art = data?.has_image ? imageUrl(data.id, imgFace, "normal")
+        : artId && useCardCache.getState().cards[artId]?.has_image ? imageUrl(artId, tokenArtFace(card), "normal") : null;
       const t = vis.token;
       const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
       const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id), bare: !!this.placed.get(card.id)?.under },
@@ -1501,6 +1510,8 @@ export class TableScene {
       const c = this.cards.get(id) ?? this.makeCard(id);
       c.seen = true;
       if (isVisible(card) && card.card_id && !useCardCache.getState().cards[card.card_id]) need.push(card.card_id);
+      const artId = tokenArtId(card); // -- engine token art --
+      if (artId && !useCardCache.getState().cards[artId]) need.push(artId);
       const src = isVisible(card) ? card.ability?.source_card_id : null;
       if (src && !useCardCache.getState().cards[src]) need.push(src);
       const key = this.faceKeyFor(card);

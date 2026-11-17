@@ -11,11 +11,13 @@ import { isVisible, type CardStats, type GameCard } from "../types/game";
 import { sleeveStyle, useSleeve } from "./appearance";
 import { GameCardFace } from "./GameCardFace";
 import { Icon } from "../components/Icon";
+import { tokenArtFace, tokenArtId } from "./tokenArt";
 
 /** `stats`: the rules' P/T for it, packed by `packStats` (a string, so a fresh stats object with the same values re-renders nothing). */
 export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: GameCard; stats?: string }) {
   const visible = isVisible(card);
   const data = useCard(visible && !card.face_down ? card.card_id : null);
+  const tokenArt = useCard(visible && !card.face_down ? tokenArtId(card) : null); // -- engine token art -- the picture only
   const sleeve = sleeveStyle(useSleeve(card.owner));
   const [failed, setFailed] = useState<string | null>(null);
   const custom = visible && !card.card_id && card.token
@@ -40,7 +42,7 @@ export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: G
   if (card.ability) return <GameCardFace card={card} />;
 
   const imgFace = data?.double_faced ? Math.min(face, Math.max(0, data.image_faces - 1)) : 0;
-  const src = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
+  const src = data?.has_image ? imageUrl(data.id, imgFace, "normal") : tokenArt?.has_image ? imageUrl(tokenArt.id, tokenArtFace(card), "normal") : null;
   const art = src && failed !== src ? src : null;
   const frame = p ? PALETTE[p.frame].frame : PALETTE.C.frame;
   const style = {

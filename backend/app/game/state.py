@@ -86,6 +86,10 @@ class TokenDef(BaseModel):
     # -- keyword actions & face-down (wave 3F) -- a double-faced token's back face (111.10i: the Incubator's
     # "Phyrexian Token"); ``CardInstance.face`` 1 means it's transformed (701.27)
     back: TokenDef | None = None
+    # -- engine token art -- a token the engine described (no ``card_id``): the token printing that pictures it, picture only (its
+    # characteristics stay the ones above), and that printing's picture face (app/cards/token_match.py)
+    art_id: str | None = None
+    art_face: int = 0
 
 
 class Effect(BaseModel):

@@ -58,6 +58,9 @@ export interface TokenDef {
   colors: string[];
   type_line: string;
   text: string;
+  /** -- engine token art -- a described token (no `card_id`): the token printing that pictures it (picture only), and its face. */
+  art_id?: string | null;
+  art_face?: number;
 }
 
 export interface AttackTarget {

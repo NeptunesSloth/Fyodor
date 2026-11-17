@@ -6,6 +6,7 @@ import { useCard } from "../state/cardCache";
 import { isVisible, type GameCard } from "../types/game";
 import { counterName, counterShort } from "./counters";
 import { addCounter } from "./actions";
+import { tokenArtFace, tokenArtId } from "./tokenArt";
 
 /** Draws any game object: hidden card back, face-down card, ability, custom token or real card. */
 export const GameCardFace = memo(function GameCardFace({ card, size = "normal", peek = false }: { card: GameCard; size?: "small" | "normal" | "large"; peek?: boolean }) {
@@ -14,6 +15,8 @@ export const GameCardFace = memo(function GameCardFace({ card, size = "normal", 
   const sleeve = sleeveStyle(useSleeve(card.owner));
   // a triggered or activated ability on the stack shows its source's art (the printing the server names; fetched with the view)
   const source = useCard(visible && card.ability ? card.ability.source_card_id : null);
+  // -- engine token art -- a token the engine described: a matching token printing's picture (its own text and stats otherwise)
+  const art = useCard(tokenArtId(card));
   if (!visible) return <CardFace faceDown backStyle={sleeve} />;
   if (card.face_down && !peek) {
     return (
@@ -41,6 +44,8 @@ export const GameCardFace = memo(function GameCardFace({ card, size = "normal", 
     return (
       <CardFace
         size={size}
+        card={art?.has_image ? art : undefined}
+        face={tokenArtFace(card)}
         custom={{
           name: card.token.name,
           type_line: card.token.type_line,

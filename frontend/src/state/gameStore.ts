@@ -20,6 +20,7 @@ import { reconcile } from "./reconcile";
 import { publishTableEvents } from "../game/motion/tableEvents";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
+import { tokenArtId } from "../game/tokenArt";
 import { undoActor, undoMode, undoRefusal, type UndoOp } from "../game/undoPolicy";
 import { finalBoardRefusal } from "../game/finalBoard";
 import { actionRefusal } from "../game/cardPermissions";
@@ -193,6 +194,8 @@ export const useGame = create<GameStore>((set, get) => ({
         for (const c of Object.values(view.cards)) {
           if (!c.hidden && c.card_id) ids.push(c.card_id);
           if (!c.hidden && c.ability?.source_card_id) ids.push(c.ability.source_card_id);
+          const art = tokenArtId(c); // -- engine token art --
+          if (art) ids.push(art);
         }
         for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
         requestCards(ids);

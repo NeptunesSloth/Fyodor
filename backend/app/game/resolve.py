@@ -145,7 +145,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         if not a.stacked and a.count > A.MAX_SEPARATE_TOKENS:  # -- big token counts -- more than that is one card ×N
             raise ActionError(_too_many(state, f"{a.count:,} tokens", A.MAX_SEPARATE_TOKENS))
         a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
-        a.resolved_token = _token_def(a.token, info)
+        a.resolved_token = _token_def(a.token, info, _source_printing(state, a.source_id, actor))
         if a.x is None or a.y is None:
             pid = a.player or actor
             a.x, a.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(a.resolved_token.type_line))
@@ -357,7 +357,31 @@ def _rng_int(rng: Any, lo: int, hi: int) -> int:
     return int(rng.randint(lo, hi))
 
 
-def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
+def _source_printing(state: GameState, source_id: str | None, actor: str) -> str | None:
+    """-- engine token art -- the printing of the card that made a token (its Scryfall related tokens picture it first), when every
+    player can see that card (a face-down or hidden source's printing would show through the picture chosen)."""
+    if not source_id:
+        return None
+    from app.game import ops
+
+    source = state.cards.get(resolve_placeholder(state, source_id, actor))
+    return source.card_id if source is not None and not source.face_down and ops.visible_to_all_players(state, source) else None
+
+
+def _token_art(spec: A.TokenSpec, info: CardInfo, source_printing: str | None) -> dict[str, Any]:
+    """-- engine token art -- a described token's picture: the matching token printing (app/cards/token_match.py), looked up once
+    here so the recorded action keeps it (replays, undo and saves show the same picture whatever the card database says later)."""
+    find = getattr(info, "token_art", None)
+    if find is None:
+        return {}
+    try:
+        found = find(source_printing, spec.name, spec.type_line, spec.power, spec.toughness, list(spec.colors))
+    except Exception:  # noqa: BLE001 - a picture is a nicety: no card database (or a broken one) leaves the token's proxy
+        return {}
+    return {"art_id": found[0], "art_face": found[1]} if found else {}
+
+
+def _token_def(spec: A.TokenSpec, info: CardInfo, source_printing: str | None = None) -> TokenDef:
     if spec.card_id:
         data = info.get(spec.card_id)
         if data is None:
@@ -381,7 +405,8 @@ def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
         type_line=spec.type_line,
         text=spec.text,
         mana_cost=spec.mana_cost,  # (wave 49D)
-        back=_token_def(spec.back, info) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
+        back=_token_def(spec.back, info, source_printing) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
+        **_token_art(spec, info, source_printing),
     )
 
 
