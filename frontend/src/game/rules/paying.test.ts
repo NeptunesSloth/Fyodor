@@ -19,3 +19,12 @@ describe("paying a cost keeps the lands in view", () => {
     expect(paying(null, "p1")).toBe(false);
   });
 });
+
+describe("the tap-mana plaque's title (playtest nov 16: \"Cast cost … for the planar die\")", () => {
+  it("names a roll, an activation or a cast", async () => {
+    const { payTitle } = await import("./RulesHud");
+    expect(payTitle("the planar die")).toBe("Roll cost");
+    expect(payTitle("Basalt Monolith's ability")).toBe("Activation cost");
+    expect(payTitle("Lightning Bolt")).toBe("Cast cost");
+  });
+});

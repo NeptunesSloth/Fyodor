@@ -457,6 +457,15 @@ export function paying(view: GameView | null, me: string): boolean {
   return d.display?.kind === "tap_mana" || d.display?.kind === "payment" || /tap (?:your )?(?:mana|lands)/i.test(d.prompt ?? "");
 }
 
+/** The rules engine's name for the planar die as a payment's object (app/rules/planar_die.py WHAT). */
+const PLANAR_DIE = "the planar die";
+
+/** -- playtest (nov 16) -- the tap-mana plaque's title: "Cast cost" read oddly over the planar die's roll and over an ability. */
+export function payTitle(what: string): string {
+  if (what === PLANAR_DIE) return "Roll cost";
+  return /\bability\b/i.test(what) ? "Activation cost" : "Cast cost";
+}
+
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
 export function DecisionPanel() {
   const ctx = useRules();
@@ -584,10 +593,10 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
   return (
     <div className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
       <div className="pay-head">
-        <span className="pay-title">Cast cost</span>
+        <span className="pay-title">{payTitle(info.what)}</span>
         <span className="pay-cost"><ManaText text={info.cost} /></span>
       </div>
-      <div className="pay-what">for {info.what}</div>
+      <div className="pay-what">{info.what === PLANAR_DIE ? "to roll the planar die" : `for ${info.what}`}</div>
       <div className="decision-hint">Tap your lands and mana sources: click a highlighted card on the table (or below).</div>
       {(info.paid ?? []).length > 0 && (
         <ul className="pay-paid" data-testid="pay-paid">
