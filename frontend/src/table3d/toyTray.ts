@@ -96,7 +96,7 @@ export class ToyTrayScene {
     this.renderer.setClearColor(0x000000, 0);
     if (this.renderer.shadowMap) {
       this.renderer.shadowMap.enabled = quality === "high";
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed in three: same result, no warning)
     }
     try {
       // soft studio reflections for the glossy dice (no download)

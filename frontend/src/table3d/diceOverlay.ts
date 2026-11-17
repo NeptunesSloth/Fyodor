@@ -54,7 +54,7 @@ export class DiceOverlay {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed in three: same result, no warning)
     try {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       const room = new RoomEnvironment();

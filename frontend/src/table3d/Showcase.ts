@@ -48,7 +48,7 @@ export class Showcase {
   private env: Environment | null = null;
   private props = new THREE.Group();
   private raf = 0;
-  private clock = new THREE.Clock();
+  private clock = new THREE.Timer();
   private disposables: { dispose(): void }[] = [];
   /** Bumped by every plane change and by dispose: a card back that arrives for an older scene is dropped. */
   private generation = 0;
@@ -214,7 +214,8 @@ export class Showcase {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
-    const t = this.clock.getElapsedTime();
+    this.clock.update();
+    const t = this.clock.getElapsed();
     const a = 0.35 + Math.sin(t * 0.05) * 0.35;
     this.camera.position.set(Math.sin(a) * 19, 11.5, Math.cos(a) * 19);
     this.camera.lookAt(-2, 0, 1);

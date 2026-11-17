@@ -324,7 +324,7 @@ export class TableScene {
   private view: GameView | null = null;
   private me = "";
   private raf = 0;
-  private clock = new THREE.Clock();
+  private clock = new THREE.Timer(); // (THREE.Clock is deprecated since r183: a console warning on every 3D load)
   private ray = new THREE.Raycaster();
   private tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private camPos = new THREE.Vector3(0, 30, 30);
@@ -442,7 +442,7 @@ export class TableScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = quality !== "low";
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed: three fell back to this, with a warning)
     this.canvas = this.renderer.domElement;
     this.canvas.className = "table3d-canvas";
     this.canvas.dataset.drop3d = "";
@@ -2778,8 +2778,9 @@ export class TableScene {
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     const started = performance.now();
+    this.clock.update();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
-    const t = this.clock.elapsedTime;
+    const t = this.clock.getElapsed();
     const reduced = document.body.classList.contains("reduced-motion");
     // empty pile outlines stay faint until a drag needs them as drop targets
     const anyDrag = document.body.classList.contains("dragging");
