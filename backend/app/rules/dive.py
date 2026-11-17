@@ -35,7 +35,7 @@ MEANING = "can't be blocked until it deals combat damage while attacking"
 ATTACKING = "until_combat_damage_attacking"
 ANY = "until_combat_damage"
 
-_DIVES = re.compile(r"\b(?P<who>~|[Ii]t|[Tt]hat creature|[Tt]arget creature(?: you control)?) dives\b")
+_DIVES = re.compile(r"(?<![A-Za-z])(?P<who>~|[Ii]t|[Tt]hat creature|[Tt]arget creature(?: you control)?) dives\b")
 _DEVOURED = re.compile(r"^(?:it|this creature|this permanent|~) devoured (?:an? creature|(?P<n>\w+) or more creatures)$")
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
@@ -68,7 +68,7 @@ def departed(plan: Plan) -> None:
     live = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
     ended = []
     for e in list(r.effects):
-        if e.duration not in (ATTACKING, ANY):
+        if e.duration not in (ATTACKING, ANY) or e.who:  # (a group effect names no object of its own)
             continue
         kept = [oid for oid in e.affected if oid in live]
         if not kept:

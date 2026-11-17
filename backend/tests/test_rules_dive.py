@@ -54,6 +54,9 @@ def test_the_spelled_out_reminder_reads_the_same(cards):
     assert coverage.of_card_data(group).level != "FULL"
     assert dive.rewrite("When ~ enters, if it devoured a creature, it dives.") == \
         "When ~ enters, if it devoured a creature, it can't be blocked until it deals combat damage while attacking."
+    assert dive.rewrite("Whenever ~ attacks, ~ dives.") == "Whenever ~ attacks, ~ can't be blocked until it deals combat damage while attacking."
+    own_name = dict(cards.resolve("Reef Diver"), oracle_text="Whenever Reef Diver attacks, Reef Diver dives.")  # (the card's own name: "~ dives")
+    assert coverage.of_card_data(own_name).level == "FULL"
     assert "dive" in coverage.SUPPORTED_KEYWORD_ACTIONS
 
 
