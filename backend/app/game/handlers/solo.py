@@ -84,6 +84,7 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
         raise ActionError("unresolved restart")
     if a.fresh:
         _start_over(state, a)
+        _first_turn(state, a)
         return
     rules_restart = a.first is not None  # -- wave 110A -- 727: a restart by Karn Liberated, run by the rules engine
     from app.game.control import _live
@@ -128,6 +129,15 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
         log(state, a.actor, a.ts, [pname(state, a.first), text(" restarted the game (Karn Liberated, 727): a new game begins")])
         return
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" restarted the game: every deck reset and shuffled")])
+    _first_turn(state, a)
+
+
+def _first_turn(state: GameState, a: A.RestartGame) -> None:
+    """-- first turn (S7) -- 502.4: no priority in the new game's untap step; the engine's compiled steps carry it on (app/game/resolve.py)."""
+    if a.opening:
+        from app.game.handlers.rules import replay_steps
+
+        replay_steps(state, a.opening)
 
 
 def _start_over(state: GameState, a: A.RestartGame) -> None:

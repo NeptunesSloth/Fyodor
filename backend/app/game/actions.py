@@ -748,6 +748,9 @@ class RestartGame(Base):
     # -- test-table ending -- "Start over": a new game at the same table (every seat, the dummies too, back in it; the rules
     # started afresh with nothing of the old game; the opening hands again), the first player not a dummy going first
     fresh: bool = False
+    # -- first turn (S7) -- with the rules on and no mulligans: the compiled steps that carry the new game past its untap step (502.4:
+    # no priority there), like ``MulliganKeep.opening`` after the mulligans. Server-filled (app/game/resolve.py), never a client's.
+    opening: list[dict[str, Any]] | None = None
 
 
 class RestoreState(Base):

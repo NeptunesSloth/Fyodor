@@ -225,6 +225,24 @@ def compile_opening(state: GameState, actor: str, info: CardInfo, rng: Any) -> l
     return plan.steps
 
 
+def compile_first_turn(state: GameState, info: CardInfo, rng: Any) -> list[dict[str, Any]] | None:
+    """-- first turn (S7) -- 502.4: no player gets priority in the untap step. A new game with no pregame (no mulligans) begins in its
+    first untap step; the engine goes on at once to the first step that gives priority, as after the mulligans (opening_hand.finish:
+    priority none, then settle). None when there is nothing to do (rules off, opening hands still to settle, not at an untap step)."""
+    r = state.rules
+    if not automation_on(state) or r is None or state.pregame is not None or r.decision is not None or r.draw_reason is not None:
+        return None
+    if state.turn.phase != "untap" or state.zones.get(STACK) or r.paused:
+        return None
+    plan = Plan(state, state.turn.active_player, info, rng)
+    plan.rules.priority, plan.rules.passed = None, []
+    settle(plan)
+    permissions.refresh_reveals(plan.state, plan.info)
+    plan.rules.engine_version = RULES_ENGINE_VERSION
+    plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+    return plan.steps
+
+
 def begin(plan: Plan) -> None:
     """Before an intent: take in what happened by hand since the engine last acted (a land put
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
@@ -604,9 +622,6 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
         mana_named_land_profiles.refresh_reveals(plan)
         r = plan.rules
         if r.decision is not None or r.draw_reason is not None or (plan.state.pregame is not None and not plan.state.pregame.finished):  # (wave 110A: a restarted game's mulligans first)
-            return
-        if r.restart_hold110a:  # -- wave 110A -- 727.4: the restarted game waits at its untap step like a new one
-            r.restart_hold110a = False
             return
         # -- repeat speed -- after a check that left nothing to do, an automatic pass changes nothing it reads
         clean = checked or sba.check(plan)  # before anyone gets priority (rule 117.5)

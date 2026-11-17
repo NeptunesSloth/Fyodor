@@ -378,6 +378,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
     if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
+    session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
     created = _create_room(services, session, body.mode, body.password, body.host_seat)
     room = services.hub.get(state.id)
@@ -1259,6 +1260,7 @@ async def start_game(
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
         )
+        session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
         session.notice(f"Game started. {state.players[state.turn.active_player].name} goes first.")
         if night.order_source == "winner_last":
             session.notice(f"Turn order: {room.seat_name(night.previous_winner or '')} won the last game and goes last.")

@@ -231,9 +231,11 @@ def test_rules_tables_over_the_api(client):
     view = client.get(f"/api/games/{gid}/view?viewer=p1").json()
     assert view["rules"]["automation"] == "full" and view["rules"]["priority"] == "p1"
     assert view["game"]["settings"]["automation"] == "full"
+    # S7: nobody gets priority in the untap step (502.4): a new game is in its first main phase already, before any action
+    assert view["turn"]["phase"] == "main1"
     res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "pass_priority"}, "viewer": "p1"})
     assert res.status_code == 200, res.text
-    assert res.json()["turn"]["phase"] == "main1"
+    assert res.json()["turn"]["phase"] == "main2"
     forged = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "rules_sync", "rules": None}, "viewer": "p1"})
     assert forged.status_code in (409, 422)
 

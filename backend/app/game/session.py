@@ -59,6 +59,24 @@ class GameSession:
         self._bot_acting = False  # -- test opponent -- the server is playing for an opponent (app/game/bot.py)
         self.bot_memory: dict[str, Any] = {}  # -- test opponent -- what it tried this priority window (in memory: never replayed)
 
+    def begin_first_turn(self) -> None:
+        """-- first turn (S7) -- a new game with the rules on and no mulligans: 502.4, nobody gets priority in the first untap step, so
+        the engine goes on to the first step that gives priority (app/rules/engine.py compile_first_turn). Part of the game's starting
+        table: run before any action, the history starts from the table it leaves (undo can't take the game back into its untap step,
+        a replay starts where the game did). With mulligans the end of the pregame does the same (opening_hand.finish)."""
+        if self.history.actions:
+            return
+        import secrets
+
+        from app.game.handlers.rules import replay_steps
+        from app.rules.engine import compile_first_turn
+
+        steps = compile_first_turn(self.state, self.cards, secrets.SystemRandom())
+        if not steps:
+            return
+        replay_steps(self.state, steps)
+        self.history = History(self.state, limit=self.history.limit)
+
     # -- actions ---------------------------------------------------------------------
     def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
         """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.

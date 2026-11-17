@@ -42,7 +42,7 @@ def restart(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             keep.append(cid)
     plan.note(f"{ctx['name']}: the game restarts; {len(keep)} card(s) stay in exile", actor=ctx["controller"])
     plan.do({"type": "restart_game", "draw": 7, "first": ctx["controller"], "keep": keep}, actor=ctx["controller"])
-    plan.rules.restart_hold110a = True
+    # (-- first turn (S7) -- no hold at the new game's untap step: 502.4, no priority there; the engine goes on to its upkeep)
     plan.rules.stack.clear()  # (the resolving ability went with the old game; finish() copes with its absence)
     if plan.state.pregame is None:  # no mulligan process at this table: the new game begins at once
         enter(plan)

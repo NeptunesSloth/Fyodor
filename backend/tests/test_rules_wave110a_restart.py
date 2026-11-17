@@ -53,8 +53,11 @@ def test_restart_without_mulligans(cards):
     assert s.state.cards[karn.id].zone in ("p2:library", "p2:hand")  # (shuffled, then 7 drawn)  # 727.2: Karn goes back into his owner's deck
     assert s.state.cards[pacifism.id].zone in ("p3:library", "p3:hand")  # an Aura is not left in exile
     assert (s.state.cards[bears.id].zone, s.state.cards[bears.id].owner, s.state.cards[bears.id].controller) == ("p2:battlefield", "p1", "p2")  # 727.4, ruling
+    # S7: the new game doesn't wait in its untap step (502.4): on through upkeep and the draw step (three players: nobody skips it, 103.8c)
+    assert (s.state.turn.phase, s.state.rules.priority) == ("main1", "p2")
     for pid in ("p1", "p2", "p3"):
-        assert s.state.players[pid].life == 40 and len(s.state.zones[f"{pid}:hand"]) == 7 and s.state.players[pid].commander_damage == {}
+        drew = 1 if pid == "p2" else 0
+        assert s.state.players[pid].life == 40 and len(s.state.zones[f"{pid}:hand"]) == 7 + drew and s.state.players[pid].commander_damage == {}
         assert [s.state.cards[c].commander_key is not None for c in s.state.zones[f"{pid}:command"]] == [True]  # 903.8: the commanders are back
     assert set(s.state.players["p1"].commander_tax.values()) == {0}
     assert s.state.rules.controlled_since[bears.id].turn == 0  # under their control since the beginning of the first turn: it may attack

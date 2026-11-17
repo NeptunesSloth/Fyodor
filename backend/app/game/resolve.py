@@ -283,6 +283,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.verified = powder_ok(data)
     if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
         a.opening = _opening_steps(state, a, info, rng)
+    if isinstance(a, A.RestartGame) and a.first is None:  # (Karn Liberated's restart is an engine step: its own plan goes on, 727)
+        a.opening = _first_turn_steps(state, a, info, rng)
     return response.wrap(state, a)
 
 
@@ -337,6 +339,23 @@ def _opening_steps(state: GameState, a: A.MulliganKeep | A.MulliganBottom | A.Mu
     if sim.pregame is None or not sim.pregame.finished:
         return None
     return compile_opening(sim, a.actor, info, rng)
+
+
+def _first_turn_steps(state: GameState, a: A.RestartGame, info: CardInfo, rng: Any) -> list[dict[str, Any]] | None:
+    """-- first turn (S7) -- a restart (Start over) with the rules on and no mulligans: the steps that carry the new game past its first
+    untap step (502.4: no priority there), compiled against the table as the restart leaves it (app/rules/engine.py compile_first_turn).
+    A restart that deals opening hands again leaves a pregame: its end does it instead (opening_hand.finish)."""
+    if state.rules is None or state.settings.automation == "off":
+        return None
+    from app.game.engine import apply
+    from app.rules.engine import compile_first_turn
+
+    sim = state.model_copy(deep=True)
+    try:
+        apply(sim, a)
+    except ActionError:
+        return None  # (the real application raises the same error)
+    return compile_first_turn(sim, info, rng)
 
 
 def _out_of_the_game(state: GameState, actor: str) -> bool:

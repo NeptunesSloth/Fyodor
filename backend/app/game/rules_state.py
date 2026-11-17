@@ -1528,7 +1528,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
-    restart_hold110a: bool = False  # (wave 110A) a restart just happened: the priority loop stops once, at the new game's untap step (727.4)
+    restart_hold110a: bool = False  # (wave 110A) no longer read (S7: a restarted game doesn't wait at its untap step, 502.4); kept so older saves still load
     restart110a: dict[str, Any] | None = None  # (wave 110A) 727.4: a restart's kept cards [ids] and the starting player, until the pregame is over (opening_hand.finish)
     pin_collection110i: bool = False  # (wave 110I) a Pin Collection has had a sticker put on it: stickers101.continuous then looks for equipped creatures
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)

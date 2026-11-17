@@ -196,6 +196,7 @@ def rematch(services: Services, room: Room) -> None:
     if settings.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
+    session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
     night.number += 1
     night.order_source, night.rolls, night.previous_winner = source, rolls, winner
     night.proposal, night.result, night.votes = None, None, {}
