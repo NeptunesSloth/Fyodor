@@ -35,9 +35,11 @@ layer-6 effects; a subject that asks about keywords ("creatures with flying …"
 layer 6 is applied, until nothing changes; a pure 7c modification whose subject asks about power or
 toughness ("creatures with power 2 or less get +1/+1") is judged in 7c, after 7a, 7b and the 7c
 effects it depends on (613.6, 613.8a-c: ``_keyed_7c``); a rule static's condition that asks about
-power, toughness or keywords reads the other objects with every layer applied (``_whole_conditions``).
-Not modelled: a layer-6/7 static's condition or "for each" count reading another object's layer-6/7
-statics (read without them, as ``_T.depth`` keeps derivations finite).
+power, toughness or keywords reads the other objects with every layer applied (``_whole_conditions``),
+and so do a layer-6/7 static's condition and "for each" count that ask about them ("as long as an
+opponent controls a creature with flying", "+1/+1 for each other creature you control with flying":
+``_judged_whole``) — the static itself left out while it is judged (no effect depends on itself), two
+that read each other judged in timestamp order (613.8b), once per table state.
 Layers 1–5 (copy, control, text, color) are next; the model already carries the layer number.
 """
 
@@ -165,6 +167,10 @@ class _Derivation(threading.local):
         self.cda: set[str] = set()  # the objects whose characteristic-defining P/T is being read
         self.pt: dict[str, tuple[int, int] | None] = {}  # (wave 42A) the object whose rule static is being judged -> its power / toughness after layer 7
         self.rules_off = 0  # (cross-characteristic dependencies) a rule static's condition reading other objects whole: their own rule statics are not judged
+        # (whole conditions) the layer-6/7 statics whose condition or count is being judged on whole objects (``_judged_whole``), outermost
+        # first: (identity, timestamp key); and the ones a reading led back to (a dependency loop, 613.8b)
+        self.judging: list[tuple[tuple, tuple[int, int, int]]] = []
+        self.looped: set[tuple] = set()
 
 
 _T = _Derivation()
@@ -548,6 +554,74 @@ def _conditions(view: Plan, st: Static, tkey: tuple) -> bool:
     return hit
 
 
+def _static_conditions(view: Plan, st: Static, tkey: tuple) -> bool:
+    """A layer-6/7 static's conditions (``_conditions``); one that asks about power, toughness or keywords ("as long as you control a
+    creature with power 4 or greater", "… an opponent controls a creature with flying") reads the other objects whole (``_judged_whole``)."""
+    d = st.definition
+    if not d.get("conditions") or not _layered_condition(d):
+        return _conditions(view, st, tkey)
+    from app.rules import statics as grammar
+
+    return bool(_judged_whole(view, st, tkey, "conditions",
+                              lambda: grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)))
+
+
+_WHOLE_CACHE: dict[tuple, Any] = {}
+_UNSET = object()
+
+
+def _static_identity(st: Static) -> tuple:
+    d = st.definition
+    return (st.source, st.key, st.ability_index, st.ability_path, repr(d.get("who")), repr(d.get("conditions")),
+            repr((d.get("each") or {}).get("value")), repr(st.gate[1] if st.gate else None))
+
+
+def _judged_whole(view: Plan, st: Static, tkey: tuple, what: str, compute: Any, card_key: str = "") -> Any:
+    """-- whole conditions -- 611.3a, 613.8: a layer-6/7 static's condition or "for each" count that asks about what layers 6 and 7 make
+    of other objects (power, toughness, keywords) is read from them as every layer leaves them, their own layer-6/7 statics included —
+    the creature Levitation gives flying is "a creature with flying", the creature Glorious Anthem makes a 4/4 is "a creature with power
+    4 or greater". ``compute`` reads the table with derivations whole (``_T.depth`` 0) and rule statics off (``_T.rules_off``: they never
+    change power, toughness or abilities).
+
+    It ends, and is deterministic: while a static is judged it is on ``_T.judging``, and a reading that leads back to a static on it
+    leaves that static out (it does not apply in that reading: an effect never applies on the strength of itself). Two statics that
+    each read the other are a dependency loop (613.8b) and are applied in timestamp order: when a static judged inside another's reading
+    led back to an earlier one still being judged, it is the later of the loop and does not apply in that reading (the earlier one is
+    judged without it; it is judged afterwards, with the earlier one applied, by its own reading). Kept once per table state and per
+    chain of statics being judged (``_WHOLE_CACHE``). Returns the value, or None for a static left out."""
+    sid = _static_identity(st)
+    if any(j[0] == sid for j in _T.judging):
+        _T.looped.add(sid)
+        return None
+    chain = tuple(j[0] for j in _T.judging)
+    key = (tkey, sid, what, card_key, chain)
+    hit = _WHOLE_CACHE.get(key, _UNSET) if tkey else _UNSET
+    if hit is not _UNSET:
+        return hit
+    looped_before, _T.looped = _T.looped, set()
+    depth, _T.depth = _T.depth, 0
+    capture, _T.grant_capture45 = _T.grant_capture45, None
+    _T.rules_off += 1
+    _T.judging.append((sid, st.key))
+    try:
+        value = compute()
+    finally:
+        _T.judging.pop()
+        _T.rules_off -= 1
+        _T.grant_capture45 = capture
+        _T.depth = depth
+        looped, _T.looped = _T.looped, looped_before
+    looped.discard(sid)
+    _T.looped |= looped
+    if any(other in looped and stamp < st.key for other, stamp in _T.judging):
+        value = None  # (613.8b: the later static of a loop with one still being judged: it waits for that one)
+    if tkey:
+        if len(_WHOLE_CACHE) > 4096:
+            _WHOLE_CACHE.clear()
+        _WHOLE_CACHE[key] = value
+    return value
+
+
 def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
     """A granted static works while the static granting it applies to the object it's on."""
     if st.gate is None:
@@ -562,7 +636,7 @@ def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
     gate = Static(granter, source.controller, definition, 0)
     return (grammar.applies(view, definition, source=source, controller=source.controller, card=holder,
                             ch=copiable(view.state, holder, view.info),  # -- copy system (wave 2F): 613.2c --
-                            conditions=True) and _conditions(view, gate, tkey))
+                            conditions=True) and _static_conditions(view, gate, tkey))
 
 
 def probing(state: GameState, card: CardInstance) -> bool:
@@ -603,7 +677,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
                 continue
         elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
-        if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+        if solved or _static_conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
             if d.get("chosen_keywords"):  # -- commander sweep (wave 49B) -- "have each of the chosen abilities" (Greymond): the pair its permanent chose as it entered (614.12a), read now (the table is cached)
                 st = replace(st, definition={**d, "keywords": (source.choices.get("Chosen abilities") or "").split(" and ") if source.choices.get("Chosen abilities") else []})
             hits.append(st)
@@ -1455,7 +1529,7 @@ def _keyed_7c(state: GameState, info: CardInfo, keyed: list[Static], card: CardI
     tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate or st.definition.get("each") for st in keyed) else ()
     _T.depth += 1
     try:
-        live = [st for st in keyed if _gate_open(view, st, tkey) and _conditions(view, st, tkey)]
+        live = [st for st in keyed if _gate_open(view, st, tkey) and _static_conditions(view, st, tkey)]
         amounts = {id(st): _each_amount(view, st, tkey, card) for st in live if st.definition.get("each")}
 
         def delta(st: Static) -> tuple[int, int]:
@@ -1690,6 +1764,14 @@ def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int
 
     each = st.definition["each"]
     other = '"other":true' in repr(each["value"]) or "'relative'" in repr(each["value"])  # (wave 6C: about ``card``)
+    if _layered_value(each["value"]):  # -- whole conditions -- "for each other creature you control with flying": read whole (``_judged_whole``)
+        from app.rules import linked_aggregates
+
+        def count() -> int:
+            ctx = {**linked_aggregates.source_context(view, view.state.cards[st.source], st.definition), 'other_than': card.id}
+            return values.evaluate(view, ctx, each["value"])
+
+        return int(_judged_whole(view, st, tkey, "each", count, card.id if other else "") or 0)
     key = (tkey, st.source, st.controller, repr(each["value"]), card.id if other else "")
     hit = _EACH_CACHE.get(key) if tkey else None
     if hit is None:
@@ -1824,11 +1906,17 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
     return ch
 
 
+def _layered_value(value: Any) -> bool:
+    """-- whole conditions -- Does a "for each …" count ask about what layers 6 and 7 make of objects (power, toughness, keywords)?"""
+    text = repr(value)
+    return "power" in text or "toughness" in text or "keyword" in text
+
+
 def _layered_condition(d: dict[str, Any]) -> bool:
     """-- cross-characteristic dependencies -- Does the static's condition ask about what layers 6 and 7 make of other objects — power,
     toughness, keywords ("As long as you control a creature with power 4 or greater", Bristlepack Sentry, Drowsing Tyrannodon)?"""
     text = repr(d.get("conditions") or "")
-    return "power" in text or "toughness" in text or "keywords" in text
+    return "power" in text or "toughness" in text or "keyword" in text  # ("keyword": Escaped Shapeshifter's opp_keyword110j too)
 
 
 def _whole_conditions(view: Plan, st: Static, tkey: tuple) -> bool:
