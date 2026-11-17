@@ -94,7 +94,8 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   // then the panel goes where it is clear, its picture as large as the room lets it be
   // -- playtest (nov 17) -- placed again when the stack or a prompt comes or goes: they open beside it (a stack panel that grew after the
   // preview was placed covered it)
-  const chrome = useGame((s) => `${s.view?.stack.length ?? 0}|${s.view?.rules?.decision?.id ?? ""}`);
+  // (and when the priority or the step changes: the turn dial grows and shrinks with them)
+  const chrome = useGame((s) => `${s.view?.stack.length ?? 0}|${s.view?.rules?.decision?.id ?? ""}|${s.view?.rules?.priority ?? ""}|${s.view?.turn.phase ?? ""}`);
   const key = `${shown}|${ready}|${chrome}`;
   const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
