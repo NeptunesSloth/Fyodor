@@ -20,6 +20,9 @@ EXTRA = [
          oracle_text="{0}: This artifact deals 1 damage to any target."),
     card("Test Ogre", set_code="tbt", number="3", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Ogre", oracle_text="",
          power="3", toughness="3", colors=["R"], color_identity=["R"]),
+    card("Test Twin Mage", set_code="tbt", number="4", mana_cost="{3}{G}", cmc=4.0, type_line="Creature — Human Wizard",
+         oracle_text="Whenever you cast an instant or sorcery spell, copy that spell. You may choose new targets for the copy.",
+         power="4", toughness="2", colors=["G"], color_identity=["G"]),
 ]
 
 
@@ -120,3 +123,16 @@ def test_the_ledger_stops_an_ability_once_it_hits_the_cap(cards):
     turn = [view["turn"]["number"], view["turn"]["active_player"]]
     memory = {"acts": {"turn": turn, "n": {key: bot.ABILITY_CAP}, "total": bot.ABILITY_CAP}}
     assert not [t for t in bot.decide(view, cards, memory) if t.get("type") == "activate_ability"]
+
+
+def test_a_copy_of_its_pump_keeps_the_target_in_the_fight(cards):
+    """-- playtest (nov 17) -- its copier copies its Giant Growth: the copy stays on the blocker in the fight, not on the bigger copier
+    out of combat (it put Riku's copy on Riku)."""
+    s, ids = board(cards, life=2, mine=("Test Ogre",), theirs=("Grizzly Bears", "Test Twin Mage", "Forest"), top=[(1, "Giant Growth")])
+    attack_with(s, ids["p1:Test Ogre"])
+    until_it_decides(s, "declare_blockers")
+    play(s, until_turn=1)
+    asked = [a for a in s.history.actions if a.type == "choose" and a.actor == "p2" and a.option_ids == ["keep"]]
+    moved = [a for a in s.history.actions if a.type == "choose" and a.actor == "p2" and ids["p2:Test Twin Mage"] in (a.option_ids or [])]
+    assert asked and not moved
+    assert s.state.cards[ids["p1:Test Ogre"]].zone == "p1:graveyard"

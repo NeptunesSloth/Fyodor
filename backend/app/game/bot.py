@@ -964,6 +964,8 @@ def _answer(b: Board, d: dict[str, Any], info: CardInfo, memory: dict[str, Any])
         return [choose(["pay"]), *_fallback(d, info)]
     if kind == "divide":
         return [*_divide(b, d), *_fallback(d, info)]
+    if kind == "choose_one" and "keep" in ids:  # 707.10c: a copy's target, kept or changed
+        return [choose([_copy_target(b, d, options)]), *_fallback(d, info)]
     targetish = [o for o in options if o.get("group") != "seen" and (o.get("card_id") in b.cards or o["id"] in b.players)]
     if targetish and len(targetish) == len(ids) and kind in ("choose_cards", "choose_one"):
         source = _activating(b, d, memory) or b.cards.get(d.get("source_id") or "") or b.cards.get(memory.get("casting") or "")
@@ -976,6 +978,39 @@ def _answer(b: Board, d: dict[str, Any], info: CardInfo, memory: dict[str, Any])
             out += [choose([x]) for x in best[1:3] if need == 1]
         return [*out, *_fallback(d, info)]
     return _fallback(d, info)
+
+
+def _copy_target(b: Board, d: dict[str, Any], options: list[dict[str, Any]]) -> str:
+    """-- playtest (nov 17) -- a copy's new target (707.10c: "Copy of Giant Growth: keep its target or choose a new one"): it keeps the
+    target unless another is clearly better. A pump moves only to its own creature in a fight the pump changes (it put Riku's copy of
+    Giant Growth on Riku, out of combat, for Riku's commander bonus); a harmful copy moves to a target it scores above the one it has."""
+    prompt = str(d.get("prompt") or "")
+    name = prompt[len("Copy of "):].split(":", 1)[0] if prompt.startswith("Copy of ") else ""
+    spell = next((c for c in b.cards.values() if c.zone == "stack" and c.name == name), None)
+    keep = next((o for o in options if o["id"] == "keep"), {})
+    current = keep.get("card_id")
+    others = [o for o in options if o["id"] != "keep" and o.get("group") != "seen"]
+    kind = _kind(spell)
+    if kind == "help":
+        pump = _pump_of(spell.text) if spell is not None else None
+        if pump is None:
+            return "keep"
+        offered = {o.get("card_id") or o["id"] for o in others}
+        for m, foes in _fights(b):
+            if m.id == current or m.id not in offered:
+                continue
+            if foes:
+                before, after = _outcome(m, foes), _outcome(m, foes, *pump)
+                if before[0] and not after[0] or not before[1] and after[1] and not after[0]:
+                    return m.id
+        return "keep"
+    if kind == "harm" and current is not None:  # (a player it targets: kept, it can't weigh them against each other here)
+        among: list[Any] = [b.cards.get(x, x) for x in [current, *(o.get("card_id") or o["id"] for o in others)]
+                            if x in b.cards or x in b.players]
+        best = _target_for(b, spell, among)
+        if best and best[0] != current and any((o.get("card_id") or o["id"]) == best[0] for o in others):
+            return next(o["id"] for o in others if (o.get("card_id") or o["id"]) == best[0])
+    return "keep"
 
 
 def _fallback(d: dict[str, Any], info: CardInfo) -> list[dict[str, Any]]:
