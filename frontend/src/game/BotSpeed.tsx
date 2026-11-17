@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../components/Icon";
 import { toastError } from "../components/Toasts";
 import { botStep, setBotSpeed } from "../services/games";
 import { useGame } from "../state/gameStore";
@@ -45,9 +46,14 @@ export function BotSpeed() {
           </button>
         ))}
       </span>
-      {isHost && botsOf(view).map((p, _i, all) => ( // -- bot levels -- how well each opponent plays (the host's: recorded like any action)
+      {isHost && botsOf(view).map((p, i, all) => ( // -- bot levels -- how well each opponent plays (the host's: recorded like any action)
         <span key={p.id} className="tt-split bot-levels" role="group" aria-label={`${p.name}: level`} data-testid={`bot-level-${p.id}`}>
-          {all.length > 1 && <span className="bot-speed-label" title={p.name}>{p.name.slice(0, 1).toUpperCase()}{p.name.match(/\d+$/)?.[0] ?? ""}</span>}
+          {/* -- playtest (nov 17) -- which bot: the robot glyph and its number at the table ("O" and "O2" read as nothing), the name on hover */}
+          {all.length > 1 && (
+            <span className="bot-level-who" title={p.name} data-testid={`bot-level-who-${p.id}`}>
+              <Icon name="bot" size={13} label={p.name} /><b>{i + 1}</b>
+            </span>
+          )}
           {BOT_LEVELS.map((l) => (
             <button key={l.id} className="tt-btn ghost" aria-pressed={botLevel(p) === l.id} title={`${p.name} plays at ${l.label}: ${l.hint}`}
               data-testid={`bot-level-${p.id}-${l.id}`} onClick={() => { if (botLevel(p) !== l.id) void send({ type: "set_bot_level", player: p.id, level: l.id }); }}>
