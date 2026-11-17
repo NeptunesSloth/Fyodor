@@ -12,7 +12,22 @@ from app.game.errors import ActionError
 from app.game.state import GameState
 from tests.game_helpers import act
 from tests.test_test_opponent import human_move, play, replay_matches
-from tests.test_test_opponent_abilities import board, cards  # noqa: F401 - the fixture with the test cards
+from tests.test_test_opponent_abilities import EXTRA, board
+
+
+@pytest.fixture()
+def cards(settings):
+    """The card database with the abilities tests' cards (a pinger, a 3/3)."""
+    from app.cards.images import ImageStore
+    from app.cards.importer import build_database
+    from app.cards.repository import CardRepository
+    from tests.fixtures.cards import fixture_cards
+
+    settings.ensure_dirs()
+    build_database(({c["name"]: c for c in fixture_cards()} | {c["name"]: c for c in EXTRA}).values(), settings.cards_db_path)
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
 
 
 def level(s, name: str) -> None:
@@ -112,7 +127,6 @@ def test_advanced_wipes_the_board_only_when_behind(cards):
 
 def test_advanced_mulligans_a_hand_with_nothing_to_play_early(cards):
     """Three lands and four 5-drops: Intermediate keeps (2-5 lands), Advanced mulligans once."""
-    from app.game.mulligan import resolve_policy
     from tests.test_test_opponent import table
 
     heavy = [(3, "Forest"), (4, "Gideon Jura"), *[(1, n) for _ in range(10) for n in ("Forest", "Grizzly Bears")]]

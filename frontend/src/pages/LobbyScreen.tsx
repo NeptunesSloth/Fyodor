@@ -14,6 +14,7 @@ import {
   clearLobbyDeck,
   forgetMyDeck,
   kickFromLobby,
+  addLobbyBot,
   leaveLobby,
   myDecks,
   importPersonalDeck,
@@ -48,6 +49,8 @@ import { SessionRecap } from "./SessionRecap";
 import { TURN_ORDER_LABEL, canNudge, miniSeats, moveSeat, nudgeSeat, previewLine, previewParts, type TurnOrderMode } from "./seating";
 import "./lobby.css";
 import { Icon } from "../components/Icon";
+import { BOT_LEVELS, DEFAULT_BOT_LEVEL, botLevelName } from "../game/botSeat";
+import type { BotLevel } from "../types/game";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
   private: "Private",
@@ -99,6 +102,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   }, [gameId, seated, me?.id]);
   const own = useMemo(() => (seated ? ownDecks(brought, myDecks()) : null), [seated, brought, savedVersion]);
 
+  const [addingBot, setAddingBot] = useState<string | null>(null); // -- LAN bots -- the open seat the host is seating a bot in
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     try {
@@ -182,7 +186,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
           {open.length > 0 && (
             <div className="open-seats">
               {open.map((seat) => (
-                <OpenSeat key={seat.id} seat={seat} lobby={lobby} busy={busy} onRun={run} invite={invite} arranging={arrangingFor(seat)} />
+                <OpenSeat key={seat.id} seat={seat} lobby={lobby} busy={busy} onRun={run} invite={invite} arranging={arrangingFor(seat)}
+                  onAddBot={() => setAddingBot(seat.id)} />
               ))}
             </div>
           )}
@@ -254,6 +259,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
           onDone={(l) => { setLobby(l); setChoosing(false); setSavedVersion((v) => v + 1); }} />
       )}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
+      {addingBot && <AddBotDialog lobby={lobby} seat={addingBot} onClose={() => setAddingBot(null)}
+        onDone={(l) => { setLobby(l); setAddingBot(null); }} />}
     </div>
   );
 }
@@ -611,7 +618,8 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
             <span>Seat {number}</span>
             {seat.host && <span>Host</span>}
             {mine && <span className="you">You</span>}
-            {!seat.connected && <span className="away">Not connected</span>}
+            {seat.bot && <span className="bot" data-testid={`seat-bot-${seat.id}`}>Bot · {botLevelName(seat.bot)}</span>}
+            {!seat.connected && !seat.bot && <span className="away">Not connected</span>}
           </span>
         </div>
         {seat.connected && <span className="presence on" role="img" aria-label="Connected" title="Connected" />}
@@ -643,6 +651,15 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
         )}
       </header>
 
+      {seat.bot && lobby.is_host && ( // -- LAN bots -- how well it plays (the host's)
+        <span className="lobby-bot-levels" role="radiogroup" aria-label={`${seat.name}: level`}>
+          {BOT_LEVELS.map((l) => (
+            <button key={l.id} className={seat.bot === l.id ? "on" : ""} aria-pressed={seat.bot === l.id} title={l.hint} disabled={busy}
+              data-testid={`seat-bot-level-${seat.id}-${l.id}`}
+              onClick={() => seat.bot !== l.id && void onRun(() => addLobbyBot(gameId, { seat: seat.id, level: l.id }))}>{l.label}</button>
+          ))}
+        </span>
+      )}
       <div className={`pl-art ${deck ? "" : "empty"}`}>
         {cmdId ? <CommanderArt id={cmdId} /> : deck ? <CommanderArt back /> : (
           <span className={`pl-slot ${mine ? "pl-slot-mine" : ""}`}>
@@ -756,13 +773,15 @@ function OwnDeckPicks({ own, busy, onPick, onMore }: { own: OwnDecks; busy: bool
 }
 
 /** An open seat: an empty chair at the table, with the way to fill it from where you are. */
-function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
+function OpenSeat({ seat, lobby, busy, onRun, invite, arranging, onAddBot }: {
   seat: LobbySeat;
   lobby: LobbyView;
   busy: boolean;
   onRun: (fn: () => Promise<unknown>) => Promise<void>;
   invite: string | null;
   arranging: Arranging | null;
+  /** -- LAN bots -- the host seats a bot here */
+  onAddBot: () => void;
 }) {
   const gameId = lobby.game.id;
   const iAmSeated = lobby.seats.some((s) => s.id === lobby.viewer);
@@ -776,9 +795,13 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         <b>Seat {number}</b>
         <span>{watcher ? "Open: take it to play" : lobby.is_host ? "Open seat" : "Waiting for a player"}</span>
       </span>
-      {(lobby.is_host && invite) || iAmSeated || watcher ? (
+      {(lobby.is_host && invite) || iAmSeated || watcher || lobby.is_host ? (
         <span className="os-actions">
           {lobby.is_host && invite && <CopyButton text={invite} label={<><LinkGlyph />Invite</>} done="Link copied" className="os-invite" />}
+          {lobby.is_host && (
+            <button className="tt-btn" disabled={busy} data-testid={`add-bot-${seat.id}`} title="Seat a bot the server plays for (a deck from this computer's library)"
+              onClick={onAddBot}><Icon name="cards" size={14} />Add bot</button>
+          )}
           {iAmSeated && (
             <button className="tt-btn" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
           )}
@@ -790,6 +813,51 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         </span>
       ) : null}
     </section>
+  );
+}
+
+/** -- LAN bots -- the host seats a bot: a deck from this computer's library and how well it plays (Full automation plays it). */
+function AddBotDialog({ lobby, seat, onClose, onDone }: { lobby: LobbyView; seat: string; onClose: () => void; onDone: (l: LobbyView) => void }) {
+  const [decks, setDecks] = useState<DeckSummary[] | null>(null);
+  const [level, setLevel] = useState<BotLevel>(DEFAULT_BOT_LEVEL);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    listDecks().then(setDecks, (e) => {
+      if (!(e instanceof ApiError && e.status === 403)) toastError(e);
+      setDecks([]);
+    });
+  }, []);
+  const add = async (deckId: string) => {
+    setBusy(true);
+    try {
+      onDone(await addLobbyBot(lobby.game.id, { seat, deck_id: deckId, level }));
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={`Add a bot to seat ${seat.slice(1)}`} onClose={onClose}>
+      <p className="hint">The server plays it, through the same rules as everyone (rules automation must be Full). It never sees your hands.</p>
+      <div className="lobby-bot-levels" role="radiogroup" aria-label="Bot level">
+        {BOT_LEVELS.map((l) => (
+          <button key={l.id} className={level === l.id ? "on" : ""} aria-pressed={level === l.id} title={l.hint} onClick={() => setLevel(l.id)}
+            data-testid={`add-bot-level-${l.id}`}>{l.label}</button>
+        ))}
+      </div>
+      <div className="deck-pick-list" data-testid="add-bot-decks">
+        {decks === null && <p className="hint">Loading the decks…</p>}
+        {decks?.length === 0 && <p className="hint">No decks in this computer's library: import one on the Decks page (on the host computer).</p>}
+        {decks?.map((d) => (
+          <button key={d.id} className="deck-pick" disabled={busy} onClick={() => void add(d.id)}>
+            <b>{d.name}</b>
+            <span className="hint">{d.commanders.join(" & ") || d.format}</span>
+            <ColorPips colors={d.color_identity} />
+          </button>
+        ))}
+      </div>
+    </Modal>
   );
 }
 

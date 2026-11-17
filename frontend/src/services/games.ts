@@ -145,6 +145,9 @@ export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>
 /** -- seating -- host: every seat id once, in the order they should sit (seat 1 first). */
 export const arrangeLobbySeats = (gameId: string, order: string[]) =>
   api.post<LobbyView>(lobbyPath(gameId, "/arrange"), { order }, seatHeaders(gameId));
+/** -- LAN bots -- the host seats a bot (a deck from the host's library, a level), or changes the bot in ``seat``. */
+export const addLobbyBot = (gameId: string, body: { deck_id?: string | null; level: BotLevel; name?: string; seat?: string }) =>
+  api.post<LobbyView>(lobbyPath(gameId, "/bot"), body, seatHeaders(gameId));
 export const kickFromLobby = (gameId: string, seat: string) => api.post<LobbyView>(lobbyPath(gameId, "/kick"), { seat }, seatHeaders(gameId));
 export const startLobbyGame = (gameId: string, body: { force?: boolean; first_player?: "random" | number }) =>
   api.post<{ game: GameSummary }>(lobbyPath(gameId, "/start"), body, seatHeaders(gameId));

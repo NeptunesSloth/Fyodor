@@ -720,6 +720,8 @@ export interface LobbySeat {
   deck: LobbyDeckSummary | null;
   /** Your own seat only: this deck is the one you queued while out of the last game (unchanged since). */
   queued?: boolean;
+  /** -- LAN bots -- the host seated a bot here (the server plays it): its level. */
+  bot?: BotLevel;
 }
 
 export interface LobbyView {

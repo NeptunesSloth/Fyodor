@@ -53,7 +53,7 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarC
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
+from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, undo_voters
 from app.multiplayer.lobby import (
     CardPermissions,
     DeckTooLarge,
@@ -1179,6 +1179,57 @@ async def kick_player(
     return _lobby_response(room, viewer, host)
 
 
+class LobbyBotIn(BaseModel):
+    """-- LAN bots -- the host seats a bot (or changes one): a deck from the host's library and how well it plays."""
+
+    deck_id: str | None = Field(default=None, max_length=64)  # (None: keep the bot's deck; a new bot needs one)
+    level: Literal["simple", "intermediate", "advanced"] = "intermediate"
+    name: str | None = Field(default=None, max_length=40)
+    seat: str | None = Field(default=None, pattern=r"^p[1-6]$")  # (None: the first open seat; a bot's seat: change that bot)
+
+
+@router.post("/games/{game_id}/lobby/bot")
+async def lobby_bot(game_id: str, body: LobbyBotIn, request: Request, services: ServicesDep,
+                    x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- LAN bots -- the host seats a bot the server plays for (app/game/bot.py, paced by app/multiplayer/bots.py): a seat with the
+    server's own token (never sent: nobody can act as it), a deck from the host's library, always ready. Kick frees the seat again."""
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    deck = None
+    if body.deck_id:
+        deck = await run_in_threadpool(_import_for_lobby, services, LobbyDeckIn(deck_id=body.deck_id), is_local_request(request))
+    async with room.lock:
+        if room.started:
+            raise HTTPException(409, "The game has already started")
+        if body.seat is not None:
+            if body.seat not in room.seats:
+                raise HTTPException(404, "No such seat")
+            if room.seats[body.seat].token is not None and not room.seats[body.seat].bot:
+                raise HTTPException(409, "Someone is sitting in that seat")
+            pid = body.seat
+        else:
+            pid = next((p for p, seat in room.seats.items() if seat.token is None), "")
+            if not pid:
+                raise HTTPException(409, "No seat is free: add a seat in Table settings first")
+        seat = room.seats[pid]
+        info = room.lobby_seats.get(pid) if seat.bot else None
+        if info is None:
+            if deck is None:
+                raise HTTPException(422, "Choose the deck the bot plays")
+            bots = sum(1 for s in room.seats.values() if s.bot)
+            seat.token = bot_token()
+            seat.claimed_name = clean_text(body.name or "", 40) or ("Bot" if not bots else f"Bot {bots + 1}")
+            info = room.lobby_seats[pid] = LobbySeatInfo(name=seat.claimed_name)
+        elif body.name:
+            info.name = seat.claimed_name = clean_text(body.name, 40) or seat.claimed_name
+        if deck is not None:
+            info.deck = deck
+        info.bot, info.ready = body.level, True
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
 @router.post("/games/{game_id}/lobby/start")
 async def start_game(
     game_id: str, body: StartIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
@@ -1216,6 +1267,7 @@ async def start_game(
                     deck_id=deck.deck_id if deck else None,
                     cards=list(deck.cards) if deck else [],
                     collection=list(info.collection),
+                    bot_level=info.bot if room.seats[pid].bot else None,  # -- LAN bots --
                 )
             )
         first: int | None = None
@@ -1319,6 +1371,8 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
         p = state.players[pid]
         commanders = sorted({c.name for c in state.cards.values() if c.commander_key and c.owner == pid})
         name = clean_text((names or {}).get(pid, ""), 40) or p.name
+        if p.bot is not None and not name.endswith(" (bot)"):
+            name = f"{name[:34]} (bot)"  # -- LAN bots -- pod stats record a bot as a bot (never as a person of the pod)
         participants.append(Participant(seat=pid, name=name, deck_key=deck_key_for(p.deck_id, p.deck_name, commanders),
                                         deck_name=p.deck_name, commanders=commanders))
     if agreed:
@@ -1644,6 +1698,8 @@ async def host_seat_link(game_id: str, body: SeatRef, request: Request, services
         raise HTTPException(404, "No such seat")
     if room.started and room.session.state.players.get(body.seat) and room.session.state.players[body.seat].left:
         raise HTTPException(409, "That player has left the table")
+    if room.seats[body.seat].bot:
+        raise HTTPException(409, "A bot plays that seat")  # -- LAN bots -- (its token is the server's)
     await services.hub.drop_connections(room, body.seat, code=4403, reason="The host gave this seat to someone else")
     token = services.hub.reissue_seat(room, body.seat)
     await services.hub.broadcast(room)

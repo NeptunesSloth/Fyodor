@@ -196,6 +196,12 @@ class Night:
 # --------------------------------------------------------------------------- rules result
 
 
+def bot_seat(room: Room, pid: str) -> bool:
+    """-- LAN bots -- a seat the host gave a bot in the lobby (the server plays it; it never votes or holds a vote up)."""
+    seat = room.seats.get(pid)
+    return seat is not None and seat.bot
+
+
 def still_in(state: GameState) -> list[str]:
     """Players still in the game: not removed from the table, not conceded or lost (800.4a)."""
     r = state.rules
@@ -264,7 +270,7 @@ def follow_rules(room: Room) -> None:
             session.notice("The game-ending action was taken back, so the rules result is withdrawn. The game goes on.")
     if ending is None or night.result is not None or room.result_id is not None or len(state.seat_order) < 2:
         return
-    if any(p.dummy or p.bot is not None for p in state.players.values()):
+    if any(p.dummy or p.bot is not None and not bot_seat(room, pid) for pid, p in state.players.items()):
         return  # -- target dummy -- (and -- test opponent --) a test table: the rules' ending shows at the table (Reset dummy goes on), no pod result to record
     _, result_type, winners = ending
     r = state.rules
@@ -272,6 +278,8 @@ def follow_rules(room: Room) -> None:
     finalists = _finalists(room)
     # whoever conceded chose to leave: they don't confirm (the others do, the loser of the deciding action included)
     voters = [pid for pid in finalists if pid not in r.conceded] or still_in(state) or finalists
+    # -- LAN bots -- a bot never holds up a result (it agrees): the people confirm it, a player who conceded too when only bots are left
+    voters = [pid for pid in voters if not bot_seat(room, pid)] or [pid for pid in finalists if not bot_seat(room, pid)] or         [pid for pid in state.seat_order if not bot_seat(room, pid) and not state.players[pid].left]
     if result_type == "draw":
         reason = r.draw_reason or "The game is a draw"
         what = "a draw"

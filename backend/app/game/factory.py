@@ -47,6 +47,7 @@ class PlayerSetup:
     cards: list[DeckCard] = field(default_factory=list)
     color: str | None = None
     collection: list[CollectionCard] = field(default_factory=list)
+    bot_level: str | None = None  # -- LAN bots -- a seat the server plays for, at this level (app/game/bot.py); None: a person
 
 
 def deck_tokens(cards: list[DeckCard], related_tokens: Callable[[str], list[str]] | None = None) -> list[str]:
@@ -97,6 +98,7 @@ def new_game(
             deck_name=setup.deck_name,
             token_shortcuts=deck_tokens(setup.cards, related_tokens),
             row_overrides=placement.saved_rows(deck_rows(setup.deck_id)) if deck_rows is not None and setup.deck_id else {},
+            **({"bot": "simple", "bot_level": setup.bot_level} if setup.bot_level else {}),
         )
         from app.game.state import StickerSheet101
         from app.rules import sticker_sheets101

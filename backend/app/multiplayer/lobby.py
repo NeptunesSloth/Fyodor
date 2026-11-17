@@ -131,6 +131,7 @@ class LobbySeatInfo:
     collection: list[CollectionCard] = field(default_factory=list)
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
     queued: SubmittedDeck | None = None  # (spectator activities) the deck queued while out of the last game, as put here
+    bot: str | None = None  # -- LAN bots -- the host seated a bot here: its level (the seat's token is the server's: hub.BOT_TOKEN)
 
 
 def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool, table_format: str = "commander") -> dict[str, Any] | None:

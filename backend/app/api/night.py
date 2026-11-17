@@ -28,7 +28,7 @@ from app.game.state import GameState, PlayerState
 from app.game.visibility import publicly_visible
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
-from app.multiplayer.night import Night, Proposal
+from app.multiplayer.night import Night, Proposal, bot_seat
 from app.services import Services
 
 router = APIRouter(tags=["game night"])
@@ -137,11 +137,11 @@ def _settle_proposal(services: Services, room: Room) -> None:
         # -- rules result -- recorded as the engine's result once every player in the game at the end confirmed it (a seat
         # nobody has taken can't answer, so it isn't waited for); one person runs a hot-seat table: their click settles it
         state = room.session.state
-        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left
+        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left and not bot_seat(room, pid)
                   and (room.mode == "local" or (pid in room.seats and room.seats[pid].token))}
         if room.mode == "local" or needed <= p.agreed:
             record_game_result(services, room, p.result_type, p.winners, rules=p.rules)
-    elif p is not None and set(remaining(room.session.state)) <= p.agreed:
+    elif p is not None and {pid for pid in remaining(room.session.state) if not bot_seat(room, pid)} <= p.agreed:  # (-- LAN bots -- a bot agrees)
         record_game_result(services, room, p.result_type, p.winners, agreed=True)
 
 
@@ -160,7 +160,8 @@ async def vote(game_id: str, body: VoteIn, request: Request, services: ServicesD
         else:
             actor = _actor(room, request, x_seat_token, body.as_player)
             night.votes[actor] = body.choice
-            voters = [pid for pid in room.session.state.seat_order if room.mode == "local" or room.seats[pid].token]
+            voters = [pid for pid in room.session.state.seat_order if room.mode == "local" or room.seats[pid].token
+                      and not bot_seat(room, pid)]  # -- LAN bots -- a bot never holds up the rematch vote
             # one person runs a hot-seat table: their choice decides
             if room.mode == "local" or body.choice == "lobby":
                 decision = body.choice
@@ -211,7 +212,7 @@ def rematch(services: Services, room: Room) -> None:
 
 
 def _info_from_setup(setup: PlayerSetup | None, player: PlayerState) -> LobbySeatInfo:
-    info = LobbySeatInfo(name=player.name, color=player.color)
+    info = LobbySeatInfo(name=player.name, color=player.color, bot=setup.bot_level if setup is not None else None)
     if setup is not None and setup.cards:
         info.deck = SubmittedDeck(
             name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id,
@@ -227,7 +228,7 @@ def to_lobby(services: Services, room: Room) -> None:
     infos: dict[str, LobbySeatInfo] = {}
     for pid in old.seat_order:
         info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid])
-        info.ready = False
+        info.ready = pid in room.seats and room.seats[pid].bot and info.deck is not None  # (-- LAN bots -- a bot is always ready)
         infos[pid] = info
     if room.lobby is None:
         room.lobby = LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order))

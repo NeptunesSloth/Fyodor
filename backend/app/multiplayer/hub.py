@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game import undo_requests, undo_rights
-from app.multiplayer import bots  # -- test opponent -- the server's pacing of its actions
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.summary import player_commanders
 from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.multiplayer import bots  # -- test opponent -- the server's pacing of its actions
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules
@@ -51,6 +51,13 @@ RECONNECT_GRACE = 60.0  # seconds a dropped player shows as "Reconnecting…" be
 Presence = Literal["open", "connected", "reconnecting", "disconnected"]
 
 
+BOT_TOKEN = "bot:"  # -- LAN bots -- the token of a seat a bot plays (the server's own: never sent, never a person's)
+
+
+def bot_token() -> str:
+    return BOT_TOKEN + secrets.token_urlsafe(18)
+
+
 @dataclass
 class Seat:
     player_id: str
@@ -59,7 +66,14 @@ class Seat:
     connections: int = 0
     last_seen: float | None = None  # when the last connection of this seat dropped
 
+    @property
+    def bot(self) -> bool:
+        """-- LAN bots -- the server plays this seat (a bot the host seated in the lobby)."""
+        return (self.token or "").startswith(BOT_TOKEN)
+
     def presence(self, now: float | None = None) -> Presence:
+        if self.bot:
+            return "connected"  # (it is always there)
         if self.token is None:
             return "open"
         if self.connections > 0:
@@ -136,8 +150,8 @@ class Room:
 
     def seat_for_token(self, token: str | None) -> str | None:
         """Player id for a seat token, SPECTATOR for a spectator token, else None."""
-        if not token:
-            return None
+        if not token or token.startswith(BOT_TOKEN):
+            return None  # (-- LAN bots -- nobody acts as a bot: the server plays it directly)
         for seat in self.seats.values():
             if seat.token and hmac.compare_digest(seat.token, token):
                 return seat.player_id
@@ -238,6 +252,7 @@ class Room:
                     "presence": seat.presence(),
                     "ready": info.ready,
                     "host": pid == self.host_seat,
+                    **({"bot": info.bot or "intermediate"} if seat.bot else {}),  # -- LAN bots -- its level (public)
                     "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer, table_format=settings.format),
                     # (spectator activities) the deck this player queued while out of the last game, still unchanged
                     **({"queued": True} if pid == viewer and info.deck is not None and info.deck is info.queued else {}),
@@ -273,11 +288,14 @@ class Room:
         if not claimed:
             return ["Nobody has taken a seat"]
         out = []
-        policy = (self.lobby or LobbySettings()).policy()
+        settings = self.lobby or LobbySettings()
+        policy = settings.policy()
         if policy is not None and policy.needs_definition:
             out.append(f"The {policy.display_name} mulligan isn't defined yet (Table settings)")
         for pid in claimed:
             info = self.lobby_seats.get(pid) or LobbySeatInfo()
+            if self.seats[pid].bot and settings.automation != "full":
+                out.append(f"{self.seat_name(pid)} is a bot: it plays only with rules automation at Full (Table settings)")
             if info.deck is None:
                 out.append(f"{self.seat_name(pid)} hasn't chosen a deck")
             elif not info.ready:
@@ -466,6 +484,8 @@ class GameHub:
 
     def reissue_seat(self, room: Room, pid: str) -> str:
         """Give a seat a fresh token (host tool): the old one stops working at once."""
+        if room.seats[pid].bot:
+            raise PermissionError("A bot plays that seat")
         token = secrets.token_urlsafe(24)
         room.seats[pid].token = token
         self.persist(room)
@@ -704,7 +724,8 @@ def undo_voters(room: Room, actor: str | None) -> list[str] | None:
     if room.mode == "local" or room.game is None or actor not in room.seats:
         return None
     return [pid for pid in undo_requests.still_in(room.game.state)
-            if pid != actor and pid in room.seats and room.seats[pid].token is not None]
+            if pid != actor and pid in room.seats and room.seats[pid].token is not None
+            and not room.seats[pid].bot]  # (-- LAN bots -- a bot never answers an undo request: it isn't waited for)
 
 
 def valid_viewer(room: Room, viewer: str) -> bool:
