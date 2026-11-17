@@ -95,6 +95,7 @@ function sentences(stmts: Block[], voc: Vocabulary, voice: Voice): string[] {
 export function abilityText(ability: Ability, voc: Vocabulary, voice: Voice = {}): string {
   const hat = pieceOf(voc, ability.hat.id);
   const body = [...(ability.body ?? [])];
+  if (hat.role === "action_hat") return sentences(body, voc, voice).map((s) => cap(s) + ".").join(" ") || "…";
   const cond = body.length && pieceOf(voc, body[0]!.id).role === "condition" ? body.shift()! : null;
   if (hat.role === "static_hat") {
     const stat = body.find((b) => pieceOf(voc, b.id).role === "static");
@@ -116,9 +117,23 @@ export function abilityText(ability: Ability, voc: Vocabulary, voice: Voice = {}
   return `${head}, ${said[0]}.` + said.slice(1).map((s) => ` ${cap(s)}.`).join("");
 }
 
-/** The Oracle lines that stand for a taught keyword (with its number ``n``) or card line. */
-export function compileEntry(entry: Pick<Entry, "abilities">, voc: Vocabulary, voice: Voice = {}): string[] {
-  return entry.abilities.map((a) => abilityText(a, voc, voice));
+/** The Oracle lines that stand for a taught keyword (with its number ``n``) or card line; for an action, what happens to "it". */
+export function compileEntry(entry: Pick<Entry, "abilities"> & { kind?: string }, voc: Vocabulary, voice: Voice = {}): string[] {
+  const v = entry.kind === "action" ? { ...voice, me: "it" } : voice;
+  return entry.abilities.map((a) => abilityText(a, voc, v));
+}
+
+/** How a card says a taught action: "it dives"; with a number, "plunge 2" (the imperative, as "bolster 2" is said). */
+export function actionPhrase(entry: { name: string; param: boolean }, n: number | null = null, me = "it"): string {
+  if (entry.param) return `${entry.name} ${n === null ? "N" : n}`;
+  return `${me} ${entry.name}s`;
+}
+
+/** The action's effects as the clause that replaces its phrase (the first sentence runs on from the card's words). */
+export function actionSentences(entry: Pick<Entry, "abilities">, voc: Vocabulary, voice: Voice = {}): string {
+  const said = entry.abilities.flatMap((a) => sentences(a.body ?? [], voc, { ...voice, me: voice.me ?? "it" }));
+  if (!said.length) return "…";
+  return said[0]! + said.slice(1).map((s) => `. ${cap(s)}`).join("");
 }
 
 /** The keyword line as it would be printed ("Dive 2 (When this creature enters, …)") */

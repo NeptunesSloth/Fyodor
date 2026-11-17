@@ -184,6 +184,14 @@
    "text": "Always true"
   },
   {
+   "id": "action",
+   "cat": "when",
+   "role": "action_hat",
+   "label": "The action",
+   "text": "When a card says it",
+   "hidden": true
+  },
+  {
    "id": "if_control",
    "cat": "if",
    "role": "condition",
@@ -254,6 +262,47 @@
    "role": "condition",
    "label": "An opponent has more lands",
    "text": "an opponent controls more lands than you",
+   "trigger_only": true
+  },
+  {
+   "id": "if_devoured",
+   "cat": "if",
+   "role": "condition",
+   "label": "It devoured a creature",
+   "text": "it devoured a creature",
+   "trigger_only": true
+  },
+  {
+   "id": "if_devoured_n",
+   "cat": "if",
+   "role": "condition",
+   "label": "It devoured N or more creatures",
+   "text": "it devoured {n:word} or more creatures",
+   "slots": {
+    "n": {
+     "kind": "number",
+     "min": 2,
+     "max": 10,
+     "param": true,
+     "default": 2
+    }
+   },
+   "trigger_only": true
+  },
+  {
+   "id": "if_kicked",
+   "cat": "if",
+   "role": "condition",
+   "label": "It was kicked",
+   "text": "it was kicked",
+   "trigger_only": true
+  },
+  {
+   "id": "if_cast",
+   "cat": "if",
+   "role": "condition",
+   "label": "You cast it",
+   "text": "you cast it",
    "trigger_only": true
   },
   {
@@ -1076,8 +1125,8 @@
    "id": "pump",
    "cat": "do",
    "role": "effect",
-   "label": "+X/+X until end of turn",
-   "text": "{who} get{who:vs} {p:signed}/{t:signed} until end of turn",
+   "label": "+X/+X until …",
+   "text": "{who} get{who:vs} {p:signed}/{t:signed} {dur}",
    "slots": {
     "who": {
      "kind": "choice",
@@ -1102,6 +1151,14 @@
      "max": 10,
      "param": true,
      "default": 1
+    },
+    "dur": {
+     "kind": "choice",
+     "options": [
+      "dur_eot",
+      "dur_next_turn"
+     ],
+     "default": "dur_eot"
     }
    }
   },
@@ -1109,8 +1166,8 @@
    "id": "grant",
    "cat": "do",
    "role": "effect",
-   "label": "Gains a keyword this turn",
-   "text": "{who} gain{who:vs} {kw} until end of turn",
+   "label": "Gains a keyword until …",
+   "text": "{who} gain{who:vs} {kw} {dur}",
    "slots": {
     "who": {
      "kind": "choice",
@@ -1139,6 +1196,42 @@
       "kw_vigilance"
      ],
      "default": "kw_flying"
+    },
+    "dur": {
+     "kind": "choice",
+     "options": [
+      "dur_eot",
+      "dur_next_turn"
+     ],
+     "default": "dur_eot"
+    }
+   }
+  },
+  {
+   "id": "unblockable_for",
+   "cat": "do",
+   "role": "effect",
+   "label": "Can't be blocked until …",
+   "text": "{who} can't be blocked {dur}",
+   "slots": {
+    "who": {
+     "kind": "choice",
+     "options": [
+      "t_self",
+      "t_creature",
+      "t_creature_yours"
+     ],
+     "default": "t_self"
+    },
+    "dur": {
+     "kind": "choice",
+     "options": [
+      "rdur_turn",
+      "rdur_next_turn",
+      "rdur_combat_attacking",
+      "rdur_combat"
+     ],
+     "default": "rdur_turn"
     }
    }
   },
@@ -1799,6 +1892,24 @@
   },
   "each_other_creature": {
    "text": "other creature"
+  },
+  "dur_eot": {
+   "text": "until end of turn"
+  },
+  "dur_next_turn": {
+   "text": "until your next turn"
+  },
+  "rdur_turn": {
+   "text": "this turn"
+  },
+  "rdur_next_turn": {
+   "text": "until your next turn"
+  },
+  "rdur_combat_attacking": {
+   "text": "until it deals combat damage while attacking"
+  },
+  "rdur_combat": {
+   "text": "until it deals combat damage"
   }
  },
  "values": [

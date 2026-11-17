@@ -1,8 +1,9 @@
 /**
- * -- Teach Fyodor -- teaching the engine a new mechanic (a keyword like "Dive N") or one card's line it still plays by hand,
- * by snapping pieces together like a children's coding app (docs/TEACH_FYODOR.md). Left: the script workspace; right: the
- * COMMANDS palette; top: back, the big ▶ Try it, help, and the taught things as avatars to switch between. Under the workspace:
- * what Fyodor reads the pieces as, in plain words, checked live by the engine itself. Everything saved is data, never code.
+ * -- Teach Fyodor -- teaching the engine a new mechanic (a keyword like "Plunge N", a keyword action like "dive" — "it dives") or one
+ * card's line it still plays by hand, by snapping pieces together like a children's coding app (docs/TEACH_FYODOR.md). Left: the
+ * script workspace; right: the COMMANDS palette; top: back, the big ▶ Try it, help, and the taught things as avatars to switch
+ * between. Under the workspace: what Fyodor reads the pieces as, in plain words, checked live by the engine itself. Everything saved
+ * is data, never code.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,11 +16,13 @@ import { rememberSeat } from "../services/games";
 import { cardLines, checkEntry, createTaught, deleteTaught, enableTaught, exportUrl, getVocabulary, importTaught, listTaught, tryIt, updateTaught } from "../services/teach";
 import { type DragItem, under, useDrag } from "../teach/drag";
 import { Palette } from "../teach/Palette";
-import { compileEntry, keywordLine, selfWord } from "../teach/sentence";
-import { addAbility, emptyScript, find, fromEntry, hasWork, insert, move, newNode, nodeAt, order, remove, removeAbility, setValue, toEntry, type Path, type Script } from "../teach/script";
+import { actionPhrase, actionSentences, compileEntry, keywordLine, selfWord } from "../teach/sentence";
+import { actionHat, addAbility, asKind, emptyScript, find, fromEntry, hasWork, insert, move, newNode, nodeAt, order, remove, removeAbility, setValue, toEntry, type Path, type Script } from "../teach/script";
 import { chipFits, firstSpot, spots } from "../teach/snap";
 import { chipKey, spotKey, Workspace } from "../teach/Workspace";
-import type { CardLines, CheckResult, Piece, TaughtRow, Value, Vocabulary } from "../teach/types";
+import type { CardLines, CheckResult, Kind, Piece, TaughtRow, Value, Vocabulary } from "../teach/types";
+
+const KIND_LABEL: Record<Kind, string> = { keyword: "Keyword", action: "Action", card: "Card line" };
 import type { CardData } from "../types/cards";
 import "./teach.css";
 
@@ -57,10 +60,16 @@ export function TeachPage() {
   }, []);
 
   const pieces = useMemo(() => Object.fromEntries((voc?.pieces ?? []).map((p) => [p.id, p])) as Record<string, Piece>, [voc]);
-  const me = selfWord(script.kind === "card" ? script.card?.type_line : "Creature");
+  const me = script.kind === "action" ? "it" : selfWord(script.kind === "card" ? script.card?.type_line : "Creature");
   const entry = useMemo(() => (voc ? toEntry(script, voc) : null), [script, voc]);
   const lines = useMemo(() => (voc && entry ? compileEntry(entry, voc, { me }) : []), [entry, voc, me]);
   const linesN2 = useMemo(() => (voc && entry && script.param ? compileEntry(entry, voc, { me, n: 2 }) : null), [entry, voc, me, script.param]);
+  // an action's stack always starts with the action hat (removed by hand: put back)
+  useEffect(() => {
+    if (script.kind === "action" && script.abilities.some((a) => !a.hat)) {
+      setScript({ ...script, abilities: script.abilities.map((a) => (a.hat ? a : { ...a, hat: actionHat() })) });
+    }
+  }, [script]);
 
   // live check by the engine, a moment after the last change
   const debounced = useDebounced(entry, 350);
@@ -196,7 +205,8 @@ export function TeachPage() {
     setActive(0);
     setCard(null);
   };
-  const fresh = (kind: "keyword" | "card" = "keyword") => { setScript(emptyScript(kind)); setEditing(null); setCard(null); setCheck(null); };
+  const fresh = (kind: Kind = "keyword") => { setScript(emptyScript(kind)); setEditing(null); setCard(null); setCheck(null); };
+  const switchKind = (kind: Kind) => { if (script.kind !== kind) { setScript(asKind(script, kind)); if (kind !== "card") setCard(null); } };
   const save = async () => {
     if (!entry) return;
     setBusy("save");
@@ -232,10 +242,10 @@ export function TeachPage() {
     setScript({ ...emptyScript("card"), card: { oracle_id: card.card.oracle_id, line: text, card_name: card.card.name, type_line: typeLine ?? card.card.type_line ?? "" } });
     setEditing(null);
   };
-  const teachKeyword = (name: string, param: boolean) => {
-    const row = rows.find((r) => r.kind === "keyword" && r.name.toLowerCase() === name.toLowerCase());
+  const teachKeyword = (name: string, param: boolean, kind: "keyword" | "action" = "keyword") => {
+    const row = rows.find((r) => r.kind === kind && r.name.toLowerCase() === name.toLowerCase());
     if (row) { load(row); return; }
-    setScript({ ...emptyScript("keyword"), name, param });
+    setScript({ ...emptyScript(kind), name, param });
     setEditing(null);
     setCard(null);
   };
@@ -251,7 +261,10 @@ export function TeachPage() {
 
   const ready = !!check?.ok && hasWork(script) && (script.kind === "card" ? !!script.card?.line : !!script.name.trim());
   const problems = check?.problems ?? [];
-  const nameProblem = script.kind === "keyword" && hasWork(script) && !script.name.trim() ? "Give the keyword a name." : null;
+  const nameProblem = script.kind === "keyword" && hasWork(script) && !script.name.trim() ? "Give the keyword a name."
+    : script.kind === "action" && hasWork(script) && !script.name.trim() ? "Give the action its verb (cards say “it dives”: the verb is dive)." : null;
+  const verb = script.name.trim().toLowerCase() || "dive";
+  const actionEntry = script.kind === "action" && entry?.kind === "action" ? entry : null;
   const lineProblem = script.kind === "card" && hasWork(script) && !script.card?.line ? "Pick the card's line to teach." : null;
 
   return (
@@ -268,7 +281,7 @@ export function TeachPage() {
           {rows.map((r) => (
             <button key={r.id} type="button" role="listitem" className={`t-avatar ${r.kind} ${editing === r.id ? "on" : ""} ${r.enabled ? "" : "off"}`} onClick={() => load(r)}
               title={`${r.name}${r.enabled ? "" : " (off)"}: ${r.lines.join(" ")}`}>
-              <span>{r.kind === "keyword" ? r.name.slice(0, 2) : r.name.split(/[ ,]/)[0]?.slice(0, 2)}</span>
+              <span>{r.kind === "card" ? r.name.split(/[ ,]/)[0]?.slice(0, 2) : r.name.slice(0, 2)}</span>
             </button>
           ))}
           <button type="button" className="t-avatar t-new" onClick={() => fresh()} title="Teach something new" aria-label="Teach something new"><Icon name="plus" size={16} /></button>
@@ -279,10 +292,28 @@ export function TeachPage() {
         <div className="t-left">
           <section className="t-what" aria-label="What you are teaching">
             <div className="seg t-seg" role="group" aria-label="Teach">
-              <button type="button" className={script.kind === "keyword" ? "on" : ""} aria-pressed={script.kind === "keyword"} onClick={() => { if (script.kind !== "keyword") { setScript({ ...script, kind: "keyword" }); setCard(null); } }}>A keyword</button>
-              <button type="button" className={script.kind === "card" ? "on" : ""} aria-pressed={script.kind === "card"} onClick={() => { if (script.kind !== "card") setScript({ ...script, kind: "card" }); }}>One card's line</button>
+              <button type="button" className={script.kind === "keyword" ? "on" : ""} aria-pressed={script.kind === "keyword"} onClick={() => switchKind("keyword")}>A keyword</button>
+              <button type="button" className={script.kind === "action" ? "on" : ""} aria-pressed={script.kind === "action"} onClick={() => switchKind("action")} data-testid="teach-kind-action">An action</button>
+              <button type="button" className={script.kind === "card" ? "on" : ""} aria-pressed={script.kind === "card"} onClick={() => switchKind("card")}>One card's line</button>
             </div>
-            {script.kind === "keyword" ? (
+            {script.kind === "action" ? (
+              <div className="t-kw">
+                <label className="t-field">
+                  <span>Action (the verb)</span>
+                  <input value={script.name} placeholder="dive" maxLength={30} data-testid="teach-name" onChange={(e) => setScript({ ...script, name: e.target.value })} />
+                </label>
+                <label className="t-check">
+                  <input type="checkbox" checked={script.param} data-testid="teach-param" onChange={(e) => setScript({ ...script, param: e.target.checked })} />
+                  <span>has a number <b>N</b> (“{verb} 2”)</span>
+                </label>
+                <label className="t-field t-wide">
+                  <span>Reminder text (optional)</span>
+                  <input value={script.reminder} maxLength={400} placeholder="What the card says in brackets" onChange={(e) => setScript({ ...script, reminder: e.target.value })} />
+                </label>
+                <p className="t-phrases">Cards say <b>{actionPhrase({ name: verb, param: script.param }, script.param ? 2 : null)}</b>
+                  {!script.param && <>, <b>target creature {verb}s</b></>}; the Do pieces below are what happens to that creature (“it”).</p>
+              </div>
+            ) : script.kind === "keyword" ? (
               <div className="t-kw">
                 <label className="t-field">
                   <span>Keyword</span>
@@ -316,6 +347,8 @@ export function TeachPage() {
                               : l.manual ? (
                                 <span className="t-lineacts">
                                   {l.keyword && <button type="button" className="btn small" onClick={() => teachKeyword(l.keyword!.name, l.keyword!.param)}>Teach “{l.keyword.name}” as a keyword</button>}
+                                  {l.action && <button type="button" className="btn small" onClick={() => teachKeyword(l.action!.name, l.action!.param, "action")}>Teach “{l.action.name}” as an action</button>}
+                                  {l.action && <button type="button" className="btn small" onClick={() => teachKeyword(l.action!.name, l.action!.param, "action")}>Teach “{l.action.name}” as an action</button>}
                                   <button type="button" className="btn small primary" onClick={() => teachLine(l.text, l.type_line)}>Teach this line</button>
                                 </span>
                               ) : <span className="t-auto">Fyodor plays this</span>}
@@ -348,6 +381,10 @@ export function TeachPage() {
                 {script.kind === "keyword" && script.name.trim() && (
                   <p className="t-printed">On a card: <b>{keywordLine(script.name.trim(), script.param, linesN2 ?? lines)}</b></p>
                 )}
+                {actionEntry && (
+                  <p className="t-printed" data-testid="teach-phrase">On a card: <b>When this creature enters, {actionPhrase(actionEntry, script.param ? 2 : null)}.</b> Fyodor reads it
+                    as <q>When this creature enters, {actionSentences(actionEntry, voc, { me: "it", n: script.param ? 2 : null })}.</q></p>
+                )}
                 <div className={`t-verdict ${checking ? "wait" : check?.ok && !nameProblem && !lineProblem ? "ok" : check ? "bad" : ""}`} data-testid="teach-verdict">
                   {checking ? "Checking with the engine…" : nameProblem ?? lineProblem ?? (check?.ok ? "Fyodor understands this and will play it by itself." : problems[0]?.message ?? "")}
                   {!checking && problems.length > 1 && <ul>{problems.slice(1).map((p, i) => <li key={i}>{p.where ? `${p.where}: ` : ""}{p.message}</li>)}</ul>}
@@ -367,7 +404,7 @@ export function TeachPage() {
           </section>
         </div>
 
-        <Palette voc={voc} param={script.param} usable={usable} onAdd={addPiece} onChip={addChip} onStartDrag={start} />
+        <Palette voc={voc} param={script.param} kind={script.kind} usable={usable} onAdd={addPiece} onChip={addChip} onStartDrag={start} />
       </div>
 
       <section className="t-library" aria-label="Taught so far">
@@ -383,7 +420,7 @@ export function TeachPage() {
           <ul className="t-rows">
             {rows.map((r) => (
               <li key={r.id} className={`${r.enabled ? "" : "off"} ${editing === r.id ? "on" : ""}`}>
-                <span className={`t-kind ${r.kind}`}>{r.kind === "keyword" ? "Keyword" : "Card line"}</span>
+                <span className={`t-kind ${r.kind}`}>{KIND_LABEL[r.kind]}</span>
                 <span className="t-rowname">{r.name}{r.kind === "card" && r.line ? <small> — {r.line}</small> : null}</span>
                 <span className="t-rowlines">{r.lines.join(" ")}</span>
                 <span className="t-rowacts">
@@ -408,10 +445,10 @@ export function TeachPage() {
       {help && (
         <Modal title="Teach Fyodor" onClose={() => setHelp(false)}>
           <div className="t-helptext">
-            <p>When a new set brings a mechanic Fyodor doesn't know yet, teach it here and every card with that keyword plays by itself in new games — this one and the ones the next card update brings.</p>
+            <p>When a new set brings a mechanic Fyodor doesn't know yet, teach it here and every card with that keyword or action plays by itself in new games — this one and the ones the next card update brings.</p>
             <ol>
-              <li><b>Name it.</b> A keyword like <i>Dive</i>; tick <i>has a number</i> if cards say “Dive 2”. Or pick a card and one of the lines Fyodor plays by hand.</li>
-              <li><b>Start with a When piece</b> — <i>Enters</i>, <i>Attacks</i>, <i>Pay to use it</i>, <i>Always</i> …</li>
+              <li><b>Name it.</b> A keyword like <i>Plunge</i> (tick <i>has a number</i> if cards say “Plunge 2”); an action like <i>dive</i>, the verb cards use (“it dives”, “target creature dives”); or pick a card and one of the lines Fyodor plays by hand.</li>
+              <li><b>Start with a When piece</b> — <i>Enters</i>, <i>Attacks</i>, <i>Pay to use it</i>, <i>Always</i> … An action skips this: its Do pieces are what happens to the creature the card names.</li>
               <li><b>Put Do pieces under it.</b> Tap a white chip to change a number or a choice; drop a <i>Target</i> or a <i>Value</i> chip on one; use <b>N</b> where the keyword's number goes.</li>
               <li><b>Read it back</b> under the workspace: Fyodor checks it with its own rules engine as you build.</li>
               <li><b>▶ Try it</b> opens a test table with the card in hand and a target dummy. <b>Teach it</b> saves it for new games.</li>

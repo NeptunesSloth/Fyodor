@@ -5,11 +5,12 @@
 
 import { useState } from "react";
 import type { DragItem } from "./drag";
-import type { Category, Piece, Value, Vocabulary } from "./types";
+import type { Category, Kind, Piece, Value, Vocabulary } from "./types";
 
 interface Props {
   voc: Vocabulary;
   param: boolean;
+  kind: Kind; // (an action has no When or If pieces: the card's own words say when it happens)
   usable: (piece: Piece) => boolean; // has somewhere to snap right now
   onAdd: (piece: Piece) => void;
   onChip: (value: Value) => void;
@@ -18,7 +19,7 @@ interface Props {
 
 const GLYPH: Record<string, string> = { when: "⚡", if: "?", cost: "◆", do: "▶", always: "∞", then: "⤵", target: "◎", value: "#" };
 
-export function Palette({ voc, param, usable, onAdd, onChip, onStartDrag }: Props) {
+export function Palette({ voc, param, kind, usable, onAdd, onChip, onStartDrag }: Props) {
   const [folded, setFolded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setFolded((f) => ({ ...f, [id]: !f[id] }));
   const targets = Object.entries(voc.options).filter(([, o]) => o.cat === "target");
@@ -38,6 +39,7 @@ export function Palette({ voc, param, usable, onAdd, onChip, onStartDrag }: Prop
     <aside className="t-palette" aria-label="Commands">
       <h2>Commands</h2>
       {voc.categories.map((cat) => {
+        if (kind === "action" && (cat.id === "when" || cat.id === "if" || cat.id === "always")) return null;
         if (cat.id === "target") {
           return section(cat, targets.map(([id, o]) => (
             <button key={id} type="button" className="t-pill cat-target" onClick={() => onChip(id)}
@@ -53,7 +55,7 @@ export function Palette({ voc, param, usable, onAdd, onChip, onStartDrag }: Prop
               title={v === "N" ? "The number after the keyword (Dive 2 → 2)" : "Drop on a white number of a piece"}>{String(v)}</button>
           )), chips.length);
         }
-        const pieces = voc.pieces.filter((p) => p.cat === cat.id);
+        const pieces = voc.pieces.filter((p) => p.cat === cat.id && !p.hidden);
         return section(cat, pieces.map((p) => {
           const can = usable(p);
           return (

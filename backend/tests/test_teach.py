@@ -1,6 +1,7 @@
-"""-- Teach Fyodor -- a taught keyword ("Dive N", the worked example of docs/TEACH_FYODOR.md: invented, the real card's text is
-unknown) and a taught card line run through the normal engine: coverage, behaviour (ETB mill, then an optional return), replay and
-save/load, games in progress keeping their snapshot, the shape checks, shared files, backups and the Try it table."""
+"""-- Teach Fyodor -- a taught keyword ("Dive N": an invented keyword with a number, kept as the numbered example; the real dive is a
+keyword action Fyodor knows natively, app/rules/dive.py), a taught action ("plunge": "it plunges" / a numbered "surge 2") and a taught
+card line run through the normal engine: coverage, behaviour (ETB mill, then an optional return), replay and save/load, games in
+progress keeping their snapshot, the shape checks, shared files, backups and the Try it table."""
 
 from __future__ import annotations
 
@@ -29,6 +30,18 @@ EXTRA = [
     card("Reef Stalker", mana_cost="{2}{U}", cmc=3.0, type_line="Creature — Merfolk Rogue", power="2", toughness="2", colors=["U"],
          color_identity=["U"], oracle_text=f"Flying\n{STALKER_LINE}"),
 ]
+
+# a taught action: what the real dive does, taught by hand (docs/TEACH_FYODOR.md's worked example) under another verb, and a numbered one
+PLUNGE = {"kind": "action", "name": "plunge", "param": False, "reminder": "It can't be blocked until it deals combat damage while attacking.",
+          "abilities": [{"hat": {"id": "action"}, "body": [{"id": "unblockable_for", "values": {"who": "t_self", "dur": "rdur_combat_attacking"}}]}]}
+SURGE = {"kind": "action", "name": "surge", "param": True,
+         "abilities": [{"hat": {"id": "action"}, "body": [{"id": "counters", "values": {"n": "N", "on": "t_self"}}, {"id": "then"}, {"id": "draw"}]}]}
+PLUNGE_TEXT = "When this creature enters, if it devoured a creature, it plunges. (It can't be blocked until it deals combat damage while attacking.)"
+EXTRA.append(card("Plunging Tester", mana_cost="{2}{U}", cmc=3.0, type_line="Creature — Merfolk", power="3", toughness="3", colors=["U"],
+                  color_identity=["U"], oracle_text=f"Devour 1 (As this creature enters, you may sacrifice any number of creatures. This creature "
+                                                    f"enters with a +1/+1 counter on it for each creature sacrificed this way.)\n{PLUNGE_TEXT}"))
+EXTRA.append(card("Surging Tester", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Elf", power="1", toughness="1", colors=["G"],
+                  color_identity=["G"], oracle_text="When this creature enters, surge 2.\nWhenever this creature attacks, target creature you control surges 1."))
 
 DIVE = {"kind": "keyword", "name": "Dive", "param": True,
         "reminder": "When this creature enters, mill N cards, then you may return a creature card with mana value N or less milled this way to your hand.",
@@ -98,6 +111,74 @@ def test_a_card_line_is_full_once_taught(cards):
     # the same line on another card is not touched
     other = dict(data, oracle_id="someone-else")
     assert taught.apply(other, taught.snapshot()) is other
+
+
+# -- actions ------------------------------------------------------------------------------------------------------------
+def test_an_action_is_read_as_the_sentences_it_stands_for(cards):
+    result = taught.check(PLUNGE)
+    assert result["ok"] and result["lines"] == ["It can't be blocked until it deals combat damage while attacking."]
+    assert result["phrases"] == [{"card": "When this creature enters, it plunges.",
+                                  "read": "When this creature enters, it can't be blocked until it deals combat damage while attacking."}]
+    assert [e["do"] for e in result["abilities"][0]["definition"]["effects"]] == ["until", "restrict"]
+    data = cards.resolve("Plunging Tester")
+    assert coverage.of_card_data(data).level != "FULL" and PLUNGE_TEXT.split(" (")[0] in coverage.of_card_data(data).manual_parts
+    after = taught.apply(data, [taught.clean_entry(PLUNGE)])
+    assert after["oracle_text"].split("\n")[1] == ("When this creature enters, if it devoured a creature, it can't be blocked until it deals combat "
+                                                  "damage while attacking.")  # (the reminder text went with the phrase)
+    assert after["oracle_text"].startswith("Devour 1 (")  # (another line's reminder stays)
+    assert coverage.of_card_data(after).level == "FULL"
+    # the same action said of a target, of "that creature", at a sentence start, and the card's own name
+    other = dict(data, oracle_text="Target creature plunges.\nWhenever another creature you control enters, that creature plunges. Draw a card.\n"
+                                   "Plunging Tester plunges.")
+    assert taught.apply(other, [taught.clean_entry(PLUNGE)])["oracle_text"] == (
+        "Target creature can't be blocked until it deals combat damage while attacking.\n"
+        "Whenever another creature you control enters, that creature can't be blocked until it deals combat damage while attacking. Draw a card.\n"
+        "Plunging Tester can't be blocked until it deals combat damage while attacking.")
+    assert taught.match_key_of(taught.clean_entry(PLUNGE)) == "action:plunge"
+
+
+def test_a_numbered_action_reads_its_number(cards):
+    result = taught.check(SURGE)
+    assert result["ok"], result["problems"]
+    assert result["lines"] == ["Put N +1/+1 counters on it, then draw a card."]
+    assert [p["card"] for p in result["phrases"]] == ["When this creature enters, surge 1.", "When this creature enters, surge 2.",
+                                                      "When this creature enters, surge 3."]
+    data = cards.resolve("Surging Tester")
+    after = taught.apply(data, [taught.clean_entry(SURGE)])
+    assert after["oracle_text"] == ("When this creature enters, put two +1/+1 counters on this creature, then draw a card.\n"
+                                    "Whenever this creature attacks, put a +1/+1 counter on target creature you control, then draw a card.")
+    assert coverage.of_card_data(after).level == "FULL"
+
+
+def test_a_taught_action_plays_at_the_table(cards):
+    _teach(SURGE)
+    s = build(cards, ["Surging Tester"])
+    tester = to_hand(s, "Surging Tester")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=tester.id)
+    _resolve(s)
+    assert s.state.cards[tester.id].zone == "p1:battlefield" and s.state.cards[tester.id].counters.get("+1/+1") == 2
+    assert len(s.state.zones["p1:hand"]) == 1  # (the drawn card)
+    check(s)
+
+
+@pytest.mark.parametrize("raw, said", [
+    ({**PLUNGE, "name": "explore"}, "already knows"),
+    ({**PLUNGE, "name": "two words"}, "one word"),
+    ({**PLUNGE, "abilities": [{"hat": {"id": "etb"}, "body": [{"id": "draw"}]}]}, "an action holds what happens"),
+    ({**PLUNGE, "abilities": [{"hat": {"id": "action"}, "body": [{"id": "if_your_turn"}, {"id": "draw"}]}]}, "no If piece"),
+    ({**PLUNGE, "abilities": [PLUNGE["abilities"][0], PLUNGE["abilities"][0]]}, "one stack"),
+    ({**DIVE, "abilities": [{"hat": {"id": "action"}, "body": [{"id": "draw"}]}]}, "starts with a When piece"),
+])
+def test_bad_actions_are_refused(raw, said):
+    with pytest.raises(TeachError, match=said):
+        taught.clean_entry(raw)
+
+
+def test_the_real_dive_can_still_be_taught_as_an_action_though_fyodor_knows_it():
+    """docs/TEACH_FYODOR.md's worked example: Fyodor reads dive natively (app/rules/dive.py), and the page still lets you build it."""
+    result = taught.check({**PLUNGE, "name": "dive"})
+    assert result["ok"] and result["phrases"][0]["card"] == "When this creature enters, it dives."
 
 
 def test_dive_reads_the_engines_own_definition():
@@ -289,6 +370,37 @@ def test_teach_api_refuses_bad_entries_and_remote_hosts(client):
     remote = client.post("/api/teach", json={"entry": DIVE}, headers={"x-forwarded-for": "192.168.50.20"})
     assert remote.status_code == 403
     assert client.get("/api/teach", headers={"x-forwarded-for": "192.168.50.20"}).status_code == 200  # (reading is fine)
+
+
+def test_teaching_an_action_through_the_api(client):
+    made = client.post("/api/teach", json={"entry": PLUNGE})
+    assert made.status_code == 201, made.text
+    row = made.json()
+    assert row["kind"] == "action" and row["name"] == "plunge" and row["lines"] == ["It can't be blocked until it deals combat damage while attacking."]
+    tester = client.get("/api/cards/search", params={"q": "Plunging Tester"}).json()["results"][0]
+    lines = client.get(f"/api/teach/card/{tester['id']}").json()
+    assert lines["level_taught"] == "FULL"
+    by_text = {ln["text"]: ln for ln in lines["lines"]}
+    plunge_line = PLUNGE_TEXT.split(" (")[0]
+    assert by_text[plunge_line]["manual"] and by_text[plunge_line]["taught_id"] == row["id"]
+    # a manual line saying "it <verb>s" offers the verb as an action to teach
+    assert client.delete(f"/api/teach/{row['id']}").status_code == 204
+    lines = client.get(f"/api/teach/card/{tester['id']}").json()
+    by_text = {ln["text"]: ln for ln in lines["lines"]}
+    assert by_text[plunge_line]["action"] == {"name": "plunge", "param": False} and by_text[plunge_line]["taught_id"] is None
+    # Try it: a creature in the database says the action, so it is the card in hand; otherwise a stand-in does it as it enters
+    game = client.post("/api/teach/try", json={"entry": PLUNGE})
+    assert game.status_code == 201, game.text
+    gid, seat = game.json()["game"]["id"], game.json()["seat"]
+    view = client.get(f"/api/games/{gid}/view", headers={"x-seat-token": seat["token"]}).json()
+    assert [view["cards"][c]["name"] for c in view["zones"]["p1:hand"]] == ["Plunging Tester"]
+    game = client.post("/api/teach/try", json={"entry": {**PLUNGE, "name": "submerge"}})
+    assert game.status_code == 201, game.text
+    room = client.app.state.services.hub.get(game.json()["game"]["id"])
+    stand_in = room.session.state.taught[-1]
+    assert stand_in["kind"] == "stand_in" and stand_in["oracle_text"] == "When this creature enters, it submerges."
+    hand = [room.session.state.cards[c] for c in room.session.state.zones["p1:hand"]]
+    assert room.session.cards.get(hand[0].card_id)["oracle_text"] == "When this creature enters, it can't be blocked until it deals combat damage while attacking."
 
 
 def test_teaching_a_card_line_through_the_api(client):

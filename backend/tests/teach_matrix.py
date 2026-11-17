@@ -65,9 +65,18 @@ def matrix() -> list[tuple[str, dict[str, Any]]]:
     add("pay-then", {"hat": _b("attacks"), "body": [{"id": "pay_mana", "body": [draw, _b("then"), _b("discard")]}]})
     add("if+pay", {"hat": _b("etb"), "body": [_b("if_control"), {"id": "pay_mana", "body": [draw]}]})
     add("two sentences", {"hat": _b("etb"), "body": [_b("mill"), draw]})
-    add("dive", {"hat": _b("etb"), "body": [_b("mill", n="N"), {"id": "may", "body": [_b("from_milled", n="N")]}]}, param=True)
+    add("plunge", {"hat": _b("etb"), "body": [_b("mill", n="N"), {"id": "may", "body": [_b("from_milled", n="N")]}]}, param=True)
     add("N everywhere", {"hat": _b("activated"), "body": [_b("cost_mana", mana="{N}"), _b("pump", p="N", t="N")]},
         {"hat": _b("static"), "body": [_b("enters_counters", n="N")]}, param=True)
+    # actions (dive, wave DV): what happens to the creature a card says the action of
+    cases.append(("action/dive", {"kind": "action", "name": "dive", "reminder": "It can't be blocked until it deals combat damage while attacking.",
+                                  "abilities": [{"hat": _b("action"), "body": [_b("unblockable_for", who="t_self", dur="rdur_combat_attacking")]}]}))
+    cases.append(("action/two sentences", {"kind": "action", "name": "surface",
+                                           "abilities": [{"hat": _b("action"), "body": [_b("pump", who="t_self", p=2, t=0, dur="dur_next_turn"), _b("draw")]}]}))
+    cases.append(("action/may", {"kind": "action", "name": "forage-deep",
+                                 "abilities": [{"hat": _b("action"), "body": [{"id": "may", "body": [_b("gain", n=2)]}]}]}))
+    cases.append(("action/N", {"kind": "action", "name": "plunge", "param": True,
+                               "abilities": [{"hat": _b("action"), "body": [_b("counters", n="N", on="t_self"), _b("then"), _b("draw")]}]}))
     return cases
 
 
@@ -87,6 +96,10 @@ def sentences() -> list[dict[str, Any]]:
         if clean.get("param"):
             case["lines_n2"] = taught.compile_entry(clean, n=2, me="this creature")
         case["lines_artifact"] = taught.compile_entry(clean, me="this artifact")
+        if clean["kind"] == "action":  # (the page shows how a card says it and what Fyodor reads instead: both ports agree word for word)
+            case["phrase"] = taught.action_phrase(clean)
+            case["said"] = taught.action_sentences(clean, me="it")
+            case["said_target"] = taught.action_sentences(clean, n=2 if clean.get("param") else None, me="target creature")
         out.append(case)
     return out
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addAbility, emptyScript, find, fromEntry, hasWork, insert, move, newNode, order, remove, removeAbility, setValue, toEntry } from "./script";
+import { addAbility, asKind, emptyScript, find, fromEntry, hasWork, insert, move, newNode, order, remove, removeAbility, setValue, toEntry } from "./script";
 import { vocabulary } from "./testVocabulary";
 import type { Entry } from "./types";
 
@@ -22,6 +22,20 @@ describe("the serialiser", () => {
     s = insert(s, { ability: 0, index: [] }, newNode(piece("etb")));
     s = insert(s, { ability: 0, index: [0] }, { ...draw, values: { n: 2, evil: "x" } });
     expect(toEntry(s, voc).abilities[0]).toEqual({ hat: { id: "etb" }, body: [{ id: "draw", values: { n: 2 } }] });
+  });
+  it("round-trips an action, whose stack starts with the action hat", () => {
+    const dive: Entry = { kind: "action", name: "dive", param: false, reminder: "", abilities: [{ hat: { id: "action" },
+      body: [{ id: "unblockable_for", values: { who: "t_self", dur: "rdur_combat_attacking" } }] }] };
+    expect(toEntry(fromEntry(dive), voc)).toEqual(dive);
+    const s = emptyScript("action");
+    expect(s.abilities[0]!.hat?.id).toBe("action");
+    expect(toEntry({ ...s, name: " Dive " }, voc)).toEqual({ kind: "action", name: "dive", param: false, reminder: "", abilities: [{ hat: { id: "action" }, body: [] }] });
+    // switching kinds: a keyword's stack can't become an action's (the hat differs), the name stays
+    const back = asKind(fromEntry(DIVE), "action");
+    expect(back.kind).toBe("action");
+    expect(back.name).toBe("Dive");
+    expect(back.abilities[0]!.hat?.id).toBe("action");
+    expect(asKind(back, "keyword").abilities[0]!.hat).toBeNull();
   });
   it("skips an ability with no hat and writes a card line", () => {
     const s = fromEntry({ kind: "card", oracle_id: "abc", line: "Whenever X attacks, do Y.", card_name: "X", type_line: "Creature — Elf",

@@ -1,10 +1,11 @@
 """-- Teach Fyodor -- mechanics and card lines a player taught the engine with snap-together pieces (docs/TEACH_FYODOR.md).
 
-A taught entry is pure data: either a **keyword** ("Dive N", with its reminder text) or one **card line** the engine left manual,
-and the abilities that stand for it, each a stack of pieces from ``taught_vocab``. ``compile_entry`` writes those abilities out
-as Oracle sentences; ``apply`` puts the sentences in place of the keyword (or the line) in a card's Oracle text, so the engine's
-own parser reads them into its own definitions — the same path every printed card takes. Nothing is evaluated: a piece id or a
-value that isn't in the vocabulary is refused (``clean_entry``).
+A taught entry is pure data: a **keyword** ("Plunge N", with its reminder text), an **action** (a keyword action like "dive": what
+happens to the creature a card says it of — "it dives", "target creature dives", or "plunge 2" for one with a number) or one **card
+line** the engine left manual, and the abilities that stand for it, each a stack of pieces from ``taught_vocab``. ``compile_entry``
+writes those abilities out as Oracle sentences; ``apply`` puts the sentences in place of the keyword, the action's phrase (or the
+line) in a card's Oracle text, so the engine's own parser reads them into its own definitions — the same path every printed card
+takes. Nothing is evaluated: a piece id or a value that isn't in the vocabulary is refused (``clean_entry``).
 
 A game keeps the entries it started with (``GameState.taught``, stamped by ``GameSession``): ``TaughtCards`` serves that game's
 card data with its own entries applied, so editing the library later never changes a game in progress or a saved one.
@@ -27,6 +28,9 @@ MAX_BODY = 12
 MAX_CHILDREN = 4
 MAX_ENTRIES = 500
 NAME_RE = re.compile(r"[A-Z][A-Za-z'\-]{1,23}(?: [A-Za-z'\-]{1,23}){0,2}")
+ACTION_RE = re.compile(r"[a-z][a-z\-]{1,23}")  # (one lowercase verb: cards say "it dives", "target creature dives")
+# the subjects a card's text gives a keyword action ("it dives", "target creature dives"); the card's own name is added per card
+ACTION_SUBJECTS = r"it|this creature|this permanent|that creature|target creature(?: you control)?|each creature you control"
 MANA_RE = re.compile(r"(?:\{(?:[0-9]|1[0-9]|20|W|U|B|R|G|C|N|W/U|U/B|B/R|R/G|G/W|W/B|U/R|B/G|R/W|G/U)\}){1,8}")
 COLORED_MANA_RE = re.compile(r"(?:\{[WUBRGC]\}){1,6}")
 _WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
@@ -145,6 +149,8 @@ def ability_text(ability: dict[str, Any], *, n: int | None = None, me: str = "th
     """One ability as an Oracle sentence ("When this creature enters, mill two cards. …")."""
     hat = PIECE[ability["hat"]["id"]]
     body = list(ability.get("body") or [])
+    if hat["role"] == "action_hat":  # (what happens to the object the card says the action of: "it" — compile_entry)
+        return " ".join(_cap(s) + "." for s in _sentences(body, n, me)) or "…"
     cond = body.pop(0) if body and PIECE[body[0]["id"]]["role"] == "condition" else None
     if hat["role"] == "static_hat":
         static = next((b for b in body if PIECE[b["id"]]["role"] == "static"), None)
@@ -168,8 +174,27 @@ def ability_text(ability: dict[str, Any], *, n: int | None = None, me: str = "th
 
 
 def compile_entry(entry: dict[str, Any], *, n: int | None = None, me: str = "this creature") -> list[str]:
-    """The Oracle lines that stand for a taught keyword (with its number ``n``) or card line."""
+    """The Oracle lines that stand for a taught keyword (with its number ``n``) or card line; for an action, what happens to "it"
+    ("It can't be blocked until it deals combat damage while attacking.")."""
+    if entry.get("kind") == "action":
+        me = "it"
     return [ability_text(a, n=n, me=me) for a in entry["abilities"]]
+
+
+def action_phrase(entry: dict[str, Any], *, n: int | None = None, me: str = "it") -> str:
+    """How a card says a taught action: "it dives"; with a number, "plunge 2" (the imperative, as "bolster 2" is said)."""
+    if entry.get("param"):
+        return f"{entry['name']} {'N' if n is None else n}"
+    return f"{me} {entry['name']}s"
+
+
+def action_sentences(entry: dict[str, Any], *, n: int | None = None, me: str = "it") -> str:
+    """The action's effects as the clause that replaces its phrase: the first sentence runs on from the card's own words, the rest are
+    sentences of their own ("it can't be blocked until it deals combat damage while attacking. Draw a card")."""
+    said = [s for a in entry["abilities"] for s in _sentences(list(a.get("body") or []), n, me)]
+    if not said:
+        return "…"
+    return said[0] + "".join(f". {_cap(s)}" for s in said[1:])
 
 
 # ---------------------------------------------------------------------------------------------------------------- checking shape
@@ -260,13 +285,15 @@ def _check_flow(body: list[dict[str, Any]], where: str, *, inside: bool = False)
         raise TeachError("add a Do piece: what happens?", where)
 
 
-def _ability(raw: Any, where: str, *, allow_param: bool) -> dict[str, Any]:
+def _ability(raw: Any, where: str, *, allow_param: bool, kind: str = "keyword") -> dict[str, Any]:
     if not isinstance(raw, dict) or not set(raw) <= {"hat", "body"}:
         raise TeachError("not an ability", where)
     hat = _block(raw.get("hat"), where, allow_param=allow_param, depth=0)
     role = PIECE[hat["id"]]["role"]
-    if role not in ("trigger", "activated", "static_hat"):
+    if role not in ("trigger", "activated", "static_hat", "action_hat"):
         raise TeachError("start with a When piece", where)
+    if (role == "action_hat") != (kind == "action"):
+        raise TeachError("an action holds what happens; a keyword or a card's line starts with a When piece", where)
     body_raw = raw.get("body") or []
     if not isinstance(body_raw, list) or len(body_raw) > MAX_BODY:
         raise TeachError(f"at most {MAX_BODY} pieces in one ability", where)
@@ -275,7 +302,11 @@ def _ability(raw: Any, where: str, *, allow_param: bool) -> dict[str, Any]:
     if "condition" in roles[1:]:
         raise TeachError("an If piece goes first, right under When", where)
     rest = body[1:] if roles[:1] == ["condition"] else body
-    if role == "trigger":
+    if role == "action_hat":
+        if roles[:1] == ["condition"]:
+            raise TeachError("an action has no If piece: the card's own words say when it happens", where)
+        _check_flow(rest, where)
+    elif role == "trigger":
         _check_flow(rest, where)
     elif role == "activated":
         if roles[:1] == ["condition"]:
@@ -336,6 +367,18 @@ def clean_entry(raw: Any) -> dict[str, Any]:
         if not isinstance(param, bool):
             raise TeachError("param: yes or no")
         out.update(name=name, param=param, reminder=_text(raw.get("reminder"), "reminder", 400, required=False))
+    elif kind == "action":
+        name = _text(raw.get("name"), "name", 30).lower()
+        if not ACTION_RE.fullmatch(name):
+            raise TeachError("name: one word, the verb a card uses (like dive: cards say \"it dives\")")
+        from app.rules.analysis import KEYWORD_ACTIONS
+
+        if name in KEYWORD_ACTIONS or name.rstrip("e") in {k.rstrip("e") for k in KEYWORD_ACTIONS}:
+            raise TeachError(f"name: Fyodor already knows {name}")
+        param = raw.get("param", False)
+        if not isinstance(param, bool):
+            raise TeachError("param: yes or no")
+        out.update(name=name, param=param, reminder=_text(raw.get("reminder"), "reminder", 400, required=False))
     elif kind == "card":
         oid = _text(raw.get("oracle_id"), "card", 64)
         if not re.fullmatch(r"[0-9a-zA-Z\-]{1,64}", oid):
@@ -345,11 +388,12 @@ def clean_entry(raw: Any) -> dict[str, Any]:
                    type_line=_text(raw.get("type_line"), "type line", 200, required=False))
         param = False
     else:
-        raise TeachError("kind: a keyword or a card line")
+        raise TeachError("kind: a keyword, an action or a card line")
     abilities = raw.get("abilities")
-    if not isinstance(abilities, list) or not 1 <= len(abilities) <= MAX_ABILITIES:
-        raise TeachError(f"between 1 and {MAX_ABILITIES} abilities")
-    out["abilities"] = [_ability(a, f"Ability {i + 1}", allow_param=bool(param)) for i, a in enumerate(abilities)]
+    most = 1 if kind == "action" else MAX_ABILITIES
+    if not isinstance(abilities, list) or not 1 <= len(abilities) <= most:
+        raise TeachError(f"between 1 and {most} abilities" if most > 1 else "an action is one stack of Do pieces")
+    out["abilities"] = [_ability(a, f"Ability {i + 1}", allow_param=bool(param), kind=str(kind)) for i, a in enumerate(abilities)]
     return out
 
 
@@ -364,8 +408,8 @@ def problems(raw: Any) -> list[dict[str, str]]:
 
 def match_key_of(entry: dict[str, Any]) -> str:
     """What makes two entries teach the same thing: a keyword's name, or one card's line."""
-    if entry["kind"] == "keyword":
-        return "keyword:" + entry["name"].lower()
+    if entry["kind"] in ("keyword", "action"):
+        return f"{entry['kind']}:{entry['name'].lower()}"
     return f"{entry['kind']}:{entry.get('oracle_id') or entry.get('card_id')}:{entry.get('line') or ''}"
 
 
@@ -403,7 +447,36 @@ def _keyword_line(core: str, keywords: dict[str, dict[str, Any]]) -> tuple[list[
     return (rest, found) if found else None
 
 
-def _rewrite(text: str, type_line: str, keywords: dict[str, dict[str, Any]], lines: dict[str, dict[str, Any]]) -> tuple[str, list[str]]:
+def action_pattern(entry: dict[str, Any], card_name: str = "") -> re.Pattern[str]:
+    """Where a card's text says the action: "it dives" / "Target creature dives" (``subj``), or "plunge 2" (``n``) for one with a number."""
+    subjects = ACTION_SUBJECTS + (f"|{re.escape(card_name)}" if card_name else "")
+    name = re.escape(entry["name"])
+    if entry.get("param"):
+        return re.compile(rf"(?<![A-Za-z])(?:(?P<subj>{subjects}) )?{name}s? (?P<n>\d{{1,2}})\b", re.I)
+    return re.compile(rf"(?<![A-Za-z])(?P<subj>{subjects}) {name}s\b", re.I)
+
+
+def _swap_action(m: re.Match[str], entry: dict[str, Any], type_line: str, card_name: str, used: list[str]) -> str:
+    """One phrase of the action → the sentences it stands for, said of the subject the card used (capitalised where the card's words were)."""
+    n = int(m["n"]) if m.groupdict().get("n") else None
+    subj = m.group("subj")
+    me = self_word(type_line) if subj is None else subj if subj[:1].islower() or subj == card_name else subj[:1].lower() + subj[1:]
+    said = action_sentences(entry, n=n, me=me)
+    first = m.start() == 0 or m.string[max(0, m.start() - 2):m.start()] in (". ", "— ") or subj is not None and subj[:1].isupper()
+    used.append(f"action:{entry['name']}:{n}")
+    return _cap(said) if first else said
+
+
+def _action_rewrite(core: str, actions: list[dict[str, Any]], type_line: str, card_name: str) -> tuple[str, list[str]]:
+    """The line with each taught action's phrase replaced by the sentences it stands for (the subject the card used stays its subject)."""
+    used: list[str] = []
+    for entry in actions:
+        core = action_pattern(entry, card_name).sub(lambda m, e=entry: _swap_action(m, e, type_line, card_name, used), core)
+    return core, used
+
+
+def _rewrite(text: str, type_line: str, keywords: dict[str, dict[str, Any]], lines: dict[str, dict[str, Any]],
+             actions: list[dict[str, Any]] | None = None, card_name: str = "") -> tuple[str, list[str]]:
     from app.rules.oracle import strip_reminders
 
     me = self_word(type_line)
@@ -415,6 +488,12 @@ def _rewrite(text: str, type_line: str, keywords: dict[str, dict[str, Any]], lin
             out += compile_entry(lines[core], me=me)
             used.append(f"line:{core}")
             continue
+        if actions:
+            core2, got = _action_rewrite(core, actions, type_line, card_name)
+            if got:  # (the reminder text went with the phrase: the engine never reads one)
+                out.append(core2)
+                used += got
+                continue
         kw = _keyword_line(core, keywords) if keywords and core else None
         if kw is None:
             out.append(raw)
@@ -435,9 +514,10 @@ def apply(data: dict[str, Any] | None, entries: Iterable[dict[str, Any]]) -> dic
     if data is None or not entries:
         return data
     keywords = {e["name"].lower(): e for e in entries if e["kind"] == "keyword"}
+    actions = [e for e in entries if e["kind"] == "action"]
     lines = {e["line"]: e for e in entries if e["kind"] == "card" and e.get("oracle_id") == data.get("oracle_id")}
     stand_in = next((e for e in entries if e["kind"] == "stand_in" and e.get("card_id") == data.get("id")), None)
-    if not keywords and not lines and stand_in is None:
+    if not keywords and not lines and not actions and stand_in is None:
         return data
     used: list[str] = []
     out = dict(data)
@@ -445,7 +525,8 @@ def apply(data: dict[str, Any] | None, entries: Iterable[dict[str, Any]]) -> dic
         out.update(oracle_text=stand_in["oracle_text"], faces=[], layout="normal")
         used.append(f"stand_in:{stand_in['oracle_text']}")
     if out.get("oracle_text"):
-        out["oracle_text"], got = _rewrite(str(out["oracle_text"]), str(out.get("type_line") or ""), keywords, lines)
+        out["oracle_text"], got = _rewrite(str(out["oracle_text"]), str(out.get("type_line") or ""), keywords, lines, actions,
+                                           str(out.get("name") or ""))
         used += got
     if out.get("faces"):
         faces = []
@@ -453,7 +534,7 @@ def apply(data: dict[str, Any] | None, entries: Iterable[dict[str, Any]]) -> dic
             face = dict(face)
             if face.get("oracle_text"):
                 face["oracle_text"], got = _rewrite(str(face["oracle_text"]), str(face.get("type_line") or out.get("type_line") or ""),
-                                                    keywords, lines)
+                                                    keywords, lines, actions, str(face.get("name") or out.get("name") or ""))
                 used += got
             faces.append(face)
         out["faces"] = faces
@@ -532,8 +613,14 @@ def check(raw: Any, *, type_line: str | None = None) -> dict[str, Any]:
     preview = compile_entry(entry, n=None, me=me)
     found: list[dict[str, Any]] = []
     issues: list[dict[str, str]] = []
+    phrases: list[dict[str, str]] = []
     for n in ((1, 2, 3) if entry.get("param") else (None,)):
-        lines = compile_entry(entry, n=n, me=me)
+        if entry["kind"] == "action":  # (the line a card would carry, rewritten exactly as ``apply`` rewrites it)
+            card_line = f"When {me} enters, {action_phrase(entry, n=n)}."
+            lines = [_rewrite(card_line, tl, {}, {}, [entry], "")[0]]
+            phrases.append({"card": card_line, "read": lines[0]})
+        else:
+            lines = compile_entry(entry, n=n, me=me)
         probe = _probe(lines, tl)
         if not found:
             found = probe["abilities"]
@@ -546,5 +633,5 @@ def check(raw: Any, *, type_line: str | None = None) -> dict[str, Any]:
             issues.append({"where": "", "message": "One of the abilities reads as more than one line. Try other pieces."})
     seen: set[str] = set()
     issues = [i for i in issues if not (i["message"] in seen or seen.add(i["message"]))]  # type: ignore[func-returns-value]
-    return {"ok": not issues, "problems": issues, "lines": preview, "entry": entry,
+    return {"ok": not issues, "problems": issues, "lines": preview, "entry": entry, "phrases": phrases,
             "abilities": [{"text": a["text"], "understood": a["understood"], "definition": a["definition"]} for a in found]}

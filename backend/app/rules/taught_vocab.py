@@ -91,6 +91,10 @@ OPTIONS: dict[str, dict[str, Any]] = {
     # "for each … you control"
     "each_artifact": {"text": "artifact"}, "each_creature": {"text": "creature"}, "each_land": {"text": "land"},
     "each_enchantment": {"text": "enchantment"}, "each_other_creature": {"text": "other creature"},
+    # how long an effect lasts (611.2a); "this turn" is the restriction grammar's "until end of turn"
+    "dur_eot": {"text": "until end of turn"}, "dur_next_turn": {"text": "until your next turn"},
+    "rdur_turn": {"text": "this turn"}, "rdur_next_turn": {"text": "until your next turn"},
+    "rdur_combat_attacking": {"text": "until it deals combat damage while attacking"}, "rdur_combat": {"text": "until it deals combat damage"},
 }
 
 _KW = [k for k in OPTIONS if k.startswith("kw_")]
@@ -126,7 +130,7 @@ CATEGORIES: list[dict[str, str]] = [
     {"id": "value", "label": "Values", "hint": "Numbers — drop one on a white slot"},
 ]
 
-# Roles: "trigger" | "activated" | "static_hat" start an ability (hat blocks); "condition" (If); "cost" (an activated ability's cost);
+# Roles: "trigger" | "activated" | "static_hat" | "action_hat" start an ability (hat blocks; "action_hat" only heads a taught action); "condition" (If); "cost" (an activated ability's cost);
 # "limit" ("Activate only …"); "optional_cost" (a "you may pay …. If you do," container); "effect" (Do); "static" (Always);
 # "may" / "ifdo" (containers) and "then" (joins two effects into one sentence). A static's "bare" wording is used without an If piece
 # ("Flying" rather than "This creature has flying."); "needs_condition": only under an If piece.
@@ -156,6 +160,8 @@ PIECES: list[dict[str, Any]] = [
     {"id": "end_step", "cat": "when", "role": "trigger", "label": "Your end step", "text": "At the beginning of your end step"},
     {"id": "activated", "cat": "when", "role": "activated", "label": "Pay to use it", "text": "Pay a cost: do something"},
     {"id": "static", "cat": "when", "role": "static_hat", "label": "Always", "text": "Always true"},
+    # (an action: the only hat of a taught action; the page sets it, the palette doesn't offer it)
+    {"id": "action", "cat": "when", "role": "action_hat", "label": "The action", "text": "When a card says it", "hidden": True},
     # ---- If (conditions) ----
     {"id": "if_control", "cat": "if", "role": "condition", "label": "You control N or more …", "text": "you control {n:word} or more {what}",
      "slots": {"n": _num(3), "what": _choice(_opts("count_lands", "count_creatures", "count_artifacts", "count_enchantments"))}},
@@ -166,6 +172,12 @@ PIECES: list[dict[str, Any]] = [
      "text": "there are {n:word} or more cards in your graveyard", "slots": {"n": _num(7)}},
     {"id": "if_opp_lands", "cat": "if", "role": "condition", "label": "An opponent has more lands",
      "text": "an opponent controls more lands than you", "trigger_only": True},
+    # (dive, wave DV: the real card's intervening if, 702.82b; and how the spell was cast, 601.2h)
+    {"id": "if_devoured", "cat": "if", "role": "condition", "label": "It devoured a creature", "text": "it devoured a creature", "trigger_only": True},
+    {"id": "if_devoured_n", "cat": "if", "role": "condition", "label": "It devoured N or more creatures",
+     "text": "it devoured {n:word} or more creatures", "slots": {"n": _num(2, 2, 10)}, "trigger_only": True},
+    {"id": "if_kicked", "cat": "if", "role": "condition", "label": "It was kicked", "text": "it was kicked", "trigger_only": True},
+    {"id": "if_cast", "cat": "if", "role": "condition", "label": "You cast it", "text": "you cast it", "trigger_only": True},
     # ---- Cost ----
     {"id": "cost_mana", "cat": "cost", "role": "cost", "label": "Mana", "text": "{mana}", "slots": {"mana": MANA}},
     {"id": "cost_tap", "cat": "cost", "role": "cost", "label": "Tap it {T}", "text": "{T}"},
@@ -255,10 +267,16 @@ PIECES: list[dict[str, Any]] = [
      "slots": {"what": _choice(_opts("t_artifact_opp", "t_creature_opp", "t_permanent_opp"))}},
     {"id": "threaten", "cat": "do", "role": "effect", "label": "Borrow a creature this turn",
      "text": "gain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn"},
-    {"id": "pump", "cat": "do", "role": "effect", "label": "+X/+X until end of turn", "text": "{who} get{who:vs} {p:signed}/{t:signed} until end of turn",
-     "slots": {"who": _choice(_opts("t_self", "t_creature", "t_creature_yours", "t_creatures_yours")), "p": SIGNED, "t": SIGNED}},
-    {"id": "grant", "cat": "do", "role": "effect", "label": "Gains a keyword this turn", "text": "{who} gain{who:vs} {kw} until end of turn",
-     "slots": {"who": _choice(_opts("t_self", "t_creature", "t_creature_yours", "t_creatures_yours")), "kw": _choice(_KW)}},
+    {"id": "pump", "cat": "do", "role": "effect", "label": "+X/+X until …", "text": "{who} get{who:vs} {p:signed}/{t:signed} {dur}",
+     "slots": {"who": _choice(_opts("t_self", "t_creature", "t_creature_yours", "t_creatures_yours")), "p": SIGNED, "t": SIGNED,
+               "dur": _choice(_opts("dur_eot", "dur_next_turn"))}},
+    {"id": "grant", "cat": "do", "role": "effect", "label": "Gains a keyword until …", "text": "{who} gain{who:vs} {kw} {dur}",
+     "slots": {"who": _choice(_opts("t_self", "t_creature", "t_creature_yours", "t_creatures_yours")), "kw": _choice(_KW),
+               "dur": _choice(_opts("dur_eot", "dur_next_turn"))}},
+    # (dive, wave DV: evasion with a duration — "until it deals combat damage while attacking" is what the keyword action dive means)
+    {"id": "unblockable_for", "cat": "do", "role": "effect", "label": "Can't be blocked until …", "text": "{who} can't be blocked {dur}",
+     "slots": {"who": _choice(_opts("t_self", "t_creature", "t_creature_yours")),
+               "dur": _choice(_opts("rdur_turn", "rdur_next_turn", "rdur_combat_attacking", "rdur_combat"))}},
     {"id": "add_mana", "cat": "do", "role": "effect", "label": "Add mana", "text": "add {mana}", "slots": {"mana": {"kind": "mana", "default": "{G}",
                                                                                                                  "colored": True}}},
     {"id": "add_any", "cat": "do", "role": "effect", "label": "Add one mana of any color", "text": "add one mana of any color"},

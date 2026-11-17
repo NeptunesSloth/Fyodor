@@ -1187,6 +1187,141 @@
   ]
  },
  {
+  "name": "when/if_devoured",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_devoured"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it devoured a creature, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it devoured a creature, draw a card."
+  ]
+ },
+ {
+  "name": "when/if_devoured_n",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_devoured_n",
+       "values": {
+        "n": 2
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it devoured two or more creatures, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it devoured two or more creatures, draw a card."
+  ]
+ },
+ {
+  "name": "when/if_kicked",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_kicked"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it was kicked, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it was kicked, draw a card."
+  ]
+ },
+ {
+  "name": "when/if_cast",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_cast"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you cast it, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you cast it, draw a card."
+  ]
+ },
+ {
   "name": "cost_mana",
   "entry": {
    "kind": "keyword",
@@ -7828,7 +7963,8 @@
        "values": {
         "who": "t_self",
         "p": 1,
-        "t": 1
+        "t": 1,
+        "dur": "dur_eot"
        }
       }
      ]
@@ -7869,7 +8005,8 @@
        "values": {
         "who": "t_self",
         "p": 1,
-        "t": 1
+        "t": 1,
+        "dur": "dur_eot"
        }
       }
      ]
@@ -7901,7 +8038,8 @@
        "values": {
         "who": "t_creature",
         "p": 1,
-        "t": 1
+        "t": 1,
+        "dur": "dur_eot"
        }
       }
      ]
@@ -7933,7 +8071,8 @@
        "values": {
         "who": "t_creature_yours",
         "p": 1,
-        "t": 1
+        "t": 1,
+        "dur": "dur_eot"
        }
       }
      ]
@@ -7965,7 +8104,8 @@
        "values": {
         "who": "t_creatures_yours",
         "p": 1,
-        "t": 1
+        "t": 1,
+        "dur": "dur_eot"
        }
       }
      ]
@@ -7977,6 +8117,39 @@
   ],
   "lines_artifact": [
    "When this artifact enters, creatures you control get +1/+1 until end of turn."
+  ]
+ },
+ {
+  "name": "pump{'dur': 'dur_next_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "pump",
+       "values": {
+        "who": "t_self",
+        "p": 1,
+        "t": 1,
+        "dur": "dur_next_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature gets +1/+1 until your next turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact gets +1/+1 until your next turn."
   ]
  },
  {
@@ -7996,7 +8169,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_flying"
+        "kw": "kw_flying",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8036,7 +8210,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_flying"
+        "kw": "kw_flying",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8067,7 +8242,8 @@
        "id": "grant",
        "values": {
         "who": "t_creature",
-        "kw": "kw_flying"
+        "kw": "kw_flying",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8098,7 +8274,8 @@
        "id": "grant",
        "values": {
         "who": "t_creature_yours",
-        "kw": "kw_flying"
+        "kw": "kw_flying",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8129,7 +8306,8 @@
        "id": "grant",
        "values": {
         "who": "t_creatures_yours",
-        "kw": "kw_flying"
+        "kw": "kw_flying",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8160,7 +8338,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_first_strike"
+        "kw": "kw_first_strike",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8191,7 +8370,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_double_strike"
+        "kw": "kw_double_strike",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8222,7 +8402,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_deathtouch"
+        "kw": "kw_deathtouch",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8253,7 +8434,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_haste"
+        "kw": "kw_haste",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8284,7 +8466,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_hexproof"
+        "kw": "kw_hexproof",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8315,7 +8498,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_indestructible"
+        "kw": "kw_indestructible",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8346,7 +8530,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_lifelink"
+        "kw": "kw_lifelink",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8377,7 +8562,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_menace"
+        "kw": "kw_menace",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8408,7 +8594,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_reach"
+        "kw": "kw_reach",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8439,7 +8626,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_trample"
+        "kw": "kw_trample",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8470,7 +8658,8 @@
        "id": "grant",
        "values": {
         "who": "t_self",
-        "kw": "kw_vigilance"
+        "kw": "kw_vigilance",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -8482,6 +8671,264 @@
   ],
   "lines_artifact": [
    "When this artifact enters, this artifact gains vigilance until end of turn."
+  ]
+ },
+ {
+  "name": "grant{'dur': 'dur_next_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "grant",
+       "values": {
+        "who": "t_self",
+        "kw": "kw_flying",
+        "dur": "dur_next_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature gains flying until your next turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact gains flying until your next turn."
+  ]
+ },
+ {
+  "name": "unblockable_for",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature can't be blocked this turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact can't be blocked this turn."
+  ]
+ },
+ {
+  "name": "activated/unblockable_for",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_tap"
+      },
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, {T}: This creature can't be blocked this turn."
+  ],
+  "lines_artifact": [
+   "{2}, {T}: This artifact can't be blocked this turn."
+  ]
+ },
+ {
+  "name": "unblockable_for{'who': 't_creature'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_creature",
+        "dur": "rdur_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, target creature can't be blocked this turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, target creature can't be blocked this turn."
+  ]
+ },
+ {
+  "name": "unblockable_for{'who': 't_creature_yours'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_creature_yours",
+        "dur": "rdur_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, target creature you control can't be blocked this turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, target creature you control can't be blocked this turn."
+  ]
+ },
+ {
+  "name": "unblockable_for{'dur': 'rdur_next_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_next_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature can't be blocked until your next turn."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact can't be blocked until your next turn."
+  ]
+ },
+ {
+  "name": "unblockable_for{'dur': 'rdur_combat_attacking'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_combat_attacking"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature can't be blocked until it deals combat damage while attacking."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact can't be blocked until it deals combat damage while attacking."
+  ]
+ },
+ {
+  "name": "unblockable_for{'dur': 'rdur_combat'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_combat"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, this creature can't be blocked until it deals combat damage."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, this artifact can't be blocked until it deals combat damage."
   ]
  },
  {
@@ -10546,7 +10993,7 @@
   ]
  },
  {
-  "name": "dive",
+  "name": "plunge",
   "entry": {
    "kind": "keyword",
    "name": "Probe",
@@ -10614,7 +11061,8 @@
        "values": {
         "who": "t_self",
         "p": "N",
-        "t": "N"
+        "t": "N",
+        "dur": "dur_eot"
        }
       }
      ]
@@ -10646,5 +11094,165 @@
    "{N}: This artifact gets +N/+N until end of turn.",
    "This artifact enters with N +1/+1 counters on it."
   ]
+ },
+ {
+  "name": "action/dive",
+  "entry": {
+   "kind": "action",
+   "name": "dive",
+   "param": false,
+   "reminder": "It can't be blocked until it deals combat damage while attacking.",
+   "abilities": [
+    {
+     "hat": {
+      "id": "action"
+     },
+     "body": [
+      {
+       "id": "unblockable_for",
+       "values": {
+        "who": "t_self",
+        "dur": "rdur_combat_attacking"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "It can't be blocked until it deals combat damage while attacking."
+  ],
+  "lines_artifact": [
+   "It can't be blocked until it deals combat damage while attacking."
+  ],
+  "phrase": "it dives",
+  "said": "it can't be blocked until it deals combat damage while attacking",
+  "said_target": "target creature can't be blocked until it deals combat damage while attacking"
+ },
+ {
+  "name": "action/two sentences",
+  "entry": {
+   "kind": "action",
+   "name": "surface",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "action"
+     },
+     "body": [
+      {
+       "id": "pump",
+       "values": {
+        "who": "t_self",
+        "p": 2,
+        "t": 0,
+        "dur": "dur_next_turn"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "It gets +2/+0 until your next turn. Draw a card."
+  ],
+  "lines_artifact": [
+   "It gets +2/+0 until your next turn. Draw a card."
+  ],
+  "phrase": "it surfaces",
+  "said": "it gets +2/+0 until your next turn. Draw a card",
+  "said_target": "target creature gets +2/+0 until your next turn. Draw a card"
+ },
+ {
+  "name": "action/may",
+  "entry": {
+   "kind": "action",
+   "name": "forage-deep",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "action"
+     },
+     "body": [
+      {
+       "id": "may",
+       "body": [
+        {
+         "id": "gain",
+         "values": {
+          "n": 2
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "You may gain 2 life."
+  ],
+  "lines_artifact": [
+   "You may gain 2 life."
+  ],
+  "phrase": "it forage-deeps",
+  "said": "you may gain 2 life",
+  "said_target": "you may gain 2 life"
+ },
+ {
+  "name": "action/N",
+  "entry": {
+   "kind": "action",
+   "name": "plunge",
+   "param": true,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "action"
+     },
+     "body": [
+      {
+       "id": "counters",
+       "values": {
+        "n": "N",
+        "on": "t_self"
+       }
+      },
+      {
+       "id": "then"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Put N +1/+1 counters on it, then draw a card."
+  ],
+  "lines_n2": [
+   "Put two +1/+1 counters on it, then draw a card."
+  ],
+  "lines_artifact": [
+   "Put N +1/+1 counters on it, then draw a card."
+  ],
+  "phrase": "plunge N",
+  "said": "put N +1/+1 counters on it, then draw a card",
+  "said_target": "put two +1/+1 counters on target creature, then draw a card"
  }
 ]

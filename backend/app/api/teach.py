@@ -137,6 +137,24 @@ def _card(services: Services, card_id: str) -> dict[str, Any]:
 
 
 _KEYWORDISH = re.compile(r"([A-Z][a-z'\-]+(?: [a-z'\-]+)?)(?: (\d{1,2}|X))?")
+# "it dives", "target creature plunges" on a line Fyodor plays by hand: the verb may be a keyword action to teach (dive, wave DV).
+# Common verbs of ordinary wording are not offered (those lines want other words, not an action).
+_ACTIONISH = re.compile(rf"\b(?:{taught.ACTION_SUBJECTS}) (?P<verb>[a-z][a-z\-]+?)s(?P<n> \d{{1,2}})?(?=[.,;]|$)")  # ("it dives": the verb is dive)
+_NOT_ACTIONS = {"get", "gain", "lose", "ha", "deal", "become", "enter", "die", "attack", "block", "fight", "leave", "return", "untap", "tap",
+                "transform", "phase", "counter", "control", "own", "remain", "stay", "do", "doe", "doesn't", "can't", "cost", "loses", "gets",
+                "gains", "has", "deals", "becomes", "enters", "dies", "attacks", "blocks", "fights", "leaves", "returns", "untaps", "taps",
+                "transforms", "phases", "counters", "controls", "owns", "remains", "stays", "does", "costs", "is", "isn't", "wa", "was"}
+
+
+def _actionish(line: str) -> dict[str, Any] | None:
+    from app.rules.analysis import KEYWORD_ACTIONS
+
+    for m in _ACTIONISH.finditer(line.lower()):
+        verb = m["verb"]
+        if verb in _NOT_ACTIONS or verb in KEYWORD_ACTIONS or len(verb) < 3:
+            continue
+        return {"name": verb, "param": m["n"] is not None}
+    return None
 
 
 @router.get("/teach/card/{card_id}")
@@ -151,6 +169,7 @@ def card_lines(card_id: str, services: ServicesDep) -> dict[str, Any]:
     taught_lines = {r["entry"]["line"]: r["id"] for r in services.taught.list_all()
                     if r["kind"] == "card" and r["oracle_id"] == data.get("oracle_id")}
     keywords = {r["name"].lower(): r["id"] for r in services.taught.list_all() if r["kind"] == "keyword"}
+    actions = {r["name"].lower(): r for r in services.taught.list_all() if r["kind"] == "action"}
     out = []
     for face in faces:
         for raw in str(face.get("oracle_text") or "").split("\n"):
@@ -158,10 +177,14 @@ def card_lines(card_id: str, services: ServicesDep) -> dict[str, Any]:
             if not line:
                 continue
             kw = _KEYWORDISH.fullmatch(line.rstrip("."))
+            is_manual = line in manual or any(line in m for m in manual)
+            taught_action = next((r["id"] for r in actions.values() if taught.action_pattern(r["entry"], str(data.get("name") or "")).search(line)), None)
+            act = _actionish(line) if is_manual and not kw else None
             out.append({"text": line, "face": face.get("name") or data.get("name"), "type_line": face.get("type_line") or data.get("type_line"),
-                        "manual": line in manual or any(line in m for m in manual),
-                        "taught_id": taught_lines.get(line) or (keywords.get(kw[1].lower()) if kw else None),
-                        "keyword": ({"name": kw[1], "param": kw[2] is not None} if kw and line in manual else None)})
+                        "manual": is_manual,
+                        "taught_id": taught_lines.get(line) or (keywords.get(kw[1].lower()) if kw else None) or taught_action,
+                        "keyword": ({"name": kw[1], "param": kw[2] is not None} if kw and is_manual else None),
+                        "action": act})
     return {"card": {"id": data["id"], "name": data.get("name"), "oracle_id": data.get("oracle_id"), "type_line": data.get("type_line"),
                      "has_script": _has_script(data)},
             "level": before.level, "level_taught": after.level, "lines": out}
@@ -188,9 +211,9 @@ def _resolve_first(services: Services, names: tuple[str, ...]) -> dict[str, Any]
 
 
 def _keyword_card(services: Services, entry: dict[str, Any]) -> dict[str, Any] | None:
-    """A card in the database with the taught keyword on it, if there is one."""
+    """A card in the database with the taught keyword (or action) on it, if there is one."""
     try:
-        found = services.cards.search(f'o:"{entry["name"]}"', limit=40)
+        found = services.cards.search(f'o:"{entry["name"]}{"s" if entry["kind"] == "action" and not entry.get("param") else ""}"', limit=40)
     except Exception:  # (an odd name in the full-text query: no hit, a stand-in plays it)
         return None
     for hit in found:
@@ -202,8 +225,8 @@ def _keyword_card(services: Services, entry: dict[str, Any]) -> dict[str, Any] |
 
 @router.post("/teach/try", status_code=201)
 def try_it(body: TryIn, request: Request, services: ServicesDep) -> dict[str, Any]:
-    """A test table: your card (or a stand-in creature with the keyword) in hand, lands to cast it, a library to mill and a
-    target dummy, rules automation on — the taught ability works as it will in a game."""
+    """A test table: your card (or a stand-in creature with the keyword, or one that does the taught action as it enters) in hand,
+    lands to cast it, a library to mill and a target dummy, rules automation on — the taught ability works as it will in a game."""
     require_local(request)
     from app.api.games import _create_room
     from app.game.factory import DeckCard, PlayerSetup, new_game
@@ -228,7 +251,10 @@ def try_it(body: TryIn, request: Request, services: ServicesDep) -> dict[str, An
         if card is None:
             card = _resolve_first(services, _STAND_IN)
             if card is not None:
-                text = f"{entry['name']} 2" if entry.get("param") else entry["name"]
+                if entry["kind"] == "action":  # (a plain creature that does the action as it enters)
+                    text = f"When this creature enters, {taught.action_phrase(entry, n=2)}."
+                else:
+                    text = f"{entry['name']} 2" if entry.get("param") else entry["name"]
                 stand_in = {"kind": "stand_in", "card_id": card["id"], "oracle_text": text}
     if card is None:
         raise HTTPException(404, "No card to try it on")

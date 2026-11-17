@@ -161,9 +161,10 @@ function Row({ node, path, isHat, pieces, voc, drag, chipTargets, onStartDrag, o
   const tail = words(text.slice(last));
   if (parts.length === 0) parts.push(<span key="label">{piece.label}</span>);
   else if (tail.trim()) parts.push(<span key="tail" className={tail.startsWith(" ") ? "" : "t-glued"}>{tail.trim()}</span>);
+  const fixed = piece.role === "action_hat"; // (the action's hat stays: it is what is being taught)
   const onKey = (e: React.KeyboardEvent) => {
     if (e.target !== el.current) return;
-    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); onRemove(path); }
+    if ((e.key === "Delete" || e.key === "Backspace") && !fixed) { e.preventDefault(); onRemove(path); }
     else if (e.key === "ArrowUp" && !isHat) { e.preventDefault(); onMoveKey(path, -1); }
     else if (e.key === "ArrowDown" && !isHat) { e.preventDefault(); onMoveKey(path, 1); }
     else if (e.key === "Enter" && Object.keys(slots).length) { e.preventDefault(); setEditing(Object.keys(slots)[0]!); }
@@ -176,9 +177,11 @@ function Row({ node, path, isHat, pieces, voc, drag, chipTargets, onStartDrag, o
         onKeyDown={onKey} onPointerDown={(e) => onStartDrag(e, { kind: "node", uid: node.uid, piece })}>
         <span className="t-sq" aria-hidden />
         <span className="t-label">{parts}</span>
-        <button type="button" className="t-x" aria-label={`Remove ${piece.label}`} onClick={() => onRemove(path)} onPointerDown={(e) => e.stopPropagation()}>
-          <Icon name="close" size={14} />
-        </button>
+        {!fixed && (
+          <button type="button" className="t-x" aria-label={`Remove ${piece.label}`} onClick={() => onRemove(path)} onPointerDown={(e) => e.stopPropagation()}>
+            <Icon name="close" size={14} />
+          </button>
+        )}
       </div>
       {container && (
         <div className="t-kids" role="list">
@@ -219,7 +222,7 @@ export function Workspace(props: WorkspaceProps) {
         return (
           <section key={ab.uid} className={`t-ability ${a === active ? "on" : ""}`} aria-label={`Ability ${a + 1}`} onPointerDownCapture={() => setActive(a)}>
             <header className="t-ab-head">
-              <span>Ability {a + 1}</span>
+              <span>{script.kind === "action" ? "What happens" : `Ability ${a + 1}`}</span>
               {script.abilities.length > 1 && (
                 <button type="button" className="t-x" aria-label={`Remove ability ${a + 1}`} onClick={() => onRemoveAbility(a)}><Icon name="close" size={14} /></button>
               )}
@@ -250,10 +253,12 @@ export function Workspace(props: WorkspaceProps) {
           </section>
         );
       })}
-      <button type="button" className="t-addab" onClick={onAddAbility} disabled={script.abilities.length >= 4}>
-        <Icon name="plus" size={14} /> Another ability
-      </button>
-      <div className="t-me">The card calls itself “{me}”.</div>
+      {script.kind !== "action" && (
+        <button type="button" className="t-addab" onClick={onAddAbility} disabled={script.abilities.length >= 4}>
+          <Icon name="plus" size={14} /> Another ability
+        </button>
+      )}
+      <div className="t-me">{script.kind === "action" ? "The creature the card names is “it”: cards say “it dives”, “target creature dives”." : `The card calls itself “${me}”.`}</div>
     </div>
   );
 }

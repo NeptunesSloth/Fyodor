@@ -4,7 +4,7 @@
  * entry the backend checks and stores (app/rules/taught.clean_entry refuses anything else).
  */
 
-import type { Ability, Block, Entry, Piece, Value, Vocabulary } from "./types";
+import type { Ability, Block, Entry, Kind, Piece, Value, Vocabulary } from "./types";
 
 export interface Node {
   uid: string;
@@ -16,7 +16,7 @@ export interface Node {
 export interface ScriptAbility { uid: string; hat: Node | null; body: Node[] }
 
 export interface Script {
-  kind: "keyword" | "card";
+  kind: Kind;
   name: string;
   param: boolean;
   reminder: string;
@@ -31,7 +31,8 @@ let counter = 0;
 export const uid = (): string => `b${++counter}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const CONTAINERS = new Set(["may", "ifdo", "optional_cost"]);
-export const HATS = new Set(["trigger", "activated", "static_hat"]);
+export const HATS = new Set(["trigger", "activated", "static_hat", "action_hat"]);
+export const ACTION_HAT = "action";
 
 export function defaults(piece: Piece): Record<string, Value> {
   const out: Record<string, Value> = {};
@@ -49,8 +50,18 @@ export function newAbility(hat: Node | null = null): ScriptAbility {
   return { uid: uid(), hat, body: [] };
 }
 
-export function emptyScript(kind: "keyword" | "card" = "keyword"): Script {
-  return { kind, name: "", param: false, reminder: "", card: null, abilities: [newAbility()] };
+/** The one hat of a taught action (no settings: the page puts it there, the palette doesn't offer it). */
+export const actionHat = (): Node => ({ uid: uid(), id: ACTION_HAT, values: {} });
+
+export function emptyScript(kind: Kind = "keyword"): Script {
+  return { kind, name: "", param: false, reminder: "", card: null, abilities: [newAbility(kind === "action" ? actionHat() : null)] };
+}
+
+/** The same thing being taught as another kind: an action keeps only its name, since its stack starts with the action hat. */
+export function asKind(script: Script, kind: Kind): Script {
+  if (kind === script.kind) return script;
+  if (kind === "action" || script.kind === "action") return { ...emptyScript(kind), name: script.name, param: script.param, reminder: script.reminder };
+  return { ...script, kind };
 }
 
 // ------------------------------------------------------------------------------------------------------------ to / from
@@ -74,6 +85,7 @@ export function toEntry(script: Script, voc?: Vocabulary): Entry {
     return b;
   };
   const abilities: Ability[] = script.abilities.filter((a) => a.hat).map((a) => ({ hat: fix(a.hat!), body: a.body.map(fix) }));
+  if (script.kind === "action") return { kind: "action", name: script.name.trim().toLowerCase(), param: script.param, reminder: script.reminder.trim(), abilities };
   if (script.kind === "card") {
     const c = script.card ?? { oracle_id: "", line: "", card_name: "", type_line: "" };
     return { kind: "card", oracle_id: c.oracle_id, line: c.line, card_name: c.card_name, type_line: c.type_line, name: c.card_name, abilities };
@@ -93,6 +105,10 @@ export function fromEntry(entry: Entry): Script {
     return { kind: "card", name: entry.card_name, param: false, reminder: "",
       card: { oracle_id: entry.oracle_id, line: entry.line, card_name: entry.card_name, type_line: entry.type_line ?? "" },
       abilities: abilities.length ? abilities : [newAbility()] };
+  }
+  if (entry.kind === "action") {
+    return { kind: "action", name: entry.name, param: entry.param, reminder: entry.reminder ?? "", card: null,
+      abilities: abilities.length ? abilities : [newAbility(actionHat())] };
   }
   return { kind: "keyword", name: entry.name, param: entry.param, reminder: entry.reminder ?? "", card: null,
     abilities: abilities.length ? abilities : [newAbility()] };

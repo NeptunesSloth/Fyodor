@@ -3,8 +3,8 @@
  * (app/rules/taught.py). Everything here is data: pieces, their settings and the values a player picked.
  */
 
-export type Role = "trigger" | "activated" | "static_hat" | "condition" | "cost" | "limit" | "optional_cost" | "effect" | "static"
-  | "may" | "ifdo" | "then";
+export type Role = "trigger" | "activated" | "static_hat" | "action_hat" | "condition" | "cost" | "limit" | "optional_cost" | "effect"
+  | "static" | "may" | "ifdo" | "then";
 
 export interface Category { id: string; label: string; hint: string }
 
@@ -29,6 +29,8 @@ export interface Piece {
   needs_condition?: boolean;
   no_condition?: boolean;
   trigger_only?: boolean;
+  /** not offered on the palette (the action hat: the page sets it) */
+  hidden?: boolean;
 }
 
 export interface Option { text: string; plural?: boolean; cat?: string }
@@ -60,6 +62,15 @@ export interface KeywordEntry {
   abilities: Ability[];
 }
 
+/** A keyword action ("dive"): what happens to the creature a card says it of — "it dives", "target creature dives"; with a number, "plunge 2". */
+export interface ActionEntry {
+  kind: "action";
+  name: string;
+  param: boolean;
+  reminder: string;
+  abilities: Ability[];
+}
+
 export interface CardEntry {
   kind: "card";
   oracle_id: string;
@@ -70,12 +81,14 @@ export interface CardEntry {
   abilities: Ability[];
 }
 
-export type Entry = KeywordEntry | CardEntry;
+export type Entry = KeywordEntry | ActionEntry | CardEntry;
+
+export type Kind = Entry["kind"];
 
 /** One row of the host's library (GET /api/teach). */
 export interface TaughtRow {
   id: string;
-  kind: "keyword" | "card";
+  kind: Kind;
   name: string;
   oracle_id: string | null;
   line: string | null;
@@ -91,6 +104,8 @@ export interface CheckResult {
   ok: boolean;
   problems: Problem[];
   lines: string[];
+  /** an action: the line a card would carry ("When this creature enters, it dives.") and what Fyodor reads instead */
+  phrases: { card: string; read: string }[];
   abilities: { text: string; understood: boolean; definition: unknown }[];
 }
 
@@ -101,6 +116,8 @@ export interface CardLine {
   manual: boolean;
   taught_id: string | null;
   keyword: { name: string; param: boolean } | null;
+  /** "it dives" on a line Fyodor plays by hand: the verb may be a keyword action to teach */
+  action: { name: string; param: boolean } | null;
 }
 
 export interface CardLines {

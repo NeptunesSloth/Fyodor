@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { abilityText, compileEntry, keywordLine, render, selfWord } from "./sentence";
+import { abilityText, actionPhrase, actionSentences, compileEntry, keywordLine, render, selfWord } from "./sentence";
 import type { Entry, Vocabulary } from "./types";
 import { vocabulary } from "./testVocabulary";
 
-interface Case { name: string; entry: Entry; lines: string[]; lines_n2?: string[]; lines_artifact: string[] }
+interface Case { name: string; entry: Entry; lines: string[]; lines_n2?: string[]; lines_artifact: string[]; phrase?: string; said?: string; said_target?: string }
 
 const fixture = JSON.parse(readFileSync(new URL("../../../backend/tests/fixtures/teach_sentences.json", import.meta.url), "utf8")) as Case[];
 const voc: Vocabulary = vocabulary();
@@ -23,8 +23,16 @@ describe("sentence readback matches the backend word for word", () => {
       expect(compileEntry(c.entry, voc, { me: "this creature" })).toEqual(c.lines);
       expect(compileEntry(c.entry, voc, { me: "this artifact" })).toEqual(c.lines_artifact);
       if (c.lines_n2) expect(compileEntry(c.entry, voc, { n: 2, me: "this creature" })).toEqual(c.lines_n2);
+      if (c.entry.kind === "action") {
+        expect(actionPhrase(c.entry)).toBe(c.phrase);
+        expect(actionSentences(c.entry, voc, { me: "it" })).toBe(c.said);
+        expect(actionSentences(c.entry, voc, { me: "target creature", n: c.entry.param ? 2 : null })).toBe(c.said_target);
+      }
     });
   }
+  it("has the real dive as an action", () => {
+    expect(fixture.some((c) => c.entry.kind === "action" && c.entry.name === "dive" && c.said === "it can't be blocked until it deals combat damage while attacking")).toBe(true);
+  });
 });
 
 describe("render", () => {
@@ -63,6 +71,19 @@ describe("abilityText", () => {
     expect(lines).toEqual(["When this creature enters, mill N cards. You may put a creature card with mana value N or less from among the cards milled this way into your hand."]);
     expect(keywordLine("Dive", true, lines, 2)).toMatch(/^Dive 2 \(When this creature enters, mill N cards\./);
     expect(keywordLine("Dive", false, [])).toBe("Dive");
+  });
+});
+
+describe("actions", () => {
+  it("reads dive the way the card says it", () => {
+    const dive: Entry = { kind: "action", name: "dive", param: false, reminder: "", abilities: [{ hat: { id: "action" },
+      body: [{ id: "unblockable_for", values: { who: "t_self", dur: "rdur_combat_attacking" } }] }] };
+    expect(compileEntry(dive, voc, { me: "this creature" })).toEqual(["It can't be blocked until it deals combat damage while attacking."]);
+    expect(actionPhrase(dive)).toBe("it dives");
+    expect(actionSentences(dive, voc, { me: "target creature" })).toBe("target creature can't be blocked until it deals combat damage while attacking");
+    expect(actionPhrase({ name: "plunge", param: true }, 2)).toBe("plunge 2");
+    expect(actionPhrase({ name: "plunge", param: true })).toBe("plunge N");
+    expect(abilityText({ hat: { id: "action" }, body: [] }, voc)).toBe("…");
   });
 });
 

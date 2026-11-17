@@ -15,6 +15,7 @@ const byId = (voc: Vocabulary): Record<string, Piece> => Object.fromEntries(voc.
 function bodyRoles(hatRole: string | null): Set<string> {
   if (hatRole === "activated") return new Set(["cost", "limit", "effect", "may", "ifdo", "then"]);
   if (hatRole === "static_hat") return new Set(["condition", "static"]);
+  if (hatRole === "action_hat") return new Set(["effect", "may", "ifdo", "then", "optional_cost"]); // (no If: the card's words say when)
   return new Set(["condition", "effect", "may", "ifdo", "then", "optional_cost"]);
 }
 
