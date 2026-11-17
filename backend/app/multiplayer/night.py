@@ -219,6 +219,14 @@ def rules_ending(state: GameState) -> tuple[str, ResultType, list[str]] | None:
     return None
 
 
+def _loss_reason(r: Any, pid: str) -> str:
+    """Why ``pid`` lost, for the rules result: -- playtest (nov 16) -- a loss "an effect" caused names the card (Final Fortune's delayed
+    trigger read "Alice lost (an effect)"; the rules keep the card that made the player lose, ``RulesState.lost_source``)."""
+    reason = r.lost[pid]
+    source = r.lost_source.get(pid)
+    return source.name if reason == "an effect" and source is not None and source.name else reason
+
+
 def _finalists(room: Room) -> list[str]:
     """The players who were in the game just before the action that ended it, read back from the history (so a table loaded
     from a save or restored after a crash knows them too)."""
@@ -268,7 +276,7 @@ def follow_rules(room: Room) -> None:
         reason = r.draw_reason or "The game is a draw"
         what = "a draw"
     else:
-        why = [f"{room.seat_name(pid)} conceded" if pid in r.conceded else f"{room.seat_name(pid)} lost ({r.lost[pid]})"
+        why = [f"{room.seat_name(pid)} conceded" if pid in r.conceded else f"{room.seat_name(pid)} lost ({_loss_reason(r, pid)})"
                for pid in finalists if pid in r.conceded or pid in r.lost]
         reason = "; ".join(why) or f"{room.seat_name(winners[0])} is the last player in the game"
         what = f"{room.seat_name(winners[0])} wins"
