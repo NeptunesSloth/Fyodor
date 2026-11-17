@@ -32,7 +32,7 @@ export function PassStopBanner({ mine }: { mine: boolean }) {
   const loop = stop.kind === "loop";
   return (
     <section className={`pass-stop plaque ${stop.kind}`} role="status" aria-live="polite" data-testid="pass-stop" data-kind={stop.kind}>
-      <header className="pass-stop-head">{loop ? "Paused: this keeps repeating" : "Resolve all stopped"}</header>
+      <header className="pass-stop-head">{loop ? (/^many objects to resolve/i.test(stop.text) ? "Paused: many objects to resolve" : "Paused: this keeps repeating") : "Resolve all stopped"}</header>
       <p className="pass-stop-text">{stop.text}</p>
       <div className="pass-stop-actions">
         {mine && view.stack.length > 0 && (
