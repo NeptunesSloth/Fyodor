@@ -286,7 +286,8 @@ export function dialState(view: GameView, me: string): { auto: boolean; watching
   else if (rules.decision) {
     const d = rules.decision;
     status = d.player === me ? "Your decision" : `Waiting for ${playerName(view, d.player)}: ${DECIDING[d.kind] ?? "deciding"}`;
-  } else if (mine) status = rules.acting_as ? `Your priority (controlling ${playerName(view, rules.acting_as)})` : "Your priority";
+  } else if (mine && view.turn?.phase === "untap" && !view.stack.length) status = "Untap step: no priority yet"; // (-- playtest nov 16 -- 502.4: a game set up through the API opened here saying "Your priority")
+  else if (mine) status = rules.acting_as ? `Your priority (controlling ${playerName(view, rules.acting_as)})` : "Your priority";
   else status = rules.priority ? `Waiting for ${playerName(view, rules.priority)}` : "Waiting";
   return { auto: true, watching: false, mine, status };
 }

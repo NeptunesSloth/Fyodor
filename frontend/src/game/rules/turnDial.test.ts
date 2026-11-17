@@ -62,3 +62,13 @@ describe("the turn dial for a player who is out of the game", () => {
     expect(spectator).not.toContain("Next turn");
   });
 });
+
+describe("the untap step (playtest nov 16: a new game opened there saying \"Your priority\")", () => {
+  it("says nobody has priority yet (502.4), and the pass button still moves on", async () => {
+    const { dialState } = await import("./RulesHud");
+    const v = { viewer: "p1", turn: { number: 1, active_player: "p1", phase: "untap" }, stack: [],
+      rules: { paused: false, conceded: [], lost: {}, priority: "p1", decision: null, controlled_by: null, acting_as: null } } as unknown as GameView;
+    expect(dialState(v, "p1")).toMatchObject({ mine: true, status: "Untap step: no priority yet" });
+    expect(dialState({ ...v, turn: { ...v.turn, phase: "upkeep" } } as GameView, "p1").status).toBe("Your priority");
+  });
+});
