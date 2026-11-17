@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { ManaText } from "../cards/ManaText";
 
 export interface ToastAction { label: string; run: () => void }
 
@@ -35,6 +36,14 @@ export const useToasts = create<ToastState>((set, get) => ({
 export const toast = (text: string, kind?: Toast["kind"], action?: ToastAction, options?: ToastOptions) => useToasts.getState().push(text, kind, action, options);
 export const toastError = (err: unknown) => toast(err instanceof Error ? err.message : String(err), "error");
 
+/** A card symbol in a toast's text: "{2}", "{T}", "{W/U}" (a toast with none stays plain text). */
+const MANA_SYMBOL = /\{[0-9A-Za-z/½∞]{1,6}\}/;
+
+/** A toast's words, with its card symbols drawn (ManaText) when it has any. */
+export function ToastText({ text }: { text: string }) {
+  return <span className="toast-text">{MANA_SYMBOL.test(text) ? <ManaText text={text} /> : text}</span>;
+}
+
 export function Toasts() {
   const toasts = useToasts((s) => s.toasts);
   const dismiss = useToasts((s) => s.dismiss);
@@ -42,7 +51,8 @@ export function Toasts() {
     <div className="toasts">
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.kind}`} role={t.kind === "error" ? "alert" : "status"}>
-          <span className="toast-text">{t.text}</span>
+          {/* -- playtest (nov 17) -- a refusal naming a cost ("Add {2} to your mana pool first…", "{T}") shows the symbols, not braces */}
+          <ToastText text={t.text} />
           {t.action && (
             <button className="tt-btn toast-action" onClick={() => { dismiss(t.id); t.action!.run(); }}>{t.action.label}</button>
           )}

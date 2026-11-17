@@ -24,3 +24,20 @@ describe("toasts", () => {
     }
   });
 });
+
+describe("toast text with card symbols (playtest nov 17)", () => {
+  it("a toast naming a cost or {T} draws the symbols; plain text stays plain", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { ToastText } = await import("./Toasts");
+    const html = (text: string) => renderToStaticMarkup(createElement(ToastText, { text }));
+    const coffers = html("Add {2} to your mana pool first to activate Cabal Coffers. Nothing changed.");
+    expect(coffers).not.toContain("{2}");
+    expect(coffers).toContain('aria-label="2 generic mana"');
+    expect(coffers).toContain("to your mana pool first to activate Cabal Coffers");
+    const tap = html("Double-click a land to use its {T} ability");
+    expect(tap).not.toContain("{T}");
+    expect(tap).toContain('aria-label="Tap"');
+    expect(html("Passed")).toBe('<span class="toast-text">Passed</span>');
+  });
+});
