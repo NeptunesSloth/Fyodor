@@ -172,7 +172,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const flat = variant === "2d";
   const poison = p.resources.poison ?? 0;
   const sources = (players ?? []).filter((o) => o.id !== player).flatMap((o) => o.commanders.map((c) => ({ ...c, owner: o })));
-  const presence = seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null;
+  const presence = p.dummy || p.bot ? null : seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null; // (-- test opponent -- nobody sits at a dummy or opponent: no presence)
   // the turn and priority, said in words (never by colour alone)
   const flags = (active || priority) && (
     <span className="t3d-seat-flags" aria-live="polite">
@@ -207,6 +207,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       )}
       {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
       {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
+      {flat && (p.dummy || p.bot) && <span className="seat-presence connected" data-testid={`presence-${player}`}>{p.bot ? "Plays itself" : "Target dummy"}</span>}
     </span>
   );
   if (!flat) {
