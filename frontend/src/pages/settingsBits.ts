@@ -36,9 +36,22 @@ export function sectionById(id: string): SettingsSection {
   return s;
 }
 
-/** The section the side index marks: the first one (in page order) in the reading band, else the last one marked. */
-export function activeSection(order: string[], visible: ReadonlySet<string>, current: string): string {
-  return order.find((id) => visible.has(id)) ?? current;
+/**
+ * The section the side index marks while reading: the last one (in page order) whose heading has scrolled up past the
+ * reading line, so a long section above (Keys) lets go as soon as the next one (Card database) reaches the line.
+ * At the bottom of the page the last section is marked, since it can never reach the line. `tops` are the sections'
+ * top edges in viewport pixels (null: not on the page).
+ */
+export function activeSection(order: string[], tops: ReadonlyArray<number | null>, line: number, atBottom: boolean): string {
+  const present = order.filter((_, i) => tops[i] != null);
+  if (present.length === 0) return order[0] ?? "";
+  if (atBottom) return present[present.length - 1]!;
+  let pick = present[0]!;
+  order.forEach((id, i) => {
+    const top = tops[i];
+    if (top != null && top <= line) pick = id;
+  });
+  return pick;
 }
 
 const KEY_NAMES: Record<string, string> = {

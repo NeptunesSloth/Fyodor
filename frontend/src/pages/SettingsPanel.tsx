@@ -68,28 +68,52 @@ function ToggleRow({ title, hint, checked, onChange, testId }: { title: ReactNod
 /** The side index on wide screens: every section, the one being read marked. */
 function SectionIndex({ ids, titles }: { ids: string[]; titles: Record<string, string> }) {
   const [active, setActive] = useState(ids[0] ?? "");
+  /** A section picked in the index stays marked while the page glides to it (it may stop short of the line). */
+  const picked = useRef<string | null>(null);
   const key = ids.join(" ");
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
     const order = key.split(" ");
-    const visible = new Set<string>();
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) visible.add(e.target.id);
-        else visible.delete(e.target.id);
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const h = window.innerHeight;
+      const els = order.map((id) => document.getElementById(id));
+      const tops = els.map((el) => (el ? el.getBoundingClientRect().top : null));
+      const last = [...els].reverse().find((el) => el != null);
+      const atBottom = last != null && last.getBoundingClientRect().bottom <= h + 2;
+      const pin = picked.current;
+      if (pin) {
+        const el = document.getElementById(pin);
+        const top = el?.getBoundingClientRect().top;
+        if (top != null && top >= -2 && top < h) return setActive(pin);
       }
-      setActive((cur) => activeSection(order, visible, cur));
-    }, { rootMargin: "-12% 0px -62% 0px" });
-    for (const id of order) {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    }
-    return () => io.disconnect();
+      setActive(activeSection(order, tops, h * 0.25, atBottom));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    const release = () => { picked.current = null; };
+    // capture: the settings page may scroll inside a container rather than the window
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchstart", release, { passive: true });
+    window.addEventListener("keydown", release);
+    measure();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchstart", release);
+      window.removeEventListener("keydown", release);
+    };
   }, [key]);
   const go = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
     const still = document.body.classList.contains("reduced-motion") || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    picked.current = id;
     el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
     setActive(id);
   };

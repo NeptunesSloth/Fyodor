@@ -18,10 +18,16 @@ describe("settings sections", () => {
     expect(() => sectionById("nope")).toThrow();
   });
 
-  it("mark the first section in the reading band, or keep the last one marked", () => {
-    const order = ["a", "b", "c"];
-    expect(activeSection(order, new Set(["c", "b"]), "a")).toBe("b");
-    expect(activeSection(order, new Set(), "c")).toBe("c");
+  it("mark the last section whose top has passed the reading line", () => {
+    const order = ["keys", "card-data", "backups"];
+    // a long Keys section still fills the screen, but Card database has reached the line: Card database is marked
+    expect(activeSection(order, [-900, 120, 800], 160, false)).toBe("card-data");
+    expect(activeSection(order, [-900, 300, 900], 160, false)).toBe("keys");
+    // above the first heading the first section is marked
+    expect(activeSection(order, [400, 1200, 1800], 160, false)).toBe("keys");
+    // at the bottom of the page the last section is marked even below the line; missing sections are skipped
+    expect(activeSection(order, [-900, 120, 600], 160, true)).toBe("backups");
+    expect(activeSection(order, [-900, 120, null], 160, true)).toBe("card-data");
   });
 });
 
