@@ -712,6 +712,8 @@ def test_a_choice_in_the_draw_step_then_the_step_goes_on(cards):
 # Everything else must go through app/rules/replace.py. A removal (negative delta) isn't replaceable.
 _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_damage"}
 _ALLOWED = {
+    ("planar_more.py", "untap_step"): "Edge of Malacol in the untap step (502.3: no player gets priority, nobody can be asked): when the "
+                                      "counters would need a choice among replacements, they go on as written and the players adjust by hand",
     ("replacements.py", "mark_exiled_counters"): "Validated prepared replacements mark cards already in exile before riders; these are not permanent/player counters",
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
     ("casting.py", "_activation_announced"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
