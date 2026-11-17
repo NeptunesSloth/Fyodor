@@ -59,6 +59,8 @@ interface GameStore {
   /** Local hot-seat: which seat actions are attributed to. */
   actingAs: string | null;
   selection: string[];
+  /** Counts the player's own picks (select): the card action bar opens for a fresh pick, not for the view pruning the selection. */
+  picks: number;
   /** The card whose action was just refused, flashed on the table for a moment. */
   errorCard: { id: string; at: number } | null;
   hover: string | null;
@@ -155,6 +157,7 @@ export const useGame = create<GameStore>((set, get) => ({
   conn: null,
   actingAs: null,
   selection: [],
+  picks: 0,
   errorCard: null,
   hover: null,
   inspect: null,
@@ -283,14 +286,15 @@ export const useGame = create<GameStore>((set, get) => ({
 
   select: (ids, mode = "replace") =>
     set((s) => {
-      if (mode === "replace") return { selection: ids };
-      if (mode === "add") return { selection: [...new Set([...s.selection, ...ids])] };
+      const picks = s.picks + 1;
+      if (mode === "replace") return { selection: ids, picks };
+      if (mode === "add") return { selection: [...new Set([...s.selection, ...ids])], picks };
       const current = new Set(s.selection);
       for (const id of ids) {
         if (current.has(id)) current.delete(id);
         else current.add(id);
       }
-      return { selection: [...current] };
+      return { selection: [...current], picks };
     }),
   clearSelection: () => set({ selection: [] }),
   setHover: (id) => set({ hover: id }),

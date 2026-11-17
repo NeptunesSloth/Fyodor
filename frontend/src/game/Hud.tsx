@@ -243,8 +243,9 @@ export function SelectionBar() {
   // bar opens targets, then triggers, then choices) it closes, and it never stays over the ending (it sat over the Defeat screen); a click
   // on the card opens it again. The selection itself stays (a decision reads it).
   const moment = view ? barMoment(view) : "";
-  const pickedAt = useRef<{ sel: string[]; at: string } | null>(null);
-  if (pickedAt.current?.sel !== selection) pickedAt.current = { sel: selection, at: moment }; // (a fresh pick is a new array)
+  const picks = useGame((s) => s.picks);
+  const pickedAt = useRef<{ pick: number; at: string } | null>(null);
+  if (pickedAt.current?.pick !== picks) pickedAt.current = { pick: picks, at: moment }; // (a fresh pick by the player, not the view pruning it)
   const stale = !!view && (pickedAt.current.at !== moment || gameEnded(view, perspective(view, actingAs)));
   const anchor = stale ? null : onTable[0] ?? null;
   useLayoutEffect(() => {
