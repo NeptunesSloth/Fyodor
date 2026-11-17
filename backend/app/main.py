@@ -20,6 +20,7 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
+from app.api.teach import router as teach_router  # -- Teach Fyodor --
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
@@ -81,6 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(pod.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
     app.include_router(macros.router, prefix="/api")
+    app.include_router(teach_router, prefix="/api")  # -- Teach Fyodor -- (app/api/teach.py)
     app.include_router(tools.router, prefix="/api")
     app.include_router(backups.router, prefix="/api")
     app.include_router(rules.router, prefix="/api")

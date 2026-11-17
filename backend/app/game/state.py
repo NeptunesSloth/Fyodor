@@ -650,6 +650,8 @@ class GameState(BaseModel):
     eliminations: list[Elimination] = Field(default_factory=list)  # -- pod history -- who went out, in order (public)
     bag: DrawBag = Field(default_factory=DrawBag)  # -- table toys -- the hidden draw bag (never in a view: views.py bag_view)
     planechase: Planechase | None = None  # -- planechase -- the planar deck (its order never in a view: views.py planechase_view)
+    # -- Teach Fyodor -- the taught mechanics and card lines this game started with (app/rules/taught.py; None: from before it existed)
+    taught: list[dict[str, Any]] | None = None
     # Where cards that ceased to exist during the step being applied were headed (a token "dies":
     # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
     _departed: dict[str, str] = PrivateAttr(default_factory=dict)
