@@ -5242,6 +5242,10 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab if _keyword_supported('bloodthirst', ab.text) else None
         if ab.keywords == ('vanishing',) and ab.text.rstrip('.').lower() == 'vanishing':
             return ab  # CR702.63b: bare vanishing is its two native triggered abilities, with no entry counter number.
+        if ab.keywords in (('living weapon',), ('saddle',)):  # -- Mystery Booster Commander (wave MBC-B) -- Ekthi, Jandor: 702.92a (an enters trigger, read on the battlefield, 603.6a), 702.171a
+            from app.rules.coverage import _keyword_supported
+
+            return ab if _keyword_supported(ab.keywords[0], ab.text) else None
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
         from app.rules import statics
 

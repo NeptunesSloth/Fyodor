@@ -2937,6 +2937,15 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             _, kind, original_source = extra.split(':', 2)
             if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
                 return False
+        if extra == "saddled_mbc":  # -- Mystery Booster Commander (wave MBC-B) -- "a saddled creature" (702.171b: this turn's log)
+            from app.rules import crew_saddle
+
+            if not crew_saddle.is_saddled(plan, card):
+                return False
+        if extra == "not_cast_from_your_hand_mbc" and plan.rules is not None:  # -- (wave MBC-B) -- Venser: not a spell cast from your hand (601.2a, 400.3)
+            rec = plan.rules.payments.get(plan.oid(card))
+            if rec is not None and rec.cast_from == "hand" and card.owner == you:
+                return False
         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
             from app.rules import crew_saddle
 

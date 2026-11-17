@@ -99,7 +99,13 @@ def rewrite(text: str) -> str:
         return f"{rest} Activate only if you have max speed." if re.match(r"^[^.:\"]{1,80}: ", rest) and rest.endswith(".") and not rest.startswith(("When", "At ")) else text
     if _ABILITY.match(rest):
         return f'As long as you have max speed, ~ has "{rest}"'
+    if (named := _NAMED.match(rest)) is not None and named[1] not in _NOT_NAMES:
+        return f"As long as you have max speed, {rest}"  # (-- Mystery Booster Commander (wave MBC-A) -- a name keeps its capital: "Tsagan has deathtouch …")
     return f"As long as you have max speed, {rest[:1].lower()}{rest[1:]}"
+
+
+_NAMED = re.compile(r"^([A-Z][\w'-]+) (?:has|gets|is|can't) ")
+_NOT_NAMES = frozenset({"This", "That", "It", "Each", "Enchanted", "Equipped", "Target", "Another", "Other"})
 
 
 PRIMITIVES = {"speed": increase}

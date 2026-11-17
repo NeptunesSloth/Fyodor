@@ -543,7 +543,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind == "life_paid":  # -- life paid (wave 110D) -- 119.4: "Whenever you pay life"
         return [("pay_life", None, None, e.player, {"amount": e.amount})]
     if e.kind in ("life_gain", "life_loss"):
-        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {}), **({"cause110m": e.cause110m} if e.cause110m else {})})]  # (wave 110M)
+        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {}), **({"cause110m": e.cause110m} if e.cause110m else {}),
+                 **({"cause110g": e.cause110g} if e.kind == "life_loss" and e.cause110g else {})})]  # (wave 110M; wave MBC-B: whose effect made the loss)
     if e.kind == "spell_cast":
         spell = plan.state.cards.get(e.card or "")
         if spell is None:
@@ -784,7 +785,8 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
     if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
         return []
     return [(f"to_{to}", got[0], got[1], got[0].owner,
-             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone})]
+             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone,
+              "cause110g": e.cause110g})]  # (-- Mystery Booster Commander (wave MBC-C) -- the controller of the spell or ability that moved it)
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
@@ -1062,6 +1064,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     you = watcher.controller
     if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
         return False
+    if cond.get("exact_mbc") is not None and int(info.get("amount") or 0) != cond["exact_mbc"]:
+        return False  # -- Mystery Booster Commander (wave MBC-B) -- "dealt exactly 2 of that damage", "exactly 1 life": this event's own amount (120.3, 119.3)
+    if event == "lose_life" and cond.get("effect_you_mbc") and (not info.get("life_operation") or info.get("cause110g") != you):
+        return False  # -- (wave MBC-B) -- "a spell or ability you control causes you to lose life": an effect of yours, not damage's result (120.3a) or a cost
     if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
         return False
     if event == "attack" and cond.get("defender_lands_min"):
@@ -1413,6 +1419,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
                                                  or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):
         return False  # -- counters (wave 21D) -- "put into exile from your graveyard"
+    if event == "to_exile" and cond.get("cause_you_mbc") and (info.get("cause110g") != you or info.get("from_owner") in (None, you)):
+        return False  # -- Mystery Booster Commander (wave MBC-C) -- "a spell or ability you control causes … to be exiled from an opponent's library"
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False

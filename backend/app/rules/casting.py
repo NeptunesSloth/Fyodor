@@ -4168,7 +4168,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         mode=(grant.spend if grant is not None and grant.spend else cast_limits.spend_mode(plan.state, plan.actor, card, ch, plan.info)),
         locked=plan.locked_x_payment)
     helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
-    if "assist" in ch.keywords and not plan.manual(card) and not a.face_down:
+    # (-- Mystery Booster Commander (wave MBC-C) -- or given assist as it is cast: Yume, app/rules/mbc_c.py)
+    if ("assist" in ch.keywords or cast_limits.granted_cascade(plan, card.id, ch, None, "assist")) and not plan.manual(card) and not a.face_down:
         from app.rules import assist
 
         found_helper = assist.announce(plan, a, card, ch, cost, cost_has_x=prepared[0].selected_cost_has_x)

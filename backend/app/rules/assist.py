@@ -79,7 +79,7 @@ def pay(plan: Plan, helper: str, amount: int, card: CardInstance, ch: Characteri
     if amount <= 0:
         pc.finish(plan, then, None)
         return
-    tail = pc.continuation(plan, "assist_paid", _Assisted(helper, amount, ch.name or "the spell", then))
+    tail = pc.continuation(plan, "assist_paid", _Assisted(helper, amount, ch.name or "the spell", then, card.id))
     pay_then(plan, helper, M.ManaCost(generic=amount), f"paid {amount} to help cast {ch.name or 'a spell'} (assist)",
              purpose=Purpose(spell=ch, zone=card.zone, player=helper, spell_object=spell_object, selected_cost_has_x=cost_has_x), then=tail)
     return
@@ -91,12 +91,15 @@ class _Assisted:
     amount: int
     name: str
     then: dict[str, Any]
+    spell: str | None = None  # (-- Mystery Booster Commander (wave MBC-C) -- the spell's card: "if another player spent mana to cast it", Yume)
 
 
 def _assisted(plan: Plan, frame: _Assisted, payment: M.Payment | None) -> None:
     from app.rules import replace
 
     plan.note(f"{plan.name(frame.helper)} pays {frame.amount} of {frame.name}'s generic mana (assist)", actor=frame.helper)
+    if frame.spell is not None:  # (601.2h: the helper spent mana to cast it this turn; read by the spell's "when you cast" triggers, app/rules/mbc_c.py)
+        plan.rules.chosen_players[f"{frame.spell}:assist"] = f"{frame.helper}:{plan.state.turn.number}"
     replace.run_then(plan, frame.then)
 
 

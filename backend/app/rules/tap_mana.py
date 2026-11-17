@@ -179,6 +179,10 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
         return False
     if d.get("monarch") and state.table.monarch != owner:
         return False
+    if (need := d.get("self_counters_mbc")) is not None:  # -- Mystery Booster Commander (wave MBC-B) -- Rikala: "if there are three or more tide counters on ~" (603.4)
+        held = state.cards.get(source or "")
+        if held is None or held.counters.get(need[0], 0) < int(need[1]):
+            return False
     plan = Plan.view(state, owner, info)
     return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner, source)
 

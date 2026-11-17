@@ -72,6 +72,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    from app.rules import mbc_a  # -- Mystery Booster Commander (wave MBC-A) -- Whtz's starting deck
+
+    if (mbca := mbc_a.condition(t)) is not None:
+        return mbca
     from app.rules import wave110c_last  # -- last cards (wave 110C) --
 
     if (last110c := wave110c_last.condition(t)) is not None:
@@ -1645,6 +1649,14 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any((held110f := plan.state.cards[c]).controller in plan.live() and held110f.controller != plan.active
                    and selectors.matches(plan, sel, held110f, plan.ch(held110f), ctx["controller"], ctx.get("source_card"))
                    for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    if "mbca" in cond:  # -- Mystery Booster Commander (wave MBC-A) --
+        from app.rules import mbc_a
+
+        return mbc_a.holds(plan, ctx, cond)
+    if "mbcc" in cond:  # -- Mystery Booster Commander (wave MBC-C) --
+        from app.rules import mbc_c
+
+        return mbc_c.holds(plan, ctx, cond)
     if "w111c" in cond:  # -- Star Trek statics (wave 111C) --
         from app.rules import wave111c_statics
 

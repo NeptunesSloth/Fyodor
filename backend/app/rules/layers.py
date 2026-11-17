@@ -1491,7 +1491,12 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
-    return _with_rules(state, card, evolve(ch, pt=(p, t), base_pt=base), info, imposed)
+    out = evolve(ch, pt=(p, t), base_pt=base)
+    if info is not None and not on_field and _T.depth == 0 and state.rules is not None:  # -- Mystery Booster Commander (wave MBC-B) -- The Muckslinger Gang: creature spells and cards outside the battlefield (611.3a, 613.4c)
+        from app.rules import mbc_b
+
+        out = mbc_b.outside_pt(state, card, out, info)
+    return _with_rules(state, card, out, info, imposed)
 
 
 # Definition keys a power/toughness-keyed static may carry while it does nothing but modify power and toughness (613.4c).

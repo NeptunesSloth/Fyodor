@@ -2237,7 +2237,7 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules = state.rules
     if rules is None:
         return
-    if kind == "zone_change" and rules.cause110g is not None:
+    if kind in ("zone_change", "life_loss") and rules.cause110g is not None:  # (wave MBC-B: a life loss too, Sahir)
         fields.setdefault("cause110g", rules.cause110g)
     if kind == "zone_change" and rules.craft110b:
         fields.setdefault("craft110b", True)

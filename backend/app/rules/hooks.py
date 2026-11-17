@@ -63,6 +63,7 @@ PARSE_EFFECTS: tuple[Chain, ...] = (
     Chain(  # PARSE_EFFECTS[0]
         "assimilate.parse",  # -- Star Trek mechanics (wave 112T) -- assimilate (release notes)
         "trek112t.parse",  # -- Star Trek one-offs (wave 112T) -- All Good Things...
+        "mbc_a.parse",  # -- Mystery Booster Commander (wave MBC-A) -- "Create a Black Lotus token." (a named token)
         "wave111r1_grants.parse",  # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
         "wave111e_trek.parse",  # -- Star Trek (wave 111E) -- exact wordings
         "wave110e_kaya.join",  # -- exact wordings (wave 110E) -- one instruction exiling two targets (wave 110E) --
@@ -325,6 +326,9 @@ DEFINE: tuple[Chain, ...] = (
         "planar_more3.definition",  # -- planechase more 3 (wave F2) -- a few planes' and phenomena's remaining lines by exact wording; planes only
         "planar_more4.definition",  # -- planechase more 4 (wave G2) -- Deceptive Divination, Happy Yargle Day! by exact wording; planes only
         "planar_playtest.definition",  # -- planechase playtest planes (wave G1) -- the defined lines of the playtest planes by exact wording; planes only
+        "mbc_c.definition",  # -- Mystery Booster Commander (wave MBC-C) -- exact wordings of a few MBC cards
+        "mbc_a.definition",  # -- Mystery Booster Commander (wave MBC-A) -- Rulebreaker, Werewolf Pack Leader, The Everforger, The Unluckiest Planeswalker
+        "mbc_b.definition",  # -- Mystery Booster Commander (wave MBC-B) -- Rikala, Balefang, Venser, Selenia, Flitwing, Meatsqueak, Ekthi, Elda, Jandor, Homer, Massimo, Matoc, Sahir
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -1295,6 +1299,11 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "planar_more4.PRIMITIVES",  # -- planechase more 4 (wave G2) --
         "planar_playtest.PRIMITIVES",  # -- planechase playtest planes (wave G1) --
         "planar_playtest.RESUME",  # -- planechase playtest planes (wave G1) --
+        "mbc_c.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-C) --
+        "mbc_c.RESUME",  # -- Mystery Booster Commander (wave MBC-C) --
+        "mbc_a.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-A) --
+        "mbc_a.RESUME",  # -- Mystery Booster Commander (wave MBC-A) --
+        "mbc_b.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-B) --
         "planar_events.PRIMITIVES",  # -- planechase events (wave E2) --
         "planar_deck.PRIMITIVES",  # -- planechase deck (wave D) -- reveal / put back / planeswalk to revealed planes (planar_deck_op)
         "planar_deck.RESUME",  # -- planechase deck (wave D) --

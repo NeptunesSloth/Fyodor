@@ -2280,6 +2280,13 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             from app.rules import wave111b_cards
 
             pid = wave111b_cards.caster(plan, ctx)
+        if str(e["caster"]).startswith("ref:"):  # -- Mystery Booster Commander (wave MBC-C) -- Itazura: "they may cast": the player a binding names
+            from app.rules.effects import _players
+
+            found = _players(plan, ctx, str(e["caster"]))
+            if not found:
+                return _free_cast_over(ctx, e)  # (nobody to cast)
+            pid = str(found[0])
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)

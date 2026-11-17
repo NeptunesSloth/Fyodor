@@ -1783,6 +1783,8 @@ def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who, mine = c.match.get("who"), ev["player"] == c.controller
     if who == "you" and not mine or who == "opponent" and mine:
         return False
+    if who == "enchanted" and ((src := plan.state.cards.get(c.source_card or "")) is None or src.attached_player != ev["player"]):
+        return False  # -- Mystery Booster Commander (wave MBC-B) -- Selenia's Curse: "If enchanted player would lose life" (the player it's attached to, 303.4c)
     if c.match.get("damage") and not ev.get("damage"):
         return False  # -- life floor (wave 35C) -- "damage that would reduce your life total": the life damage makes a player lose (120.3a), not other loss
     if c.op["do"] == "floor":  # the loss would take them below 1 life from 1 or more (a player already below 1 is dealt damage as normal)
