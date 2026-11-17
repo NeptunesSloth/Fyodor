@@ -203,6 +203,17 @@ describe("rules card menu", () => {
     expect(rulesMenu(v.cards.c1!, v, "p1")).toEqual([]);
   });
 
+  it("offers the abilities of a token made with its own text (no card in the database)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "t1", ability: 0 }] } });
+    const horn = { id: "t1", zone: "p1:battlefield", card_id: null, name: "Tide Horn", owner: "p1", controller: "p1", is_token: true,
+      token: { name: "Tide Horn", type_line: "Token Artifact", text: "{T}: Creatures you control dive." } };
+    const v = { ...base, cards: { ...base.cards, t1: horn } } as unknown as GameView;
+    const item = rulesMenu(v.cards.t1!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    if (!item || item === "separator") throw new Error("expected the token's ability");
+    expect(item.label).toBe("Activate: {T}: Creatures you control dive.");
+    expect(item.disabled).toBe(false);
+  });
+
   it("offers play, cast, activate and the per-card automation", () => {
     const v = view(RULES);
     expect(labels(rulesMenu(v.cards.c1!, v, "p1"))).toEqual(["Play land", "Automation: AUTO", "—"]);

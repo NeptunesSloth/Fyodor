@@ -307,7 +307,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     }
   }
   if (mine && zone === "battlefield") {
-    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+    // (a token made with its own words, not from the card database, has its abilities in its text: the server reads them the same way)
+    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? (card.card_id ? undefined : card.token?.text) ?? "";
     const lines = abilityLines(text);
     const abilities = lines
       .map((line, i) => ({ line, i }))
