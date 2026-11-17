@@ -87,6 +87,13 @@ describe("one notice per burst", () => {
     expect(drewLine(["A", "B", "C", "D", "E", "F"], 12)).toBe("A, B, C, D and 8 more");
     expect(drewLine([], 0)).toBe("");
   });
+
+  it("counts a name drawn more than once, and names the rarer cards first (the spell a loop stopped for isn't hidden)", () => {
+    expect(drewLine(["Island", "Island", "Island", "Island", "Island", "Brainstorm"], 6)).toBe("Brainstorm and Island ×5");
+    expect(drewLine(["Island", "Island", "Swamp", "Opt", "Swamp", "Ponder", "Island"], 7)).toBe("Opt, Ponder, Swamp ×2 and Island ×3");
+    expect(drewLine(["Island", "Island", "A", "B", "C", "D"], 6)).toBe("A, B, C, D and 2 more");
+    expect(drewLine(["Island", "Island"], 5)).toBe("Island ×2 and 3 more"); // (the rest unknown to my view)
+  });
 });
 
 describe("fresh cards in my hand", () => {

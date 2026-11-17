@@ -65,11 +65,19 @@ export function noticeFaces(batch: DrawBatch): { faces: string[]; more: number }
   return { faces, more: batch.ids.length - faces.length };
 }
 
-/** "You drew Lightning Bolt, Island and 2 more" (names as my view has them). */
+/**
+ * "You drew Lightning Bolt, Island and 2 more" (names as my view has them). -- playtest (nov 16) -- a name drawn more than once is listed
+ * once with a count ("Island ×5"), the rarer names first: a loop that stopped because I drew Brainstorm said "Island, Island, Island,
+ * Island and 2 more", and the card it stopped for was one of the 2.
+ */
 export function drewLine(names: string[], total: number, limit = 4): string {
   if (!total) return "";
-  const listed = names.slice(0, Math.min(limit, names.length));
-  const rest = total - listed.length;
+  const counts = new Map<string, number>();
+  for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
+  const groups = [...counts].map(([name, k], i) => ({ name, k, i })).sort((a, b) => a.k - b.k || a.i - b.i);
+  const shown = groups.slice(0, limit);
+  const listed = shown.map((g) => (g.k > 1 ? `${g.name} ×${g.k}` : g.name));
+  const rest = total - shown.reduce((n, g) => n + g.k, 0);
   if (!rest) return listed.length === 1 ? listed[0]! : `${listed.slice(0, -1).join(", ")} and ${listed[listed.length - 1]}`;
   return `${listed.join(", ")} and ${rest} more`;
 }
