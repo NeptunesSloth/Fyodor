@@ -348,3 +348,20 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
   .game-screen:has(.turn-dial-wrap):has(.log-drawer.open) main.table > .zone-browser { right: 8px; top: 8px; bottom: auto; }
 }
 .chain-ended { margin: 8px 2px 0; }
+
+/* -- playtest (nov 16) -- why automatic passing stopped (PassStop.tsx): a plaque over the turn dial, by the pass buttons. A loop pause is
+   brass-edged (the game waits for a choice); a stop for a drawn card is steel. */
+.pass-stop {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 10px); --cut: 8px;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 14px 12px;
+}
+.pass-stop.loop::before { opacity: 1; }
+.pass-stop-head { font: 600 14px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2, #e0b860); }
+.pass-stop.drew .pass-stop-head { color: var(--text); }
+.pass-stop-text { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--text); max-height: 8.5em; overflow: auto; }
+.pass-stop-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pass-stop-actions .tt-btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.reduced-motion) .pass-stop { animation: pass-stop-in calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
+}
+@keyframes pass-stop-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }

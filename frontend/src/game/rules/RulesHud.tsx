@@ -17,6 +17,7 @@ import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
+import { PassStopBanner, resolveAll } from "./PassStopBanner";
 import { wheelEligible } from "./wheel";
 import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { CardFilterBar, filterCardOf } from "../CardFilterBar";
@@ -315,6 +316,7 @@ export function TurnDial() {
   const blocked = deciding ? "Answer your decision first" : undefined;
   return (
     <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
+      <PassStopBanner mine={auto && mine} />
       <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
           <PhaseDial step={step} turn={turn.number} color={active?.color} />
@@ -358,7 +360,7 @@ export function TurnDial() {
             </button>
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked ?? RESOLVE_ALL_TITLE} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked ?? RESOLVE_ALL_TITLE} onClick={resolveAll}>Resolve all</button>}
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
