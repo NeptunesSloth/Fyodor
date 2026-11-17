@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api import assets, backups, cards, decks, games, health, macros, night, pod, practice, rules, tools
+from app.api import bot as bot_api  # -- test opponent --
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
 from app.cards.repository import CardDatabaseUnavailable
@@ -73,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(cards.router, prefix="/api")
     app.include_router(decks.router, prefix="/api")
     app.include_router(games.router, prefix="/api")
+    app.include_router(bot_api.router, prefix="/api")  # -- test opponent --
     app.include_router(night.router, prefix="/api")
     app.include_router(practice.router, prefix="/api")
     app.include_router(spectate_router, prefix="/api")  # (spectator activities)

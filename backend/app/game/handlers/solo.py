@@ -145,7 +145,8 @@ def _start_over(state: GameState, a: A.RestartGame) -> None:
             draw_cards(state, pid, draw)
     state.turn.number = 1
     state.turn.phase = "untap"
-    state.turn.active_player = next((pid for pid in seats if not state.players[pid].dummy), seats[0])
+    state.turn.active_player = next((pid for pid in seats if not state.players[pid].dummy and state.players[pid].bot is None),
+                                    seats[0])  # (the player testing goes first; -- test opponent -- not the opponent)
     state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
     state.turn.starting_hand = None
     state.table.monarch = None

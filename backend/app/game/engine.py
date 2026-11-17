@@ -23,6 +23,7 @@ from app.game.handlers import (
     zones,
 )
 from app.game.handlers import toys as table_toys
+from app.game.handlers import bot_seat  # -- test opponent --
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
 from app.rules import stickers101, token_stacks
@@ -98,6 +99,7 @@ HANDLERS: dict[str, Handler] = {
     "add_dummy": dummy.add_dummy,
     "reset_dummy": dummy.reset_dummy,
     "set_dummy": dummy.set_dummy,
+    "add_bot": bot_seat.add_bot,  # -- test opponent -- (app/game/handlers/bot_seat.py)
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,

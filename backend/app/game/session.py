@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.cards.repository import CardRepository, RulesCards
-from app.game import dummy, engine, out_of_game, table_rights, undo_requests, undo_rights
+from app.game import autoseat, dummy, engine, out_of_game, table_rights, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -20,7 +20,7 @@ from app.game.ops import pname, text
 from app.game.resolve import CardInfo, NoCardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
-from app.rules import RulesRegistry, Suggestion
+from app.rules import RulesRegistry, Suggestion, taught
 
 log = logging.getLogger(__name__)
 
@@ -40,8 +40,11 @@ class GameSession:
     def __init__(self, state: GameState, *, cards: CardInfo | None = None, history: History | None = None,
                  history_limit: int = 500, rules: RulesRegistry | None = None) -> None:
         self.state = state
+        if history is None and state.taught is None:  # -- Teach Fyodor -- a new game keeps the taught library it started with
+            state.taught = taught.snapshot()
+        cards = taught.unwrap(cards)
         # the rules read card data through the repository's cache (no image checks): CardRepository.rules_card
-        self.cards = RulesCards(cards) if isinstance(cards, CardRepository) else cards
+        self.cards = taught.wrap(RulesCards(cards) if isinstance(cards, CardRepository) else cards, state.taught)
         self.rules = rules
         self.suggestions: list[Suggestion] = []
         self.history = history or History(state, limit=history_limit)
@@ -53,6 +56,8 @@ class GameSession:
         self.undo_request: undo_requests.UndoRequest | None = None  # -- quick undo request -- waiting for the table (in memory)
         self._answering = False  # -- target dummy -- the server is answering for the dummy (app/game/dummy.py)
         self._dummy_gave_up: list[dict[str, Any]] | None = None  # the answers it last couldn't give (said once)
+        self._bot_acting = False  # -- test opponent -- the server is playing for an opponent (app/game/bot.py)
+        self.bot_memory: dict[str, Any] = {}  # -- test opponent -- what it tried this priority window (in memory: never replayed)
 
     # -- actions ---------------------------------------------------------------------
     def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
@@ -69,6 +74,8 @@ class GameSession:
             raise ActionError(out)  # -- out of the game -- 800.4a: a player who left no longer takes part
         if not trusted and not self._answering and dummy.is_dummy(self.state, actor):
             raise ActionError("The target dummy acts on its own")  # (a hot-seat table can act as any seat: not as this one)
+        if not trusted and not self._bot_acting and autoseat.is_bot(self.state, actor):
+            raise ActionError("That opponent plays on its own")  # -- test opponent -- (app/game/bot.py)
         was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
@@ -140,11 +147,21 @@ class GameSession:
             self._answering = False
             self.suggestions = suggestions
 
+    def perform_bot(self, actor: str, payload: dict[str, Any]) -> Action:
+        """-- test opponent -- one action the server plays for an opponent (app/game/bot.py): an ordinary recorded action of its own."""
+        self._bot_acting = True
+        try:
+            return self.perform(actor, payload, host=True)
+        finally:
+            self._bot_acting = False
+
     def _glued(self, end: int) -> int:
         """-- target dummy -- how many of the history's actions just before position ``end`` are the dummy's answers: they go with the
-        player's action they answered, so undo and redo take them back and put them back together with it."""
+        player's action they answered, so undo and redo take them back and put them back together with it. -- test opponent -- so do an
+        opponent's plays: they follow from the player's action before them (passing into its turn), and the server would play them again
+        at once after an undo of them alone."""
         n = 0
-        while end - n > 1 and dummy.is_dummy(self.state, self.history.actions[end - n - 1].actor):
+        while end - n > 1 and autoseat.non_human(self.state, self.history.actions[end - n - 1].actor):
             n += 1
         return n
 
@@ -187,14 +204,14 @@ class GameSession:
         self._check_not_controlled(actor)
         if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
             raise ActionError(out)
-        while 0 <= position < self.history.cursor and dummy.is_dummy(self.state, self.history.actions[position].actor):
+        while 0 <= position < self.history.cursor and autoseat.non_human(self.state, self.history.actions[position].actor):
             position += 1  # -- target dummy -- its answers stay with the action they answered
         if not 0 <= position < self.history.cursor:
             raise ActionError("Nothing to undo back to there")
         policy = self.state.settings.undo_policy
         for i, a in enumerate(self.history.actions[position:self.history.cursor], start=position + 1):
-            if dummy.is_dummy(self.state, a.actor):
-                continue  # (the dummy's answers go with the action they answered)
+            if autoseat.non_human(self.state, a.actor):
+                continue  # (the dummy's answers and an opponent's plays go with the action they followed)
             if policy == "host" and not host:
                 raise ActionError("Only the host may undo at this table (the host's undo setting).")
             if policy == "own" and a.actor != actor:
@@ -214,7 +231,7 @@ class GameSession:
             raise ActionError(out)  # -- out of the game (gaps5) --
         undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
-        while self.history.can_redo and dummy.is_dummy(state, self.history.actions[self.history.cursor].actor):
+        while self.history.can_redo and autoseat.non_human(state, self.history.actions[self.history.cursor].actor):
             state, _ = self.history.redo(state)  # -- target dummy -- its answers come back with the action they answered
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])

@@ -256,8 +256,8 @@ def follow_rules(room: Room) -> None:
             session.notice("The game-ending action was taken back, so the rules result is withdrawn. The game goes on.")
     if ending is None or night.result is not None or room.result_id is not None or len(state.seat_order) < 2:
         return
-    if any(p.dummy for p in state.players.values()):
-        return  # -- target dummy -- a test table: the rules' ending shows at the table (Reset dummy goes on), no pod result to record
+    if any(p.dummy or p.bot is not None for p in state.players.values()):
+        return  # -- target dummy -- (and -- test opponent --) a test table: the rules' ending shows at the table (Reset dummy goes on), no pod result to record
     _, result_type, winners = ending
     r = state.rules
     assert r is not None

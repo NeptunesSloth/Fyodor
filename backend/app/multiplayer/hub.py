@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game import undo_requests, undo_rights
+from app.multiplayer import bots  # -- test opponent -- the server's pacing of its actions
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.summary import player_commanders
@@ -348,6 +349,7 @@ class GameHub:
 
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
+        bots.forget(game_id)
         if room:
             if room.game is not None:
                 room.game.history.listener = None
@@ -558,14 +560,15 @@ class GameHub:
             self.persist(room)
             return SPECTATOR, token
         state = room.game.state if room.game is not None else None
-        nobody = {pid for pid, p in state.players.items() if p.dummy} if state is not None else set()  # -- target dummy -- nobody sits there
+        nobody = {pid for pid, p in state.players.items() if p.dummy or p.bot is not None} if state is not None else set()  # -- target dummy -- (and -- test opponent --) nobody sits there
         free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody]
         if seat is not None:
             chosen = room.seats.get(seat)
             if chosen is None:
                 raise LookupError("No such seat")
             if seat in nobody:
-                raise PermissionError("That seat is the target dummy's")
+                raise PermissionError("That seat is the target dummy's" if state is not None and state.players[seat].dummy
+                                      else "That seat is the test opponent's")
             if chosen.token is not None:
                 raise PermissionError("That seat is already taken")
         elif free:
@@ -584,6 +587,7 @@ class GameHub:
         room.connections[conn.id] = conn
         if conn.viewer in room.seats:
             room.seats[conn.viewer].connections += 1
+        bots.poke(self, room)  # -- test opponent -- a table created or loaded off the event loop starts playing when someone sits down
 
     def disconnect(self, room: Room, conn: Connection) -> None:
         if room.connections.pop(conn.id, None) is not None and conn.viewer in room.seats:
@@ -620,6 +624,7 @@ class GameHub:
                 stale.append(conn)
         for conn in stale:
             self.disconnect(room, conn)
+        bots.poke(self, room)  # -- test opponent -- its next action, if the game waits for it
         return reply
 
     async def send_to(self, room: Room, viewer: str, message: dict[str, Any]) -> None:
@@ -664,6 +669,7 @@ class GameHub:
             **undo_requests.view_fields(room.session, viewer, host=host, others=undo_voters(room, viewer)),
             "events": room.pulse.public(),
             **({"predictions": recap} if recap else {}),
+            **bots.view_fields(room),  # -- test opponent -- the top bar's bot speed
         }
         if room.night.final_board() is not None:  # -- final board -- nothing to undo or redo on a finished table
             meta.update(can_undo=False, can_redo=False)
@@ -680,6 +686,7 @@ class GameHub:
             for pid in [pid for pid, seat in room.seats.items() if pid not in state.players and seat.token is None]:
                 del room.seats[pid]
         follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
+        bots.poke(self, room)  # -- test opponent -- (inside the event loop: its next action, paced)
         self.persist(room)
         self.save_rows(room)
         room.actions_since_save += 1

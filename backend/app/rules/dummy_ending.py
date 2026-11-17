@@ -7,6 +7,10 @@ test is simply over). It is recorded as the rules' ``draw_reason`` with :data:`D
 on; ``rules_ending`` (app/multiplayer/night.py) reads it back as the dummies' win. One dummy left is the ordinary last-player win.
 
 A table without a dummy is never touched.
+
+-- test opponent -- the same holds for opponents the server plays for (app/game/bot.py): once only seats nobody sits in are left (dummies,
+opponents, two or more of them), the test is over and they win, recorded with :data:`OPPONENTS_WIN` when an opponent is among them
+(an opponent and a dummy would otherwise play on alone, turn after turn).
 """
 
 from __future__ import annotations
@@ -19,16 +23,22 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 DUMMIES_WIN = "Only target dummies are left in the game: the dummies win"
+OPPONENTS_WIN = "Only the test opponents are left in the game: they win"  # (-- test opponent --)
+
+
+def _non_human(state: GameState, pid: str) -> bool:
+    p = state.players[pid]
+    return p.dummy or p.bot is not None
 
 
 def only_dummies_left(state: GameState) -> list[str] | None:
     """The dummies still in the game when two or more are and nobody else is (else None)."""
     from app.rules.plan import live_players  # (plan imports the engine's modules: late)
 
-    if state.rules is None or not any(p.dummy for p in state.players.values()):
+    if state.rules is None or not any(p.dummy or p.bot is not None for p in state.players.values()):
         return None
     live = live_players(state)
-    if len(live) < 2 or not all(state.players[pid].dummy for pid in live):
+    if len(live) < 2 or not all(_non_human(state, pid) for pid in live):
         return None
     return live
 
@@ -41,9 +51,11 @@ def end_if_only_dummies(plan: Plan) -> bool:
     dummies = only_dummies_left(plan.state)
     if dummies is None:
         return False
-    r.draw_reason = DUMMIES_WIN
+    bots = any(plan.state.players[pid].bot is not None for pid in dummies)
+    r.draw_reason = OPPONENTS_WIN if bots else DUMMIES_WIN
     r.decision = None
-    plan.note(f"Only target dummies are left in the game ({', '.join(plan.name(pid) for pid in dummies)}): the test is over")
+    what = "test opponents" if bots else "target dummies"
+    plan.note(f"Only {what} are left in the game ({', '.join(plan.name(pid) for pid in dummies)}): the test is over")
     return True
 
 
@@ -52,6 +64,6 @@ def dummy_winners(state: GameState) -> list[str]:
     from app.rules.plan import live_players
 
     r = state.rules
-    if r is None or r.draw_reason != DUMMIES_WIN:
+    if r is None or r.draw_reason not in (DUMMIES_WIN, OPPONENTS_WIN):
         return []
-    return [pid for pid in live_players(state) if state.players[pid].dummy]
+    return [pid for pid in live_players(state) if _non_human(state, pid)]

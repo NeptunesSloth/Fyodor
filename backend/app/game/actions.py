@@ -706,6 +706,19 @@ class AddDummy(Base):
     life: int | None = Field(default=None, ge=1, le=10000)  # its starting life (None: the table's)
 
 
+class AddBot(Base):
+    """-- test opponent -- Sandbox: seat an opponent that plays a deck, the server playing for it (app/game/bot.py). Built by the server
+    from a saved deck (POST /games/{id}/bot), like ``LoadDeck``: a client can't send one directly."""
+
+    type: Literal["add_bot"] = "add_bot"
+    name: str | None = Field(default=None, max_length=40)
+    policy: Literal["simple"] = "simple"
+    deck_name: str = Field(default="Deck", max_length=120)
+    deck_id: str | None = Field(default=None, max_length=64)
+    cards: list[LoadDeckCard] = Field(max_length=600)
+    r: LoadDeckData | None = None
+
+
 class ResetDummy(Base):
     """-- target dummy -- its life back to the start, its poison, counters and commander damage cleared, its permanents gone (a
     card it was given goes back to its owner), and back in the game if it lost."""
@@ -1714,7 +1727,7 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect", "pay_deferred", "roll_planar_die"}
 )
-SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101",
+SERVER_ONLY_TYPES = frozenset({"load_deck", "add_bot", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101",
                                "planar_deck_op"})  # (-- planechase deck (wave D) --)
 
 
@@ -1764,6 +1777,7 @@ Action = Annotated[
     | LoadDeck
     | ResetDeck
     | AddDummy
+    | AddBot
     | ResetDummy
     | SetDummy
     | RestartGame

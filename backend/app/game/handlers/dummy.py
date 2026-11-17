@@ -84,8 +84,9 @@ def before_the_end(state: GameState, history: Any, pid: str) -> int | None:
 
 
 def _is_dummy(state: GameState, pid: str | None) -> bool:
+    """(-- test opponent -- an opponent's plays too: they go with the player's action before them, GameSession._glued)"""
     p = state.players.get(pid) if pid else None
-    return p is not None and p.dummy
+    return p is not None and (p.dummy or p.bot is not None)
 
 
 def add_dummy(state: GameState, a: A.AddDummy) -> None:
@@ -94,6 +95,10 @@ def add_dummy(state: GameState, a: A.AddDummy) -> None:
     seated = dummies_of(state)
     if len(seated) >= MAX_DUMMIES:
         raise ActionError(f"This table already has {MAX_DUMMIES} target dummies")
+    from app.game.autoseat import MAX_NON_HUMAN, non_human  # -- test opponent -- dummies and opponents share the limit
+
+    if sum(1 for pid in state.seat_order if non_human(state, pid) and not state.players[pid].left) >= MAX_NON_HUMAN:
+        raise ActionError(f"This table already has {MAX_NON_HUMAN} dummies and opponents")
     if len(state.seat_order) >= MAX_SEATS:
         raise ActionError(f"The table is full ({MAX_SEATS} seats)")
     n = len(state.players) + 1  # (a removed player keeps their id: never reused)
@@ -173,7 +178,7 @@ def _back_in_the_game(state: GameState, pid: str) -> bool:
 
     live = live_players(state)
     # (-- target dummy -- with only dummies in the game again the test stays over: app/rules/dummy_ending.py)
-    if len(live) > 1 and any(not state.players[p].dummy for p in live):
+    if len(live) > 1 and any(not state.players[p].dummy and state.players[p].bot is None for p in live):
         r.winner = None
         r.draw_reason = None
         if r.priority is None or r.priority not in live:

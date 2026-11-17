@@ -1106,6 +1106,9 @@ PaymentMode = str  # "auto" | "ask" | "manual"
 def payment_mode(plan: Plan, player: str) -> PaymentMode:
     """AUTO pays; ASK shows the suggested payment first (also when the table's AUTO MANA PAYMENT is
     off); MANUAL lets the player pick the exact sources."""
+    seat = plan.state.players.get(player)
+    if seat is not None and seat.bot is not None:  # -- test opponent -- the server plays for it: the engine pays (app/game/bot.py)
+        return "auto" if plan.options.auto_mana_payment else "ask"
     pref = plan.rules.prefs_for(player).payment
     if pref == "self":
         return "self"

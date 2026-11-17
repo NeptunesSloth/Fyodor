@@ -1569,8 +1569,10 @@ async def undo_to_history(game_id: str, position: int, body: MetaIn, request: Re
 async def take_back_test_ending(game_id: str, body: MetaIn, request: Request, services: ServicesDep,
                                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     """-- test-table ending -- "Take it back" at a table with a target dummy: undo back to just before the action that ended the test
-    for this seat (it lost, or the rules ended the game), under the table's undo rules (GameSession.undo_to)."""
-    from app.game.handlers.dummy import before_the_end, dummy_of
+    for this seat (it lost, or the rules ended the game), under the table's undo rules (GameSession.undo_to). -- test opponent -- or
+    with an opponent the server plays for: its plays go back with the player's action before them."""
+    from app.game.autoseat import has_non_human
+    from app.game.handlers.dummy import before_the_end
 
     room = _room(services, game_id)
     viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
@@ -1579,8 +1581,8 @@ async def take_back_test_ending(game_id: str, body: MetaIn, request: Request, se
     async with room.lock:
         _check_table_open(room)
         session = room.session
-        if dummy_of(session.state) is None:
-            raise HTTPException(409, "Take it back is for a test table with a target dummy")
+        if not has_non_human(session.state):
+            raise HTTPException(409, "Take it back is for a test table with a target dummy or a test opponent")
         position = before_the_end(session.state, session.history, actor)
         if position is None:
             raise HTTPException(409, "There is no ending to take back")
