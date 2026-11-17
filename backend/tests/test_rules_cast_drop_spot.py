@@ -44,6 +44,27 @@ def test_a_dropped_creature_enters_where_it_was_dropped(cards):
     check(s)
 
 
+def test_the_spot_survives_the_tap_your_mana_prompt(cards):
+    """At the table a drag usually opens the payment prompt first (players tap their own mana): the spot comes back with the intent."""
+    s = build(cards, ["Grizzly Bears"])
+    for prefs in s.state.rules.prefs.values():
+        prefs.payment = "self"
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    bears = _named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=bears.id, x=612.5, y=340.0)
+    d = s.state.rules.decision
+    assert d is not None and (d.display or {}).get("kind") == "tap_mana"  # (paused for the payment)
+    for f in forests:
+        act(s, "p1", type="activate_ability", card_id=f.id, ability=0, tap_for_mana=True)
+    answer(s)
+    bears = s.state.cards[bears.id]
+    assert bears.zone == "p1:battlefield" and (bears.x, bears.y) == (612.5, 340.0)
+    check(s)
+
+
 def test_without_a_spot_it_takes_the_usual_free_spot(cards):
     s = build(cards, ["Grizzly Bears"])
     mana(s, "p1", G=1, C=1)
