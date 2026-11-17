@@ -11,7 +11,7 @@ import { send } from "./actions";
 import { useIsHost } from "./HostTools";
 import { playEndScene, type EndPlay } from "./motion/endScene";
 import { testEnding, type TestEnding as Ending } from "./nightEnding";
-import { ENDING_WORD, causeLine, endingSource, endingVariant, lifeTick, otherLine, tickAt } from "./testEndingBits";
+import { ENDING_WORD, causeLine, combatLine, combatLoss, endingSource, endingVariant, lifeTick, otherLine, tickAt } from "./testEndingBits";
 import "./testEnding.css";
 
 /** -- test-table ending -- undo back to just before the action that ended the test for this seat (app/api/games.py, test/take-back). */
@@ -63,7 +63,8 @@ function EndingScreen({ view, me, ending }: { view: GameView; me: string; ending
   const source = variant === "defeat" && mine ? endingSource(view, me, mine.name) : null;
   const card = useCard(source?.card_id ?? null);
   const r = view.rules;
-  const line = variant === "defeat" ? causeLine(r?.lost[me], !!r?.conceded.includes(me)) : otherLine(view, variant);
+  const gang = variant === "defeat" ? combatLoss(view, me) : 0;
+  const line = variant === "defeat" ? (gang > 1 ? combatLine(gang) : causeLine(r?.lost[me], !!r?.conceded.includes(me))) : otherLine(view, variant);
   const winner = variant === "defeat" && r?.winner ? view.players.find((p) => p.id === r.winner)?.name : null;
   const ms = (n: number) => (reduced ? 0 : Math.round(n / speed));
 

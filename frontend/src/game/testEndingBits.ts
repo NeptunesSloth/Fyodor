@@ -58,8 +58,25 @@ export function lossSource(log: LogEntryView[], name: string): { name: string; c
  * -- loss sources -- the card that made ``me`` lose: the one the rules recorded with the loss (``rules.lost_source``: Final Fortune's
  * delayed trigger, the Lightning Bolt that took the life to 0), else the log's guess (``lossSource``), else null.
  */
-export function endingSource(view: Pick<GameView, "rules" | "log">, me: string, name: string): { name: string; card_id: string | null } | null {
+export function endingSource(view: Pick<GameView, "rules" | "log"> & Partial<Pick<GameView, "turn" | "cards">>, me: string, name: string): { name: string; card_id: string | null } | null {
+  if (combatLoss(view, me) > 1) return null; // (a gang attack isn't one card's doing)
   return view.rules?.lost_source?.[me] ?? lossSource(view.log ?? [], name);
+}
+
+/**
+ * -- playtest (nov 16) -- my life fell to 0 in a combat damage step: how many creatures were attacking me then (0: not that). A 16-damage,
+ * 7-creature attack named "Llanowar Elves" (the last damage source the rules recorded): with two or more, the ending says the attack did it.
+ * Public facts only: the attackers on the table.
+ */
+export function combatLoss(view: Partial<Pick<GameView, "rules" | "turn" | "cards">>, me: string): number {
+  if (view.rules?.lost?.[me] !== "0 or less life" || view.turn?.phase !== "combat_damage") return 0;
+  return Object.values(view.cards ?? {}).filter((c) => c.zone.endsWith(":battlefield") && c.controller !== me
+    && c.attacking?.kind === "player" && c.attacking.id === me).length;
+}
+
+/** The defeat line for a combat loss to `n` attackers. */
+export function combatLine(n: number): string {
+  return `Combat damage from ${n} attacking creatures took your life to 0.`;
 }
 
 function findLast<T>(xs: T[], ok: (x: T) => boolean): number {

@@ -65,3 +65,18 @@ describe("the test-table ending screen", () => {
     expect(otherLine(view(["A"], { draw_reason: "Everyone lost at once" }), "draw")).toBe("Everyone lost at once.");
   });
 });
+
+describe("a gang attack's defeat (playtest nov 16: 7 creatures, the screen named Llanowar Elves)", () => {
+  it("names the attack, not the last damage source, when two or more creatures were attacking me", async () => {
+    const { combatLoss, combatLine } = await import("./testEndingBits");
+    const atk = (id: string, to = "p1") => ({ id, name: id, zone: "p2:battlefield", controller: "p2", attacking: { kind: "player", id: to } });
+    const base = { turn: { phase: "combat_damage" }, log: [], rules: { lost: { p1: "0 or less life" }, lost_source: { p1: { name: "Llanowar Elves", card_id: "x" } } } };
+    const many = { ...base, cards: { a: atk("a"), b: atk("b"), c: atk("c", "p3") } } as unknown as GameView;
+    expect(combatLoss(many, "p1")).toBe(2);
+    expect(endingSource(many, "p1", "Alice")).toBeNull();
+    expect(combatLine(2)).toBe("Combat damage from 2 attacking creatures took your life to 0.");
+    const one = { ...base, cards: { a: atk("a") } } as unknown as GameView;
+    expect(endingSource(one, "p1", "Alice")).toEqual({ name: "Llanowar Elves", card_id: "x" });
+    expect(combatLoss({ ...many, turn: { phase: "main2" } } as unknown as GameView, "p1")).toBe(0);
+  });
+});
