@@ -821,6 +821,16 @@ class InterimStream:
         frames: dict[str, dict[str, Any]] = {}
         from app.rules import read_pass
 
+        if not self.face_down and rules is not None and (rules.top_reveals or rules.hideaway) and session.cards is not None:
+            # who may see which hidden cards (a revealed library top or hand, a hideaway card) is worked out again only at the end of the
+            # action (engine._compile_intent): part way through, the list may still name a source that has since lost the ability. The
+            # views are built from a copy brought up to date the same way, never from the list as the action began
+            from app.rules import hideaway, permissions
+            from app.rules.plan import scratch_copy
+
+            state = scratch_copy(state)
+            permissions.refresh_reveals(state, session.cards)
+            hideaway.refresh(state)
         # (one read pass for every viewer's view, as a broadcast has: what each derives is worked out once)
         with read_pass.scope(state, session.cards) if session.cards is not None else contextlib.nullcontext():
             for key, (viewer, meta) in self.metas.items():

@@ -106,6 +106,41 @@ def test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action(card
             assert isinstance(m["view"]["zones"]["p1:library"], dict)  # a library is a count, never its cards
 
 
+def test_interim_views_never_use_a_reveal_list_the_action_has_outdated(cards, eager, monkeypatch):
+    """Who may see a hand or a library top is worked out again at the end of an action (and as it begins): part way through, the list
+    may still name a source that no longer reveals anything. An interim view is built from a copy brought up to date the same way."""
+    from app.game.rules_state import TopReveal
+    from app.rules import progress
+
+    s = kiki._board(cards)
+    mine = to_hand(s, "Forest")
+    kiki_card = next(c for c in s.state.cards.values() if c.name == kiki.KIKI)
+    hub, room, inbox = _seated(s)
+    stale = TopReveal(source=kiki_card.id, player="p1", to="all", zone="hand", whose="players")
+    resolved = progress.resolved
+
+    def outdated(plan):  # (as if Kiki-Jiki had said "Players play with their hands revealed" until a moment ago, in the chain)
+        plan.state.rules.top_reveals = [stale]
+        assert mine.id in json.dumps(s.view("p2", state=plan.state))  # (the outdated list would reveal Alice's hand)
+        resolved(plan)
+
+    monkeypatch.setattr(progress, "resolved", outdated)
+
+    async def play() -> None:
+        for _ in range(40):
+            if s.state.turn.number > 3 or any(m["type"] == "interim" for m in inbox["p2"]):
+                return
+            actor = s.state.rules.decision.player if s.state.rules.decision else s.state.rules.priority
+            await hub.perform(room, actor, _next(s))
+            assert not s.state.rules.top_reveals  # (the action's end worked it out again)
+            await hub.broadcast(room)
+
+    asyncio.run(play())
+    interim = [m for m in inbox["p2"] if m["type"] == "interim"]
+    assert interim and all("view" in m for m in interim)
+    assert not any(mine.id in json.dumps(m) for m in interim)
+
+
 def test_interim_views_offered_after_the_action_are_dropped():
     sent: list[dict[str, Any]] = []
 

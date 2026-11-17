@@ -28,7 +28,10 @@ export function PassStopBanner({ mine }: { mine: boolean }) {
     usePassStop.getState().update(before, next, me);
     if (autoPassedMyCast(before, next, me) && holdHintDue()) toast(HOLD_HINT, "info", { label: "Hold priority", run: () => void setPrefs({ hold_priority: true }) });
   }), []);
-  if (!stop || !view || gameEnded(view, perspective(view, actingAs))) return null;
+  // (-- resolving progress -- while a chain is worked out the indicator sits here instead; the banner stays mounted, so its
+  // subscription above still sees the action's own update, which may bring the very note it shows)
+  const resolving = useGame((s) => s.resolving);
+  if (resolving || !stop || !view || gameEnded(view, perspective(view, actingAs))) return null;
   const dismiss = () => usePassStop.getState().dismiss();
   const loop = stop.kind === "loop";
   return (

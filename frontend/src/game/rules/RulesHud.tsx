@@ -330,7 +330,8 @@ export function TurnDial() {
   const blocked = deciding ? "Answer your decision first" : busy ? "Resolving… wait for the chain to finish" : undefined;
   return (
     <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
-      {busy ? <ResolvingIndicator /> : <PassStopBanner mine={auto && mine} />}
+      <ResolvingIndicator />
+      <PassStopBanner mine={auto && mine} />
       <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
           <PhaseDial step={step} turn={turn.number} color={active?.color} />

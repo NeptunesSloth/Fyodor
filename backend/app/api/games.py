@@ -583,7 +583,11 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
             except (ActionError, ValidationError) as exc:
                 log.info("Could not apply joining player's name: %s", exc)
 
+        ran = False
+
         async def locked_rename() -> None:
+            nonlocal ran
+            ran = True
             async with room.lock:
                 rename()
 
@@ -591,8 +595,10 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
         # -- resolving progress -- GameHub.perform reads the table off the loop meanwhile)
         try:
             anyio.from_thread.run(locked_rename)
-        except RuntimeError:  # (called outside a worker thread of the app's event loop)
-            rename()
+        except RuntimeError:
+            if ran:
+                raise
+            rename()  # (called outside a worker thread of the app's event loop)
     # -- bring my decks -- the library sent ahead by the player's own Fyodor, for this seat alone (one use)
     if body.handoff and viewer in room.seats and not room.started:
         library = services.handoffs.take(body.handoff)

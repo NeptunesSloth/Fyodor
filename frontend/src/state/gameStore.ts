@@ -218,7 +218,7 @@ export const useGame = create<GameStore>((set, get) => ({
       const back = s.view?.game.revision != null && (lobby.revision ?? 0) > s.view.game.revision;
       if (s.view && s.view.game.id === lobby.game.id && !back) return {};
       if (s.lobby && s.lobby.game.id === lobby.game.id && (lobby.revision ?? 0) < (s.lobby.revision ?? 0)) return {};
-      return { lobby, view: null };
+      return { lobby, view: null, interim: false, committed: null, resolving: null };
     }),
 
   connect: (gameId, opts) => {
