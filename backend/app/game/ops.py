@@ -18,12 +18,12 @@ from app.game.state import (
     CardInstance,
     DiceRollLog,
     DigLog,
-    RevealLog,
     GameState,
     LogEntry,
     LogPart,
     MergedPart,
     PlayerState,
+    RevealLog,
     split_zone,
     zone_key,
 )

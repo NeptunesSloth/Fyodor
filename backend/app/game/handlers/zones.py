@@ -8,7 +8,17 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.rules_state import emit
-from app.game.state import ALL, STACK, CardInstance, DigLog, GameState, RevealLog, ViewContext, split_zone, zone_key
+from app.game.state import (
+    ALL,
+    STACK,
+    CardInstance,
+    DigLog,
+    GameState,
+    RevealLog,
+    ViewContext,
+    split_zone,
+    zone_key,
+)
 from app.game.visibility import seers
 
 OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"}

@@ -1731,7 +1731,9 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")
-    if a.remember is not None:
+    if a.remember == "always_order":  # -- trigger order memory -- (an order prompt has no memory key: no yield answers it)
+        triggers.remember_order(plan, d, chosen)
+    elif a.remember is not None:
         if d.memory_key is None:
             raise ActionError("This answer can't be remembered")
         prefs = plan.prefs(decider_of(plan.state, d))  # (-- controlling another player (wave 18H) -- the decider's own preference)
@@ -1897,6 +1899,10 @@ def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
             setattr(prefs, key, list(value) if isinstance(value, list) else value)
     if a.cancel_pass:
         prefs.pass_until, prefs.pass_mark, prefs.stop_after = None, "", None
+    if a.forget_trigger_orders:  # -- trigger order memory --
+        prefs.trigger_orders = []
+    elif a.forget_trigger_order is not None and a.forget_trigger_order < len(prefs.trigger_orders):
+        del prefs.trigger_orders[a.forget_trigger_order]
     if a.stop_after is not None:
         card = plan.state.cards.get(a.stop_after)
         if card is None or card.zone != STACK:

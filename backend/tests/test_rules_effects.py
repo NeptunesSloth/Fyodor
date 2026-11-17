@@ -205,7 +205,8 @@ def test_apnap_order_and_ordering_your_own_triggers(cards):
     act(s, "p2", type="set_prefs", response="on")  # (so the stack can be looked at before it resolves)
     act(s, "p1", type="pass_priority")  # all three die simultaneously
     d = rules(s).decision
-    assert d.kind == "order" and d.player == "p1" and {o.label for o in d.options} == {"Alpha", "Beta"}
+    assert d.kind == "order" and d.player == "p1" and {o.label for o in d.options} == {"Alpha — When this creature dies, you gain 1 life.",
+                                                                                    "Beta — When this creature dies, you gain 2 life."}
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in sorted(d.options, key=lambda o: o.label)])
     stack = [rules(s).stack[c].name for c in s.state.zones["stack"]]
     assert stack == ["Alpha", "Beta", "Gamma"]  # active player's first (bottom), Bob's on top: Bob's resolves first

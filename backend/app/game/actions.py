@@ -1482,8 +1482,9 @@ class Choose(_Intent):
     amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=MAX_TARGETS)
     # -- card names (wave 22B) -- 201.4: the typed card name that answers a "choose a card name" decision
     name: Annotated[str, Field(max_length=200)] | None = None
-    # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.
-    remember: Literal["yes_this_turn", "no_this_turn", "always_yield"] | None = None
+    # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD; for a trigger order, ALWAYS USE THIS
+    # ORDER for these abilities (this game).
+    remember: Literal["yes_this_turn", "no_this_turn", "always_yield", "always_order"] | None = None
 
 
 class Concede(_Intent):
@@ -1544,6 +1545,9 @@ class SetPrefs(_Intent):
     add_yield: YieldIn | None = None
     cancel_yield: Annotated[str, Field(max_length=120)] | None = None
     cancel_all_yields: bool = False
+    # -- trigger order memory -- forget one saved trigger order (its place in the list) or all of them
+    forget_trigger_order: Annotated[int, Field(ge=0, lt=20)] | None = None
+    forget_trigger_orders: bool = False
 
     _stops = field_validator("stops_my_turn", "stops_their_turn")(_steps_list)
 

@@ -514,6 +514,8 @@ export interface RulesPrefs {
   mana_sources: Record<string, "prefer" | "save">;
   auto_resolve_own_triggers: "off" | "safe" | "on";
   auto_order_identical_triggers: boolean;
+  /** "Always use this order for these cards (this game)": each a set of triggered abilities' keys ("Name:index"), first on the stack first. */
+  trigger_orders?: string[][];
   auto_target?: boolean;
   ask_graveyard_order: boolean;
   hold_priority: boolean;

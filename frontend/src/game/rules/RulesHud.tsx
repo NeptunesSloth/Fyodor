@@ -9,7 +9,7 @@ import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { autocomplete } from "../../services/cards";
+import { autocomplete, imageUrl } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
@@ -24,6 +24,7 @@ import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
 import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
+import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
 import { usePrefs } from "../../state/prefs";
 import { requestCards, useCardCache } from "../../state/cardCache";
 import { targetingOf } from "../targeting/targeting";
@@ -186,6 +187,18 @@ export function AutomationSettings({ onClose }: { onClose: () => void }) {
             <Switch label="Pick the only legal target" on={prefs.auto_target ?? true} set={(v) => void setPrefs({ auto_target: v })} />
             <Switch label="Always let me order my graveyard" on={prefs.ask_graveyard_order} set={(v) => void setPrefs({ ask_graveyard_order: v })} />
           </div>
+          {(prefs.trigger_orders?.length ?? 0) > 0 && ( /* "always use this order for these cards": kept by the server for this game */
+            <div className="saved-orders" data-testid="saved-trigger-orders">
+              <span className="frame-title">Saved trigger orders</span>
+              {prefs.trigger_orders!.map((keys, i) => (
+                <div key={keys.join("|")} className="saved-order">
+                  <span title="First on the stack (resolves last) → last on the stack (resolves first)">{savedOrderLabel(keys)}</span>
+                  <button className="tt-btn ghost" aria-label="Forget this order" title="Forget this order" onClick={() => void setPrefs({ forget_trigger_order: i })}>✕</button>
+                </div>
+              ))}
+              {prefs.trigger_orders!.length > 1 && <button className="tt-btn ghost" data-testid="forget-trigger-orders" onClick={() => void setPrefs({ forget_trigger_orders: true })}>Forget all</button>}
+            </div>
+          )}
         </>
       )}
       {!rules && (
@@ -707,18 +720,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
       </div>
     );
   }
-  if (d.kind === "order") {
-    return (
-      <div className="decision-options">
-        {options.map((o) => (
-          <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} onClick={() => toggle(o.id)}>
-            {picked.includes(o.id) ? `${picked.indexOf(o.id) + 1}. ` : ""}{o.label}
-          </button>
-        ))}
-        <button className="tt-btn brass" disabled={picked.length !== options.length} data-testid="decision-done" onClick={() => done(picked)}>Done</button>
-      </div>
-    );
-  }
+  if (d.kind === "order") return <OrderChoice d={d} view={view} />;
   if (d.kind === "reconcile") return <Reconcile d={d} />;
   if (d.kind === "divide") return <Divide d={d} view={view} />;
   // choose_cards. A long list of cards (a library search's legal finds, shown to the chooser only): filter and sort them as in the
@@ -745,6 +747,61 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         {doneLabel(picked.length, min, max)}
       </button>
       {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
+    </div>
+  );
+}
+
+/** 603.3b: put things in order — your triggered abilities (identical ones one row, "×N", ordered as a block; "Auto order" stacks them as
+ * they triggered; "always use this order" is remembered by the server for this game) or cards to arrange. Click the rows in order; the list
+ * scrolls, the buttons stay in view. */
+function OrderChoice({ d, view }: { d: DecisionView; view: GameView }) {
+  const rows = orderRows(d);
+  const triggers = isTriggerOrder(d);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [always, setAlways] = useState(false);
+  const hover = useHoverCard();
+  const toggle = (key: string) => setPicked((p) => (p.includes(key) ? p.filter((x) => x !== key) : [...p, key]));
+  const remember = triggers && always && d.display?.rememberable === true ? "always_order" : undefined;
+  const send = (ids: string[]) => void choose(d.id, ids, remember);
+  const complete = picked.length === rows.length;
+  return (
+    <div className="order-choice" data-testid="order-choice">
+      <ol className="order-list">
+        {rows.map((r) => {
+          const at = picked.indexOf(r.key);
+          const src = r.source ? view.cards[r.source] : undefined;
+          const art = src && !src.hidden && src.card_id ? imageUrl(src.card_id, src.face ?? 0, "small") : null;
+          return (
+            <li key={r.key}>
+              <button className={`order-row ${at >= 0 ? "on" : ""}`} data-testid={`order-row-${r.ids[0]}`} title={r.text || undefined}
+                aria-pressed={at >= 0} onClick={() => toggle(r.key)} {...(r.source && src && !src.hidden ? hover(r.source) : {})}>
+                <span className="order-pos" aria-hidden>{at >= 0 ? at + 1 : ""}</span>
+                {triggers && <span className="order-art" aria-hidden style={art ? { backgroundImage: `url(${art})` } : undefined} />}
+                <span className="order-what">
+                  <span className="order-name">{r.name}{r.count > 1 && <span className="order-count"> ×{r.count}</span>}</span>
+                  {r.short && <span className="order-text"><ManaText text={r.short} /></span>}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="order-foot">
+        {triggers && d.display?.rememberable === true && (
+          <label className="order-remember" title="The next time exactly these abilities trigger together, they go on the stack in this order without asking. Forget it under Automation.">
+            <input type="checkbox" data-testid="order-remember" checked={always} onChange={(e) => setAlways(e.target.checked)} />
+            Always use this order for these cards (this game)
+          </label>
+        )}
+        {picked.length > 0 && <button className="tt-btn ghost" data-testid="order-reset" onClick={() => setPicked([])}>Reset</button>}
+        {triggers && (
+          <button className="tt-btn" data-testid="order-auto" title="Stack them in the order they triggered (the first resolves last)"
+            onClick={() => send(autoOrderIds(rows))}>Auto order</button>
+        )}
+        <button className="tt-btn brass" disabled={!complete} data-testid="decision-done" onClick={() => send(orderedIds(rows, picked))}>
+          {complete ? "Done" : `Done (${picked.length}/${rows.length})`}
+        </button>
+      </div>
     </div>
   );
 }

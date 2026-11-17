@@ -13,7 +13,7 @@ without importing the rules engine.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -208,6 +208,9 @@ class PlayerPrefs(BaseModel):
     mana_sources: dict[str, SourceProtection] = Field(default_factory=dict)  # card id -> PREFER / SAVE
     auto_resolve_own_triggers: TriggerAutoResolve = "safe"
     auto_order_identical_triggers: bool = True
+    # -- trigger order memory -- 603.3b: "always use this order for these cards (this game)": each entry the keys ("Name:index") of a
+    # set of triggered abilities, in the order they go on the stack (first: resolves last); applied when exactly that set triggers
+    trigger_orders: list[list[Annotated[str, Field(max_length=240)]]] = Field(default_factory=list, max_length=20)
     auto_target: bool = True  # a triggered ability with exactly one legal target takes it without asking (603.3d, 601.2c)
     # -- graveyard order (wave 40C) -- 404.3: ask me to arrange every batch of two or more cards put into my graveyard together, not only
     # when a card on the table reads a graveyard's order (it covers a reader in my hand or library, app/rules/graveyard_order.py)

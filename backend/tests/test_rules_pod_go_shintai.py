@@ -163,9 +163,11 @@ def test_sanctum_of_all_doubles_the_hondens_and_the_shrine_it_fetches_triggers_g
     assert shrines(s) == 6
     stop_at(s, "p1", "upkeep")
     labels = order_labels(s)
-    assert labels.count(f"{WEB}: Create X token(s)") == 2 and labels.count(f"{FIRE}: Gain X life") == 2 and ALL in labels
+    names = [label.split(" — ")[0] for label in labels]  # (each then says what it does in its printed words: "At the beginning of your upkeep, …")
+    assert names.count(WEB) == 2 and names.count(FIRE) == 2 and ALL in names
+    assert all(" — At the beginning of your upkeep, " in label for label in labels)
     d = s.state.rules.decision
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=sorted((o.id for o in d.options), key=lambda i: d.options[[o.id for o in d.options].index(i)].label != ALL))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=sorted((o.id for o in d.options), key=lambda i: not d.options[[o.id for o in d.options].index(i)].label.startswith(f"{ALL} — ")))
     life = s.state.players["p1"].life
     settle(s, stop_at=ALL)
     assert s.state.players["p1"].life == life + 2 * 12 and field(s)["Spirit"] == 12
@@ -185,7 +187,9 @@ def test_go_shintai_end_step_payment_is_doubled_but_not_its_reflexive_trigger(ca
         put(s, name)
     assert shrines(s) == 7
     stop_at(s, "p1", "end")
-    assert order_labels(s) == [f"{WARS}: Pay {{1}}"] * 2 + [f"{CRUELTY}: Pay {{1}}"] * 2
+    labels = order_labels(s)
+    assert [label.split(" — ")[0] for label in labels] == [WARS] * 2 + [CRUELTY] * 2
+    assert all("you may pay {1}" in label for label in labels)  # its printed words, never "Optional_payment"
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
     mana(s, C=2)

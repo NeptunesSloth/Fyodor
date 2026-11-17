@@ -3004,11 +3004,17 @@ def flush(plan: Plan) -> bool:
         if not mine:
             continue
         if len(mine) > 1 and not all(t.ordered for t in mine) and not _identical(plan, player, mine):
-            decide(plan, player=player, kind="order",
-                   prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
-                   options=[DecisionOption(id=t.id, label=label) for t, label in zip(mine, order_labels(mine), strict=True)],
-                   min_choices=len(mine), max_choices=len(mine), resume={"step": "order_triggers"})
-            return True
+            saved = remembered_order(plan, player, mine)
+            if saved is None:
+                ask_order(plan, player, mine)
+                return True
+            # -- trigger order memory -- 603.3b: the order this player told us to use for this set of abilities ("always use this
+            # order for these cards", a choose answer in the history, so a replay orders them the same way)
+            mine = saved
+            for t in mine:
+                t.ordered = True
+            r.pending_triggers = [t for t in r.pending_triggers if t.controller != player] + mine
+            plan.note(f"{plan.name(player)} put their triggered abilities on the stack in their saved order", actor=player)
         for t in mine:
             if not put(plan, t):
                 return True  # waiting for a target choice
@@ -3022,23 +3028,136 @@ def flush(plan: Plan) -> bool:
     return True
 
 
-def order_labels(mine: list[Any]) -> list[str]:
-    """The trigger order prompt's labels: the source's name, and when two triggers share it (a spell's cascade and demonstrate, two
-    abilities of one permanent), what each one does ("Craw Wurm: cascade", "Craw Wurm: copy it, and an opponent copies it too")."""
-    from collections import Counter
+def order_labels(mine: list[Any], plan: Plan | None = None) -> list[str]:
+    """The trigger order prompt's labels: the source's name and what the ability says -- its printed words, shortened ("Scute Swarm —
+    Landfall: create a 1/1 green Insect creature token. If you control six or more lands, …"), else the keyword ("Craw Wurm — Cascade"),
+    else what it does in the engine's words ("Temporal Extortion — Copy it")."""
+    return [_order_label(t.name, ability_words(plan, t)[1]) for t in mine]
 
+
+def _order_label(name: str, short: str) -> str:
+    return f"{name} — {short}"[:200] if short else name[:200]
+
+
+_REMINDER = re.compile(r"\s*\([^()]*\)")
+_ABILITY_WORD = re.compile(r"^(?P<word>[A-Z][\w'’,\- ]{1,40}?) — (?P<rest>.+)$", re.S)
+_TRIGGER_CLAUSE = re.compile(r"^(?:When|Whenever|At)\b[^,]*,\s*(?P<effect>.+)$", re.S)
+_SYNTHETIC_INDEX = 2000  # (indices from here on are the rules' own triggers: exalted 2000, renown 4100, cipher 7400 …)
+
+
+def shorten_ability(text: str, limit: int = 110) -> str:
+    """A triggered ability's printed words for a list: reminder text dropped; after an ability word its trigger condition too, which the
+    word already names ("Landfall — Whenever a land you control enters, add one mana …" → "Landfall: add one mana …"); cut at a word
+    boundary past ``limit`` characters."""
+    said = " ".join(_REMINDER.sub("", text).split())
+    word = _ABILITY_WORD.match(said)
+    if word and (cut := _TRIGGER_CLAUSE.match(word["rest"])):
+        said = f"{word['word']}: {cut['effect']}"
+    if len(said) > limit:
+        said = said[:limit].rsplit(" ", 1)[0].rstrip(",;:.— ") + "…"
+    return said
+
+
+def _key_index(t: Any) -> int | None:
+    try:
+        return int(str(t.key).rsplit(":", 1)[1])
+    except (IndexError, ValueError):
+        return None
+
+
+def ability_words(plan: Plan | None, t: Any) -> tuple[str, str]:
+    """(the full printed text of a pending trigger's ability, its short form for a list): the source's ability with the trigger's index
+    (``key`` "Name:index"), as the source is now or as it last existed (603.10). A keyword's or the rules' own trigger has no text of its
+    own ("", the keyword's name); failing both, the effects in the engine's words."""
     from app.rules import effects
 
-    names = Counter(t.name for t in mine)
-    out = []
+    index = _key_index(t)
+    ability = t.ability or {}
+    if plan is not None and index is not None and index < _SYNTHETIC_INDEX and not ability.get("keyword"):
+        ch = _source_chars(plan, t)
+        ab = next((a for a in ch.abilities if a.index == index and a.kind == "triggered"), None) if ch is not None else None
+        if ab is not None and ab.text:
+            from app.game.ops import shown
+
+            full = shown(plan.state, ab.text.replace("~", ch.name or t.name))
+            return full, shorten_ability(full)
+    word = ability.get("keyword") or (ability.get("trigger") if index is not None and index >= _SYNTHETIC_INDEX else None)
+    if isinstance(word, str) and word:
+        return "", word.replace("_", " ").capitalize()
+    what = effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else ""
+    return "", (what if what != "Do it" else "")
+
+
+def _source_chars(plan: Plan, t: Any) -> Characteristics | None:
+    card = plan.state.cards.get(t.source_card)
+    if card is not None and plan.oid(card) == t.source_object and not card.face_down:
+        return plan.ch(card)
+    snap = plan.rules.lki.get(t.source_object)
+    return _lki_characteristics(plan, snap) if snap is not None and not snap.face_down else None
+
+
+def trigger_groups(plan: Plan, player: str, mine: list[PendingTrigger]) -> list[list[PendingTrigger]]:
+    """603.3b: the triggers to order, the identical ones together (one source's ability, or the same printed ability of same-named
+    sources: one key) in the order they triggered; each its own group when the player turned AUTO ORDER IDENTICAL TRIGGERS off."""
+    if not plan.rules.prefs_for(player).auto_order_identical_triggers:
+        return [[t] for t in mine]
+    groups: dict[str, list[PendingTrigger]] = {}
     for t in mine:
-        if names[t.name] < 2:
-            out.append(t.name)
-            continue
-        ability = t.ability or {}
-        what = ability.get("keyword") or (effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else "")
-        out.append(f"{t.name}: {what[:80]}" if what and what != "Do it" else t.name)
-    return out
+        groups.setdefault(t.key or t.id, []).append(t)
+    return list(groups.values())
+
+
+def ask_order(plan: Plan, player: str, mine: list[PendingTrigger]) -> None:
+    """The order prompt: one option per trigger (its id; the answer lists them all, as before), and for the chooser's table the groups of
+    identical ones ("Scute Swarm ×3", ordered as a block) with each ability's words and its source (by id only while it is public)."""
+    from app.game.visibility import publicly_visible
+
+    rows: list[dict[str, Any]] = []
+    labels: dict[str, str] = {}
+    groups = trigger_groups(plan, player, mine)
+    for group in groups:
+        rep = group[0]
+        full, short = ability_words(plan, rep)
+        for t in group:
+            labels[t.id] = _order_label(t.name, short)
+        card = plan.state.cards.get(rep.source_card)
+        rows.append({"key": rep.key or rep.id, "ids": [t.id for t in group], "name": rep.name, "text": full[:600], "short": short,
+                     "count": len(group), "source": card.id if card is not None and publicly_visible(plan.state, card) else None})
+    decide(plan, player=player, kind="order",
+           prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
+           options=[DecisionOption(id=t.id, label=labels[t.id]) for t in mine],
+           min_choices=len(mine), max_choices=len(mine),
+           resume={"step": "order_triggers", "keys": {t.id: t.key or t.id for t in mine}},
+           display={"triggers": rows, "rememberable": len(groups) > 1})
+
+
+TRIGGER_ORDERS_KEPT = 20
+
+
+def remembered_order(plan: Plan, player: str, mine: list[PendingTrigger]) -> list[PendingTrigger] | None:
+    """-- trigger order memory -- the triggers in the order this player saved for exactly this set of abilities (their keys), or None."""
+    keys = {t.key or t.id for t in mine}
+    saved = next((o for o in reversed(plan.rules.prefs_for(player).trigger_orders) if set(o) == keys), None)
+    if saved is None:
+        return None
+    rank = {k: i for i, k in enumerate(saved)}
+    return sorted(mine, key=lambda t: rank[t.key or t.id])  # (stable: identical ones keep the order they triggered in)
+
+
+def remember_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- trigger order memory -- "Always use this order for these cards (this game)": the keys of the abilities ordered, first one first
+    (a later answer for the same set replaces it; the newest TRIGGER_ORDERS_KEPT are kept)."""
+    from app.game.control import decider_of
+    from app.game.errors import ActionError
+
+    keys_of = (d.resume or {}).get("keys") or {}
+    if d.kind != "order" or (d.resume or {}).get("step") != "order_triggers" or not keys_of:
+        raise ActionError("This answer can't be remembered")
+    order = list(dict.fromkeys(keys_of[c] for c in chosen if c in keys_of))
+    if len(order) < 2:
+        return
+    prefs = plan.prefs(decider_of(plan.state, d))
+    prefs.trigger_orders = [*[o for o in prefs.trigger_orders if set(o) != set(order)][-(TRIGGER_ORDERS_KEPT - 1):], order]
 
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
