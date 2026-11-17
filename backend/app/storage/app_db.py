@@ -162,6 +162,22 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE decks ADD COLUMN row_overrides TEXT NOT NULL DEFAULT '{}';
     """,
+    # 12: -- Teach Fyodor -- mechanics and card lines the host taught the engine from pieces (app/rules/taught.py): the entry is data
+    # (pieces and values from the vocabulary), never code; a keyword's name and a card line are unique
+    """
+    CREATE TABLE taught (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        oracle_id TEXT,
+        line TEXT,
+        match_key TEXT NOT NULL UNIQUE,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        entry TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    """,
 ]
 
 

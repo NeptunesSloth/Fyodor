@@ -53,6 +53,7 @@ from app.storage.backup import (
 )
 from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
+from app.storage.taught import TaughtRepository
 from app.storage.saves import SaveRepository
 
 log = logging.getLogger(__name__)
@@ -97,6 +98,7 @@ class Services:
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)
         self.macros = MacroRepository(self.app_db, self.app_db_lock)
+        self.taught = TaughtRepository(self.app_db, self.app_db_lock)  # -- Teach Fyodor -- (new games start with its enabled entries)
         self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,

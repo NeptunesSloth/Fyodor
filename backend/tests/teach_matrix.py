@@ -1,0 +1,71 @@
+"""-- Teach Fyodor -- the abilities the piece matrix checks: every piece, and every choice of its main setting, in a sentence."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from app.rules.taught_vocab import PIECES
+
+
+def _b(pid: str, **values: Any) -> dict[str, Any]:
+    return {"id": pid, **({"values": values} if values else {})}
+
+
+def _choices(piece: dict[str, Any]) -> list[dict[str, Any]]:
+    """The piece once per option of each choice slot (others at their defaults)."""
+    out = [{}]
+    for key, slot in (piece.get("slots") or {}).items():
+        if slot["kind"] == "choice":
+            out += [{key: o} for o in slot["options"] if o != slot["default"]]
+    return out
+
+
+def matrix() -> list[tuple[str, dict[str, Any]]]:
+    cases: list[tuple[str, dict[str, Any]]] = []
+    draw = _b("draw")
+
+    def add(name: str, *abilities: dict[str, Any], **extra: Any) -> None:
+        cases.append((name, {"kind": "keyword", "name": "Probe", "abilities": list(abilities), **extra}))
+
+    for p in PIECES:
+        role = p["role"]
+        for values in _choices(p):
+            tag = f"{p['id']}{values or ''}"
+            if role == "trigger":
+                add(tag, {"hat": _b(p["id"], **values), "body": [draw]})
+            elif role == "condition":
+                add(f"when/{tag}", {"hat": _b("etb"), "body": [_b(p["id"], **values), draw]})
+                if not p.get("trigger_only"):
+                    add(f"always/{tag}", {"hat": _b("static"), "body": [_b(p["id"], **values), _b("has_kw")]})
+            elif role == "cost":
+                add(tag, {"hat": _b("activated"), "body": [_b("cost_mana"), _b(p["id"], **values), draw]} if p["id"] != "cost_mana"
+                    else {"hat": _b("activated"), "body": [_b(p["id"], **values), draw]})
+            elif role == "limit":
+                add(tag, {"hat": _b("activated"), "body": [_b("cost_mana"), draw, _b(p["id"])]})
+            elif role == "optional_cost":
+                add(tag, {"hat": _b("attacks"), "body": [{**_b(p["id"], **values), "body": [draw]}]})
+            elif role == "effect":
+                if p.get("after"):
+                    add(tag, {"hat": _b("etb"), "body": [_b(p["after"]), _b(p["id"], **values)]})
+                    add(f"may/{tag}", {"hat": _b("etb"), "body": [_b(p["after"]), {"id": "may", "body": [_b(p["id"], **values)]}]})
+                    continue
+                add(tag, {"hat": _b("etb"), "body": [_b(p["id"], **values)]})
+                if not values:
+                    add(f"activated/{tag}", {"hat": _b("activated"), "body": [_b("cost_mana"), _b("cost_tap"), _b(p["id"])]})
+                if p.get("may") and not values:
+                    add(f"may/{tag}", {"hat": _b("etb"), "body": [{"id": "may", "body": [_b(p["id"])]}]})
+            elif role == "static":
+                if not p.get("needs_condition"):
+                    add(tag, {"hat": _b("static"), "body": [_b(p["id"], **values)]})
+                if not p.get("no_condition") and not values:
+                    add(f"if/{tag}", {"hat": _b("static"), "body": [_b("if_your_turn"), _b(p["id"])]})
+    # flow
+    add("then", {"hat": _b("etb"), "body": [draw, _b("then"), _b("discard")]})
+    add("ifdo", {"hat": _b("etb"), "body": [{"id": "may", "body": [_b("discard")]}, {"id": "ifdo", "body": [_b("draw", n=2)]}]})
+    add("pay-then", {"hat": _b("attacks"), "body": [{"id": "pay_mana", "body": [draw, _b("then"), _b("discard")]}]})
+    add("if+pay", {"hat": _b("etb"), "body": [_b("if_control"), {"id": "pay_mana", "body": [draw]}]})
+    add("two sentences", {"hat": _b("etb"), "body": [_b("mill"), draw]})
+    add("dive", {"hat": _b("etb"), "body": [_b("mill", n="N"), {"id": "may", "body": [_b("from_milled", n="N")]}]}, param=True)
+    add("N everywhere", {"hat": _b("activated"), "body": [_b("cost_mana", mana="{N}"), _b("pump", p="N", t="N")]},
+        {"hat": _b("static"), "body": [_b("enters_counters", n="N")]}, param=True)
+    return cases

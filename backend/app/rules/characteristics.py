@@ -405,7 +405,7 @@ def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) 
 
 def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
     """Characteristics of a card-database entry (cached per printing and face)."""
-    key = (str(data.get("id")), face)
+    key = (str(data.get("id")) + (f"#{data['_taught']}" if data.get("_taught") else ""), face)  # (-- Teach Fyodor -- its taught text, rules/taught.py)
     hit = _printed_cache.get(key)
     if hit is None:
         if len(_printed_cache) > _CACHE_MAX:
@@ -436,7 +436,7 @@ def flippable(card: CardInstance, info: CardInfo, printing: str | None = None) -
 
 def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
     """One half of a split card / adventure (its own name, cost, type and text), cached."""
-    key = (str(data.get("id")) + "#half", face)
+    key = (str(data.get("id")) + "#half" + (f"#{data['_taught']}" if data.get("_taught") else ""), face)
     hit = _printed_cache.get(key)
     if hit is None:
         hit = _printed_cache[key] = _from_card_data(data, face, half=True)
