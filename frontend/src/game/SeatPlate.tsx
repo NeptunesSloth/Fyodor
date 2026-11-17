@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
-import { isOut } from "./outOfGame";
+import { isOut, seatGone } from "./outOfGame";
 import { botLevel, botLevelName, seatName } from "./botSeat";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { Icon } from "../components/Icon";
@@ -169,6 +169,8 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const monarch = useGame((s) => s.view?.table.monarch === player);
   const seat = useGame((s) => (s.view?.game.mode === "lan" ? s.view.game.seats[player] : undefined));
   const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- the counters read as values to a player who left
+  // -- playtest (nov 17) -- this seat's player lost or conceded (800.4a): its plaque says so (a bot at -38 life looked still in the game)
+  const gone = useGame((s) => seatGone(s.view, player));
   const plate = useRef<HTMLDivElement>(null);
   if (!p) return null;
   const flat = variant === "2d";
@@ -176,8 +178,10 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const sources = (players ?? []).filter((o) => o.id !== player).flatMap((o) => o.commanders.map((c) => ({ ...c, owner: o })));
   const presence = p.dummy || p.bot ? null : seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null; // (-- test opponent -- nobody sits at a dummy or opponent: no presence)
   // the turn and priority, said in words (never by colour alone)
-  const flags = (active || priority) && (
+  const outTag = gone && <span className="t3d-flag out" data-testid={`seat-out-${player}`} title={gone}>Out</span>;
+  const flags = (active || priority || gone) && (
     <span className="t3d-seat-flags" aria-live="polite">
+      {outTag}
       {active && <span className="t3d-flag turn">Turn</span>}
       {priority && <span className="t3d-flag prio">Priority</span>}
     </span>
@@ -218,7 +222,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
     // the counters that are something show beside it.
     const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0);
     return (
-      <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+      <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""} ${gone ? "seat-gone" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
         <div className="t3d-seat-main">
           <button className="seat-who seat-hand-chip" onClick={onToggle} data-testid={`seat-${player}`} aria-expanded={open}
             aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.hand_count} cards in hand, ${p.life} life${active ? ", their turn" : ""}. Open player panel`}
@@ -228,6 +232,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           </button>
           {/* -- playtest (nov 17) -- a bot's seat says so on the 3D table too, with its level (as the 2D plaque's badge) */}
           {p.bot && <span className="t3d-bot-tag" data-testid={`bot-badge-${player}`} title={seatName(p)}><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</span>}
+          {outTag}
           {counters && <span className="seat-side">{trackers}</span>}
         </div>
         {open && (
@@ -239,7 +244,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
     );
   }
   return (
-    <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+    <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""} ${gone ? "seat-gone" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {flat && flags}
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>

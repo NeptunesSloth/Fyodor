@@ -15,6 +15,18 @@ export function isOut(view: GameView | null | undefined, me: string | null | und
   return !!view && !!me && view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost);
 }
 
+/**
+ * -- playtest (nov 17) -- why the player in `seat` is out of the game, as their plaque says it ("Lost: 0 or less life", "Conceded"), or
+ * null while they are still in it. Anyone's seat, for anyone watching (a bot at -38 life looked like it was still playing).
+ */
+export function seatGone(view: GameView | null | undefined, seat: string): string | null {
+  const r = view?.rules;
+  if (!r) return null;
+  if (r.conceded.includes(seat)) return "Conceded";
+  const why = r.lost[seat];
+  return why === undefined ? null : `Lost: ${why}`;
+}
+
 /** The server's own words (app/game/out_of_game.py), or null while `me` is still in the game. */
 export function outReason(view: GameView | null | undefined, me: string | null | undefined): string | null {
   if (!isOut(view, me)) return null;
