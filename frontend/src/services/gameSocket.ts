@@ -88,6 +88,8 @@ export class GameConnection {
   private outbox = new Map<string, Queued>();
   /** Last authoritative revision applied (0 = none yet). */
   revision = 0;
+  /** A hot-seat view switch is on its way: its answer replaces the table shown. */
+  private seatSwitch = false;
 
   constructor(
     private readonly gameId: string,
@@ -145,6 +147,10 @@ export class GameConnection {
   /** Change the viewing seat (local hot-seat games only). */
   setViewer(viewer: string): void {
     this.params = { ...this.params, viewer };
+    // the server answers with the table as the new seat sees it, at the revision already here: taken as a fresh snapshot (with the
+    // revision kept, it read as stale and the switch showed only with the next update)
+    this.revision = 0;
+    this.seatSwitch = true; // (and it replaces the table shown: another seat's view, not an update of this one)
     this.raw({ type: "view", viewer });
   }
 
@@ -233,7 +239,9 @@ export class GameConnection {
         const rev = msg.revision ?? msg.view.game.revision ?? 0;
         if (msg.resync || !this.revision) {
           this.revision = rev;
-          this.handlers.onState(msg.view, !!msg.resync);
+          const replace = !!msg.resync || this.seatSwitch;
+          this.seatSwitch = false;
+          this.handlers.onState(msg.view, replace);
           break;
         }
         if (rev <= this.revision) break; // stale / out of order: the newer state is already here

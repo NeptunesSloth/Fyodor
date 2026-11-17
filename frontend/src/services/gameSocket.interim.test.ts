@@ -26,4 +26,17 @@ describe("interim messages", () => {
     expect(onState).toHaveBeenCalledTimes(2);
     expect(conn.revision).toBe(8);
   });
+
+  it("take a hot-seat view switch's answer at the same revision as the new seat's table", () => {
+    const onState = vi.fn();
+    const conn = new GameConnection("g1", {}, { onState, onLobby: vi.fn(), onStatus: vi.fn(), onClosedByServer: vi.fn() });
+    const receive = (m: unknown) => (conn as unknown as { onMessage: (d: string) => void }).onMessage(JSON.stringify(m));
+    (conn as unknown as { raw: (m: unknown) => void }).raw = vi.fn();
+    receive({ type: "state", revision: 5, view: view(5) });
+    conn.setViewer("p2");
+    receive({ type: "state", view: { ...view(5), viewer: "p2" } }); // (the server's answer: no new revision)
+    expect(onState).toHaveBeenCalledTimes(2);
+    expect(onState.mock.calls[1]).toEqual([{ ...view(5), viewer: "p2" }, true]);
+    expect(conn.revision).toBe(5);
+  });
 });
