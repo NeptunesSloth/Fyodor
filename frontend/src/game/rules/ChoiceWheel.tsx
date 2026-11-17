@@ -4,6 +4,7 @@
  * click or Enter chooses; Esc (or "List") falls back to the usual list. It answers with the list's own `choose` action; the server still
  * decides. Logic: wheel.ts. Shown by the DecisionPanel (RulesHud.tsx) on the 2D and the 3D table alike; Settings → Table turns it off.
  */
+import { prettyPrompt } from "./promptWords";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ManaText } from "../../cards/ManaText";
 import type { DecisionView, GameView } from "../../types/game";
@@ -112,7 +113,7 @@ export function ChoiceWheel({ d, view, onList }: { d: DecisionView; view: GameVi
     <div ref={root} className="choice-wheel" role="menu" aria-label={d.prompt} tabIndex={-1} data-testid="choice-wheel"
       style={{ left: center.x, top: center.y }}>
       <div className="wheel-caption" style={{ top: layout.bounds.top - 8 }}>
-        <span className="wheel-prompt" title={d.prompt}>{d.prompt}</span>
+        <span className="wheel-prompt" title={prettyPrompt(d.prompt)}>{prettyPrompt(d.prompt)}</span>
         <button type="button" className="wheel-list" data-testid="wheel-list" onClick={onList} title="Show the choices as a list">
           List <kbd>Esc</kbd>
         </button>

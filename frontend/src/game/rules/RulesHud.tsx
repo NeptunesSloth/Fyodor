@@ -17,6 +17,7 @@ import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
+import { prettyPrompt } from "./promptWords";
 import { PassStopBanner, resolveAll } from "./PassStopBanner";
 import { wheelEligible } from "./wheel";
 import { FILTER_MIN, filterOptions } from "./optionFilter";
@@ -474,7 +475,7 @@ export function DecisionPanel() {
   if (d.player !== me || !d.options) {
     return (
       <div className="decision-panel waiting" data-testid="decision-waiting">
-        {d.public ? d.prompt : `${playerName(view, d.player)} is deciding: ${d.prompt}`}
+        {d.public ? prettyPrompt(d.prompt) : `${playerName(view, d.player)} is deciding: ${prettyPrompt(d.prompt)}`}
       </div>
     );
   }
@@ -489,7 +490,7 @@ export function DecisionPanel() {
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
     <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
-      <div className="decision-prompt">{d.prompt}</div>
+      <div className="decision-prompt">{prettyPrompt(d.prompt)}</div>
       {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
     </div>
