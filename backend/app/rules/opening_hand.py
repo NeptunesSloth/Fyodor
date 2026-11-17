@@ -17,7 +17,9 @@ upkeep, …" (the Chancellors, Devourer of Destiny, Sphinx of Foresight) and Gem
   if the player did, they exile a card from their hand (the card of their choice, face up: exiled cards are public).
 
 Privacy: every player is asked, with the same prompt, whether or not their hand holds such a card, so the decision's existence
-and timing say nothing about a hand (the options are shown to the chooser only: rules/view.decision_view).
+and timing say nothing about a hand (the options are shown to the chooser only: rules/view.decision_view). The one exception: a
+person whose only opponents are bots, test opponents or the target dummy isn't asked when they have nothing to choose (nobody else
+at the table could learn anything from it; bots are still asked, whatever they hold, so their hands don't show either).
 
 Not read (stay manual): Chancellor of the Annex ("when each opponent casts their first spell of the game": a per-opponent
 delayed cast trigger), cards whose other lines ask for a choice as they enter (Leyline of Transformation: "As this enchantment
@@ -155,8 +157,18 @@ def ask(plan: Plan, order: list[str]) -> None:
         return
     pid = order[0]
     options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c, _ in eligible(plan, pid)]
+    if not options and nobody_watches(plan, pid):  # (no choice to make, and no other person whom skipping it could tell anything)
+        ask(plan, order[1:])
+        return
     decide(plan, player=pid, kind="choose_cards", prompt=PROMPT, options=options, min_choices=0, max_choices=len(options),
            resume={"step": "opening_hand", "order": order})
+
+
+def nobody_watches(plan: Plan, pid: str) -> bool:
+    """-- opening hand (playtest nov 17) -- whether ``pid``'s empty opening-hand question may be skipped: every other player still in
+    the game is a bot, a test opponent or the target dummy (a Sandbox table, one person against bots). With another person at the table
+    everyone is still asked, choices or not, so whether a hand holds such a card never shows (the module's privacy note)."""
+    return all(plan.state.players[o].bot is not None or plan.state.players[o].dummy for o in plan.live() if o != pid)
 
 
 def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
