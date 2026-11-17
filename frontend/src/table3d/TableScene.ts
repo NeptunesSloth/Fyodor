@@ -1,4 +1,4 @@
-import { tapGesture } from "../game/rules/intents";
+import { doubleClickGesture } from "../game/rules/intents";
 /**
  * The 3D table (M19): a three.js scene driven entirely by the server's per-viewer view.
  *
@@ -2429,7 +2429,7 @@ export class TableScene {
     if (this.lastClick.id === id && now - this.lastClick.at < 320) {
       this.lastClick = { id: "", at: 0 };
       const card = store.view?.cards[id];
-      if (card?.zone.endsWith(":battlefield")) tapGesture(targetsFor(id), (x) => void tapCards(x));
+      if (card?.zone.endsWith(":battlefield")) doubleClickGesture(targetsFor(id), e, (x) => void tapCards(x)); // (-- playtest nov 17 -- as the 2D table)
       return;
     }
     this.lastClick = { id, at: now };

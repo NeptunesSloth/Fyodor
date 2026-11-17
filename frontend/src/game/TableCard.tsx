@@ -1,4 +1,4 @@
-import { tapGesture } from "./rules/intents";
+import { doubleClickGesture } from "./rules/intents";
 import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
@@ -79,7 +79,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       onDoubleClick={(e) => {
         e.stopPropagation();
         if (justAnswered(id)) return; // the click already tapped it for mana (or chose it): don't tap it back
-        tapGesture(targetsFor(id), (x) => void tapCards(x));
+        doubleClickGesture(targetsFor(id), e, (x) => void tapCards(x)); // (-- playtest nov 17 -- a "{T}: …" ability activates, not a plain tap)
       }}
       onContextMenu={(e) => {
         e.preventDefault();

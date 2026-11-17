@@ -8,6 +8,7 @@
  */
 import { create } from "zustand";
 import { openMenu, type MenuItem } from "../../components/ContextMenu";
+import { toast } from "../../components/Toasts";
 import { perspective, useGame } from "../../state/gameStore";
 import { useCardCache } from "../../state/cardCache";
 import type { Action, GameView, ResponseMode } from "../../types/game";
@@ -165,6 +166,47 @@ export function delveCard(cardId: string): boolean {
 export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): void {
   if (ids.length === 1 && tapForMana(ids[0]!)) return;
   tapPlain(ids);
+}
+
+/** -- playtest (nov 17) -- a permanent's "{T}: …" abilities that aren't mana abilities, the way the server numbers them (printed lines,
+ * then granted ones): a double-click on it shouldn't just tap it and waste them. */
+export function tapAbilities(cardId: string, view: GameView): { index: number; text: string }[] {
+  const c = view.cards[cardId];
+  if (!c || c.hidden || c.face_down) return [];
+  const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
+  const text = data?.faces?.[c.face ?? 0]?.oracle_text ?? data?.oracle_text ?? (c.card_id ? "" : c.token?.text ?? "");
+  const tapCost = (line: string) => /^[^":]*\{T\}[^":]*:\s/.test(line) && !/: Add /.test(line);
+  const out = abilityLines(text).map((line, index) => ({ index, text: line })).filter((a) => tapCost(a.text));
+  for (const g of view.rules?.stats?.[cardId]?.abilities ?? []) if (g.kind === "activated" && tapCost(g.text)) out.push({ index: g.index, text: g.text });
+  return out;
+}
+
+/**
+ * -- playtest (nov 17) -- a double-click on a permanent of mine with rules automation on: a mana source taps for mana (as before); one with
+ * a "{T}: …" ability activates it (several: a chooser at the pointer) instead of a plain tap that would use the ability up for the turn.
+ * When none can be activated now it says why and leaves the card alone: T and the card menu's Tap still tap it by hand. Automation
+ * off, or a card without such an ability: the plain tap / untap, as before.
+ */
+export function doubleClickGesture(ids: string[], at: { clientX: number; clientY: number }, tapPlain: (ids: string[]) => void): void {
+  if (ids.length === 1 && tapForMana(ids[0]!)) return;
+  const { view, actingAs } = useGame.getState();
+  const id = ids[0];
+  const c = id ? view?.cards[id] : undefined;
+  if (ids.length !== 1 || !view || !c || !automationOn(view) || c.tapped || c.controller !== perspective(view, actingAs) || !c.zone.endsWith(":battlefield")) {
+    tapPlain(ids);
+    return;
+  }
+  const abilities = tapAbilities(c.id, view);
+  if (!abilities.length) {
+    tapPlain(ids);
+    return;
+  }
+  const name = "name" in c && c.name ? c.name : "This card";
+  const ready = abilities.filter((a) => view.rules?.hints.activatable?.some((h) => h.card_id === c.id && h.ability === a.index));
+  const activate = (a: { index: number }) => void send({ type: "activate_ability", card_id: c.id, ability: a.index });
+  if (ready.length === 1) activate(ready[0]!);
+  else if (ready.length > 1) openMenu(at, ready.map((a) => ({ label: `Activate: ${a.text}`, onClick: () => activate(a) })), name);
+  else toast(`${name}: its {T} ability can't be activated now. To tap it by hand, press T or use the card menu's Tap.`, "info");
 }
 
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });

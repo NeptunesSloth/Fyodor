@@ -1,4 +1,4 @@
-import { tapGesture } from "./rules/intents";
+import { automationOn, tapAbilities, tapGesture } from "./rules/intents";
 /** Context-menu contents for a card, depending on the zone it is in. */
 import { macrosFor } from "../state/macros";
 import { usePrefs } from "../state/prefs";
@@ -56,7 +56,9 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   const players = view.players;
 
   if (zone === "battlefield") {
-    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
+    // (-- playtest nov 17 -- with automation on a double-click activates a "{T}: …" ability: Tap here and T tap it by hand)
+    const tapsByHand = !card.tapped && automationOn(view) && card.controller === me && tapAbilities(card.id, view).length > 0;
+    items.push({ label: card.tapped ? "Untap" : tapsByHand ? "Tap (by hand)" : "Tap", hint: tapsByHand ? "T" : "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
     items.push(...tokenStackItems(card, view, me, ids)); // split a "Goblin ×10" stack, or stack identical tokens
     const spread = multi ? null : spreadItem(card, view);
     if (spread) items.push(spread);
