@@ -3,6 +3,8 @@ import { useCardView, useGame } from "../state/gameStore";
 import { useDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { attachmentLinks, tetherAnchor } from "./attachments";
+import { dropCaption, dropFacts, handDropKind } from "./handDrop";
+import { isLand } from "./rules/intents";
 
 /** Card ghosts that follow the pointer while dragging. */
 export function DragLayer() {
@@ -14,8 +16,22 @@ export function DragLayer() {
         <GhostCard key={id} id={id} index={i} />
       ))}
       {drag.ids.length > 1 && <span className="drag-count">{drag.ids.length}</span>}
+      <DropCaption ids={drag.ids} over={drag.overZone} manual={!!drag.manual} />
     </div>
   );
+}
+
+/** What letting go will do, over the table with automation on: "Cast", "Play land", or "Place by hand" while Alt is held. */
+function DropCaption({ ids, over, manual }: { ids: string[]; over: string | null; manual: boolean }) {
+  const view = useGame((s) => s.view);
+  const facts = view ? dropFacts(ids, over, manual) : null;
+  if (!facts || !view) return null;
+  const kind = handDropKind(facts);
+  const fromMine = handDropKind({ ...facts, manual: false }) !== "move";
+  const land = !!ids[0] && (isLand(ids[0], view) || !!view.rules?.hints?.playable_lands?.includes(ids[0]));
+  const text = dropCaption(kind, land, manual && fromMine);
+  if (!text) return null;
+  return <span className={`drop-caption ${kind}`} role="status" data-testid="drop-caption">{text}</span>;
 }
 
 function GhostCard({ id, index }: { id: string; index: number }) {

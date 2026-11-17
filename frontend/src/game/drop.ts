@@ -4,14 +4,14 @@ import { splitZone } from "../types/game";
 import { moveCards, send } from "./actions";
 import type { DropResult } from "./dnd";
 import { groupPositions } from "./geometry";
-import { dropAsIntent } from "./rules/intents";
+import { dropFromHand } from "./handDrop";
 
 /** Drop `ids` (dragged by `anchorId`) on `target`. Rules intents first when automation is on. */
 export function dropCards(ids: string[], anchorId: string, target: DropResult | null): void {
   if (!target) return;
   const view = useGame.getState().view;
   if (!view) return;
-  if (dropAsIntent(ids, target)) return;
+  if (dropFromHand(ids, target)) return; // automation on: a card from my hand plays (Alt: by hand)
   const anchor = view.cards[anchorId];
   const { zone, player } = splitZone(target.zone);
   if (zone === "battlefield" && target.x != null && target.y != null) {

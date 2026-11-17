@@ -12,6 +12,7 @@ import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { ManaText } from "../cards/ManaText";
 import { GameCardFace } from "./GameCardFace";
 import { dropAsIntent } from "./rules/intents";
+import { dropFromHand } from "./handDrop";
 import { legalClass } from "./rules/RulesHud";
 import { customOrder, moveInOrder, saveCustomOrder, sortHand, type HandFacts } from "./handSort";
 import { isOut } from "./outOfGame";
@@ -77,7 +78,7 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
   if (!card) return null;
   const onDrop = (ids: string[], target: DropResult | null) => {
     if (!target) return;
-    if (dropAsIntent(ids, target, me)) return; // automation on: play the land / cast the spell
+    if (dropFromHand(ids, target, me)) return; // automation on: play the land / cast the spell (Alt: place by hand)
     const { zone, player } = splitZone(target.zone);
     if (target.zone === card.zone && target.index != null) {
       const prefs = usePrefs.getState();

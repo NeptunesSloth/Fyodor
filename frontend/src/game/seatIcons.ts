@@ -5,12 +5,14 @@
  *   no filled shapes, so no glyph reads heavier than another;
  * - one light, from the top left: a lit upper edge and a soft shadow cast to the lower right;
  * - one brass, on a blackened-steel field inside a bevelled brass rim.
- * The seat buttons (Untap, Draw, Scry, Mill, Reveal, Mulligan, the Bag of Extras, the importer), the panels'
- * close buttons and the commander-tax coin all come from these parts (the Bag of Extras draws its own: game/bagIcons.tsx).
+ * The panels' close buttons and the commander-tax coin come from these parts (the Bag of Extras draws its own:
+ * game/bagIcons.tsx). The seat buttons (Untap, Draw, Scry, Mill, Reveal, Mulligan, the Bag of Extras, the importer) are
+ * round coloured chips instead, one jewel tone each (game/seatChips.ts), with the same glyphs in ivory.
  */
 import type { SeatActionId } from "./seatActions";
 import { GLYPH_BOX, SEAT_GLYPH_PATHS } from "./seatGlyphs";
 import { ZONE_GLYPH_PATHS } from "./zoneGlyphs";
+import { CHIP_INK, SEAT_CHIPS } from "./seatChips";
 
 export type SeatIconId = SeatActionId | "mulligan" | "importer";
 /** A panel's close button (the card preview's). */
@@ -20,8 +22,6 @@ export type ToyIconId = "close";
 export const STROKE = 8;
 
 const BRASS = { hi: "#fff0c4", light: "#e8c57c", mid: "#c49553", dark: "#8c632f", deep: "#3e2a12" };
-/** The seat chits' printing ink: a warm near-black. */
-const INK_PRINT = "#1e140b";
 const FONT = '"Inter Variable", Inter';
 
 // -- the parts ------------------------------------------------------------------------------------------------------
@@ -145,66 +145,87 @@ function begin(canvas: HTMLCanvasElement): { g: CanvasRenderingContext2D; s: num
 }
 
 /**
- * An ivory gaming chit (the bone counters of an old card room): a rounded square of warm ivory, lit from the top left,
- * a fine engraved line inside its edge, and its glyph printed in ink (seatGlyphs.ts: game-icons.net, CC BY 3.0).
+ * A round gaming chip in the button's own colour (seatChips.ts), lit from the top left: a dark edge so it reads on any
+ * table, a bevelled body with eight ivory edge inserts like a poker chip's, a fine brass inlay round a slightly sunken
+ * face, and its glyph printed in ivory (seatGlyphs.ts: game-icons.net, CC BY 3.0).
  */
-function chit(g: CanvasRenderingContext2D): void {
-  const face = new Path2D();
-  face.roundRect(3, 3, 94, 94, 20);
-  g.fillStyle = "#2a1c10"; // its dark edge, so it reads on any table
-  g.fill(face);
-  const body = new Path2D();
-  body.roundRect(5, 5, 90, 90, 18);
-  const ivory = g.createLinearGradient(10, 8, 90, 92);
-  ivory.addColorStop(0, "#fbf4e2");
-  ivory.addColorStop(0.55, "#eadcbc");
-  ivory.addColorStop(1, "#c9b48a");
-  g.fillStyle = ivory;
-  g.fill(body);
-  // the light catching its top-left edge, the shade along its lower right
+function chip(g: CanvasRenderingContext2D, id: SeatIconId): void {
+  const c = SEAT_CHIPS[id];
+  const disc = (r: number, style: string | CanvasGradient) => {
+    g.fillStyle = style;
+    g.beginPath();
+    g.arc(50, 50, r, 0, Math.PI * 2);
+    g.fill();
+  };
+  const slope = (a: string, b: string, d: string) => {
+    const gr = g.createLinearGradient(14, 12, 86, 88);
+    gr.addColorStop(0, a);
+    gr.addColorStop(0.5, b);
+    gr.addColorStop(1, d);
+    return gr;
+  };
+  disc(49.5, "#100a05"); // the edge, dark against any table
+  disc(48, slope(c.light, c.base, c.dark)); // the body, its rim lit at the top left
+  // the edge inserts: eight short ivory blocks round the rim, a little shaded so they sit in the body
   g.save();
-  g.clip(body);
-  g.lineWidth = 3;
-  g.strokeStyle = "rgba(255, 253, 244, 0.85)";
-  const lit = new Path2D();
-  lit.roundRect(6.5, 6.5, 90, 90, 18);
-  g.stroke(lit);
-  g.strokeStyle = "rgba(92, 64, 30, 0.45)";
-  const shade = new Path2D();
-  shade.roundRect(3.5, 3.5, 90, 90, 18);
-  g.stroke(shade);
+  g.lineCap = "butt";
+  g.lineWidth = 6.5;
+  g.strokeStyle = "rgba(246, 236, 212, 0.62)";
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    g.beginPath();
+    g.arc(50, 50, 44.2, a - 0.13, a + 0.13);
+    g.stroke();
+  }
   g.restore();
-  // the engraved line inside the edge
-  g.strokeStyle = "rgba(90, 62, 30, 0.55)";
-  g.lineWidth = 1.2;
-  const line = new Path2D();
-  line.roundRect(12, 12, 76, 76, 12);
-  g.stroke(line);
+  // the brass inlay round the face, then the face a step down (its inner slope shaded at the top left)
+  disc(38.6, slope(BRASS.light, BRASS.mid, BRASS.dark));
+  disc(37, slope(c.dark, c.base, c.light));
+  const face = g.createRadialGradient(42, 38, 3, 50, 50, 36);
+  face.addColorStop(0, c.light);
+  face.addColorStop(0.55, c.base);
+  face.addColorStop(1, c.dark);
+  disc(35.4, face);
+  // a fine highlight where the rim meets the light
+  g.strokeStyle = "rgba(255, 248, 228, 0.5)";
+  g.lineWidth = 1;
+  g.beginPath();
+  g.arc(50, 50, 47.2, Math.PI * 1.05, Math.PI * 1.6);
+  g.stroke();
 }
 
-/** A seat glyph in ink, centred in the chit (`size`: its width in icon units). */
-function inkGlyph(g: CanvasRenderingContext2D, id: SeatIconId, size = 68): void {
+/** A seat glyph in ivory, centred on the chip's face (`size`: its width in icon units), with a soft shadow under it. */
+function inkGlyph(g: CanvasRenderingContext2D, id: SeatIconId, scale: number, size = 56): void {
   const k = size / GLYPH_BOX;
   g.save();
   g.translate(50 - size / 2, 50 - size / 2);
   g.scale(k, k);
-  g.fillStyle = INK_PRINT;
+  g.shadowColor = "rgba(0, 0, 0, 0.7)";
+  g.shadowBlur = 1.6 * scale;
+  g.shadowOffsetX = 0.6 * scale;
+  g.shadowOffsetY = 1 * scale;
+  g.fillStyle = CHIP_INK;
   g.fill(new Path2D(SEAT_GLYPH_PATHS[id].d));
   g.restore();
 }
 
 /** Draw a seat button's face into a square canvas (any size). `count`: a number being typed over it, which replaces the glyph. */
 export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = ""): void {
-  const { g } = begin(canvas);
-  chit(g);
+  const { g, s } = begin(canvas);
+  chip(g, id);
   if (count) {
-    g.fillStyle = INK_PRINT;
+    g.save();
+    g.shadowColor = "rgba(0, 0, 0, 0.7)";
+    g.shadowBlur = 1.6 * s;
+    g.shadowOffsetY = 1 * s;
+    g.fillStyle = CHIP_INK;
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.font = `800 ${count.length > 2 ? 34 : 46}px ${FONT}, sans-serif`;
-    g.fillText(count, 50, 53);
+    g.font = `800 ${count.length > 2 ? 26 : 36}px ${FONT}, sans-serif`;
+    g.fillText(count, 50, 52);
+    g.restore();
   } else {
-    inkGlyph(g, id);
+    inkGlyph(g, id, s);
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
