@@ -162,6 +162,14 @@ describe("dropFromHand: a card with two halves or two faces asks which, as its m
     expect(sent).toEqual([{ type: "play_land", card_id: "m1", face: 1, x: 30, y: 40 }, { type: "cast_spell", card_id: "m1", face: 0, ask_optional: true }]);
   });
 
+  it("greys an MDFC's spell face the server doesn't list as castable, as the plain Cast row was; its land face is the server's to refuse", () => {
+    const v = withHand();
+    useGame.setState({ view: { ...v, rules: { ...v.rules!, hints: { ...v.rules!.hints, castable: [] } } } as GameView });
+    expect(dropFromHand(["m1"], { zone: "p1:battlefield" })).toBe(true);
+    const rows = useMenu.getState().menu!.items as { label: string; disabled?: boolean }[];
+    expect(rows.map((r) => !!r.disabled)).toEqual([true, false]);
+  });
+
   it("Alt-drop still places it by hand, with no question", () => {
     expect(dropFromHand(["m1"], { zone: "p1:battlefield", x: 30, y: 40, manual: true })).toBe(false);
     expect(useMenu.getState().menu).toBeNull();

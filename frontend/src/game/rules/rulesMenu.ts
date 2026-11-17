@@ -38,12 +38,14 @@ export function faceChoices(card: GameCard, view: GameView, more: { cast?: { ask
   // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
   const halves = data();
   if (twoSpells(halves)) return halves.faces.map((f, i) => ({ label: `Cast ${named(f)}`, disabled: !hints?.castable?.includes(card.id), onClick: cast(i) }));
-  // (the server decides which face can be played now: the hints read only the face showing)
+  // (the hints read only the face showing: its spell row is greyed as the plain Cast row was; the other face and a land face are left to
+  // the server, which says why if it refuses)
+  const showing = card.face ?? 0;
   const modal = data();
   if (isModal(modal)) {
     return modal.faces.map((f, i) => (/\bLand\b/.test(f.type_line ?? "")
       ? { label: `Play ${f.name} (land)`, onClick: () => void send({ type: "play_land", card_id: card.id, face: i, ...more.land }) }
-      : { label: `Cast ${named(f)}`, onClick: cast(i) }));
+      : { label: `Cast ${named(f)}`, disabled: i === showing && !hints?.castable?.includes(card.id), onClick: cast(i) }));
   }
   return null;
 }
