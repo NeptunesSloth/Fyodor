@@ -48,3 +48,8 @@
 .zb-card { position: relative; }
 /* -- playtest (nov 16) -- in a long hand strip only a sliver of each card shows: the tag stands on its side there ("NEW" was cut to "NE") */
 .hand-cards[data-mode="strip"] > .hand-card.fresh-draw::after { writing-mode: vertical-rl; transform: rotate(180deg); left: 2px; padding: 5px 0; }
+/* -- second pass (nov 17) -- the notice never lies on my land row: with my lands measured low (game/landsClear.ts) it rises above them,
+   a size smaller (it covered the lands for 4–9 s after Timetwister) */
+body.lands-clear .draw-notice { bottom: max(168px, var(--lands-clear)); }
+body.lands-clear .draw-card { width: 80px; margin-left: -18px; }
+body.lands-clear .draw-card:first-child { margin-left: 0; }

@@ -20,6 +20,7 @@ import { PhaseDial } from "./PhaseDial";
 import { prettyPrompt } from "./promptWords";
 import { PassStopBanner, resolveAll } from "./PassStopBanner";
 import { extraTurn } from "./passStop";
+import { useLandsClearance } from "../landsClear";
 import { wheelEligible } from "./wheel";
 import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { CardFilterBar, filterCardOf } from "../CardFilterBar";
@@ -477,6 +478,7 @@ export function payTitle(what: string): string {
 
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
 export function DecisionPanel() {
+  useLandsClearance(); // -- second pass (nov 17) -- prompts dock above my land row (game/landsClear.ts)
   const ctx = useRules();
   const pay = !!ctx && paying(ctx.view, ctx.me);
   useEffect(() => {

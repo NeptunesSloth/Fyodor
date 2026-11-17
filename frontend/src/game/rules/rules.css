@@ -378,3 +378,12 @@ main.table > .zone-browser.folded { top: 8px; bottom: auto; max-height: none; le
 /* -- playtest (nov 16) -- an extra turn (500.7), under the step: brass, like the turn it adds */
 .td-extra { margin: 0; min-width: 0; max-width: 100%; font: 600 11.5px/1.2 var(--font-ui); color: var(--accent-2, #e0b860); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .turn-dial.folded .td-extra { display: none; }
+
+/* -- second pass (nov 17) -- my land row stays in view under every prompt, not only while paying: with my lands measured low on the
+   screen (body.lands-clear, --lands-clear: game/landsClear.ts) the prompt plaques, the waiting line and the target bar that steps over
+   my hand dock just above the lands (over my other permanents) instead of on them. Paying keeps its own place (above). */
+body.lands-clear:not(.paying) .decision-panel:not(.payment) {
+  bottom: max(calc(var(--hand-h, 150px) + 14px), var(--lands-clear));
+  max-height: min(46vh, 440px, calc(100vh - var(--lands-clear) - 64px));
+}
+body.lands-clear .tgt-bar[data-dock="above-hand"] { bottom: max(calc(var(--hand-h, 158px) + 8px), var(--lands-clear)); }
