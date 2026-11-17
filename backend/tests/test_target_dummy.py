@@ -665,3 +665,93 @@ def test_the_dummy_types_numbers_and_answers_each_question_of_a_reconcile():
     opts = [DecisionOption(id=f"{g}{i}", label=f"{g}{i}", group=g) for g in "ab" for i in range(2)]
     reconcile = Decision(id="d", player="p2", kind="reconcile", prompt="Reconcile", options=opts, min_choices=2, max_choices=2)
     assert answers(reconcile)[0]["option_ids"] == ["a0", "b0"]
+
+
+# ---------------------------------------------------------------------------- the test-table ending (Take it back / Start over)
+
+
+def lose_as_alice(s: GameSession) -> int:
+    """Alice at 0 life, then the next state-based check: she loses and the dummy wins. Returns the history position before the pass."""
+    act(s, "p1", type="set_life", player="p1", value=0)
+    before = s.history.cursor
+    act(s, "p1", type="pass_priority")
+    assert "p1" in s.state.rules.lost
+    return before
+
+
+def test_take_it_back_undoes_the_action_that_ended_the_test(cards):
+    from app.game.handlers.dummy import before_the_end, test_over
+
+    s = with_dummy(cards, rules=True)
+    pass_until(s, 1, "main1")
+    assert before_the_end(s.state, s.history, "p1") is None  # (nothing ended)
+    before = lose_as_alice(s)
+    assert test_over(s.state, "p1") and s.state.rules.winner == "p2"
+    position = before_the_end(s.state, s.history, "p1")
+    assert position == before
+    s.undo_to("p1", position, host=True)
+    r = s.state.rules
+    assert r.winner is None and r.lost == {} and s.state.players["p1"].life == 0  # (just before the pass that lost it)
+    replay_matches(s)
+
+
+def test_start_over_is_a_new_game_with_the_same_seats(cards):
+    s = sandbox(cards)
+    act(s, "p1", type="add_dummy")
+    act(s, "p1", type="add_dummy", life=20)
+    turn_on(s, "full")
+    engine_pays(s.state)
+    pass_until(s, 1, "main1")
+    act(s, "p1", type="set_life", player="p3", value=4)
+    lose_as_alice(s)
+    library = len([c for c in s.state.cards.values() if c.owner == "p1"])
+    act(s, "p1", type="restart_game", draw=7, fresh=True)
+    st, r = s.state, s.state.rules
+    assert r.winner is None and r.lost == {} and r.conceded == [] and st.eliminations == []
+    assert (st.turn.number, st.turn.active_player) == (1, "p1")
+    assert [st.players[p].life for p in ("p1", "p2", "p3")] == [40, 40, 20]  # (the second dummy's own starting life)
+    assert len(st.zones["p1:library"]) + len(st.zones["p1:hand"]) + len(st.zones["p1:command"]) == library
+    assert st.players["p2"].dummy and st.players["p3"].dummy
+    replay_matches(s)
+    loaded = GameState.model_validate(st.model_dump(mode="json"))
+    again = GameSession(loaded, cards=cards, history=History.from_dict(s.history.to_dict()))
+    assert again.history.rebuild().model_dump(mode="json") == st.model_dump(mode="json")
+    pass_until(s, 1, "main1")  # (and play goes on: the dummies answer for themselves)
+    replay_matches(s)
+
+
+def test_the_test_ending_over_the_api(client):
+    """The Sandbox table's ending panel: Take it back (the endpoint), then Start over (restart_game fresh); never a pod result."""
+    res = client.post("/api/games", json={"name": "Deck test", "format": "sandbox", "mode": "lan", "lobby": False, "seats": 1,
+                                          "players": [{"name": "Alice"}], "first_player": 0})
+    gid, code = res.json()["game"]["id"], res.json()["game"]["code"]
+    host = {"X-Seat-Token": res.json()["seat"]["token"]}
+
+    def send(action: dict) -> dict:
+        res = client.post(f"/api/games/{gid}/actions", json={"action": action}, headers=host)
+        assert res.status_code == 200, (action, res.text)
+        return res.json()
+
+    assert client.post(f"/api/games/{gid}/test/take-back", json={}, headers=host).status_code == 409  # (no dummy yet)
+    send({"type": "add_dummy"})
+    view = send({"type": "configure", "automation": "full"})
+    for _ in range(30):  # opening hands, then on to Alice's main phase
+        if view.get("pregame") and not view["pregame"].get("finished"):
+            view = send({"type": "mulligan_keep"})
+            continue
+        break
+    send({"type": "set_life", "player": "p1", "value": 0})
+    view = send({"type": "pass_priority"})
+    assert view["rules"]["winner"] == "p2" and "p1" in view["rules"]["lost"]
+    assert view["game"]["night"]["proposal"] is None and view["game"]["night"]["result"] is None  # (no pod result)
+    guest = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
+    assert client.post(f"/api/games/{gid}/test/take-back", json={}, headers={"X-Seat-Token": guest}).status_code == 403
+    res = client.post(f"/api/games/{gid}/test/take-back", json={}, headers=host)
+    assert res.status_code == 200, res.text
+    assert res.json()["rules"]["winner"] is None and res.json()["rules"]["lost"] == {}
+    assert client.post(f"/api/games/{gid}/test/take-back", json={}, headers=host).status_code == 409  # (nothing ended now)
+    view = send({"type": "pass_priority"})
+    assert view["rules"]["winner"] == "p2"
+    view = send({"type": "restart_game", "draw": 7, "fresh": True})
+    assert view["rules"]["winner"] is None and view["rules"]["lost"] == {} and view["turn"]["number"] == 1
+    assert [p["life"] for p in view["players"]] == [40, 40]

@@ -24,7 +24,35 @@ export function overByRules(view: GameView): boolean {
  */
 export function showEliminated(view: GameView, me: string): boolean {
   const r = view.rules;
-  return view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost) && !view.game.night?.result && !overByRules(view);
+  return view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost) && !view.game.night?.result && !overByRules(view)
+    && !testEnding(view, me); // (a test table has its own ending: no hub to watch dummies from)
+}
+
+/**
+ * -- test-table ending -- how a test with target dummies ended at this seat (they have no pod result to confirm, so the night's
+ * result flow never opens): "lost" (this seat lost or conceded), "won" (every dummy is out), or "draw". Null while the test goes
+ * on, for a spectator, and at a table with no dummy. ``key`` changes with each new ending (a second loss after Take it back).
+ */
+export interface TestEnding { kind: "lost" | "won" | "draw"; title: string; line: string; key: string }
+
+export function testEnding(view: GameView, me: string): TestEnding | null {
+  const r = view.rules;
+  if (!r || view.viewer === SPECTATOR || !view.seat_order.includes(me)) return null;
+  const dummies = view.players.filter((p) => p.dummy && !p.left);
+  if (!dummies.length) return null;
+  const name = (pid: string) => view.players.find((p) => p.id === pid)?.name ?? pid;
+  const key = (kind: string, why: string) => `${kind}|${r.winner ?? ""}|${why}|${view.turn?.number ?? 0}`;
+  const out = r.conceded.includes(me) ? "You conceded" : me in r.lost ? `You lost: ${r.lost[me]}` : null;
+  if (out) {
+    const then = r.winner ? ` ${name(r.winner)} wins.` : r.draw_reason ? ` ${r.draw_reason}.` : " The dummies are still standing.";
+    return { kind: "lost", title: "You lost", line: `${out}.${then}`, key: key("lost", out) };
+  }
+  if (r.winner === me) {
+    const title = dummies.length > 1 ? "Target dummies defeated" : `${dummies[0]!.name} defeated`;
+    return { kind: "won", title, line: "Every dummy is out. Reset dummy (Solo tools) brings one back.", key: key("won", "") };
+  }
+  if (r.draw_reason) return { kind: "draw", title: "A draw", line: `${r.draw_reason}.`, key: key("draw", r.draw_reason) };
+  return null;
 }
 
 export interface ProposalSeat {

@@ -12,6 +12,8 @@ poison and commander damage, so "each opponent", targeted damage and drain effec
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
@@ -51,6 +53,39 @@ def _the_dummy(state: GameState, player: str | None) -> str:
     if pid is None or pid not in state.players or not state.players[pid].dummy or state.players[pid].left:
         raise ActionError("There is no such target dummy at this table" if player else "There is no target dummy at this table")
     return pid
+
+
+def test_over(state: GameState, pid: str) -> bool:
+    """-- test-table ending -- whether the test is over for ``pid``: the rules ended the game (a winner or a draw), or ``pid`` lost or
+    conceded (the dummies may still stand: they never take a turn, so nothing more happens)."""
+    r = state.rules
+    return r is not None and (r.winner is not None or r.draw_reason is not None or pid in r.lost or pid in r.conceded)
+
+
+MAX_TAKE_BACK = 200  # players' actions "Take it back" looks back through for where the test ended
+
+
+def before_the_end(state: GameState, history: Any, pid: str) -> int | None:
+    """-- test-table ending -- the history position just before the action that ended the test for ``pid`` (the table's ``state`` now,
+    its ``history``): a player's action, the dummies' answers to it going back with it (only the positions before a player's action
+    are looked at). None when the test isn't over, or it ended more than MAX_TAKE_BACK player actions back."""
+    if not test_over(state, pid):
+        return None
+    looked = 0
+    for position in range(history.cursor - 1, -1, -1):
+        if _is_dummy(state, history.actions[position].actor):
+            continue
+        if not test_over(history.state_at(position), pid):
+            return position
+        looked += 1
+        if looked >= MAX_TAKE_BACK:
+            break
+    return None
+
+
+def _is_dummy(state: GameState, pid: str | None) -> bool:
+    p = state.players.get(pid) if pid else None
+    return p is not None and p.dummy
 
 
 def add_dummy(state: GameState, a: A.AddDummy) -> None:

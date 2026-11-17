@@ -59,7 +59,7 @@ def _reset(state: GameState, pid: str, shuffle: A.ShuffleData | None, *, reset_l
     rekey_zone(state, zone_key(pid, "library"), shuffle.perm, shuffle.new_ids)
     p = state.players[pid]
     if reset_life:
-        p.life = state.settings.starting_life
+        p.life = p.dummy_life if p.dummy and p.dummy_life is not None else state.settings.starting_life  # (-- target dummy -- its own)
         p.life_history = []
         p.resources = {k: 0 for k in DEFAULT_RESOURCES}
         p.commander_damage = {}
@@ -82,6 +82,9 @@ def reset_deck(state: GameState, a: A.ResetDeck) -> None:
 def restart_game(state: GameState, a: A.RestartGame) -> None:
     if a.r is None:
         raise ActionError("unresolved restart")
+    if a.fresh:
+        _start_over(state, a)
+        return
     rules_restart = a.first is not None  # -- wave 110A -- 727: a restart by Karn Liberated, run by the rules engine
     from app.game.control import _live
 
@@ -125,6 +128,51 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
         log(state, a.actor, a.ts, [pname(state, a.first), text(" restarted the game (Karn Liberated, 727): a new game begins")])
         return
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" restarted the game: every deck reset and shuffled")])
+
+
+def _start_over(state: GameState, a: A.RestartGame) -> None:
+    """-- test-table ending -- "Start over" (a Sandbox test that ended): every seat still at the table back in a new game, every deck
+    reset and shuffled, life back to the start, the rules (when on) started afresh with nothing of the old game kept (who lost or
+    conceded included), and the opening hands dealt again as the table deals them."""
+    assert a.r is not None
+    seats = [pid for pid in state.seat_order if not state.players[pid].left]
+    policy = state.settings.mulligan
+    for pid in seats:
+        draw = 0 if policy is not None or state.players[pid].dummy else a.draw
+        _reset(state, pid, a.r.get(pid), reset_life=True, draw=0)
+        draw = min(draw, len(state.zones.get(zone_key(pid, "library"), [])))  # (a test with no deck, or a short one: what there is)
+        if draw:
+            draw_cards(state, pid, draw)
+    state.turn.number = 1
+    state.turn.phase = "untap"
+    state.turn.active_player = next((pid for pid in seats if not state.players[pid].dummy), seats[0])
+    state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
+    state.turn.starting_hand = None
+    state.table.monarch = None
+    state.table.initiative = None
+    state.table.day_night = None
+    state.pregame = None
+    state.response = None
+    state.auto_pass = {}
+    state.views = []
+    state.eliminations = []
+    if state.rules is not None:
+        from app.game.rules_state import RulesState, start_rules
+
+        old = state.rules
+        fresh = start_rules(state)
+        for name in ("prefs", "card_modes", "paused", "engine_version"):  # (the table's choices; not who lost or conceded)
+            setattr(fresh, name, getattr(old, name))
+        for name in RulesState.model_fields:
+            setattr(old, name, getattr(fresh, name))
+        state.rules = old  # (in place: the rules engine's callers still hold this object)
+    if policy is not None:
+        from app.game.handlers import mulligan
+
+        mulligan.begin(state, a.ts)
+        if state.rules is not None:
+            state.rules.priority = None
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" started over: a new game, every deck reset and shuffled")])
 
 
 def load_deck(state: GameState, a: A.LoadDeck) -> None:

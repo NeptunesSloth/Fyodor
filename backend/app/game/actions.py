@@ -723,6 +723,9 @@ class RestartGame(Base):
     # still in the game take part; ``keep`` are cards left in exile (727.5), put onto the battlefield when the pregame is over.
     first: Id | None = None
     keep: list[Id] = Field(default_factory=list)
+    # -- test-table ending -- "Start over": a new game at the same table (every seat, the dummies too, back in it; the rules
+    # started afresh with nothing of the old game; the opening hands again), the first player not a dummy going first
+    fresh: bool = False
 
 
 class RestoreState(Base):

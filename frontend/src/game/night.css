@@ -296,3 +296,7 @@ body.reduced-motion .die2d-wrap { animation-name: night-fade; }
 
 .signal-said b { font-weight: 600; color: var(--accent-2); }
 .signal-emote { padding: 0 12px; min-height: 30px; font-size: 13px; }
+
+/* -- test-table ending -- a test against target dummies: what happened, and what next (TestEnding.tsx) */
+.test-ending .night-result-word { font-size: 20px; }
+.test-ending .test-ending-line { margin: 8px 0 2px; font-size: 14px; color: var(--text); }

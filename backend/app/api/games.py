@@ -1565,6 +1565,34 @@ async def undo_to_history(game_id: str, position: int, body: MetaIn, request: Re
     return await _broadcast_view(services, room, viewer)
 
 
+@router.post("/games/{game_id}/test/take-back")
+async def take_back_test_ending(game_id: str, body: MetaIn, request: Request, services: ServicesDep,
+                                x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- test-table ending -- "Take it back" at a table with a target dummy: undo back to just before the action that ended the test
+    for this seat (it lost, or the rules ended the game), under the table's undo rules (GameSession.undo_to)."""
+    from app.game.handlers.dummy import before_the_end, dummy_of
+
+    room = _room(services, game_id)
+    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
+    if actor is None:
+        raise HTTPException(403, "Spectators cannot undo")
+    async with room.lock:
+        _check_table_open(room)
+        session = room.session
+        if dummy_of(session.state) is None:
+            raise HTTPException(409, "Take it back is for a test table with a target dummy")
+        position = before_the_end(session.state, session.history, actor)
+        if position is None:
+            raise HTTPException(409, "There is no ending to take back")
+        try:
+            host = room.mode == "local" or room.is_host(x_seat_token)
+            session.undo_to(actor, position, host=host, others=undo_voters(room, actor))
+        except ActionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        services.hub.after_change(room)
+    return await _broadcast_view(services, room, viewer)
+
+
 # --------------------------------------------------------------------------- host tools
 
 
