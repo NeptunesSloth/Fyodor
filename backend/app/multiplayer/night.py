@@ -211,6 +211,10 @@ def rules_ending(state: GameState) -> tuple[str, ResultType, list[str]] | None:
     if r.winner is not None:
         return f"win:{r.winner}", "single", [r.winner]
     if r.draw_reason is not None:
+        from app.rules.dummy_ending import dummy_winners
+
+        if dummies := dummy_winners(state):  # -- target dummy -- only dummies were left: they win (app/rules/dummy_ending.py)
+            return f"win:{','.join(dummies)}", "multiple" if len(dummies) > 1 else "single", dummies
         return f"draw:{r.draw_reason}", "draw", []
     return None
 

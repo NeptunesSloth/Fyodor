@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SPECTATOR, type GameView, type NightProposal } from "../types/game";
-import { describeResult, overByRules, proposalSeat, showEliminated, stillIn, testEnding } from "./nightEnding";
+import { DUMMIES_WIN, describeResult, overByRules, proposalSeat, showEliminated, stillIn, testEnding } from "./nightEnding";
 
 const SEATS = ["p1", "p2", "p3"];
 
@@ -118,6 +118,9 @@ describe("the test-table ending (target dummies)", () => {
     const standing = testEnding(table({ lost: { p1: "0 or less life" } }), "p1")!; // (two dummies: no winner, the test is still over)
     expect(standing.line).toBe("You lost: 0 or less life. The dummies are still standing.");
     expect(testEnding(table({ conceded: ["p1"] }), "p1")!.line).toBe("You conceded. The dummies are still standing.");
+    // the server ends a test with only dummies left (app/rules/dummy_ending.py): no endless turns of theirs; it reads as their win
+    const over = testEnding(table({ lost: { p1: "0 or less life" }, draw_reason: DUMMIES_WIN }), "p1")!;
+    expect(over).toMatchObject({ kind: "lost", line: "You lost: 0 or less life. Only target dummies are left in the game: the dummies win." });
   });
 
   it("names the dummy defeated, or a draw, and keys each ending apart", () => {

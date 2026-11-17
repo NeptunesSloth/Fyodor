@@ -172,7 +172,8 @@ def _back_in_the_game(state: GameState, pid: str) -> bool:
     from app.rules.plan import live_players  # rules → game; imported late to stay acyclic
 
     live = live_players(state)
-    if len(live) > 1:
+    # (-- target dummy -- with only dummies in the game again the test stays over: app/rules/dummy_ending.py)
+    if len(live) > 1 and any(not state.players[p].dummy for p in live):
         r.winner = None
         r.draw_reason = None
         if r.priority is None or r.priority not in live:

@@ -49,10 +49,18 @@ def check(plan: Plan) -> bool:
     """Perform state-based actions until none apply (or one needs a player's decision). True: none apply now."""
     if plan.rules.draw_reason is not None:
         return False
+    from app.rules.dummy_ending import (
+        end_if_only_dummies,  # -- target dummy -- a test table with only dummies left is over
+    )
+
     for _ in range(MAX_ROUNDS):
+        if end_if_only_dummies(plan):
+            return False
         if plan.rules.decision is not None:
             return False
         if not _round(plan):
+            if end_if_only_dummies(plan):
+                return False
             return plan.rules.decision is None
     return False
 

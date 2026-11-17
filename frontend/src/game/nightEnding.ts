@@ -6,6 +6,9 @@ import { SPECTATOR, type GameView, type NightProposal } from "../types/game";
  * what to show and which buttons this seat gets.
  */
 
+/** -- target dummy -- the rules' ending of a test with only target dummies left in the game (app/rules/dummy_ending.py: their win). */
+export const DUMMIES_WIN = "Only target dummies are left in the game: the dummies win";
+
 /** Players still in the game: not removed from the table, not conceded or lost (800.4a). */
 export function stillIn(view: GameView): string[] {
   const r = view.rules;
