@@ -77,6 +77,7 @@ from app.rules import (
     piles_legacy,
     planar_die,  # -- planechase -- 901.9
     player_control,  # -- controlling another player (wave 18H) --
+    progress,
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
     regeneration_choices,
@@ -127,6 +128,11 @@ def automation_on(state: GameState) -> bool:
 def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
     """-- engine token stacks -- A step that would treat a token stack as one token (``token_stacks.StackGate``) stops the action: it
     runs again with every stack spread into separate tokens, or, when a stack is too big to spread, is refused (docs/TOKEN_STACKS.md)."""
+    with progress.compiling():  # -- resolving progress -- (only the outermost compile is the action's own)
+        return _compile_intent_spread(state, intent, actor=actor, info=info, rng=rng)
+
+
+def _compile_intent_spread(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
     from app.rules import token_stacks
 
     try:
@@ -172,6 +178,8 @@ def _compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Car
             raise ActionError(str(exc)) from None
     plan = Plan(state, actor, info, rng)
     from app.rules import text_global_word71
+
+    progress.adopt(plan)  # -- resolving progress -- the tables may watch this plan's resolutions as it goes
 
     if intent.type != 'concede' and text_global_word71.recover(plan, intent):
         plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
@@ -646,6 +654,7 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
             if plan.state.zones.get(STACK):
                 _count_resolution(plan)
                 resolve_top_of_stack(plan)
+                progress.resolved(plan)  # -- resolving progress -- (read only: changes nothing the action does)
             else:
                 next_step(plan)
             continue

@@ -500,7 +500,7 @@ function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateActio
     };
     const unsub = useGame.subscribe((s, old) => {
       const v = s.view;
-      if (!v || v === old.view) return;
+      if (!v || v === old.view || s.interim) return; // (-- resolving progress -- the camera follows the table's own updates)
       const before = prev.current;
       prev.current = autoSnap(v);
       if (!before) return;

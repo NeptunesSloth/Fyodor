@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { imageUrl } from "../services/cards";
-import { perspective, useGame } from "../state/gameStore";
+import { perspective, settledChange, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, type GameView } from "../types/game";
 import { drewLine, mergeBatch, newDraws, noticeFaces, useFreshDraws, wantsNotice, type DrawBatch } from "./drawNotices";
@@ -23,16 +23,17 @@ export function DrawNotice() {
   useEffect(() => {
     let n = 0;
     return useGame.subscribe((s, prev) => {
-      const next = s.view;
-      if (!next || next === prev.view) return;
+      const change = settledChange(s, prev); // (-- resolving progress -- not for an interim view: against the last update before it)
+      if (!change) return;
+      const next = change.after;
       const fresh = useFreshDraws.getState();
       if (fresh.ids.length && next.turn.number !== fresh.turn) fresh.clear(); // the turn moved on
       if (next.viewer === "__spectator__" || s.actingAs !== prev.actingAs) return;
       const me = perspective(next, s.actingAs);
-      if (prev.view && perspective(prev.view, prev.actingAs) !== me) return;
+      if (change.before && perspective(change.before, prev.actingAs) !== me) return;
       // -- playtest (nov 16) -- the game ended (decked out drawing): the ending speaks now, not the notice over it
       if (gameEnded(next, me)) { live.current = null; setBatch(null); return; }
-      const ev = newDraws(prev.view, next, me);
+      const ev = newDraws(change.before, next, me);
       if (!ev || !wantsNotice(usePrefs.getState().drawNotice, ev)) return;
       useFreshDraws.getState().add(ev.ids, next.turn.number);
       const merged = mergeBatch(live.current, ev.ids, ++n);

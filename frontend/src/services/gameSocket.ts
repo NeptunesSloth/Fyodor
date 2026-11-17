@@ -16,6 +16,18 @@ interface Handlers {
   onSignal?: (signal: Signal) => void;
   /** -- live cursors -- another seated player's pointer over the 3D table (table3d/cursors.ts); never game state. */
   onCursor?: (cursor: CursorWire) => void;
+  /**
+   * -- resolving progress -- a long automatic chain inside one action, as it goes: the table part way through (built for this viewer
+   * like every update; null when the server sends the count only) and how far it got. Display only: the action's own update follows.
+   */
+  onInterim?: (view: GameView | null, progress: ResolvingProgress) => void;
+}
+
+/** -- resolving progress -- objects the engine resolved so far in the action being worked out, the ones left, and whose action it is. */
+export interface ResolvingProgress {
+  resolved: number;
+  left: number;
+  by: string;
 }
 
 /** -- live cursors -- as the server relays it: the sender's seat, and a point on a seat's battlefield (virtual units). */
@@ -36,6 +48,7 @@ export interface Signal {
 
 type ServerMessage =
   | { type: "state"; view: GameView; revision?: number; resync?: boolean }
+  | { type: "interim"; view?: GameView; revision: number; progress: ResolvingProgress }
   | { type: "lobby"; lobby: LobbyView }
   | { type: "kicked" }
   | { type: "art" }
@@ -230,6 +243,11 @@ export class GameConnection {
         if (gap) this.resync(); // missed an update: ask for the authoritative snapshot
         break;
       }
+      case "interim":
+        // -- resolving progress -- views on top of the last update only: none yet (a fresh connection's first message is its
+        // snapshot), or a newer update already here (the action's own), and the frame is stale
+        if (this.revision && msg.revision === this.revision) this.handlers.onInterim?.(msg.view ?? null, msg.progress);
+        break;
       case "lobby":
         this.handlers.onLobby(msg.lobby);
         break;

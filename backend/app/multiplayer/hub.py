@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import logging
@@ -21,7 +22,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game import undo_requests, undo_rights
+from app.game.actions import INTENT_TYPES, Action
 from app.game.factory import PLAYER_COLORS
+from app.game.ops import down_public
 from app.game.session import GameSession
 from app.game.summary import player_commanders
 from app.game.visibility import OMNISCIENT, SPECTATOR
@@ -128,6 +131,9 @@ class Room:
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
     predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
     saved_rows: dict[str, dict[str, str]] = field(default_factory=dict)  # -- saved rows -- deck id -> the rows last stored for it
+    # -- resolving progress -- a rules intent being worked out off the event loop (``GameHub.perform``): done once it is applied.
+    # Readers of the table outside the room lock wait for it (``GameHub.settled``).
+    acting: asyncio.Future[None] | None = None
 
     @property
     def id(self) -> str:
@@ -616,10 +622,54 @@ class GameHub:
             if seat.connections == 0:
                 seat.last_seen = time.time()
 
+    # -- resolving progress --------------------------------------------------------------
+    async def perform(self, room: Room, actor: str, payload: dict[str, Any], *, host: bool = False) -> Action:
+        """One player action (the caller holds the room lock). A rules intent is worked out off the event loop, on the table's scratch
+        copy (``GameSession.prepare``): while a long automatic chain runs (200 end-step sacrifices), every connection is sent interim
+        views of it as it goes, each built for its own viewer by the same builders as every update; then the action is applied and
+        recorded as one, as always (``commit``, on the loop). Interim views are display only: no revision, no history, no replay; the
+        broadcast after the action is the table's word. Anything else is performed at once, as before."""
+        session = room.session
+        if payload.get("type") not in INTENT_TYPES or session.state.rules is None or not room.connections:
+            return session.perform(actor, payload, host=host)
+        loop = asyncio.get_running_loop()
+        stream = InterimStream(self, room, loop, actor)
+        room.acting = loop.create_future()
+        applied = False
+        try:
+            try:
+                prepared = await asyncio.to_thread(session.prepare, actor, payload, host=host, watcher=stream.watch)
+            finally:
+                await stream.close()  # (nothing interim is sent after this: the action's own update comes next)
+            resolved = session.commit(prepared)
+            applied = True
+            return resolved
+        finally:
+            done, room.acting = room.acting, None
+            if done is not None and not done.done():
+                done.set_result(None)
+            if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
+                await self.broadcast(room, resync=True)
+
+    async def settled(self, room: Room) -> None:
+        """Wait until no action is being worked out off the event loop (``perform``): then the table is read as it is."""
+        while (acting := room.acting) is not None:
+            await asyncio.shield(acting)
+
+    def interim_metas(self, room: Room) -> dict[str, tuple[str, dict[str, Any]]]:
+        """-- resolving progress -- (on the event loop) each connection's viewer and the room's part of its view, as ``view`` builds it."""
+        out: dict[str, tuple[str, dict[str, Any]]] = {}
+        for conn in list(room.connections.values()):
+            key = f"{conn.viewer}:{conn.host}"
+            if key not in out:
+                out[key] = (conn.viewer, self._meta(room, conn.viewer))
+        return out
+
     async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None) -> dict[str, Any] | None:
         """Send each connection a fresh view built for its own viewer (a new revision). ``viewer``: also build (or reuse) that
         viewer's view in the same pass and return it, for the HTTP reply to whoever acted (built after the sends, it would be the
         table worked out a second time)."""
+        await self.settled(room)  # -- resolving progress -- (an action being worked out: its table, once applied)
         room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
@@ -672,6 +722,10 @@ class GameHub:
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
         room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
         room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
+        return room.session.view(viewer, meta=self._meta(room, viewer))
+
+    def _meta(self, room: Room, viewer: str) -> dict[str, Any]:
+        """The room's part of ``viewer``'s view (seats, revision, game night, undo rights…)."""
         recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
         host = room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)
         meta = {
@@ -696,7 +750,7 @@ class GameHub:
         if room.practice is not None:  # a practice table has no code to share and no game night of its own
             meta.update(code=None, practice=room.practice.public())
             del meta["night"]
-        return room.session.view(viewer, meta=meta)
+        return meta
 
     def after_change(self, room: Room) -> None:
         if room.game is not None:  # -- target dummy -- a seat added mid-game (or taken back by an undo) has its room seat
@@ -716,6 +770,105 @@ class GameHub:
                 self._autosave(room)
             except Exception:  # noqa: BLE001 - autosave failure must not break play; it is logged loudly
                 log.exception("Autosave failed for game %s", room.id)
+
+
+INTERIM_FIRST = 0.3  # seconds: an action worked out faster shows nothing in between
+INTERIM_EVERY = 0.35  # seconds between two interim views, at least
+INTERIM_SHARE = 3.0  # and at least this many times what building the last set took (the chain itself keeps most of the time)
+
+
+class InterimStream:
+    """-- resolving progress -- the interim views of one action (``GameHub.perform``). ``watch`` runs on the worker thread working the
+    action out, called by the engine after each object it resolves (app/rules/progress.py): it builds each connection's view of the
+    action's scratch table there (only reading it) and hands them to the event loop, which sends the newest set only (a set that
+    arrives while one is being sent replaces any set still waiting). After ``close`` nothing more is sent."""
+
+    def __init__(self, hub: GameHub, room: Room, loop: asyncio.AbstractEventLoop, actor: str) -> None:
+        self.hub, self.room, self.loop, self.actor = hub, room, loop, actor
+        self.next_at = time.monotonic() + INTERIM_FIRST
+        self.metas: dict[str, tuple[str, dict[str, Any]]] | None = None
+        self.revision = room.revision  # (the update they are views on top of: a client that has a newer one drops them)
+        self.closed = False
+        # 406.3: a card that went face down where others see it gets its new id only at the end of the action (Plan.renumber_face_down):
+        # from then on the interim messages carry the count only, no view
+        self.face_down = False
+        self.latest: dict[str, dict[str, Any]] | None = None
+        self.task: asyncio.Task[None] | None = None
+        self.sent = False
+        self.frames = 0  # sets built (tests)
+
+    # -- on the worker thread --
+    def watch(self, plan: Any, resolved: int) -> None:
+        if self.closed:
+            return
+        started = time.monotonic()
+        if started < self.next_at:
+            return
+        if self.metas is None:
+            try:
+                self.metas = asyncio.run_coroutine_threadsafe(self._metas(), self.loop).result(timeout=5)
+            except Exception:  # noqa: BLE001 - the loop is going away: nothing is shown in between
+                self.closed = True
+                return
+        state = plan.state
+        rules = state.rules
+        progress = {"resolved": resolved, "by": self.actor,
+                    "left": len(state.zones.get("stack", [])) + (len(rules.pending_triggers) if rules is not None else 0)}
+        if not self.face_down:
+            self.face_down = any(seen and (c := state.cards.get(cid)) is not None and down_public(c)
+                                 for cid, seen in (getattr(plan, "moved", None) or {}).items())
+        session = self.room.session
+        frames: dict[str, dict[str, Any]] = {}
+        from app.rules import read_pass
+
+        # (one read pass for every viewer's view, as a broadcast has: what each derives is worked out once)
+        with read_pass.scope(state, session.cards) if session.cards is not None else contextlib.nullcontext():
+            for key, (viewer, meta) in self.metas.items():
+                message: dict[str, Any] = {"type": "interim", "revision": self.revision, "progress": progress}
+                if not self.face_down:
+                    message["view"] = session.view(viewer, meta=meta, state=state)
+                frames[key] = message
+        self.frames += 1
+        done = time.monotonic()
+        self.next_at = done + max(INTERIM_EVERY, INTERIM_SHARE * (done - started))
+        if not self.closed:
+            self.loop.call_soon_threadsafe(self._offer, frames)
+
+    # -- on the event loop --
+    async def _metas(self) -> dict[str, tuple[str, dict[str, Any]]]:
+        return self.hub.interim_metas(self.room)
+
+    def _offer(self, frames: dict[str, dict[str, Any]]) -> None:
+        if self.closed:
+            return
+        self.latest = frames
+        if self.task is None:
+            self.task = self.loop.create_task(self._drain())
+
+    async def _drain(self) -> None:
+        try:
+            while self.latest is not None and not self.closed:
+                frames, self.latest = self.latest, None
+                for conn in list(self.room.connections.values()):
+                    if self.closed:
+                        return
+                    message = frames.get(f"{conn.viewer}:{conn.host}")
+                    if message is None:
+                        continue  # (connected after this action began: its next update is the action's own)
+                    try:
+                        await conn.send(message)
+                        self.sent = True
+                    except Exception:  # noqa: BLE001,S112 - a dead socket: the broadcast after the action drops it
+                        continue
+        finally:
+            self.task = None
+
+    async def close(self) -> None:
+        self.closed = True
+        self.latest = None
+        task = self.task
+        if task is not None:
+            await task  # (a send under way finishes: a socket is never cut mid-message)
 
 
 def undo_voters(room: Room, actor: str | None) -> list[str] | None:

@@ -5,7 +5,7 @@
  */
 import { create } from "zustand";
 import { toast, useToasts } from "../components/Toasts";
-import { GameConnection, type ConnStatus } from "../services/gameSocket";
+import { GameConnection, type ConnStatus, type ResolvingProgress } from "../services/gameSocket";
 import {
   OMNISCIENT,
   SPECTATOR,
@@ -47,6 +47,16 @@ export interface BrowserState {
 interface GameStore {
   gameId: string | null;
   view: GameView | null;
+  /**
+   * -- resolving progress -- `view` is an interim view: the table part way through a long automatic chain the server is still working
+   * out (display only; the action's own update replaces it). Subscribers that react to what an update changed skip these and compare
+   * the next authoritative view with `committed` (see `settledChange`).
+   */
+  interim: boolean;
+  /** The last authoritative view (the same object as `view` unless an interim view is shown). */
+  committed: GameView | null;
+  /** -- resolving progress -- how far the chain being worked out got (null: nothing running). */
+  resolving: ResolvingProgress | null;
   /** The pregame lobby, while the host hasn't started the game yet. */
   lobby: LobbyView | null;
   /** Apply a lobby update unless a newer one (or the started game) is already here. */
@@ -147,9 +157,36 @@ export function undoableSummary(a: Record<string, unknown>): string | null {
   return null;
 }
 
+/** -- resolving progress -- interim views arriving faster than this are collapsed to the latest (no pile-up of renders). */
+export const INTERIM_GAP_MS = 120;
+let interimWaiting: { view: GameView | null; progress: ResolvingProgress } | null = null;
+let interimTimer: ReturnType<typeof setTimeout> | null = null;
+
+function dropInterim(): void {
+  interimWaiting = null;
+  if (interimTimer) clearTimeout(interimTimer);
+  interimTimer = null;
+}
+
+/** Card printings a view shows (for the card cache). */
+function cardIdsOf(view: GameView): string[] {
+  const ids: string[] = [];
+  for (const c of Object.values(view.cards)) {
+    if (!c.hidden && c.card_id) ids.push(c.card_id);
+    if (!c.hidden && c.ability?.source_card_id) ids.push(c.ability.source_card_id);
+    const art = tokenArtId(c); // -- engine token art --
+    if (art) ids.push(art);
+  }
+  for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
+  return ids;
+}
+
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
+  interim: false,
+  committed: null,
+  resolving: null,
   lobby: null,
   status: "closed",
   statusDetail: null,
@@ -188,24 +225,20 @@ export const useGame = create<GameStore>((set, get) => ({
     get().conn?.close();
     const conn = new GameConnection(gameId, opts, {
       onState: (incoming, replace) => {
+        dropInterim(); // -- resolving progress -- the action's own update: any interim view still waiting is stale
         const prev = get().view;
         if (prev && prev.game.id === incoming.game.id && !replace) playNewLogSounds(prev, incoming);
         // a rematch keeps the table's id but is a brand-new game: replace, never merge
         const sameGame = !!prev && prev.game.id === incoming.game.id && (prev.game.night?.number ?? 1) === (incoming.game.night?.number ?? 1);
         const view = prev && !replace && sameGame ? reconcile(prev, incoming) : incoming;
-        const ids: string[] = [];
-        for (const c of Object.values(view.cards)) {
-          if (!c.hidden && c.card_id) ids.push(c.card_id);
-          if (!c.hidden && c.ability?.source_card_id) ids.push(c.ability.source_card_id);
-          const art = tokenArtId(c); // -- engine token art --
-          if (art) ids.push(art);
-        }
-        for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
-        requestCards(ids);
+        requestCards(cardIdsOf(view));
         const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
         const match = `${incoming.game.id}#${incoming.game.night?.number ?? 1}`;
         set((s) => ({
           view,
+          interim: false,
+          committed: view,
+          resolving: null,
           lobby: null,
           pendingPositions: {},
           selection: s.selection.filter((id) => id in view.cards),
@@ -217,20 +250,36 @@ export const useGame = create<GameStore>((set, get) => ({
         // -- table motion -- what just happened, for the tables to show (display only; game/motion/tableEvents.ts)
         if (prev && !replace && sameGame) publishTableEvents(prev, view, dragged);
       },
+      onInterim: (incoming, progress) => {
+        // -- resolving progress -- collapse to the latest: one render per INTERIM_GAP_MS at most, however fast they come
+        interimWaiting = { view: incoming, progress };
+        interimTimer ??= setTimeout(() => {
+          interimTimer = null;
+          const waiting = interimWaiting;
+          interimWaiting = null;
+          if (waiting) applyInterim(set, get, waiting.view, waiting.progress);
+        }, INTERIM_GAP_MS);
+      },
       onLobby: (lobby) => get().applyLobby(lobby),
-      onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),
+      onStatus: (status, detail) => {
+        if (status !== "open") dropInterim(); // (the reconnect's snapshot replaces whatever was shown)
+        set(status !== "open" ? { status, statusDetail: detail ?? null, resolving: null } : { status, statusDetail: detail ?? null });
+      },
       onClosedByServer: (reason) => set({ status: "closed", statusDetail: reason }),
       onOutbox: (count) => set({ outbox: count }),
       onSignal: (signal) => window.dispatchEvent(new CustomEvent("fyodor:signal", { detail: signal })),
       onCursor: (cursor) => window.dispatchEvent(new CustomEvent("fyodor:cursor", { detail: cursor })),
     });
-    set({ gameId, conn, view: null, lobby: null, selection: [], browser: null, dialog: null, actingAs: null });
+    dropInterim();
+    set({ gameId, conn, view: null, interim: false, committed: null, resolving: null, lobby: null, selection: [], browser: null, dialog: null,
+      actingAs: null });
     conn.connect();
   },
 
   disconnect: () => {
     get().conn?.close();
-    set({ conn: null, view: null, lobby: null, gameId: null, status: "closed" });
+    dropInterim();
+    set({ conn: null, view: null, interim: false, committed: null, resolving: null, lobby: null, gameId: null, status: "closed" });
   },
 
   send: async (action) => {
@@ -306,6 +355,33 @@ export const useGame = create<GameStore>((set, get) => ({
   openDialog: (dialog, arg = null) => set({ dialog, dialogArg: arg }),
   setPending: (positions) => set((s) => ({ pendingPositions: { ...s.pendingPositions, ...positions } })),
 }));
+
+/**
+ * -- resolving progress -- show an interim view: the table as the chain has left it so far, merged like any update, but display only:
+ * no sounds, no table motion (cards simply are where the chain put them; the action's own update animates what changed after), and the
+ * last authoritative view stays `committed`. Only over the same game's view (never instead of a different table or the lobby).
+ */
+function applyInterim(set: (fn: (s: GameStore) => Partial<GameStore>) => void, get: () => GameStore, incoming: GameView | null,
+  progress: ResolvingProgress): void {
+  const prev = get().view;
+  if (!prev || !incoming || prev.game.id !== incoming.game.id || (prev.game.night?.number ?? 1) !== (incoming.game.night?.number ?? 1)) {
+    set(() => ({ resolving: progress })); // (the count only: a card went face down where others see it, or nothing to merge into)
+    return;
+  }
+  const view = reconcile(prev, incoming);
+  requestCards(cardIdsOf(view));
+  set((s) => ({ view, interim: true, resolving: progress, selection: s.selection.filter((id) => id in view.cards) }));
+}
+
+/**
+ * -- resolving progress -- for a subscriber reacting to what an update changed (new log lines, cards drawn, a loop note): the views to
+ * compare, or null when nothing authoritative changed (an interim view is display only: what it shows counts when the action's own
+ * update arrives, compared with the last update before the chain).
+ */
+export function settledChange(s: Pick<GameStore, "view" | "interim">, prev: Pick<GameStore, "committed">): { before: GameView | null; after: GameView } | null {
+  if (!s.view || s.interim || s.view === prev.committed) return null;
+  return { before: prev.committed, after: s.view };
+}
 
 /** Undo or redo one step; the table's undo setting is explained here rather than sent to the server to refuse (gap 3). */
 async function historyStep(get: () => GameStore, op: UndoOp): Promise<boolean> {

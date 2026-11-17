@@ -21,7 +21,7 @@ export function RevealNotice() {
     freshReveals(useGame.getState().view?.log ?? [], seen); // (what already happened when you arrived isn't news)
     return useGame.subscribe((s, prev) => {
       const log = s.view?.log;
-      if (!log || log === prev.view?.log) return;
+      if (!log || log === prev.view?.log || s.interim) return; // (-- resolving progress -- an interim view's lines count with the action's own update)
       const fresh = freshReveals(log, seen);
       if (fresh.length) setShown(fresh[fresh.length - 1]!);
     });

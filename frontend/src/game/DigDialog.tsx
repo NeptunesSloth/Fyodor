@@ -17,7 +17,7 @@ export function DigDialog({ me }: { me: string }) {
     const seen = new Set((useGame.getState().view?.log ?? []).filter((e) => e.dig).map(keyOf));
     return useGame.subscribe((s, prev) => {
       const log = s.view?.log;
-      if (!log || log === prev.view?.log) return;
+      if (!log || log === prev.view?.log || s.interim) return; // (-- resolving progress -- an interim view's lines count with the action's own update)
       for (const e of log) {
         if (!e.dig || seen.has(keyOf(e))) continue;
         seen.add(keyOf(e));

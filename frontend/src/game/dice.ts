@@ -97,7 +97,7 @@ export function useDiceFeed(onRoll: (r: DiceShow) => void): void {
     const seen = new Set((useGame.getState().view?.log ?? []).filter((e) => e.roll).map(keyOf));
     return useGame.subscribe((s, prev) => {
       const log = s.view?.log;
-      if (!log || log === prev.view?.log) return;
+      if (!log || log === prev.view?.log || s.interim) return; // (-- resolving progress -- an interim view's lines count with the action's own update)
       for (const e of log) {
         if (!e.roll || seen.has(keyOf(e))) continue;
         seen.add(keyOf(e));

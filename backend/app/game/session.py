@@ -6,6 +6,7 @@ import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import ValidationError
@@ -20,7 +21,7 @@ from app.game.ops import pname, text
 from app.game.resolve import CardInfo, NoCardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
-from app.rules import RulesRegistry, Suggestion, taught
+from app.rules import RulesRegistry, Suggestion, progress, taught
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,20 @@ CONTROLLED_MAY = (INTENT_TYPES - {"set_card_automation"}) | {"chat", "set_positi
 
 def describe(action: Action) -> str:
     return action.type.replace("_", " ")
+
+
+@dataclass
+class Prepared:
+    """An action ``GameSession.prepare`` worked out, for ``commit`` to apply: on exactly the table it was worked out on."""
+
+    actor: str
+    resolved: Action
+    was: Any
+    rng: Any
+    trusted: bool
+    host: bool
+    state: GameState
+    seq: int
 
 
 class GameSession:
@@ -83,6 +98,14 @@ class GameSession:
 
         ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot). ``host``: the actor counts as the
         host for the table's card permissions (the host's seat at a LAN table, every seat at a hot-seat one; app/game/table_rights.py)."""
+        return self.commit(self.prepare(actor, payload, trusted=trusted, host=host))
+
+    def prepare(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False,
+                watcher: progress.Watcher | None = None) -> Prepared:
+        """The first half of ``perform``: the checks, and the action worked out (a rules intent compiled on a scratch copy). It only reads
+        the table, so it may run off the event loop while the table stays as it was (-- resolving progress -- the hub does that for rules
+        intents: app/multiplayer/hub.py ``perform``). ``watcher``: shown each object the engine resolves as it goes (app/rules/progress.py),
+        read only: the action worked out is the same without it. ``commit`` applies it."""
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
@@ -96,7 +119,8 @@ class GameSession:
             raise ActionError("That opponent plays on its own")  # -- test opponent -- (app/game/bot.py)
         was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
-            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
+            with progress.watching(watcher):
+                resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
         except ActionError:
             raise
         except Exception as exc:
@@ -113,8 +137,15 @@ class GameSession:
                 f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
                 "Resolve it manually with the table tools, pause automation, or export a rules scenario."
             ) from exc
+        return Prepared(actor=actor, resolved=resolved, was=was, rng=rng, trusted=trusted, host=host, state=self.state, seq=self.state.seq)
+
+    def commit(self, prepared: Prepared) -> Action:
+        """The second half of ``perform``: apply and record the action ``prepare`` worked out (on the table it was worked out on)."""
+        if prepared.state is not self.state or prepared.seq != self.state.seq:
+            raise ActionError("The table changed while that was worked out. Look again and retry.")
+        actor, resolved, trusted = prepared.actor, prepared.resolved, prepared.trusted
         if not trusted:  # -- table permissions -- on the resolved action: placeholders are real ids, a macro's steps filled in
-            table_rights.check(self.state, resolved, actor, host=host)
+            table_rights.check(self.state, resolved, actor, host=prepared.host)
         try:
             engine.apply(self.state, resolved)
         except ActionError:
@@ -124,7 +155,7 @@ class GameSession:
             log.exception("Unexpected error applying %s; restoring state", resolved.type)
             self.state = self.history.rebuild()
             raise
-        resolved.shown = undo_requests.classify(resolved, was, self.state, rng.used)  # -- quick undo request --
+        resolved.shown = undo_requests.classify(resolved, prepared.was, self.state, prepared.rng.used)  # -- quick undo request --
         self.history.record(resolved, self.state)
         self.suggestions = self.rules.after_action(self.state, resolved) if self.rules else []
         self.updated_at = time.time()
@@ -288,25 +319,28 @@ class GameSession:
         with read_pass.scope(self.state, self.cards):
             yield
 
-    def view(self, viewer: str, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    def view(self, viewer: str, *, meta: dict[str, Any] | None = None, state: GameState | None = None) -> dict[str, Any]:
+        """``viewer``'s view of the table. ``state``: of another table object instead (-- resolving progress -- an action's scratch table
+        while the engine is still carrying it out: the same builders, so the same hidden-information rules)."""
+        state = self.state if state is None else state
         info = {
             "can_undo": self.history.can_undo,
             "can_redo": self.history.can_redo,
             "suggestions": [{"module": x.module, "message": x.message, "level": x.level} for x in self.suggestions],
             **(meta or {}),
         }
-        view = build_view(self.state, viewer, extra_log=self.notices, meta=info)
-        pregame = self.state.pregame
+        view = build_view(state, viewer, extra_log=self.notices, meta=info)
+        pregame = state.pregame
         seat = pregame.seats.get(viewer) if pregame is not None and not pregame.finished else None
         if seat is not None and seat.status == "deciding" and view.get("pregame"):  # -- opening hand (wave 18C) -- 103.5b, own hand only
             from app.rules.opening_hand import powder_cards
 
-            if powder := powder_cards(self.state, viewer, self.cards or NoCardInfo()):
+            if powder := powder_cards(state, viewer, self.cards or NoCardInfo()):
                 view["pregame"]["mine"] = {"powder": powder}
-        if self.state.rules is not None:
+        if state.rules is not None:
             from app.rules.view import rules_view  # only needed for tables with rules automation
 
-            rules = rules_view(self.state, viewer, self.cards or NoCardInfo())
+            rules = rules_view(state, viewer, self.cards or NoCardInfo())
             if rules is not None:
                 if self.rules_failure is not None:  # public: what failed, not the error internals
                     rules["failure"] = {"intent": self.rules_failure["intent"]["type"], "at": self.rules_failure["at"]}

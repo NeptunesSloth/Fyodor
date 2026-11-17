@@ -19,6 +19,7 @@ import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
 import { prettyPrompt } from "./promptWords";
 import { PassStopBanner, resolveAll } from "./PassStopBanner";
+import { ResolvingIndicator } from "./ResolvingIndicator";
 import { extraTurn } from "./passStop";
 import { useLandsClearance } from "../landsClear";
 import { wheelEligible } from "./wheel";
@@ -301,6 +302,7 @@ export function dialState(view: GameView, me: string): { auto: boolean; watching
 export function TurnDial() {
   const ctx = useRules();
   const folded = usePrefs((s) => s.turnDial === "folded");
+  const resolving = useGame((s) => s.resolving);
   if (!ctx || ctx.view.game.night?.result) return null; // game over: the rematch vote is the only next step
   const { view, rules, me } = ctx;
   const turn = view.turn;
@@ -323,10 +325,12 @@ export function TurnDial() {
   const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
   // passing is refused while my own decision is open: grey the buttons out instead of erroring
   const deciding = auto && rules!.decision?.player === me;
-  const blocked = deciding ? "Answer your decision first" : undefined;
+  // -- resolving progress -- a long chain is being worked out: another pass would only wait behind it (and pass again after it)
+  const busy = resolving !== null;
+  const blocked = deciding ? "Answer your decision first" : busy ? "Resolving… wait for the chain to finish" : undefined;
   return (
     <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
-      <PassStopBanner mine={auto && mine} />
+      {busy ? <ResolvingIndicator /> : <PassStopBanner mine={auto && mine} />}
       <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
           <PhaseDial step={step} turn={turn.number} color={active?.color} />
@@ -366,13 +370,13 @@ export function TurnDial() {
         </div>
         {auto && mine && (
           <>
-            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? passTitle(stack)} disabled={deciding} onClick={() => void passOrResolve(view.stack.length)}>
+            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? passTitle(stack)} disabled={deciding || busy} onClick={() => void passOrResolve(view.stack.length)}>
               {verb}
             </button>
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked ?? RESOLVE_ALL_TITLE} onClick={resolveAll}>Resolve all</button>}
-              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding || busy} title={blocked ?? RESOLVE_ALL_TITLE} onClick={resolveAll}>Resolve all</button>}
+              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding || busy} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
           </>

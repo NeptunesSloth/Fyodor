@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { perspective, useGame } from "../../state/gameStore";
+import { perspective, settledChange, useGame } from "../../state/gameStore";
 import { gameEnded } from "../nightEnding";
 import { passOrResolve, passPriority, setPrefs } from "./intents";
 import { autoPassedMyCast, HOLD_HINT, holdHintDue, usePassStop } from "./passStop";
@@ -21,11 +21,12 @@ export function PassStopBanner({ mine }: { mine: boolean }) {
   const view = useGame((s) => s.view);
   const actingAs = useGame((s) => s.actingAs);
   useEffect(() => useGame.subscribe((s, prev) => {
-    const next = s.view;
-    if (!next || next === prev.view || next.viewer === "__spectator__") return;
+    const change = settledChange(s, prev); // (-- resolving progress -- not for an interim view: against the last update before it)
+    if (!change || change.after.viewer === "__spectator__") return;
+    const { before, after: next } = change;
     const me = perspective(next, s.actingAs);
-    usePassStop.getState().update(prev.view, next, me);
-    if (autoPassedMyCast(prev.view, next, me) && holdHintDue()) toast(HOLD_HINT, "info", { label: "Hold priority", run: () => void setPrefs({ hold_priority: true }) });
+    usePassStop.getState().update(before, next, me);
+    if (autoPassedMyCast(before, next, me) && holdHintDue()) toast(HOLD_HINT, "info", { label: "Hold priority", run: () => void setPrefs({ hold_priority: true }) });
   }), []);
   if (!stop || !view || gameEnded(view, perspective(view, actingAs))) return null;
   const dismiss = () => usePassStop.getState().dismiss();

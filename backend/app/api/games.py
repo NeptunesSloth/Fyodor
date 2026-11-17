@@ -10,6 +10,7 @@ import time
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
+import anyio.from_thread
 from fastapi import (
     APIRouter,
     Depends,
@@ -405,6 +406,7 @@ async def game_view(  # (review 29A: on the event loop, between actions — a th
 ) -> dict[str, Any]:
     room = _room(services, game_id)
     v, _ = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=viewer, as_player=None)
+    await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
     return services.hub.view(room, v)
 
 
@@ -431,7 +433,7 @@ async def post_action(
         _check_table_open(room, body.action.get("type"))
         try:
             # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
-            room.session.perform(actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
+            await services.hub.perform(room, actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
         except ValidationError as exc:
             if cid is not None:
                 services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
@@ -573,12 +575,24 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
     except PermissionError as exc:
         raise HTTPException(409, str(exc)) from exc
     if name and viewer in room.seats and room.started:
-        room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
+        def rename() -> None:
+            room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
+            try:
+                if room.night.final_board() is None:  # -- final board -- the finished table keeps the names it ended with
+                    room.session.perform(viewer, {"type": "rename_player", "name": name})
+            except (ActionError, ValidationError) as exc:
+                log.info("Could not apply joining player's name: %s", exc)
+
+        async def locked_rename() -> None:
+            async with room.lock:
+                rename()
+
+        # (this handler runs on a worker thread: the change waits its turn on the event loop, after any action being worked out —
+        # -- resolving progress -- GameHub.perform reads the table off the loop meanwhile)
         try:
-            if room.night.final_board() is None:  # -- final board -- the finished table keeps the names it ended with
-                room.session.perform(viewer, {"type": "rename_player", "name": name})
-        except (ActionError, ValidationError) as exc:
-            log.info("Could not apply joining player's name: %s", exc)
+            anyio.from_thread.run(locked_rename)
+        except RuntimeError:  # (called outside a worker thread of the app's event loop)
+            rename()
     # -- bring my decks -- the library sent ahead by the player's own Fyodor, for this seat alone (one use)
     if body.handoff and viewer in room.seats and not room.started:
         library = services.handoffs.take(body.handoff)
@@ -1833,6 +1847,7 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
     cursor_shown = False
     try:
+        await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
         await send(services.hub.message(room, viewer, host=conn.host))
         await services.hub.broadcast(room)  # others see the connection indicator
         while True:
@@ -1891,6 +1906,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         await send({"type": "pong", "id": msg.id})
         return
     if msg.type == "resync":  # the client noticed a gap: the server's state wins
+        await services.hub.settled(room)  # -- resolving progress --
         await send({**services.hub.message(room, conn.viewer, host=conn.host), "resync": True, "id": msg.id})
         return
     if not room.started:
@@ -1908,6 +1924,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         conn.viewer = new_viewer
         conn.actor = new_viewer if new_viewer in room.seats else conn.actor
         services.hub.connect(room, conn)
+        await services.hub.settled(room)  # -- resolving progress --
         await send({"type": "state", "view": services.hub.view(room, conn.viewer)})
         return
     actor = conn.actor
@@ -1939,7 +1956,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             return
         try:
             if isinstance(msg, WsAction):
-                room.session.perform(actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
+                await services.hub.perform(room, actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
             elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
                 room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
             else:
