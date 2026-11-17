@@ -558,6 +558,186 @@
   ]
  },
  {
+  "name": "becomes_blocked",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "becomes_blocked"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature becomes blocked, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact becomes blocked, draw a card."
+  ]
+ },
+ {
+  "name": "blocks_or_blocked",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "blocks_or_blocked"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature blocks or becomes blocked, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact blocks or becomes blocked, draw a card."
+  ]
+ },
+ {
+  "name": "dealt_damage",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dealt_damage"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature is dealt damage, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact is dealt damage, draw a card."
+  ]
+ },
+ {
+  "name": "attacks_alone",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "attacks_alone"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever a creature you control attacks alone, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever a creature you control attacks alone, draw a card."
+  ]
+ },
+ {
+  "name": "you_attack",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "you_attack"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever you attack, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever you attack, draw a card."
+  ]
+ },
+ {
+  "name": "creature_dies",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "creature_dies"
+     },
+     "body": [
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever a creature dies, draw a card."
+  ],
+  "lines_artifact": [
+   "Whenever a creature dies, draw a card."
+  ]
+ },
+ {
   "name": "upkeep",
   "entry": {
    "kind": "keyword",
@@ -1322,6 +1502,1014 @@
   ]
  },
  {
+  "name": "when/if_this_turn",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_attacked"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you attacked this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you attacked this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_attacked"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you attacked this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you attacked this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_this_turn{'what': 'tt_died'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_died"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if a creature died this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if a creature died this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn{'what': 'tt_died'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_died"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as a creature died this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as a creature died this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_this_turn{'what': 'tt_gained'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_gained"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you gained life this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you gained life this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn{'what': 'tt_gained'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_gained"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you gained life this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you gained life this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_this_turn{'what': 'tt_opp_lost'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_opp_lost"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if an opponent lost life this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if an opponent lost life this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn{'what': 'tt_opp_lost'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_opp_lost"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as an opponent lost life this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as an opponent lost life this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_this_turn{'what': 'tt_left'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_left"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if a permanent you controlled left the battlefield this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if a permanent you controlled left the battlefield this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn{'what': 'tt_left'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_left"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as a permanent you controlled left the battlefield this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as a permanent you controlled left the battlefield this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_this_turn{'what': 'tt_two_spells'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_two_spells"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you cast two or more spells this turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you cast two or more spells this turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_this_turn{'what': 'tt_two_spells'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_this_turn",
+       "values": {
+        "what": "tt_two_spells"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you cast two or more spells this turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you cast two or more spells this turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_commander"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you control your commander, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you control your commander, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_commander"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you control your commander, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you control your commander, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_power4'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_power4"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you control a creature with power 4 or greater, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you control a creature with power 4 or greater, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_power4'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_power4"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you control a creature with power 4 or greater, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you control a creature with power 4 or greater, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_no_hand'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_no_hand"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you have no cards in hand, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you have no cards in hand, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_no_hand'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_no_hand"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you have no cards in hand, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you have no cards in hand, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_not_your_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_not_your_turn"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it's not your turn, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it's not your turn, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_not_your_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_not_your_turn"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as it's not your turn, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as it's not your turn, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_delirium'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_delirium"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if there are four or more card types among cards in your graveyard, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if there are four or more card types among cards in your graveyard, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_delirium'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_delirium"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as there are four or more card types among cards in your graveyard, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as there are four or more card types among cards in your graveyard, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_artifact'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_artifact"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if you control an artifact, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if you control an artifact, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_artifact'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_artifact"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as you control an artifact, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as you control an artifact, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_state{'what': 'st_opp_more_creatures'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_opp_more_creatures"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if an opponent controls more creatures than you, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if an opponent controls more creatures than you, draw a card."
+  ]
+ },
+ {
+  "name": "always/if_state{'what': 'st_opp_more_creatures'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_state",
+       "values": {
+        "what": "st_opp_more_creatures"
+       }
+      },
+      {
+       "id": "has_kw",
+       "values": {
+        "kw": "kw_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as an opponent controls more creatures than you, this creature has flying."
+  ],
+  "lines_artifact": [
+   "As long as an opponent controls more creatures than you, this artifact has flying."
+  ]
+ },
+ {
+  "name": "when/if_no_counters",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_no_counters",
+       "values": {
+        "kind": "cnt_p1"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it had no +1/+1 counters on it, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it had no +1/+1 counters on it, draw a card."
+  ]
+ },
+ {
+  "name": "when/if_no_counters{'kind': 'cnt_m1'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "if_no_counters",
+       "values": {
+        "kind": "cnt_m1"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, if it had no -1/-1 counters on it, draw a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, if it had no -1/-1 counters on it, draw a card."
+  ]
+ },
+ {
   "name": "cost_mana",
   "entry": {
    "kind": "keyword",
@@ -1847,6 +3035,84 @@
   ]
  },
  {
+  "name": "cost_discard_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_discard_self"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, Discard this card: Draw a card."
+  ],
+  "lines_artifact": [
+   "{2}, Discard this card: Draw a card."
+  ]
+ },
+ {
+  "name": "cost_exile_self_gy",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_exile_self_gy"
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, Exile this card from your graveyard: Draw a card."
+  ],
+  "lines_artifact": [
+   "{2}, Exile this card from your graveyard: Draw a card."
+  ]
+ },
+ {
   "name": "limit_once",
   "entry": {
    "kind": "keyword",
@@ -1883,6 +3149,45 @@
   ],
   "lines_artifact": [
    "{2}: Draw a card. Activate only once each turn."
+  ]
+ },
+ {
+  "name": "limit_attacked",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "draw",
+       "values": {
+        "n": 1
+       }
+      },
+      {
+       "id": "limit_attacked"
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}: Draw a card. Activate only if this creature attacked this turn and only once each turn."
+  ],
+  "lines_artifact": [
+   "{2}: Draw a card. Activate only if this artifact attacked this turn and only once each turn."
   ]
  },
  {
@@ -3471,6 +4776,41 @@
   ],
   "lines_artifact": [
    "When this artifact enters, create a 1/1 green Spirit creature token."
+  ]
+ },
+ {
+  "name": "creature_token{'color': 'color_white_black'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "creature_token",
+       "values": {
+        "n": 1,
+        "p": 1,
+        "t": 1,
+        "color": "color_white_black",
+        "type": "type_spirit",
+        "kw": "tokkw_none"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, create a 1/1 white and black Spirit creature token."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, create a 1/1 white and black Spirit creature token."
   ]
  },
  {
@@ -5297,6 +6637,36 @@
   ]
  },
  {
+  "name": "exile{'what': 't_self'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "exile",
+       "values": {
+        "what": "t_self"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, exile this creature."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, exile this artifact."
+  ]
+ },
+ {
   "name": "bounce",
   "entry": {
    "kind": "keyword",
@@ -5518,6 +6888,36 @@
   ],
   "lines_artifact": [
    "When this artifact enters, return target permanent to its owner's hand."
+  ]
+ },
+ {
+  "name": "bounce{'what': 't_self'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "bounce",
+       "values": {
+        "what": "t_self"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, return this creature to its owner's hand."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, return this artifact to its owner's hand."
   ]
  },
  {
@@ -9127,6 +10527,777 @@
   ]
  },
  {
+  "name": "sac_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_self"
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact."
+  ]
+ },
+ {
+  "name": "activated/sac_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_tap"
+      },
+      {
+       "id": "sac_self"
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, {T}: Sacrifice this creature."
+  ],
+  "lines_artifact": [
+   "{2}, {T}: Sacrifice this artifact."
+  ]
+ },
+ {
+  "name": "may/sac_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "may",
+       "body": [
+        {
+         "id": "sac_self"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, you may sacrifice this creature."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, you may sacrifice this artifact."
+  ]
+ },
+ {
+  "name": "sac_unless_mana",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you pay {2}."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you pay {2}."
+  ]
+ },
+ {
+  "name": "activated/sac_unless_mana",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_tap"
+      },
+      {
+       "id": "sac_unless_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, {T}: Sacrifice this creature unless you pay {2}."
+  ],
+  "lines_artifact": [
+   "{2}, {T}: Sacrifice this artifact unless you pay {2}."
+  ]
+ },
+ {
+  "name": "sac_unless_life",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless_life",
+       "values": {
+        "n": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you pay 2 life."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you pay 2 life."
+  ]
+ },
+ {
+  "name": "activated/sac_unless_life",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_tap"
+      },
+      {
+       "id": "sac_unless_life",
+       "values": {
+        "n": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, {T}: Sacrifice this creature unless you pay 2 life."
+  ],
+  "lines_artifact": [
+   "{2}, {T}: Sacrifice this artifact unless you pay 2 life."
+  ]
+ },
+ {
+  "name": "sac_unless",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless",
+       "values": {
+        "what": "unl_discard"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you discard a card."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you discard a card."
+  ]
+ },
+ {
+  "name": "activated/sac_unless",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "cost_tap"
+      },
+      {
+       "id": "sac_unless",
+       "values": {
+        "what": "unl_discard"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}, {T}: Sacrifice this creature unless you discard a card."
+  ],
+  "lines_artifact": [
+   "{2}, {T}: Sacrifice this artifact unless you discard a card."
+  ]
+ },
+ {
+  "name": "sac_unless{'what': 'unl_sac_land'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless",
+       "values": {
+        "what": "unl_sac_land"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you sacrifice a land."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you sacrifice a land."
+  ]
+ },
+ {
+  "name": "sac_unless{'what': 'unl_sac_creature'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless",
+       "values": {
+        "what": "unl_sac_creature"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you sacrifice another creature."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you sacrifice another creature."
+  ]
+ },
+ {
+  "name": "sac_unless{'what': 'unl_return_land'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "etb"
+     },
+     "body": [
+      {
+       "id": "sac_unless",
+       "values": {
+        "what": "unl_return_land"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature enters, sacrifice this creature unless you return a land you control to its owner's hand."
+  ],
+  "lines_artifact": [
+   "When this artifact enters, sacrifice this artifact unless you return a land you control to its owner's hand."
+  ]
+ },
+ {
+  "name": "dies/return_dead",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "return_dead",
+       "values": {
+        "to": "rd_bf"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, return it to the battlefield under its owner's control."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, return it to the battlefield under its owner's control."
+  ]
+ },
+ {
+  "name": "may/dies/return_dead",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "may",
+       "body": [
+        {
+         "id": "return_dead",
+         "values": {
+          "to": "rd_bf"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, you may return it to the battlefield under its owner's control."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, you may return it to the battlefield under its owner's control."
+  ]
+ },
+ {
+  "name": "dies/return_dead{'to': 'rd_bf_p1'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "return_dead",
+       "values": {
+        "to": "rd_bf_p1"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, return it to the battlefield under its owner's control with a +1/+1 counter on it."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, return it to the battlefield under its owner's control with a +1/+1 counter on it."
+  ]
+ },
+ {
+  "name": "dies/return_dead{'to': 'rd_bf_m1'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "return_dead",
+       "values": {
+        "to": "rd_bf_m1"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, return it to the battlefield under its owner's control with a -1/-1 counter on it."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, return it to the battlefield under its owner's control with a -1/-1 counter on it."
+  ]
+ },
+ {
+  "name": "dies/return_dead{'to': 'rd_bf_tapped'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "return_dead",
+       "values": {
+        "to": "rd_bf_tapped"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, return it to the battlefield tapped under its owner's control."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, return it to the battlefield tapped under its owner's control."
+  ]
+ },
+ {
+  "name": "dies/return_dead{'to': 'rd_hand'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "dies"
+     },
+     "body": [
+      {
+       "id": "return_dead",
+       "values": {
+        "to": "rd_hand"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "When this creature dies, return it to its owner's hand."
+  ],
+  "lines_artifact": [
+   "When this artifact dies, return it to its owner's hand."
+  ]
+ },
+ {
+  "name": "targeted/counter_unless",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "targeted"
+     },
+     "body": [
+      {
+       "id": "counter_unless",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature becomes the target of a spell or ability an opponent controls, counter that spell or ability unless its controller pays {2}."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact becomes the target of a spell or ability an opponent controls, counter that spell or ability unless its controller pays {2}."
+  ]
+ },
+ {
+  "name": "targeted/counter_unless_life",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "targeted"
+     },
+     "body": [
+      {
+       "id": "counter_unless_life",
+       "values": {
+        "n": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature becomes the target of a spell or ability an opponent controls, counter that spell or ability unless its controller pays 2 life."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact becomes the target of a spell or ability an opponent controls, counter that spell or ability unless its controller pays 2 life."
+  ]
+ },
+ {
+  "name": "attacks_alone/exalt",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "attacks_alone"
+     },
+     "body": [
+      {
+       "id": "exalt",
+       "values": {
+        "p": 1,
+        "t": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn."
+  ],
+  "lines_artifact": [
+   "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn."
+  ]
+ },
+ {
+  "name": "attacks/rally_attackers",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "attacks"
+     },
+     "body": [
+      {
+       "id": "rally_attackers",
+       "values": {
+        "p": 1,
+        "t": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Whenever this creature attacks, each other attacking creature gets +1/+1 until end of turn."
+  ],
+  "lines_artifact": [
+   "Whenever this artifact attacks, each other attacking creature gets +1/+1 until end of turn."
+  ]
+ },
+ {
+  "name": "activated/gy_return_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "gy_return_self",
+       "values": {
+        "to": "to_hand"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}: Return this card from your graveyard to your hand."
+  ],
+  "lines_artifact": [
+   "{2}: Return this card from your graveyard to your hand."
+  ]
+ },
+ {
+  "name": "activated/gy_return_self{'to': 'to_battlefield'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "activated"
+     },
+     "body": [
+      {
+       "id": "cost_mana",
+       "values": {
+        "mana": "{2}"
+       }
+      },
+      {
+       "id": "gy_return_self",
+       "values": {
+        "to": "to_battlefield"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "{2}: Return this card from your graveyard to the battlefield."
+  ],
+  "lines_artifact": [
+   "{2}: Return this card from your graveyard to the battlefield."
+  ]
+ },
+ {
   "name": "proliferate",
   "entry": {
    "kind": "keyword",
@@ -10777,6 +12948,1614 @@
   ],
   "lines_artifact": [
    "You have no maximum hand size."
+  ]
+ },
+ {
+  "name": "combat_rule",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_cant_attack"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't attack."
+  ],
+  "lines_artifact": [
+   "This artifact can't attack."
+  ]
+ },
+ {
+  "name": "if/combat_rule",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_your_turn"
+      },
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_cant_attack"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as it's your turn, this creature can't attack."
+  ],
+  "lines_artifact": [
+   "As long as it's your turn, this artifact can't attack."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_cant_attack_block'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_cant_attack_block"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't attack or block."
+  ],
+  "lines_artifact": [
+   "This artifact can't attack or block."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_attacks'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_attacks"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature attacks each combat if able."
+  ],
+  "lines_artifact": [
+   "This artifact attacks each combat if able."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_blocks'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_blocks"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature blocks each combat if able."
+  ],
+  "lines_artifact": [
+   "This artifact blocks each combat if able."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_extra_block'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_extra_block"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can block an additional creature each combat."
+  ],
+  "lines_artifact": [
+   "This artifact can block an additional creature each combat."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_any_block'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_any_block"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can block any number of creatures."
+  ],
+  "lines_artifact": [
+   "This artifact can block any number of creatures."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_only_fliers'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_only_fliers"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can block only creatures with flying."
+  ],
+  "lines_artifact": [
+   "This artifact can block only creatures with flying."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_no_fliers'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_no_fliers"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't block creatures with flying."
+  ],
+  "lines_artifact": [
+   "This artifact can't block creatures with flying."
+  ]
+ },
+ {
+  "name": "combat_rule{'rule': 'cr_not_alone'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "combat_rule",
+       "values": {
+        "rule": "cr_not_alone"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't attack or block alone."
+  ],
+  "lines_artifact": [
+   "This artifact can't attack or block alone."
+  ]
+ },
+ {
+  "name": "evasion",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion",
+       "values": {
+        "who": "ev_flying_reach"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked except by creatures with flying or reach."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked except by creatures with flying or reach."
+  ]
+ },
+ {
+  "name": "if/evasion",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_your_turn"
+      },
+      {
+       "id": "evasion",
+       "values": {
+        "who": "ev_flying_reach"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as it's your turn, this creature can't be blocked except by creatures with flying or reach."
+  ],
+  "lines_artifact": [
+   "As long as it's your turn, this artifact can't be blocked except by creatures with flying or reach."
+  ]
+ },
+ {
+  "name": "evasion{'who': 'ev_flying'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion",
+       "values": {
+        "who": "ev_flying"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked except by creatures with flying."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked except by creatures with flying."
+  ]
+ },
+ {
+  "name": "evasion{'who': 'ev_two'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion",
+       "values": {
+        "who": "ev_two"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked except by two or more creatures."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked except by two or more creatures."
+  ]
+ },
+ {
+  "name": "evasion{'who': 'ev_fear'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion",
+       "values": {
+        "who": "ev_fear"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked except by artifact creatures and/or black creatures."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked except by artifact creatures and/or black creatures."
+  ]
+ },
+ {
+  "name": "evasion_by",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion_by",
+       "values": {
+        "who": "eb_more_one"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked by more than one creature."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked by more than one creature."
+  ]
+ },
+ {
+  "name": "if/evasion_by",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "if_your_turn"
+      },
+      {
+       "id": "evasion_by",
+       "values": {
+        "who": "eb_more_one"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As long as it's your turn, this creature can't be blocked by more than one creature."
+  ],
+  "lines_artifact": [
+   "As long as it's your turn, this artifact can't be blocked by more than one creature."
+  ]
+ },
+ {
+  "name": "evasion_by{'who': 'eb_greater'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion_by",
+       "values": {
+        "who": "eb_greater"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked by creatures with greater power."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked by creatures with greater power."
+  ]
+ },
+ {
+  "name": "evasion_by{'who': 'eb_power2'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "evasion_by",
+       "values": {
+        "who": "eb_power2"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked by creatures with power 2 or less."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked by creatures with power 2 or less."
+  ]
+ },
+ {
+  "name": "landwalk",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "landwalk",
+       "values": {
+        "land": "land_island"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked as long as defending player controls an Island."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked as long as defending player controls an Island."
+  ]
+ },
+ {
+  "name": "landwalk{'land': 'land_plains'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "landwalk",
+       "values": {
+        "land": "land_plains"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked as long as defending player controls a Plains."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked as long as defending player controls a Plains."
+  ]
+ },
+ {
+  "name": "landwalk{'land': 'land_swamp'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "landwalk",
+       "values": {
+        "land": "land_swamp"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked as long as defending player controls a Swamp."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked as long as defending player controls a Swamp."
+  ]
+ },
+ {
+  "name": "landwalk{'land': 'land_mountain'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "landwalk",
+       "values": {
+        "land": "land_mountain"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked as long as defending player controls a Mountain."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked as long as defending player controls a Mountain."
+  ]
+ },
+ {
+  "name": "landwalk{'land': 'land_forest'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "landwalk",
+       "values": {
+        "land": "land_forest"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This creature can't be blocked as long as defending player controls a Forest."
+  ],
+  "lines_artifact": [
+   "This artifact can't be blocked as long as defending player controls a Forest."
+  ]
+ },
+ {
+  "name": "would_die",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "would_die",
+       "values": {
+        "what": "wd_exile"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If this creature would die, exile it instead."
+  ],
+  "lines_artifact": [
+   "If this artifact would die, exile it instead."
+  ]
+ },
+ {
+  "name": "would_die{'what': 'wd_top'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "would_die",
+       "values": {
+        "what": "wd_top"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If this creature would die, put it on top of its owner's library instead."
+  ],
+  "lines_artifact": [
+   "If this artifact would die, put it on top of its owner's library instead."
+  ]
+ },
+ {
+  "name": "would_die{'what': 'wd_gy_exile'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "would_die",
+       "values": {
+        "what": "wd_gy_exile"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If this creature would be put into a graveyard from anywhere, exile it instead."
+  ],
+  "lines_artifact": [
+   "If this artifact would be put into a graveyard from anywhere, exile it instead."
+  ]
+ },
+ {
+  "name": "prevent_to_self",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "prevent_to_self",
+       "values": {
+        "what": "pd_combat"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Prevent all combat damage that would be dealt to this creature."
+  ],
+  "lines_artifact": [
+   "Prevent all combat damage that would be dealt to this artifact."
+  ]
+ },
+ {
+  "name": "prevent_to_self{'what': 'pd_all'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "prevent_to_self",
+       "values": {
+        "what": "pd_all"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Prevent all damage that would be dealt to this creature."
+  ],
+  "lines_artifact": [
+   "Prevent all damage that would be dealt to this artifact."
+  ]
+ },
+ {
+  "name": "uncounterable",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "uncounterable"
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell can't be countered."
+  ],
+  "lines_artifact": [
+   "This spell can't be countered."
+  ]
+ },
+ {
+  "name": "self_discount",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_each_artifact"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast for each artifact you control."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast for each artifact you control."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_each_creature'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_each_creature"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast for each creature you control."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast for each creature you control."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_each_land'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_each_land"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast for each land you control."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast for each land you control."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_each_opponent'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_each_opponent"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast for each opponent you have."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast for each opponent you have."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_artifact'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_artifact"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast if you control an artifact."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast if you control an artifact."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_turn"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast if it's your turn."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast if it's your turn."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_gy7'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_gy7"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast if there are seven or more cards in your graveyard."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast if there are seven or more cards in your graveyard."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_three_creatures'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_three_creatures"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast if you control three or more creatures."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast if you control three or more creatures."
+  ]
+ },
+ {
+  "name": "self_discount{'why': 'why_opp_lands'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "self_discount",
+       "values": {
+        "n": 1,
+        "why": "why_opp_lands"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "This spell costs {1} less to cast if an opponent controls more lands than you."
+  ],
+  "lines_artifact": [
+   "This spell costs {1} less to cast if an opponent controls more lands than you."
+  ]
+ },
+ {
+  "name": "extra_cost",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "extra_cost",
+       "values": {
+        "what": "xc_sac_creature"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As an additional cost to cast this spell, sacrifice a creature."
+  ],
+  "lines_artifact": [
+   "As an additional cost to cast this spell, sacrifice a creature."
+  ]
+ },
+ {
+  "name": "extra_cost{'what': 'xc_sac_artifact'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "extra_cost",
+       "values": {
+        "what": "xc_sac_artifact"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As an additional cost to cast this spell, sacrifice an artifact."
+  ],
+  "lines_artifact": [
+   "As an additional cost to cast this spell, sacrifice an artifact."
+  ]
+ },
+ {
+  "name": "extra_cost{'what': 'xc_discard'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "extra_cost",
+       "values": {
+        "what": "xc_discard"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As an additional cost to cast this spell, discard a card."
+  ],
+  "lines_artifact": [
+   "As an additional cost to cast this spell, discard a card."
+  ]
+ },
+ {
+  "name": "extra_cost{'what': 'xc_exile_gy'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "extra_cost",
+       "values": {
+        "what": "xc_exile_gy"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "As an additional cost to cast this spell, exile a card from your graveyard."
+  ],
+  "lines_artifact": [
+   "As an additional cost to cast this spell, exile a card from your graveyard."
+  ]
+ },
+ {
+  "name": "alt_cost",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "alt_cost",
+       "values": {
+        "when": "ac_always",
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "You may pay {2} rather than pay this spell's mana cost."
+  ],
+  "lines_artifact": [
+   "You may pay {2} rather than pay this spell's mana cost."
+  ]
+ },
+ {
+  "name": "alt_cost{'when': 'ac_opp_lost'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "alt_cost",
+       "values": {
+        "when": "ac_opp_lost",
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If an opponent lost life this turn, you may pay {2} rather than pay this spell's mana cost."
+  ],
+  "lines_artifact": [
+   "If an opponent lost life this turn, you may pay {2} rather than pay this spell's mana cost."
+  ]
+ },
+ {
+  "name": "alt_cost{'when': 'ac_another'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "alt_cost",
+       "values": {
+        "when": "ac_another",
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If you've cast another spell this turn, you may pay {2} rather than pay this spell's mana cost."
+  ],
+  "lines_artifact": [
+   "If you've cast another spell this turn, you may pay {2} rather than pay this spell's mana cost."
+  ]
+ },
+ {
+  "name": "alt_cost{'when': 'ac_turn'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "alt_cost",
+       "values": {
+        "when": "ac_turn",
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If it's your turn, you may pay {2} rather than pay this spell's mana cost."
+  ],
+  "lines_artifact": [
+   "If it's your turn, you may pay {2} rather than pay this spell's mana cost."
+  ]
+ },
+ {
+  "name": "alt_cost{'when': 'ac_artifact'}",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "alt_cost",
+       "values": {
+        "when": "ac_artifact",
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "If you control an artifact, you may pay {2} rather than pay this spell's mana cost."
+  ],
+  "lines_artifact": [
+   "If you control an artifact, you may pay {2} rather than pay this spell's mana cost."
+  ]
+ },
+ {
+  "name": "gy_cast",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "gy_cast",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "You may cast this card from your graveyard by paying {2} rather than paying its mana cost."
+  ],
+  "lines_artifact": [
+   "You may cast this card from your graveyard by paying {2} rather than paying its mana cost."
+  ]
+ },
+ {
+  "name": "gy_cast_exile",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "gy_cast_exile",
+       "values": {
+        "mana": "{2}",
+        "n": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "You may cast this card from your graveyard by paying {2} and exiling three other cards from your graveyard rather than paying its mana cost."
+  ],
+  "lines_artifact": [
+   "You may cast this card from your graveyard by paying {2} and exiling three other cards from your graveyard rather than paying its mana cost."
+  ]
+ },
+ {
+  "name": "gy_retrace",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "gy_retrace"
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "You may cast this card from your graveyard by discarding a land card in addition to paying its other costs."
+  ],
+  "lines_artifact": [
+   "You may cast this card from your graveyard by discarding a land card in addition to paying its other costs."
+  ]
+ },
+ {
+  "name": "kicker",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "kicker",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Kicker {2}"
+  ],
+  "lines_artifact": [
+   "Kicker {2}"
+  ]
+ },
+ {
+  "name": "flashback",
+  "entry": {
+   "kind": "keyword",
+   "name": "Probe",
+   "param": false,
+   "reminder": "",
+   "abilities": [
+    {
+     "hat": {
+      "id": "static"
+     },
+     "body": [
+      {
+       "id": "flashback",
+       "values": {
+        "mana": "{2}"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "lines": [
+   "Flashback {2}"
+  ],
+  "lines_artifact": [
+   "Flashback {2}"
   ]
  },
  {

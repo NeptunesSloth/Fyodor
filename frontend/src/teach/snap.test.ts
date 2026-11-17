@@ -60,6 +60,17 @@ describe("snap spots", () => {
     expect(spots(piece("anthem"), a, voc)).toEqual([]); // one Always piece
     expect(spots(piece("if_your_turn"), a, voc).map((g) => g.path.index)).toEqual([[0]]);
   });
+  it("a piece that reads only under some When pieces snaps only there, and keeps the hat from swapping away", () => {
+    const ward = fromEntry({ kind: "keyword", name: "Guard", param: false, reminder: "", abilities: [{ hat: { id: "targeted" },
+      body: [{ id: "counter_unless", values: { mana: "{2}" } }] }] });
+    expect(spots(piece("counter_unless"), ward, voc).map((g) => g.path.index)).toEqual([[0], [1]]);
+    expect(spots(piece("counter_unless"), fromEntry(DIVE), voc)).toEqual([]); // (not under Enters)
+    expect(spots(piece("etb"), ward, voc)).toEqual([]); // (the counter would no longer read)
+    const dies = fromEntry({ ...DIVE, abilities: [{ hat: { id: "dies" }, body: [{ id: "may", body: [] }] }] });
+    expect(spots(piece("return_dead"), dies, voc).map((g) => [g.kind, g.path.index])).toEqual([["body", [0]], ["body", [1]], ["inside", [0, 0]]]);
+    const enters = fromEntry({ ...DIVE, abilities: [{ hat: { id: "etb" }, body: [{ id: "may", body: [] }] }] });
+    expect(spots(piece("return_dead"), enters, voc)).toEqual([]);
+  });
   it("swapping the hat keeps a body that still fits", () => {
     const s = fromEntry(DIVE);
     expect(spots(piece("dies"), s, voc)).toEqual([{ path: { ability: 0, index: [] }, kind: "hat" }]);

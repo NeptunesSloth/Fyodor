@@ -19,12 +19,23 @@ function bodyRoles(hatRole: string | null): Set<string> {
   return new Set(["condition", "effect", "may", "ifdo", "then", "optional_cost"]);
 }
 
+/** A piece that reads only under some When pieces ("Counter it unless they pay" under "Becomes a target"): is ``hat`` one? */
+function underHat(piece: Piece, hat: Piece | null): boolean {
+  return !piece.hats || (hat !== null && piece.hats.includes(hat.id));
+}
+
+/** Every piece of a body, inside containers too. */
+function everyNode(list: Node[]): Node[] {
+  return list.flatMap((n) => [n, ...everyNode(n.body ?? [])]);
+}
+
 /** May ``piece`` go into ``ability``'s body at ``index`` (top level), given what is already there? */
 export function allowsInBody(piece: Piece, hat: Piece | null, body: Node[], index: number, voc: Vocabulary): boolean {
   const pieces = byId(voc);
   const roles = body.map((n) => pieces[n.id]?.role ?? "");
   const hatRole = hat?.role ?? null;
   if (!bodyRoles(hatRole).has(piece.role)) return false;
+  if (!underHat(piece, hat)) return false;
   if (piece.role === "condition") {
     if (roles.includes("condition")) return false;
     if (piece.trigger_only && hatRole === "static_hat") return false;
@@ -56,8 +67,10 @@ export function allowsInBody(piece: Piece, hat: Piece | null, body: Node[], inde
 }
 
 /** May ``piece`` go inside a container (You may / If you do / You may pay …)? */
-export function allowsInside(piece: Piece, container: Piece, body: Node[], voc: Vocabulary, before: Node | null = null): boolean {
+export function allowsInside(piece: Piece, container: Piece, body: Node[], voc: Vocabulary, before: Node | null = null,
+  hat?: Piece | null): boolean {
   const pieces = byId(voc);
+  if (hat !== undefined && !underHat(piece, hat)) return false;
   if (container.role === "may") {
     // one Do piece you do yourself; one that follows another piece ("Keep one of the milled cards") needs it right above the You may
     return piece.role === "effect" && !!piece.may && body.length === 0 && (!piece.after || before?.id === piece.after);
@@ -79,7 +92,8 @@ export function spots(piece: Piece, script: Script, voc: Vocabulary): DropSpot[]
     const hat = ab.hat ? pieces[ab.hat.id] ?? null : null;
     if (HATS.has(piece.role)) {
       // a hat may always be set or swapped, unless the body no longer fits under it
-      const fits = ab.body.every((n) => bodyRoles(piece.role).has(pieces[n.id]?.role ?? ""));
+      const fits = ab.body.every((n) => bodyRoles(piece.role).has(pieces[n.id]?.role ?? ""))
+        && everyNode(ab.body).every((n) => !pieces[n.id] || underHat(pieces[n.id]!, piece));
       if (fits && (!hat || hat.id !== piece.id)) out.push({ path: { ability: a, index: [] }, kind: "hat" });
       return;
     }
@@ -93,7 +107,7 @@ export function spots(piece: Piece, script: Script, voc: Vocabulary): DropSpot[]
         const p = pieces[n.id];
         if (!p || !CONTAINERS.has(p.role)) return;
         const before = list.slice(0, i).filter((x) => pieces[x.id]?.role !== "then").pop() ?? null;
-        if (allowsInside(piece, p, n.body ?? [], voc, before)) out.push({ path: { ability: a, index: [...prefix, i, (n.body ?? []).length] }, kind: "inside" });
+        if (allowsInside(piece, p, n.body ?? [], voc, before, hat)) out.push({ path: { ability: a, index: [...prefix, i, (n.body ?? []).length] }, kind: "inside" });
         if (p.role !== "may") walk(n.body ?? [], [...prefix, i]);
       });
     };

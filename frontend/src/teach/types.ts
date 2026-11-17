@@ -26,6 +26,8 @@ export interface Piece {
   may?: boolean;
   /** a Do piece that only follows this other piece ("Keep one of the milled cards" after "Mill cards") */
   after?: string;
+  /** the only When pieces it reads under ("Counter it unless they pay" only under "Becomes a target") */
+  hats?: string[];
   needs_condition?: boolean;
   no_condition?: boolean;
   trigger_only?: boolean;

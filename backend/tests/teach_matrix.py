@@ -44,6 +44,14 @@ def matrix() -> list[tuple[str, dict[str, Any]]]:
                 add(tag, {"hat": _b("activated"), "body": [_b("cost_mana"), draw, _b(p["id"])]})
             elif role == "optional_cost":
                 add(tag, {"hat": _b("attacks"), "body": [{**_b(p["id"], **values), "body": [draw]}]})
+            elif role == "effect" and p.get("hats"):  # (a piece that reads only under some When pieces: under each of them)
+                for h in p["hats"]:
+                    if h == "activated":
+                        add(f"{h}/{tag}", {"hat": _b(h), "body": [_b("cost_mana"), _b(p["id"], **values)]})
+                        continue
+                    add(f"{h}/{tag}", {"hat": _b(h), "body": [_b(p["id"], **values)]})
+                    if p.get("may") and not values:
+                        add(f"may/{h}/{tag}", {"hat": _b(h), "body": [{"id": "may", "body": [_b(p["id"])]}]})
             elif role == "effect":
                 if p.get("after"):
                     add(tag, {"hat": _b("etb"), "body": [_b(p["after"]), _b(p["id"], **values)]})

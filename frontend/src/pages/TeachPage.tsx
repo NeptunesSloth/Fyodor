@@ -161,7 +161,7 @@ export function TeachPage() {
   const addPiece = (piece: Piece) => {
     if (!voc) return;
     const spot = firstSpot(piece, script, voc, active);
-    if (!spot) { toast(`Nowhere to put “${piece.label}” yet${piece.role === "static" ? ": start with the Always piece" : piece.role === "cost" ? ": start with Pay to use it" : piece.after ? `: it follows ${pieces[piece.after]?.label}` : ""}`, "error"); return; }
+    if (!spot) { toast(`Nowhere to put “${piece.label}” yet${piece.role === "static" ? ": start with the Always piece" : piece.role === "cost" ? ": start with Pay to use it" : piece.after ? `: it follows ${pieces[piece.after]?.label}` : piece.hats ? `: it goes under ${piece.hats.map((h) => pieces[h]?.label ?? h).join(" or ")}` : ""}`, "error"); return; }
     const node = newNode(piece);
     setScript(insert(script, spot.path, node));
     setActive(spot.path.ability);

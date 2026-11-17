@@ -285,6 +285,12 @@ def _check_flow(body: list[dict[str, Any]], where: str, *, inside: bool = False)
         raise TeachError("add a Do piece: what happens?", where)
 
 
+def _all_blocks(body: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    for b in body:
+        yield b
+        yield from _all_blocks(b.get("body") or [])
+
+
 def _ability(raw: Any, where: str, *, allow_param: bool, kind: str = "keyword") -> dict[str, Any]:
     if not isinstance(raw, dict) or not set(raw) <= {"hat", "body"}:
         raise TeachError("not an ability", where)
@@ -299,6 +305,10 @@ def _ability(raw: Any, where: str, *, allow_param: bool, kind: str = "keyword") 
         raise TeachError(f"at most {MAX_BODY} pieces in one ability", where)
     body = [_block(b, f"{where}.{i + 1}", allow_param=allow_param, depth=1) for i, b in enumerate(body_raw)]
     roles = [PIECE[b["id"]]["role"] for b in body]
+    for b in _all_blocks(body):  # (a piece whose words only read under some When pieces: "counter that spell or ability …")
+        hats = PIECE[b["id"]].get("hats")
+        if hats and hat["id"] not in hats:
+            raise TeachError(f"{PIECE[b['id']]['label']} only goes under {' or '.join(PIECE[h]['label'] for h in hats)}", where)
     if "condition" in roles[1:]:
         raise TeachError("an If piece goes first, right under When", where)
     rest = body[1:] if roles[:1] == ["condition"] else body
@@ -593,8 +603,10 @@ def _probe(lines: list[str], type_line: str) -> dict[str, Any]:
     level = coverage.of_card_data(data).level
     out = []
     for ab in ch.abilities:
-        out.append({"text": ab.text, "kind": ab.kind, "understood": coverage.ability_supported(ch, ab.index),
-                    "definition": defs.get(ab.index)})
+        understood = coverage.ability_supported(ch, ab.index)
+        if not understood and ab.kind == "keywords" and ab.keywords:  # (a keyword read with its cost — "Kicker {2}" — as coverage reads it)
+            understood = all(coverage._keyword_supported(k, ab.text) for k in ab.keywords)
+        out.append({"text": ab.text, "kind": ab.kind, "understood": understood, "definition": defs.get(ab.index)})
     return {"level": level, "abilities": out}
 
 
