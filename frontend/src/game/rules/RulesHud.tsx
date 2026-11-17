@@ -692,7 +692,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
                 onKeyDown={(e) => { const m = filterOptions(options.filter((o) => o.group !== "seen"), filter)[0]; if (e.key === "Enter" && m) done([m.id]); }} />
             )}
             {filterOptions(options.filter((o) => o.group !== "seen"), filter).map((o) => (
-              <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
+              <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}><OptionText label={o.label} /></button>
             ))}
           </>
         )}
@@ -993,4 +993,11 @@ export function answerByClick(view: GameView | null, cardOrPlayer: string, me: s
   if (!opt) return false;
   void choose(d.id, [opt.id]);
   return true;
+}
+
+
+/** An option's words with real mana symbols ("{W}" drawn as the pip); a trailing "(…)" — the ability it comes from — as a quiet note. */
+function OptionText({ label }: { label: string }) {
+  const m = /^(.+?) \((.+)\)$/.exec(label);
+  return m ? <><ManaText text={m[1]} /> <span className="decision-note"><ManaText text={m[2]} /></span></> : <ManaText text={label} />;
 }
