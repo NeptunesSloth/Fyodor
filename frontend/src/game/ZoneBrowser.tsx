@@ -65,7 +65,7 @@ export function ZoneBrowser({ me }: { me: string }) {
       <div className="zb-head">
         <b>{title}</b>
         <span className="hint">
-          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filters && filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} cards`}
+          {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filters && filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} ${ids.length === 1 ? "card" : "cards"}`}
         </span>
         {filters && <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus />}
         <span className="spacer" />

@@ -38,9 +38,10 @@ export function RevealNotice() {
     return () => window.removeEventListener("keydown", onKey);
   }, [shown]);
   if (!shown) return null;
-  const listed = shown.cards.slice(0, MAX_CARDS);
-  const more = shown.cards.length - listed.length + shown.hidden;
-  const foundAt = shown.found ? shown.cards.length - 1 : -1;
+  // the card a "reveal until" found is the last one revealed: it always shows, after the "+N" of what's folded away
+  const found = shown.found ? shown.cards[shown.cards.length - 1] : undefined;
+  const listed = shown.cards.slice(0, found ? Math.min(MAX_CARDS - 1, shown.cards.length - 1) : MAX_CARDS);
+  const more = shown.cards.length - listed.length - (found ? 1 : 0) + shown.hidden;
   return (
     <aside className="reveal-notice frame" role="status" aria-live="polite" data-testid="reveal-notice"
       onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)}>
@@ -49,16 +50,21 @@ export function RevealNotice() {
         <button className="reveal-close" aria-label="Close" onClick={() => setShown(null)}>✕</button>
       </header>
       <div className="reveal-cards">
-        {listed.map((c, i) => (
-          <figure key={i} className={`reveal-card ${i === foundAt ? "found" : ""}`} title={c.name}>
-            {c.card_id ? <img src={imageUrl(c.card_id, 0, "small")} alt={c.name} loading="lazy" /> : <span className="reveal-plain">{c.name}</span>}
-          </figure>
-        ))}
+        {listed.map((c, i) => <RevealCard key={i} card={c} />)}
         {more > 0 && <span className="reveal-more">+{more}</span>}
+        {found && <RevealCard card={found} found />}
       </div>
       {shown.until && (
         <p className="reveal-found" data-testid="reveal-found">{shown.found ? <>Found <b>{shown.found.name}</b></> : "None found"}</p>
       )}
     </aside>
+  );
+}
+
+function RevealCard({ card, found }: { card: { name: string; card_id?: string | null }; found?: boolean }) {
+  return (
+    <figure className={`reveal-card ${found ? "found" : ""}`} title={card.name}>
+      {card.card_id ? <img src={imageUrl(card.card_id, 0, "small")} alt={card.name} loading="lazy" /> : <span className="reveal-plain">{card.name}</span>}
+    </figure>
   );
 }
