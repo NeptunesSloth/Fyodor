@@ -147,9 +147,12 @@ def move(state: GameState, a: A.Move) -> None:
             # a random order is no one's; a hidden card is only counted, so its place in the list says nothing)
             group_cards = sorted(group_cards, key=lambda c: (c.name or "", c.id))
         verb = _verb(src, dest, log_position)
-        parts = [pname(state, a.actor), text(f" {verb} "), group(state, group_cards, who_saw)]
+        # -- playtest M6 -- 701.9a: a player discards from their own hand: an effect that makes each player discard ("Each player discards
+        # their hand", Wheel of Fortune) reads "Bob discarded …", not "Alice discarded … from Bob's hand" (the rules engine's moves keep ids)
+        who = split_zone(src)[0] if verb == "discarded" and a.keep_ids and split_zone(src)[0] in state.players else a.actor
+        parts = [pname(state, who), text(f" {verb} "), group(state, group_cards, who_saw)]
         if verb in ("played", "cast", "discarded"):
-            if split_zone(src)[0] != a.actor:
+            if split_zone(src)[0] != who:
                 parts.append(text(f" from {zone_label(state, src, a.actor)}"))
         elif verb.startswith("put on"):
             parts.append(text(f" {zone_label(state, dest, a.actor)}"))

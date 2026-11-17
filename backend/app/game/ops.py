@@ -42,6 +42,16 @@ def shown(state: GameState, text: str) -> str:
     return re.sub(r"‹granter(?:#(?P<oid>[^›]+))?›", name, text) if "‹" in text else text
 
 
+_INTERNAL_CHOICE = re.compile(r"^_|:|\d{2,3}[a-z]?$")
+
+
+def internal_choice(key: str) -> bool:
+    """A choice the rules engine keeps on a card for itself ("Engaged110j": the turn it last attacked or blocked; "_group_counter_choices";
+    "exchange_choices92:…"), not a label a player chose or reads: never logged, never shown on the card (the players' marks read
+    "Chosen color", "Named card")."""
+    return _INTERNAL_CHOICE.search(key) is not None
+
+
 def card(state: GameState, card_id: str) -> CardInstance:
     found = state.cards.get(card_id)
     if found is None:

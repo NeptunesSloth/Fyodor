@@ -22,6 +22,7 @@ from app.game.state import (
     LogPart,
     split_zone,
 )
+from app.game.ops import internal_choice
 from app.game.visibility import OMNISCIENT, SPECTATOR, can_see
 
 VIEW_VERSION = 2
@@ -140,8 +141,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["stack_info"] = c.stack_info.model_dump()
         if c.exile_group and not view.get("hidden"):
             view["exile_group"] = c.exile_group
-        if c.choices and not view.get("hidden"):
-            view["choices"] = dict(c.choices)
+        if c.choices and not view.get("hidden") and (shown_choices := {k: v for k, v in c.choices.items() if not internal_choice(k)}):
+            view["choices"] = shown_choices  # (the rules engine's own bookkeeping isn't a mark on the card: ops.internal_choice)
     if c.test_object and not view.get("hidden"):
         view["test_object"] = True
     if c.stickers101 and c.zone.split(':')[-1] in ('battlefield', 'graveyard', 'exile', 'command', 'stack', 'phased'):
