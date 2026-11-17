@@ -13,6 +13,7 @@ import { castFromZone, zoneCastables } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
 import { centreOf, displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
+import { automationOn, send as sendIntent } from "./rules/intents";
 import { legalClass, paying } from "./rules/RulesHud";
 import { useFreshDraws } from "./drawNotices";
 
@@ -99,12 +100,8 @@ export function ZoneBrowser({ me }: { me: string }) {
       </div>
       {!fold && filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : myHand ? "Hand order" : "Newest first"} />}
       {!fold && <>
-      <div className="zb-hint hint">
-        {myHand
-          ? "Drag a card onto the table to play or cast it · double-click or Enter plays it · right-click for more"
-          : castHere
-            ? "Outlined cards you may cast or play now: double-click one · drag cards to another zone · double-click any other to put it into hand · right-click for more"
-            : "Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more"}
+      <div className="zb-hint hint" data-testid="zb-hint">
+        {browserHint({ myHand, castHere, command: zone === "command" && player === me && ids.some((id) => commanderHere(view.cards[id] as GameCard | undefined, me)), automation: automationOn(view) })}
       </div>
       <div className={`zb-cards${myHand ? " zb-hand" : ""}`} data-testid={myHand ? "hand-browser" : undefined}>
         {shown.length === 0 && <div className="hint">Nothing to show.</div>}
@@ -115,6 +112,24 @@ export function ZoneBrowser({ me }: { me: string }) {
       </>}
     </div>
   );
+}
+
+/** -- playtest (nov 17) -- a commander of mine in my command zone: a double-click casts it (the command pile's own gesture). */
+export function commanderHere(card: GameCard | undefined, me: string): boolean {
+  return !!card && !card.hidden && !!card.commander_key && card.zone === `${me}:command`;
+}
+
+/** -- playtest (nov 17) -- the browser's hint says what a double-click really does here: in my command zone it casts my commander (the
+ * rules check its cost and tax with automation on; by hand it goes to the stack with the tax added), never "put into hand". */
+export function browserHint(o: { myHand: boolean; castHere: boolean; command: boolean; automation: boolean }): string {
+  if (o.myHand) return "Drag a card onto the table to play or cast it · double-click or Enter plays it · right-click for more";
+  if (o.command) {
+    return o.automation
+      ? "Double-click your commander to cast it (the rules ask for its cost and tax) · drag cards to another zone · right-click for more"
+      : "Double-click your commander to put it on the stack (adds commander tax) · drag cards to another zone · right-click for more";
+  }
+  if (o.castHere) return "Outlined cards you may cast or play now: double-click one · drag cards to another zone · double-click any other to put it into hand · right-click for more";
+  return "Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more";
 }
 
 /** A card of my hand in the browser: it plays exactly as from the hand (Hand.tsx: drag to cast, double-click, Enter, menu). */
@@ -187,6 +202,10 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
       onDoubleClick={(e) => {
         const now = useGame.getState().view;
         if (castable && now && castFromZone(card as GameCard, now, me, { clientX: e.clientX, clientY: e.clientY })) return;
+        if (commanderHere(card as GameCard, me)) { // (as the command pile: cast it, never into the hand)
+          void (automationOn(now) ? sendIntent({ type: "cast_spell", card_id: id, ask_optional: true }) : moveCards([id], "stack"));
+          return;
+        }
         void moveCards([id], "hand", { player: owner });
       }}
       onContextMenu={(e) => {
