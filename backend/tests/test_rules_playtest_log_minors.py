@@ -12,7 +12,11 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
-EXTRA = [real("Wheel of Fortune", "{2}{R}", 3, "Sorcery", "Each player discards their hand, then draws seven cards.", None, "R")]
+EXTRA = [real("Wheel of Fortune", "{2}{R}", 3, "Sorcery", "Each player discards their hand, then draws seven cards.", None, "R"),
+         real("Delirium Skeins", "{2}{B}", 3, "Sorcery", "Each player discards three cards.", None, "B"),
+         real("Windfall", "{2}{U}", 3, "Sorcery", "Each player discards their hand, then draws cards equal to the greatest number of cards a "
+              "player discarded this way.", None, "U"),
+         real("Mind Rot", "{2}{B}", 3, "Sorcery", "Target player discards two cards.", None, "B")]
 
 
 @pytest.fixture()
@@ -47,6 +51,32 @@ def test_each_player_discards_their_own_hand_in_the_log(cards):
     assert any(x.startswith("Alice discarded ") for x in discards), discards
     assert not any("from Bob's hand" in x for x in discards), discards
     assert card_named(s, "Llanowar Elves", "p2").zone == "p2:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("spell, targets", [("Delirium Skeins", []), ("Windfall", []), ("Mind Rot", ["p2"])])
+def test_other_discard_effects_name_the_discarding_player(cards, spell, targets):
+    """(second pass S2: Kolaghan's Command's "target player discards a card", Delirium Skeins, Windfall)"""
+    s = build(cards, [spell, "Grizzly Bears"], ["Llanowar Elves", "Grizzly Bears", "Wrath of God"])
+    to_phase(s, "main1", turn=3)
+    for name in ("Grizzly Bears", "Llanowar Elves", "Wrath of God"):
+        to_hand(s, name, "p2")
+    to_hand(s, "Grizzly Bears")
+    to_hand(s, spell)
+    mana(s, B=1, U=1, C=2)
+    seen = len(s.state.log)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, spell).id, targets=targets)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    discards = [x for x in (_line(e) for e in s.state.log[seen:]) if " discarded " in x]
+    assert any(x.startswith("Bob discarded ") for x in discards), discards
+    assert not any("from Bob's hand" in x for x in discards), discards
     check(s)
 
 
