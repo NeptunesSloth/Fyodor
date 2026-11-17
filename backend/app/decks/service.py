@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from app.cards.names import normalize_name
 from app.cards.repository import CardRepository
-from app.decks import archidekt, sites
+from app.decks import archidekt, rulebreaker, sites
 from app.decks.models import (
     Deck,
     DeckCategory,
@@ -404,16 +404,23 @@ def _commander_checks(deck: DeckIn, data: dict[str, dict[str, Any]], count: Coun
         warnings.append(Warning(level="warning", message="No commander chosen."))
     for problem in cmdr.configuration_problems(commander_cards):
         warnings.append(Warning(level="warning", message=problem + "."))
-    if total != 100:
+    allow = rulebreaker.allowance(commander_cards)  # -- rulebreaker -- the commander's own deck-building exceptions
+    if total != 100 and not (allow.no_max_size and total > 100):
         warnings.append(Warning(level="warning", message=f"Deck has {total} cards including commanders (Commander decks have 100)."))
     identity = set(cmdr.deck_identity(commander_cards))
+    extra_colors: set[str] = set()  # Tolabow: the one color its instants and sorceries may add, the same for each
     land_types: set[str] = set()
     if commanders:
         for e in playing:
             card = data.get(e.printing_id or "")
             if not card or e.section == "commander":
                 continue
+            if allow.free(card):
+                continue
             outside = set(cmdr.color_identity(card)) - identity
+            if outside and allow.extra(card) and len(outside | extra_colors) <= 1:
+                extra_colors |= outside
+                outside = set()
             if outside:
                 colors = "".join(c for c in COLOR_ORDER if c in outside)
                 warnings.append(Warning(level="warning", message=f"{e.name} is outside the commander's color identity ({colors}).", card=e.name))
