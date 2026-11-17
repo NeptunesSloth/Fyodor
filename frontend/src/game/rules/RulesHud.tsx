@@ -294,6 +294,11 @@ export function dialState(view: GameView, me: string): { auto: boolean; watching
   return { auto: true, watching: false, mine, status };
 }
 
+/** -- playtest (nov 17) -- the dial's line while the server works out a long chain (the Resolving plaque shows the count). */
+export function resolvingStatus(left: number): string {
+  return left > 0 ? "Resolving the chain: wait" : "Resolving: almost done";
+}
+
 /**
  * The turn & priority dial, bottom right (Arena / Moxgate): whose turn and which step, who the game
  * is waiting for, and one big button that says what passing will do. With the rules engine off it
@@ -314,7 +319,8 @@ export function TurnDial() {
   const over = gameEnded(view, me);
   const { auto, watching: dialWatching } = dial;
   const mine = dial.mine && !over;
-  const status = over ? "The game is over" : dial.status;
+  // -- playtest (nov 17) -- while a long chain resolves nobody holds priority yet: say so, not "Your priority" under the plaque
+  const status = over ? "The game is over" : resolving !== null && dial.auto ? resolvingStatus(resolving.left) : dial.status;
   const watching = dialWatching || !ctx.seated;
   // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
   const out = isOut(view, me);
