@@ -206,7 +206,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
             <ul className="rail-seats" aria-label="Who is ready">
               {claimed.map((x) => (
                 <li key={x.id} className={x.ready ? "ready" : ""} title={`${x.name}: ${x.ready ? "ready" : x.deck ? "not ready" : "choosing a deck"}`}>
-                  <SeatChip seat={x} text={x.name.slice(0, 1).toUpperCase()} />
+                  <SeatChip seat={x} text={chipText(x)} />
                   {x.ready && <span className="rail-check"><Icon name="check" size={11} /></span>}
                 </li>
               ))}
@@ -277,8 +277,13 @@ function inkOn(color: string): string {
   }
 }
 
+/** -- playtest (nov 17) -- a seat chip's mark: the initial, or a bot's robot glyph (Bob and the bot both showed "B"). */
+function chipText(x: LobbySeat): React.ReactNode {
+  return x.bot ? <Icon name="bot" size={12} label="Bot" /> : x.name.slice(0, 1).toUpperCase();
+}
+
 /** A seat's chip: its colour (the player's identity at the table) with its number or initial, never colour alone. */
-function SeatChip({ seat, text, mine, onColor }: { seat: LobbySeat; text: string; mine?: boolean; onColor?: (color: string) => void }) {
+function SeatChip({ seat, text, mine, onColor }: { seat: LobbySeat; text: React.ReactNode; mine?: boolean; onColor?: (color: string) => void }) {
   const ink = inkOn(seat.color);
   // a mid-tone colour reaches neither ink at 4.5:1: the number keeps a thin edge in the other one
   const style = {
@@ -451,7 +456,7 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
                 <ol className="nx-seq" aria-hidden>
                   {parts.order.map((id) => {
                     const x = seat(id);
-                    return x ? <li key={id}><SeatChip seat={x} text={x.name.slice(0, 1).toUpperCase()} />{x.name}</li> : null;
+                    return x ? <li key={id}><SeatChip seat={x} text={chipText(x)} />{x.name}</li> : null;
                   })}
                 </ol>
               )}
@@ -528,7 +533,8 @@ function MiniTable({ lobby, order, first, d20 }: { lobby: LobbyView; order: stri
           <g key={p.id} className={`mt-seat ${p.id === lobby.viewer ? "me" : ""}`}>
             {p.id === first && <circle cx={cx} cy={cy} r={15} className="mt-first" />}
             <circle cx={cx} cy={cy} r={11.5} fill={x.color} className="mt-chip" />
-            <text x={cx} y={cy + 4.2} fill={inkOn(x.color)}>{x.name.slice(0, 1).toUpperCase()}</text>
+            {x.bot ? <g transform={`translate(${cx - 7} ${cy - 7})`} color={inkOn(x.color)}><Icon name="bot" size={14} /></g>
+              : <text x={cx} y={cy + 4.2} fill={inkOn(x.color)}>{x.name.slice(0, 1).toUpperCase()}</text>}
           </g>
         );
       })}
