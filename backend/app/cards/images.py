@@ -59,7 +59,7 @@ class ImageStore:
         # -- art folders -- read-only folders of pictures searched after the cache, in order, never written to (docs/OFFLINE.md):
         # the installer's seed/images (-- offline token art --), folders found beside Fyodor's data, and the ones the host added
         self.roots: tuple[ArtRoot, ...] = (*((ArtRoot(bundled, "bundled", "fyodor"),) if bundled is not None else ()), *roots)
-        self._symbols: tuple[int, dict[str, dict[str, str]]] | None = None  # the symbol list, by its file's mtime
+        self._symbols: tuple[tuple[str, int], dict[str, dict[str, str]]] | None = None  # the symbol list, by its file and mtime
 
     @property
     def bundled(self) -> Path | None:
@@ -93,12 +93,24 @@ class ImageStore:
         return self.root / "backs" / f"{CARD_BACK_ID}-normal.jpg"
 
     def card_back(self) -> Path | None:
-        path = self.card_back_path()
-        return path if path.is_file() else None
+        """The cached card back, else one an art folder carries (a portable build's seed/images: offline from the start)."""
+        rel = self.card_back_path().relative_to(self.root)
+        for base in (self.root, *(r.base for r in self.roots if r.layout == "fyodor")):
+            if (base / rel).is_file():
+                return base / rel
+        return None
 
     # -- mana symbols --------------------------------------------------------------------
     def symbols_dir(self) -> Path:
         return self.root / "symbols"
+
+    def _symbols_read_dir(self) -> Path:
+        """Where symbols are read from: the cache once it has them, else the first art folder that carries a set
+        (a portable build's seed/images/symbols), so an offline computer draws the real symbols from the start."""
+        for base in (self.root, *(r.base for r in self.roots if r.layout == "fyodor")):
+            if (base / "symbols" / SYMBOL_INDEX).is_file():
+                return base / "symbols"
+        return self.symbols_dir()
 
     def symbol_path(self, code: str) -> Path:
         if not SYMBOL_CODE_RE.match(code):
@@ -107,9 +119,9 @@ class ImageStore:
 
     def symbol_index(self) -> dict[str, dict[str, str]]:
         """The cached symbols: their text without braces ("W/U") -> ``{"svg": "WU", "english": …}``. Empty until fetched."""
-        path = self.symbols_dir() / SYMBOL_INDEX
+        path = self._symbols_read_dir() / SYMBOL_INDEX
         try:
-            stamp = path.stat().st_mtime_ns
+            stamp = (str(path), path.stat().st_mtime_ns)
         except OSError:
             return {}
         if self._symbols and self._symbols[0] == stamp:
@@ -138,7 +150,7 @@ class ImageStore:
         known = {entry["svg"] for entry in self.symbol_index().values()}
         if code not in known or not SYMBOL_CODE_RE.match(code):
             return None
-        path = self.symbol_path(code)
+        path = self._symbols_read_dir() / self.symbol_path(code).name
         return path if path.is_file() else None
 
     def has(self, card_id: str, face: int = 0) -> bool:
