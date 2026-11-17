@@ -12,6 +12,9 @@ import { GameCardFace } from "./GameCardFace";
 import { exileCastables, playFromExile } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
+import { displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
+import { legalClass } from "./rules/RulesHud";
+import { useFreshDraws } from "./drawNotices";
 
 /**
  * Docked browser for a zone (library search, look at top N, graveyard, exile, sideboard).
@@ -33,15 +36,18 @@ export function ZoneBrowser({ me }: { me: string }) {
     if (!view || !zoneKey) return [];
     const z = view.zones[zoneKey];
     if (!z) return [];
-    if (Array.isArray(z)) return [...z].reverse(); // newest/top first
+    // my hand in the order I see it along the bottom (sorted, or my own arrangement); other zones newest/top first
+    if (Array.isArray(z)) return zoneKey === `${view.viewer === "__spectator__" ? "" : me}:hand` ? displayOrder(z) : [...z].reverse();
     const known = z.known.map(([, id]) => id);
     return own?.limit ? z.known.filter(([i]) => i < own.limit!).map(([, id]) => id) : known;
   }, [view, zoneKey, own?.limit]);
 
   if (!view || !zoneKey) return null;
   const { zone, player } = splitZone(zoneKey);
+  // my own hand: its cards play exactly as from the hand (drag to cast, double-click / Enter to play)
+  const myHand = zone === "hand" && player === me && view.viewer !== "__spectator__";
   // the filters only where there's something to sift: never the Command zone, nor a handful of cards
-  const filters = zone !== "command" && (searching || zone === "library" || ids.length > 8);
+  const filters = zone !== "command" && (searching || zone === "library" || myHand || ids.length > 8);
   // only what this viewer already sees of each card here (a hidden one has nothing to match: filterCardOf)
   const shown = filterCards(ids.map((id) => {
     const c = view.cards[id];
@@ -67,7 +73,10 @@ export function ZoneBrowser({ me }: { me: string }) {
         <span className="hint">
           {zone === "library" ? `${shown.length} shown · ${libraryCount} in library` : filters && filtering(filter) ? `${shown.length} shown · ${ids.length} cards` : `${ids.length} ${ids.length === 1 ? "card" : "cards"}`}
         </span>
-        {filters && <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus />}
+        {filters && <input className="zb-filter" placeholder="Filter by name, type or text…" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} autoFocus
+          aria-label="Filter by name, type or text"
+          // Esc leaves the box: a view closes, a search only lets go of the box (ending a search is its own button)
+          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); if (searching) e.currentTarget.blur(); else close(); } }} />}
         <span className="spacer" />
         {searching ? (
           <>
@@ -78,17 +87,61 @@ export function ZoneBrowser({ me }: { me: string }) {
           <button className="btn small" onClick={() => close()}>Close</button>
         )}
       </div>
-      {filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : "Newest first"} />}
-      <div className="zb-hint hint">Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more</div>
-      <div className="zb-cards">
+      {filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : myHand ? "Hand order" : "Newest first"} />}
+      <div className="zb-hint hint">
+        {myHand
+          ? "Drag a card onto the table to play or cast it · double-click or Enter plays it · right-click for more"
+          : "Drag cards to the battlefield, a hand or another zone · double-click to put into hand · right-click for more"}
+      </div>
+      <div className={`zb-cards${myHand ? " zb-hand" : ""}`} data-testid={myHand ? "hand-browser" : undefined}>
         {shown.length === 0 && <div className="hint">Nothing to show.</div>}
-        {shown.map((id) => (
-          <BrowserCard key={id} id={id} me={me} owner={player ?? me} />
-        ))}
+        {myHand
+          ? shown.map((id) => <HandBrowserCard key={id} id={id} me={me} index={ids.length ? (view.zones[zoneKey] as string[]).indexOf(id) : 0} />)
+          : shown.map((id) => <BrowserCard key={id} id={id} me={me} owner={player ?? me} />)}
       </div>
     </div>
   );
 }
+
+/** A card of my hand in the browser: it plays exactly as from the hand (Hand.tsx: drag to cast, double-click, Enter, menu). */
+const HandBrowserCard = memo(function HandBrowserCard({ id, me, index }: { id: string; me: string; index: number }) {
+  const card = useCardView(id);
+  const hover = useHoverCard();
+  const selected = useGame((s) => s.selection.includes(id));
+  const legal = useGame((s) => legalClass(s.view, id, me));
+  const fresh = useFreshDraws((s) => s.ids.includes(id)); // -- draw notice -- drawn and not looked at yet
+  if (!card) return null;
+  return (
+    <div
+      className={`zb-card ${selected ? "selected" : ""} ${fresh ? "fresh-draw" : ""} ${legal}`}
+      data-card-id={id}
+      tabIndex={0}
+      role="button"
+      aria-label={card.hidden ? "Hidden card" : card.name}
+      aria-pressed={selected}
+      onKeyDown={(e) => {
+        if (e.key === " ") {
+          e.preventDefault();
+          useGame.getState().select([id], e.shiftKey || e.ctrlKey || e.metaKey ? "toggle" : undefined);
+        } else if (e.key === "Enter" && !card.hidden) {
+          e.preventDefault();
+          playFromHand(id, me);
+        }
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        grabHandCard(e, id, card, me, index);
+      }}
+      onDoubleClick={() => { if (!card.hidden) playFromHand(id, me); }}
+      onContextMenu={(e) => handCardMenu(e, id, card, me)}
+      onMouseEnter={fresh ? () => useFreshDraws.getState().seen(id) : undefined}
+      onFocus={fresh ? () => useFreshDraws.getState().seen(id) : undefined}
+      {...hover(id)}
+    >
+      <GameCardFace card={card} />
+    </div>
+  );
+});
 
 const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; me: string; owner: string }) {
   const card = useCardView(id);

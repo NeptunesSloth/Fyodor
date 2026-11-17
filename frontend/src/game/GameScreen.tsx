@@ -10,7 +10,7 @@ import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
 import { AttachLines, CombatArrows, DragLayer, PickLayer } from "./Overlays";
 import { FocusKeys2D } from "./focus2d";
-import { Hand } from "./Hand";
+import { Hand, toggleHandBrowser } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
 import { TopBar } from "./TopBar";
@@ -37,6 +37,7 @@ import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
 import { RevealNotice } from "./RevealNotice";
+import { DrawNotice } from "./DrawNotice";
 import { TableImporter } from "./TableImporter";
 import { ExileCastables } from "./ExileCastablesRow";
 import { useTurnAlert } from "./turnAlert";
@@ -128,6 +129,7 @@ export function GameScreen() {
       <BagDraws />
       <DigDialog me={me} />
       <RevealNotice />
+      {canSeeMyHand && <DrawNotice />}
       <TableImporter />
       <StackWidget me={me} />
       {/* -- planechase -- the face-up plane and the planar die (both tables: over the 3D view too) */}
@@ -257,6 +259,10 @@ function useShortcuts() {
           break;
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });
+          break;
+        case "hand_browse":
+          e.preventDefault(); // (the key mustn't land in the browser's filter box as it takes the focus)
+          if (view.viewer !== "__spectator__") toggleHandBrowser(me);
           break;
         case "hud": {
           const prefs = usePrefs.getState();

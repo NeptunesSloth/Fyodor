@@ -245,6 +245,12 @@ export function SettingsPanel() {
                   {HAND_SORTS.map((m) => <option key={m} value={m}>{HAND_SORT_LABEL[m][0]!.toUpperCase() + HAND_SORT_LABEL[m].slice(1)}</option>)}
                 </select>
               )} />
+              <Row title="Show what I draw" hint="The cards you draw, shown to you only for a moment above your hand (as in MTG Arena), and marked in your hand until you look at them."
+                control={(id, hintId) => (
+                  <select id={id} aria-describedby={hintId} value={p.drawNotice} data-testid="pref-draw-notice" onChange={(e) => set({ drawNotice: e.target.value as Prefs["drawNotice"] })}>
+                    <option value="all">All draws</option><option value="effects">Effects only</option><option value="off">Off</option>
+                  </select>
+                )} />
               <Row title="Collapse identical tokens above" hint="One card shows ×N; right-click it to split. With rules automation on, every token stays its own card."
                 control={(id, hintId) => (
                   <select id={id} aria-describedby={hintId} value={p.tokenCollapse} onChange={(e) => set({ tokenCollapse: Number(e.target.value) as Prefs["tokenCollapse"] })}>

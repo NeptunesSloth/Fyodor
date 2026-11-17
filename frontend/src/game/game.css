@@ -199,6 +199,32 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .hand.compact .hand-cards { --overlap: 8px; }
 .hand.compact .hand-card { width: 22px; box-shadow: none; }
 .hand.compact .hand-card:hover { transform: none; }
+/* a long strip: a hairline edge instead of a soft shadow on each of its 77–200 cards (a blur per card is what scrolling repaints) */
+.hand .hand-cards[data-mode="strip"] > .hand-card:not(:hover):not(:focus-within):not(.selected):not(.fresh-draw) { box-shadow: -1px 0 0 rgba(0, 0, 0, 0.85); }
+/* an opponent's big hand: a few backs and the count (Hand.tsx COMPACT_MAX) */
+.hand.compact .hand-count {
+  flex: none; align-self: center; margin-left: 6px; padding: 0 6px; border-radius: 9px; font: 700 12px/18px var(--font-ui, inherit);
+  color: var(--text); background: rgba(16, 14, 12, 0.92); box-shadow: 0 0 0 1px var(--frame, #6b5a3a);
+}
+/* my hand's tools, just left of it: "Hand N" opens the whole hand as a grid (Shift+H); a strip's ‹ 1–23 › scrolls it */
+.hand-tools {
+  position: absolute; right: calc(100% - var(--x0) + 10px); bottom: 50px; z-index: 4; /* (over the hand-sort pill, bottom left) */
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px; pointer-events: auto;
+}
+.hand-browse, .hand-scroll {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 5px; font: 600 12.5px var(--font-ui, inherit);
+  color: var(--text); background: var(--hud-surface, rgba(16, 14, 12, 0.92)); border: 1px solid var(--frame, #6b5a3a);
+  border-top-color: var(--frame-hi, #c9a25c); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
+.hand-browse { cursor: pointer; }
+.hand-browse b { font: 700 14px var(--font-display, inherit); color: var(--accent-2, #e0b860); }
+.hand-browse:hover, .hand-browse[aria-pressed="true"] { border-color: var(--frame-hi, #c9a25c); }
+.hand-browse:focus-visible, .hand-scroll-btn:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.hand-scroll { padding: 2px 4px; gap: 2px; }
+.hand-scroll-btn { min-width: 26px; min-height: 26px; border: 0; background: transparent; color: var(--text); font-size: 17px; line-height: 1; cursor: pointer; border-radius: 3px; }
+.hand-scroll-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+.hand-scroll-btn:disabled { color: var(--text-dim); opacity: 0.45; cursor: default; }
+.hand-range { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 12px; }
 
 /* ---------- piles & command zone ---------- */
 .piles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

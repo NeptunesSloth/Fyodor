@@ -65,7 +65,7 @@ main.table.is-3d > .hand.hand {
 .table.is-3d > .hand .hand-card {
   width: var(--w); margin-left: calc(-1 * var(--overlap)); pointer-events: auto;
   transform-origin: 50% 140%;
-  transform: translateY(calc(var(--peek) + var(--fan2) * 2.2px)) rotate(calc(var(--fan) * var(--spread)));
+  transform: translateY(calc(var(--peek) + var(--fan2) * var(--sag, 2.2px))) rotate(calc(var(--fan) * var(--spread)));
   transition: transform var(--dur-hover) var(--ease-out);
   border-radius: 4.5%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 -2px 18px rgba(0, 0, 0, 0.55);
@@ -80,7 +80,7 @@ main.table.is-3d > .hand.hand {
 /* selected: raised out of the fan with a brass edge (position says it, not just colour) */
 .table.is-3d > .hand .hand-card.selected {
   outline: none;
-  transform: translateY(calc(18% + var(--fan2) * 2.2px)) rotate(calc(var(--fan) * var(--spread)));
+  transform: translateY(calc(18% + var(--fan2) * var(--sag, 2.2px))) rotate(calc(var(--fan) * var(--spread)));
   box-shadow: 0 0 0 2px var(--frame-hi), 0 -6px 22px rgba(0, 0, 0, 0.6);
 }
 .table.is-3d > .hand .hand-card.selected:focus-within { transform-origin: 50% 100%; transform: translateY(-2%) rotate(0deg) scale(1.22); }
@@ -94,6 +94,20 @@ body.reduced-motion .table.is-3d > .hand .hand-card { transition: none; }
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.9), 0 18px 34px rgba(0, 0, 0, 0.7);
   }
   .table.is-3d > .hand .hand-card.selected:hover { transform-origin: 50% 100%; transform: translateY(-2%) rotate(0deg) scale(1.22); }
+}
+/* a big hand (past STRIP_AT cards, game/handLayout.ts): a flat strip at the same depth, scrolling sideways (wheel, arrows, ‹ ›); its
+   box reaches below the screen's edge by the fan's peek and leaves room above for a card to lift, so nothing scrolls up and down */
+main.table.is-3d > .hand .hand-cards[data-mode="strip"] {
+  left: var(--x0); width: var(--box-w); transform: none; padding: 0;
+  bottom: calc(var(--w) * -0.672); height: calc(var(--w) * 2.45);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+main.table.is-3d > .hand .hand-cards[data-mode="strip"]::-webkit-scrollbar { display: none; }
+main.table.is-3d > .hand .hand-cards[data-mode="strip"] > .hand-card { transform: none; transform-origin: 50% 100%; }
+main.table.is-3d > .hand .hand-cards[data-mode="strip"] > .hand-card.selected { transform: translateY(-30%); }
+main.table.is-3d > .hand .hand-cards[data-mode="strip"] > .hand-card:focus-within { transform: translateY(-50%) scale(1.22); }
+@media (hover: hover) and (pointer: fine) {
+  main.table.is-3d > .hand .hand-cards[data-mode="strip"] > .hand-card:hover { transform: translateY(-50%) scale(1.22); }
 }
 .table.is-3d > .zone-browser { z-index: 6; }
 

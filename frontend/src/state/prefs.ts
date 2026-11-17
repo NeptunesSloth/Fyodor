@@ -44,6 +44,8 @@ export interface Prefs {
   choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
   handSort: HandSort;
+  /** -- draw notice -- show me the cards I draw (game/DrawNotice.tsx): every draw, only draws from effects (not the draw step's card), or never. */
+  drawNotice: "all" | "effects" | "off";
   /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
   boardLayout: "arranged" | "free";
   /** -- combat filter -- dim what doesn't matter to combat, on this screen (game/combatFilter.ts): off, creatures only, can attack / block. */
@@ -97,6 +99,7 @@ export const DEFAULT_PREFS: Prefs = {
   turnAlert: true,
   choiceWheel: true,
   handSort: "drawn",
+  drawNotice: "effects",
   boardLayout: "arranged",
   combatFilter: "off",
   turnDial: "full",

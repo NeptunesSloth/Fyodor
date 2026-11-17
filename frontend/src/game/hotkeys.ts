@@ -31,6 +31,7 @@ export type HotkeyId =
   | "cam_pan"
   | "ping"
   | "hand_sort"
+  | "hand_browse"
   | "dice"
   | "token_math"
   | "combat_filter";
@@ -71,6 +72,7 @@ export const HOTKEYS: Hotkey[] = [
   },
   { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
   { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
+  { id: "hand_browse", keys: ["shift+h"], label: "Your whole hand as a grid: filter, sort, drag or double-click to play (open / close)" },
   { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
   { id: "token_math", keys: ["shift+t"], label: "Token math: Scute Swarm, landfall, copies and token doublers worked out (open / close)" },
   { id: "combat_filter", keys: ["b"], label: "Combat filter: all permanents → creatures only → can attack / block (dims the rest)" },
