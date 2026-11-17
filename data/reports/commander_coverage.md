@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3563** — FULL: 3560 · PARTIAL: 3 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3563** — FULL: 3562 · PARTIAL: 1 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 

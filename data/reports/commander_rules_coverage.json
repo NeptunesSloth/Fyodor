@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-11-16 23:03",
+ "generated_at": "2026-11-17 01:05",
  "card_data": "2026-11-06T22:06:52.389+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32138,
  "commander_banned": 83,
  "levels": {
-  "FULL": 32126,
-  "PARTIAL": 12,
+  "FULL": 32128,
+  "PARTIAL": 10,
   "REVIEW": 0,
   "MANUAL": 0
  },
  "possible_commanders": 3563,
  "commander_levels": {
-  "FULL": 3560,
-  "PARTIAL": 3,
+  "FULL": 3562,
+  "PARTIAL": 1,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -36,8 +36,8 @@
    "MANUAL": 0
   },
   "Creature": {
-   "FULL": 17968,
-   "PARTIAL": 10,
+   "FULL": 17970,
+   "PARTIAL": 8,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -152,8 +152,8 @@
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 382,
-   "PARTIAL": 1,
+   "FULL": 383,
+   "PARTIAL": 0,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -170,8 +170,8 @@
    "MANUAL": 0
   },
   "treasure": {
-   "FULL": 349,
-   "PARTIAL": 1,
+   "FULL": 350,
+   "PARTIAL": 0,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2002,8 +2002,8 @@
    "MANUAL": 0
   },
   "mbc": {
-   "FULL": 68,
-   "PARTIAL": 11,
+   "FULL": 70,
+   "PARTIAL": 9,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2809,28 +2809,6 @@
    "only_missing_piece_for": 1,
    "examples": [
     "Euru, Acorn Scrounger"
-   ]
-  },
-  {
-   "feature": "template:Whenever you discard N or more cards at random, select N or more targets at random, choose N or more modes at random, flip N or more coins, or roll N or more dice, put a \u00b1N/\u00b1N counter(s) on ~ and create a tapped Treasure token.",
-   "kind": "triggered",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Chira, All In"
-   ]
-  },
-  {
-   "feature": "template:Whenever ~ deals combat damage to a player who doesn't have a contract counter, they may discard their hand. If they do, they draw N card(s) and get a contract counter. For as long as they have a contract counter, when they lose the game, for each artifact and creature they controlled, create N token(s) that's a copy of it.",
-   "kind": "triggered",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Miss Highwater"
    ]
   },
   {
@@ -7311,12 +7289,12 @@
  ],
  "quality": {
   "ability_lines": 113459,
-  "automated_lines": 113445,
+  "automated_lines": 113447,
   "automated_share": "100.0%",
-  "unrecognized_clauses": 14,
+  "unrecognized_clauses": 12,
   "classified_share": "100.0%",
   "unclassified_clauses": 0,
-  "clusters": 12
+  "clusters": 10
  },
  "categories": {
   "MISSING MECHANIC": {
@@ -7332,8 +7310,8 @@
    "lines": 1
   },
   "MISSING TRIGGER EVENT": {
-   "cards": 4,
-   "lines": 4
+   "cards": 2,
+   "lines": 2
   },
   "MISSING REPLACEMENT PATTERN": {
    "cards": 0,
@@ -7375,30 +7353,6 @@
    "only_missing_piece_for": 1,
    "examples": [
     "Euru, Acorn Scrounger"
-   ]
-  },
-  {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever you discard N or more cards at random",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Chira, All In"
-   ]
-  },
-  {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever ~ deals combat damage to a player who doesn't have a contract counter",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Miss Highwater"
    ]
   },
   {
