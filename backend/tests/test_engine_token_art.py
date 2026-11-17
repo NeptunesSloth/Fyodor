@@ -45,6 +45,16 @@ INSERT = token("Soldier // Robot", "D1", "Token Creature — Soldier // Token Ar
                     "oracle_text": "", "image_uris": {"normal": "https://img.example/d1b.jpg"}}])
 
 
+# real Oracle text (Scryfall): a token copy, and "becomes a copy"
+COPIERS = [
+    card("Cackling Counterpart", set_code="tst", number="CC1", mana_cost="{1}{U}{U}", cmc=3.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], oracle_text="Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast "
+                                           "this card from your graveyard for its flashback cost. Then exile it.)"),
+    card("Mirrorweave", set_code="tst", number="MW1", mana_cost="{2}{W/U}{W/U}", cmc=4.0, type_line="Instant", colors=["U", "W"],
+         color_identity=["U", "W"], oracle_text="Each other creature becomes a copy of target nonlegendary creature until end of turn."),
+]
+
+
 def _house() -> dict[str, object]:
     data = json.loads((Path(__file__).parent / "fixtures/random_receipt_consumers_cards.json").read_text(encoding="utf-8"))
     raw = next(c for c in data if c["name"] == HOUSE)
@@ -60,7 +70,7 @@ def cards(settings):
     existing = {c["name"]: c for c in [*fixture_cards(), *EXTRA]}
     existing[HOUSE] = _house()
     settings.ensure_dirs()
-    build_database([*existing.values(), ROBOT_PIP, ROBOT_NEWER, ROBOT_SMALL, ROBOT_FLYING, TREASURE_PIP, INSERT], settings.cards_db_path)
+    build_database([*existing.values(), *COPIERS, ROBOT_PIP, ROBOT_NEWER, ROBOT_SMALL, ROBOT_FLYING, TREASURE_PIP, INSERT], settings.cards_db_path)
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -72,8 +82,8 @@ def _picture(repo: CardRepository, printing: dict[str, object], face: int = 0) -
     path.write_bytes(b"\xff\xd8\xff\xe0art")
 
 
-def _house_rolls(cards, monkeypatch, roll: int):
-    s = three(cards, [HOUSE, "Sol Ring", "Lightning Bolt"], ["Sol Ring"], ["Sol Ring"])
+def _house_rolls(cards, monkeypatch, roll: int, extra=()):
+    s = three(cards, [HOUSE, "Sol Ring", "Lightning Bolt", *extra], ["Sol Ring"], ["Sol Ring"])
     hold(s)
     from tests.test_rules_wave30m_durations import to_phase
 
@@ -159,3 +169,54 @@ def test_no_card_database_means_no_picture():
 
     t = _token_def(TokenSpec(name="Robot", power="3", toughness="3", type_line="Token Artifact Creature — Robot"), NoCardInfo())
     assert t.art_id is None and t.name == "Robot"
+
+
+# -- copies of engine tokens: the copy is pictured as what it copies (TokenDef.art_id goes with the copiable values, 707.2) ---------------------
+def _cast(s, name, targets, **pool):
+    from tests.wave9c_kit import card_named
+
+    act(s, "p1", type="add_mana", player="p1", mana=pool)
+    priority(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, name, "p1").id, targets=targets)
+    settle(s)
+
+
+def test_a_token_copy_of_a_pictured_engine_token_has_its_picture(cards, monkeypatch):
+    s = _house_rolls(cards, monkeypatch, 4, ["Cackling Counterpart"])
+    [robot] = _made(s, "Robot")
+    assert robot.token.art_id == ROBOT_PIP["id"]
+    act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Cackling Counterpart")], to={"zone": "hand"})
+    _cast(s, "Cackling Counterpart", [robot.id], U=2, C=1)
+    copy = next(c for c in _made(s, "Robot") if c.id != robot.id)
+    # (looked up afresh it would be the newest matching printing, ROBOT_NEWER: Counterpart has no related Robot)
+    assert copy.card_id is None and (copy.token.art_id, copy.token.art_face) == (ROBOT_PIP["id"], 0)
+    for viewer in ("p1", "p2"):
+        seen = s.view(viewer)["cards"][copy.id]
+        assert seen["card_id"] is None and seen["token"]["art_id"] == ROBOT_PIP["id"]
+    check(s)
+
+
+def test_a_client_cant_pass_a_picture_on(cards):
+    s = three(cards, ["Sol Ring"], ["Sol Ring"], ["Sol Ring"])
+    act(s, "p1", type="create_token", token={"name": "Gizmo", "power": "2", "toughness": "2", "type_line": "Token Creature — Gizmo",
+                                              "art_id": ROBOT_PIP["id"], "art_face": 1})
+    [gizmo] = _made(s, "Gizmo")
+    assert gizmo.token.art_id is None and gizmo.token.art_face == 0  # (resolve clears it: only the engine's token copies pass one on)
+    check(s)
+
+
+def test_becoming_a_copy_of_another_token_shows_that_tokens_picture(cards, monkeypatch):
+    s = _house_rolls(cards, monkeypatch, 4, ["Mirrorweave"])
+    [robot] = _made(s, "Robot")
+    act(s, "p1", type="create_token", token={"name": "Soldier", "power": "1", "toughness": "1", "colors": ["W"],
+                                              "type_line": "Token Creature — Soldier"})
+    [soldier] = _made(s, "Soldier")
+    assert (soldier.token.art_id, soldier.token.art_face) == (INSERT["id"], 0)  # (the insert's Soldier face)
+    act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Mirrorweave")], to={"zone": "hand"})
+    _cast(s, "Mirrorweave", [soldier.id], W=2, C=2)
+    for viewer in ("p1", "p2"):
+        seen = s.view(viewer)["cards"][robot.id]
+        assert seen["name"] == "Soldier" and seen["token"]["name"] == "Soldier" and seen["copy_of"]["source_name"] == "Soldier"
+        assert (seen["token"]["art_id"], seen["token"]["art_face"]) == (INSERT["id"], 0)  # (not the Robot picture it had as itself)
+    assert s.state.cards[robot.id].token.art_id == ROBOT_PIP["id"]  # (the object's own token is unchanged: the copy is a view of layer 1)
+    check(s)

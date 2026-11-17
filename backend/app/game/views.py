@@ -70,8 +70,14 @@ def _copied(state: GameState, c: CardInstance, view: dict[str, Any]) -> None:
     named = next((e.name for e in reversed(recipe.excepts) if e.name), None)
     if recipe.printing:
         view["card_id"], view["face"] = recipe.printing, recipe.face
+        if view.get("token"):  # -- engine token art -- the copied printing pictures it: not the picture it had as itself
+            view["token"] = {**view["token"], "art_id": None, "art_face": 0}
     else:
-        view["token"] = {**(view.get("token") or {}), **(recipe.token or {})}
+        # -- engine token art -- the copied token's values and its picture (none: no picture), never the one this object had as itself; a
+        # printed card that copies a described token is shown as that token (its own printing would picture the card it was)
+        copied = recipe.token or {}
+        view["token"] = {**(view.get("token") or {}), **copied, "art_id": copied.get("art_id"), "art_face": int(copied.get("art_face") or 0)}
+        view["card_id"] = None
     view["name"] = named or recipe.source or c.name
     changes = []
     for e in recipe.excepts:

@@ -130,8 +130,16 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
     if card.token is not None and not card.card_id:
         t = card.token
         token = {"name": t.name, "power": t.power, "toughness": t.toughness, "colors": list(t.colors),
-                 "type_line": t.type_line, "text": t.text, "mana_cost": t.mana_cost}
+                 "type_line": t.type_line, "text": t.text, "mana_cost": t.mana_cost,
+                 # -- engine token art -- its picture goes with what it copies (a picture only: never a characteristic, _base ignores it)
+                 **({"art_id": t.art_id, "art_face": t.art_face} if t.art_id else {})}
     return CopyRecipe(printing=card.card_id, face=card.face, token=token, source=card.name[:200])
+
+
+def art_of(recipe: CopyRecipe) -> dict[str, Any]:
+    """-- engine token art -- the picture a recipe of a described token carries ({} when none: older recipes, unpictured tokens)."""
+    t = recipe.token or {}
+    return {"art_id": t["art_id"], "art_face": int(t.get("art_face") or 0)} if not recipe.printing and t.get("art_id") else {}
 
 
 MEDDLE_COPY = "Copy of the original face-down spell"
@@ -1286,6 +1294,7 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
         spec = {k: recipe.token.get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
         if recipe.token.get("mana_cost"):  # (wave 49D: 707.2, a copy copies the mana cost)
             spec["mana_cost"] = recipe.token["mana_cost"]
+        spec.update(art_of(recipe))  # -- engine token art -- the copy is pictured as what it copies
     else:
         (notes if notes is not None else []).append(f"{recipe.source or 'That object'} isn't in the card database: no copy is created")
         return None

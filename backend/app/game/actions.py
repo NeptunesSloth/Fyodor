@@ -375,6 +375,10 @@ class TokenSpec(BaseModel):
     text: str = Field(default="", max_length=1000)
     mana_cost: str = Field(default="", max_length=40, pattern=r"^(\{[0-9WUBRGCX]+\})*$")  # -- named tokens (wave 49D) -- 111.3
     back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
+    # -- engine token art -- the rules engine's own token copy of a pictured token passes the copied picture on (TokenDef.art_id); only
+    # the engine's steps keep it (resolve clears it from a client's create_token); it never changes the token's characteristics
+    art_id: Id | None = Field(default=None, exclude_if=lambda v: v is None)
+    art_face: int = Field(default=0, ge=0, le=3, exclude_if=lambda v: not v)
 
     @field_validator("name", "type_line")
     @classmethod

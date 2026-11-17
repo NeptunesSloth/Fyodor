@@ -882,6 +882,7 @@ def copy_spec(plan: Plan, recipe: Any) -> tuple[dict[str, Any], Characteristics]
         spec: dict[str, Any] = {"card_id": recipe.printing, "name": (ch.name or "Token")[:80]}
     else:
         spec = {k: (recipe.token or {}).get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
+        spec.update(copying.art_of(recipe))  # -- engine token art --
     return {**spec, "type_line": copying.type_line(ch)}, ch
 
 

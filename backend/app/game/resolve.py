@@ -67,6 +67,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.opening = None
     if hasattr(a, "keep_ids") and not trusted:
         a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
+    if isinstance(a, A.CreateToken) and not trusted:  # -- engine token art -- a picture passed on is the engine's (a token copy's), never a client's
+        _clear_art(a.token)
     if isinstance(a, A.RevealTop) and not trusted:  # -- public reveals -- the notice's words (the source, "until … found") are the engine's only
         a.source, a.until, a.found = None, False, False  # (a manual reveal is plain: no client text reaches the log or the notice)
     if isinstance(a, A.CopyCard) and a.saved_stack is not None and not trusted:
@@ -370,9 +372,18 @@ def _source_printing(state: GameState, source_id: str | None, actor: str) -> str
     return source.card_id if source is not None and not source.face_down and ops.visible_to_all_players(state, source) else None
 
 
+def _clear_art(spec: A.TokenSpec) -> None:
+    while spec is not None:
+        spec.art_id, spec.art_face = None, 0
+        spec = spec.back
+
+
 def _token_art(spec: A.TokenSpec, info: CardInfo, source_printing: str | None) -> dict[str, Any]:
     """-- engine token art -- a described token's picture: the matching token printing (app/cards/token_match.py), looked up once
-    here so the recorded action keeps it (replays, undo and saves show the same picture whatever the card database says later)."""
+    here so the recorded action keeps it (replays, undo and saves show the same picture whatever the card database says later). A
+    picture the engine passes on (a token copy of a pictured token: the copied token's own, ``spec.art_id``) comes first."""
+    if spec.art_id and info.get(spec.art_id) is not None:
+        return {"art_id": spec.art_id, "art_face": spec.art_face}
     find = getattr(info, "token_art", None)
     if find is None:
         return {}
