@@ -79,11 +79,11 @@ describe("a drop from the hand (pure mapping)", () => {
 });
 
 describe("dropFromHand (the intent sent)", () => {
-  it("plays a land and casts a spell, like the card menu", () => {
+  it("plays a land and casts a spell, like the card menu; both where they were dropped (drag to cast)", () => {
     useGame.setState({ view: view(RULES) });
     expect(dropFromHand(["c1"], { zone: "p1:battlefield", x: 10, y: 20 })).toBe(true);
     expect(dropFromHand(["c2"], { zone: "p1:battlefield", x: 10, y: 20 })).toBe(true);
-    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2", ask_optional: true }]);
+    expect(sent).toEqual([{ type: "play_land", card_id: "c1", x: 10, y: 20 }, { type: "cast_spell", card_id: "c2", ask_optional: true, x: 10, y: 20 }]);
   });
 
   it("casts onto my side when dropped on another player's mat; a land dropped on the stack is played", () => {
@@ -143,7 +143,8 @@ describe("dropFromHand: a card with two halves or two faces asks which, as its m
     const fromMenu = rulesMenu(v.cards.a1!, v, "p1").filter((i) => i !== "separator").map((i) => (i as { label: string }).label);
     expect(fromMenu.slice(0, 2)).toEqual(labels());
     choose(1);
-    expect(sent).toEqual([{ type: "cast_spell", card_id: "a1", face: 1, ask_optional: true }]);
+    // (dropped on my battlefield: the spot goes with the cast; the server uses it only for a permanent entering my battlefield)
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "a1", face: 1, ask_optional: true, x: 10, y: 20 }]);
   });
 
   it("a split card asks which half", () => {

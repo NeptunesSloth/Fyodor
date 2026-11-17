@@ -235,7 +235,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.SetPosition):
         a.learned_rows = _learned_rows(state, a, actor, info) or None
     elif isinstance(a, A.ResolveTop):
-        a.r = _resolve_top(state, info, a.card_id)
+        a.r = _resolve_top(state, info, a.card_id, (a.x, a.y) if a.x is not None and a.y is not None else None)
     elif isinstance(a, A.RevealUntil | A.Cascade):
         a.r = _dig(state, a, actor, info)
     elif isinstance(a, A.LoadDeck):
@@ -472,7 +472,7 @@ def _learned_rows(state: GameState, a: A.SetPosition, actor: str, info: CardInfo
     return learned
 
 
-def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -> A.MoveData:
+def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None, at: tuple[float, float] | None = None) -> A.MoveData:
     stack = state.zones.get(STACK, [])
     data = A.MoveData()
     if not stack:
@@ -489,7 +489,7 @@ def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -
     else:
         key = zone_key(top.controller, "battlefield")
         data.destinations[top.id] = key
-        data.positions[top.id] = placement.free_spot(state, key, placement.entry_row(state, top.controller, top, type_line))
+        data.positions[top.id] = at if at is not None else placement.free_spot(state, key, placement.entry_row(state, top.controller, top, type_line))
     return data
 
 

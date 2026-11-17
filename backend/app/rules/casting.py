@@ -3697,6 +3697,19 @@ _HAND_PARTS = frozenset({costs.DISCARD, "EXILE_FROM_HAND", "HAND_TO_BOTTOM", "RE
 # -- end cast without paying (wave 3C) --
 
 
+def _remember_spot(plan: Plan, card_id: str, a: A.CastSpell) -> None:
+    """-- drag to cast -- the spot the caster dropped the card on, kept with the spell (its object on the stack) until it resolves; entries of
+    objects no longer on the stack (countered, cancelled, moved away) are dropped here."""
+    from app.game.rules_state import CastSpot
+
+    r = plan.rules
+    on_stack = {plan.oid(c) for c in plan.state.zones.get(STACK, [])}
+    for stale in [o for o in r.cast_spots if o not in on_stack]:
+        del r.cast_spots[stale]
+    if a.x is not None and a.y is not None:
+        r.cast_spots[plan.oid(card_id)] = CastSpot(player=plan.actor, x=a.x, y=a.y)
+
+
 def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     require_no_decision(plan)
     card = plan.state.cards.get(a.card_id)
@@ -4197,6 +4210,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+        _remember_spot(plan, card.id, a)  # -- drag to cast --
     if a.face and not a.face_down and plan.state.cards[card.id].face != a.face:
         # -- Rooms (wave 18G) -- 709.5d: the cast half (the move out of the hand reset the face); -- trigger other (wave 25B) -- 709.3b, 715.3b:
         # likewise the Adventure / the second half of a split card: on the stack it has only that half's characteristics (so "a creature spell"

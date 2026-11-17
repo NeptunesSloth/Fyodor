@@ -91,7 +91,7 @@ export function dropFromHand(ids: string[], target: DropResult | null, seat?: st
   const card = view.cards[id]!;
   if (splitZone(facts.from).zone === "hand") {
     const land = at.x != null ? { x: at.x, y: at.y } : {};
-    const faces = faceChoices(card, view, { cast: { ask_optional: true }, land });
+    const faces = faceChoices(card, view, { cast: { ask_optional: true, ...land }, land }); // (-- drag to cast -- a permanent face enters at the spot too)
     if (faces) {
       const where = target.at ?? { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
       const name = isVisible(card) ? (card.card_id ? useCardCache.getState().cards[card.card_id]?.name : undefined) ?? card.name : "Cast";

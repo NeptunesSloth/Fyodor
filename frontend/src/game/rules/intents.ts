@@ -79,17 +79,20 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     return true;
   }
   if ((to.zone === "battlefield" && to.player === me) || to.zone === "stack") {
+    // -- drag to cast -- dropped on my own battlefield: a permanent spell enters at the drop spot as it resolves (the server keeps it with
+    // the spell and uses it only if the permanent enters my battlefield), as a dragged land does; both tables' drops carry x, y
+    const spot = to.zone === "battlefield" && target.x != null && target.y != null ? { x: target.x, y: target.y } : {};
     // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
     // -- playtest nov 6 -- a card with kicker asks first (a drag never offered it; only the right-click menu did): cast plain, or kicked
     const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
     const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
     if (kicker) {
       const at = { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
-      openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true }) },
-        ...kickerItems(card.id, kicker)], `${data?.name ?? "Cast"}: kicker?`);
+      openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot }) },
+        ...kickerItems(card.id, kicker, true, spot)], `${data?.name ?? "Cast"}: kicker?`);
       return true;
     }
-    void send({ type: "cast_spell", card_id: card.id, ask_optional: true });
+    void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot });
     return true;
   }
   return false;
@@ -203,8 +206,8 @@ const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
 /** -- playtest nov 6 -- the "Cast with Kicker {cost}" entries for a card with this kicker line (702.33): one cost, "{A} and/or {B}", or multikicker. */
-export function kickerItems(cardId: string, kicker: string, castable = true): MenuItem[] {
-  const cast = (times: number) => () => void send({ type: "cast_spell", card_id: cardId, kicker: times });
+export function kickerItems(cardId: string, kicker: string, castable = true, spot: { x?: number; y?: number } = {}): MenuItem[] {
+  const cast = (times: number) => () => void send({ type: "cast_spell", card_id: cardId, kicker: times, ...spot });
   const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
   if (two) {
     // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
@@ -215,7 +218,7 @@ export function kickerItems(cardId: string, kicker: string, castable = true): Me
     // 702.33c: any number of times. The server checks the total cost when it's paid.
     return [{ label: `Cast with ${kicker}`, disabled: !castable,
       submenu: [...MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })),
-        { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId }, field: "kicker" }) }] }];
+        { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId, ...spot }, field: "kicker" }) }] }];
   }
   return [{ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) }];
 }

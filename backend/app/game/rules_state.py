@@ -99,6 +99,15 @@ class PlayerControl(BaseModel):
     lands_only: bool = False
 
 
+class CastSpot(BaseModel):
+    """-- drag to cast -- where the caster dropped a permanent spell on their own battlefield (the cast intent's x, y): it enters there as it
+    resolves, if it enters that battlefield (app/rules/engine.py leave_stack); otherwise the table's usual free spot."""
+
+    player: str
+    x: float
+    y: float
+
+
 class TurnCount(BaseModel):
     """A per-player counter that is only meaningful during one turn (it resets itself)."""
 
@@ -1951,6 +1960,9 @@ class RulesState(BaseModel):
     # counter on it / it gains "…"" does as it enters ({"tapped": True, "counters": {"finality": 1}, "abilities": [text]}); the new object a card becomes
     # when it leaves the stack (400.7) never matches a stale entry
     cast_enters: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- drag to cast -- stack object -> the spot on its caster's battlefield the card was dropped on (a table position, public); used as it
+    # resolves into that battlefield, dropped once it leaves the stack (a copy of the spell, another object, has none); old saves: none
+    cast_spots: dict[str, CastSpot] = Field(default_factory=dict)
     # -- cast riders (wave 38C) -- 614.1a: stack object (an instant or sorcery spell) -> "exile it instead of putting it into your graveyard as it resolves" and
     # what follows when it was ({"bind", "then", "controller", "source_card", "source_object", "name"}); a countered spell never uses it (it doesn't resolve),
     # and the new object a card becomes (400.7) never matches a stale entry

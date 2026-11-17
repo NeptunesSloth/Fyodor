@@ -1230,6 +1230,9 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         return
     if card_id in stack:
         step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
+        spot = plan.rules.cast_spots.pop(oid, None)  # -- drag to cast -- the caster's drop spot, only on the caster's own battlefield
+        if spot is not None and not countered and card.controller == spot.player:
+            step.update(x=spot.x, y=spot.y)
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
             step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
         plan.do(step, actor=controller)

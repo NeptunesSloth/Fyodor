@@ -1085,6 +1085,9 @@ class ResolveTop(Base):
     # -- refused look/cast-free (wave 3R5) -- the resolving object when spells cast during its
     # resolution (608.2g) are above it on the stack; None: the topmost object
     card_id: Id | None = None
+    # -- drag to cast -- where a permanent entering its controller's battlefield goes (None: the table's free spot)
+    x: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
+    y: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 # --- response helper -----------------------------------------------------------------
@@ -1279,6 +1282,10 @@ class CostChoice(BaseModel):
 
 class CastSpell(_Intent):
     mana_symbols: list[str] | None = Field(default=None, max_length=40)  # concrete hybrid/Phyrexian announcements, 601.2b
+    # -- drag to cast -- the spot on the caster's own battlefield the card was dropped on: a permanent spell enters there as it resolves (if it
+    # enters that battlefield); like PlayLand's x, y
+    x: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
+    y: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
     flashback_choice: int | None = Field(default=None, ge=0, le=1000)
     type: Literal["cast_spell"] = "cast_spell"
     card_id: Id
