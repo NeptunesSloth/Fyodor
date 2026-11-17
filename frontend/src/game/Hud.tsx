@@ -92,7 +92,10 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   }, [hover]); // eslint-disable-line react-hooks/exhaustive-deps
   // placed once per card (and again when its words arrive), before it shows: a hidden render at full size is measured,
   // then the panel goes where it is clear, its picture as large as the room lets it be
-  const key = `${shown}|${ready}`;
+  // -- playtest (nov 17) -- placed again when the stack or a prompt comes or goes: they open beside it (a stack panel that grew after the
+  // preview was placed covered it)
+  const chrome = useGame((s) => `${s.view?.stack.length ?? 0}|${s.view?.rules?.decision?.id ?? ""}`);
+  const key = `${shown}|${ready}|${chrome}`;
   const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
     const node = panel.current;

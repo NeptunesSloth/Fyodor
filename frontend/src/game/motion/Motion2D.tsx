@@ -264,8 +264,9 @@ export function Motion2D() {
           : locateHeart(fl.player, zoom);
         if (!at) return;
         const life = "player" in fl;
-        // a life change rises off the top of the heart; damage from the upper part of the creature, over its art
-        floated.push({ key: key("f"), x: at.box.cx, y: life ? at.box.cy - at.box.h * 0.5 : at.box.cy - at.box.h * 0.18, text: fl.text,
+        // a life change rises off the top of the heart; damage from the middle of the creature, over its art: it rises about 24 px and,
+        // started higher, it covered the card's title (-- playtest nov 17 --)
+        floated.push({ key: key("f"), x: at.box.cx, y: life ? at.box.cy - at.box.h * 0.5 : at.box.cy + at.box.h * 0.06, text: fl.text,
           tone: fl.tone, life, delay: Math.round(i * staggerMs(plan.floaters.length)) });
       });
       const rolled: Roll[] = [];
