@@ -956,7 +956,7 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
                           power=p, toughness=t, duration=duration,
                           label=f"{_stat_label(p)}/{_stat_label(t)} {when} ({ctx.get('name', '')})")
-        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text=when)
+        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text=when, actor=ctx["controller"])
     return True
 
 
@@ -998,7 +998,7 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
-              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"), actor=ctx["controller"])
     return True
 
 
@@ -1086,16 +1086,17 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             made.until_object = plan.oid(cards[0])
     if cards and duration != "their_turn":  # (-- attack restrictions (wave 32B) -- a player's next turn: no marker on the creatures there now, the group is the player's)
         _mark(plan, cards, ", ".join(_restriction_label(plan, r) for r in e["rules"]),
-              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"), actor=ctx["controller"])
     return True
 
 
-def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn") -> None:
-    """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
+def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn", actor: str | None = None) -> None:
+    """The visible table marker for an engine effect (it goes away at cleanup with the effect). ``actor``: the effect's controller, whom the
+    log names ("Opponent gave +3/+3 to …"; otherwise the player whose pass resolved it)."""
     # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
     value = value if value is not None else label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text}, actor=actor)
 
 
 def _can_regenerate(ctx: Context) -> bool:
