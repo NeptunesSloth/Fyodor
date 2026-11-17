@@ -539,8 +539,10 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
   border: 1px dashed color-mix(in srgb, var(--frame) 55%, transparent); background: rgba(0, 0, 0, 0.2); }
 .pg-add-note { max-width: 26ch; font: 400 13px/1.4 var(--font-ui); letter-spacing: 0; color: var(--text-dim); }
 /* a dummy's plinth: an unpainted seat, its deck window an empty practice ring */
-.pg-dummy .pg-plate { position: relative; padding-right: 30px; }
-.play .pg-dummy .pg-plate .pg-remove { position: absolute; top: 5px; right: 4px; width: 24px; height: 24px; }
+/* (its remove button sits up by the short "Target dummy" line, so the name below gets the plinth's whole width) */
+.pg-dummy .pg-plate { position: relative; }
+.play .pg-dummy .pg-plate .pg-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; }
+.pg-dummy .pg-name-label { padding-right: 20px; }
 .pg-slot-dummy { border-style: dashed; color: color-mix(in srgb, var(--room-bone) 60%, var(--frame)); }
 .pg-dummy .pg-deck { flex: 0 0 auto; }
 .pg-dummy-opts { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 12px; margin-top: auto; }
@@ -548,8 +550,15 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .play .pg-dummy-opts .pg-rule select { width: 100%; max-width: 100%; font-size: 13.5px; }
 .play .pg-dummy-opts .pg-dummy-life input[type="number"] { width: 5.5ch; }
 @container (max-width: 210px) {
-  .pg-dummy .pg-plate .pg-name { font-size: 14.5px; }
+  /* three dummies on a laptop: a smaller, tighter name ("Target Dummy 3" whole) and a smaller seat chip */
+  .play .pg-dummy .pg-plate { gap: 6px; padding-left: 8px; }
+  .play .pg-dummy .pg-plate .pg-chip { width: 26px; height: 26px; font-size: 12.5px; }
+  .play .pg-dummy .pg-plate .pg-name { font-size: 13.5px; letter-spacing: 0; }
   .pg-dummy .pg-note { font-size: 12.5px; }
+}
+@container (max-width: 190px) {
+  .play .pg-dummy .pg-plate { padding-right: 4px; }
+  .play .pg-dummy .pg-plate .pg-name { font-size: 12.5px; }
 }
 @media (max-width: 1100px) {
   .pg-seats.pg-solo { flex-wrap: wrap; }
