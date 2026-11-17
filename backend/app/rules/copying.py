@@ -172,19 +172,30 @@ def with_excepts(recipe: CopyRecipe, excepts: list[CopyExcept]) -> CopyRecipe:
     return recipe.model_copy(update={"excepts": [*recipe.excepts, *kept]}) if kept else recipe
 
 
+# -- big boards (Kiki end step) -- id(recipe) -> (the recipe, the card info, what ``characteristics`` gave): a recipe is never changed once
+# built (copying builds a new one: ``with_excepts``, ``model_copy``), so the same object (held here, so its id is not reused) with the
+# same card info gives the same characteristics without serialising it for the key again (every derivation of a copy token read it).
+_CH_BY_OBJECT: dict[int, tuple[CopyRecipe, Any, Characteristics]] = {}
+
+
 def characteristics(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
     """The characteristics a recipe defines: its base, then each exception in order (707.9)."""
+    known = _CH_BY_OBJECT.get(id(recipe))
+    if known is not None and known[0] is recipe and known[1] is info:
+        return known[2]
     key = recipe.model_dump_json()
     hit = _CH_CACHE.get(key)
-    if hit is not None:
-        return hit
-    ch = _base(recipe, info)
-    for ex in recipe.excepts:
-        ch = _apply(ch, ex)
-    if len(_CH_CACHE) > _CH_MAX:
-        _CH_CACHE.clear()
-    _CH_CACHE[key] = ch
-    return ch
+    if hit is None:
+        hit = _base(recipe, info)
+        for ex in recipe.excepts:
+            hit = _apply(hit, ex)
+        if len(_CH_CACHE) > _CH_MAX:
+            _CH_CACHE.clear()
+        _CH_CACHE[key] = hit
+    if len(_CH_BY_OBJECT) > _CH_MAX:
+        _CH_BY_OBJECT.clear()
+    _CH_BY_OBJECT[id(recipe)] = (recipe, info, hit)
+    return hit
 
 
 def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:

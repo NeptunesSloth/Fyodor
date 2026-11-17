@@ -193,6 +193,23 @@ def timestamp(state: GameState, card_id: str) -> int:
     return max(r.objects.get(card_id, 0), r.restamped.get(card_id, 0))
 
 
+_RECIPES_JSON: tuple[tuple[Any, ...], bytes] = ((), b"[]")
+
+
+def _recipes_json(recipes: list[Any]) -> bytes:
+    """-- big boards (Kiki end step) -- ``to_json(recipes)`` for the statics key, kept for the last list of recipe objects asked about: a
+    board of 200 copy tokens serialised its 200 recipes for every derivation outside a read pass (about 25 per sacrifice). A recipe is
+    never changed once a copy effect holds it (copying.py builds a new one: ``with_excepts``, ``model_copy``), so the same objects (``is``,
+    held here so no id is reused) serialise the same."""
+    global _RECIPES_JSON
+    objs, data = _RECIPES_JSON
+    if len(objs) == len(recipes) and all(a is b for a, b in zip(objs, recipes, strict=True)):
+        return data
+    data = to_json(recipes)
+    _RECIPES_JSON = (tuple(recipes), data)
+    return data
+
+
 def statics(state: GameState, info: CardInfo) -> list[Static]:
     """Static grants and attached rules of permanents on the battlefield, read from printed
     abilities and from abilities other statics grant; cached by what is on the battlefield, in
@@ -222,7 +239,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
             for o in e.affected:
                 if o not in copies or e.timestamp >= copies[o][0]:
                     copies[o] = (e.timestamp, i)
-        recipes_json = to_json([e.copy_recipe for e in recipes])
+        recipes_json = _recipes_json([e.copy_recipe for e in recipes])
     # -- big boards round 3 -- the rules state's object numbers, restamps and automation modes read directly (RulesState.object_id,
     # card_mode and ``timestamp`` read exactly these: the same values, without three calls per card); ``timestamp`` itself while a
     # prospective field is being solved (its entering object's own number); no choices or stickers: the same empty tuple

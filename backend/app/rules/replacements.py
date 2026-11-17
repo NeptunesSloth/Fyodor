@@ -1429,12 +1429,42 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
         return _static_exile_all_now(plan, card)
 
 
+_EXILE_STATICS = ("exile_instead", "hand_instead")
+
+
+def _exile_static_sources(plan: Plan) -> Any:
+    """-- big boards (Kiki end step) -- the cards ``_static_exile_all_now`` reads the current characteristics of. Every card, unless no
+    ability on the table can be gained or rewritten: no static ability of a permanent, a graveyard card or an emblem in the statics
+    table at all (layers.statics), no resolved effect that gives abilities (layer 6) or changes text (layer 3), no global word
+    change, no sticker, nothing attached, no Torrent of Lava on the stack. Then a permanent's abilities are its copiable ones (613.2)
+    or fewer (a "loses all abilities" only takes them away), so only a card whose copiable values have an "exile it instead" /
+    "return it to its owner's hand instead" static can have one now: just those are derived (the same answer: the rest have none).
+    Each token leaving a big board derived the whole board again only to find no such ability (200 Kiki-Jiki copies' end-step
+    sacrifices, playtest B4). The face-up plane (311.4) is always read."""
+    state, r = plan.state, plan.rules
+    cards = state.cards.values()
+    if r is None or plan.info is None or r.color_words71 or any(
+            e.layer == "3" or (e.layer == "6" and e.add_abilities) for e in r.effects):
+        return cards
+    if any((c.stickers101 or c.attached_to) and c.zone.endswith(":battlefield") or c.name == "Torrent of Lava" and c.zone == "stack"
+           for c in cards):
+        return cards
+    from app.rules import layers
+
+    if any(True for _ in layers.statics(state, plan.info)):
+        return cards
+    return [c for c in cards if c.id.startswith("planar-") or (
+        c.zone.endswith(":battlefield") and not c.face_down
+        and any(d["kind"] == "static" and d.get("static") in _EXILE_STATICS
+                for d in scripts.definitions(layers.copiable(state, c, plan.info)).values()))]
+
+
 def _static_exile_all_now(plan: Plan, card: CardInstance) -> list[tuple[CardInstance, dict[str, Any]]]:
     from app.rules import planar_statics
 
     frm = _from_zone(card)
     found: list[tuple[CardInstance, dict[str, Any]]] = []
-    for src in plan.state.cards.values():
+    for src in _exile_static_sources(plan):
         plane = planar_statics.functions(plan.state, src)  # -- planechase more (wave E1) -- the face-up plane's (311.4: The Doctor's Tomb)
         if not (src.zone.endswith(":battlefield") or plane) or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
@@ -1556,6 +1586,11 @@ def _self_shuffle_instead(plan: Plan, card: CardInstance) -> bool:
 def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> list[Cand]:
     """The replacement effects that apply to ``card`` going to ``dest`` now (a graveyard, or for a permanent anywhere but
     exile: "if it would leave the battlefield, exile it instead"), in no particular order."""
+    with plan.reading():  # -- big boards (Kiki end step) -- read-only: the card derived once for its own replacements, not once per kind
+        return _zone_candidates(plan, card, dest)
+
+
+def _zone_candidates(plan: Plan, card: CardInstance, dest: str) -> list[Cand]:
     frm = _from_zone(card)
     out: list[Cand] = []
     if frm == "battlefield" and dest not in ("exile", "battlefield"):

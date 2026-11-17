@@ -409,12 +409,14 @@ def start_declare_attackers(plan: Plan) -> None:
         delayed.at_step(plan, "declare_attackers")  # (wave 110I) nobody can attack: the step's delayed triggers still trigger
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
+    with plan.reading():  # -- big boards (Kiki end step) -- the guide only reads: each creature derived once, not once per check
+        display = {**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets)}
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
            options=[DecisionOption(id=f"a:{cid}", label=plan.state.cards[cid].name or "Creature", card_id=cid) for cid in eligible]
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)
               for t in targets],
            min_choices=0, max_choices=len(eligible), resume={"step": "declare_attackers"},
-           display={**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets)})
+           display=display)
 
 
 # -- attack guide (soak gaps) -- what the declaration offers each creature: the server's own checks, read before anything is declared
@@ -498,55 +500,56 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
             token_stacks.keep(plan, decl.card_id, decl.count)
     seen: set[str] = set()
-    for decl in a.attackers:
-        card = plan.state.cards.get(decl.card_id)
-        if decl.card_id not in eligible or card is None:
-            raise ActionError("That creature can't attack now")
-        problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
-        if problem:
-            raise ActionError(problem)
-        if decl.target not in targets or decl.target not in current_targets:
-            raise ActionError(f"{card.name} can't attack that")
-        if (problem := target_problem(plan, card, decl.target)) is not None:  # 508.1c (the decision's guide reads the same checks)
-            raise ActionError(problem)
-        if decl.card_id in seen:
-            raise ActionError(f"{card.name} can only attack once")
-        seen.add(decl.card_id)
-        if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
-            raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
-    # -- combat (wave 5C) -- 508.1c: "No more than two creatures can attack you each combat"
-    from app.rules import combat_rules
+    with plan.reading():  # -- big boards (Kiki end step) -- the checks of the declaration only read: each creature derived once
+        for decl in a.attackers:
+            card = plan.state.cards.get(decl.card_id)
+            if decl.card_id not in eligible or card is None:
+                raise ActionError("That creature can't attack now")
+            problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
+            if problem:
+                raise ActionError(problem)
+            if decl.target not in targets or decl.target not in current_targets:
+                raise ActionError(f"{card.name} can't attack that")
+            if (problem := target_problem(plan, card, decl.target)) is not None:  # 508.1c (the decision's guide reads the same checks)
+                raise ActionError(problem)
+            if decl.card_id in seen:
+                raise ActionError(f"{card.name} can only attack once")
+            seen.add(decl.card_id)
+            if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
+                raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
+        # -- combat (wave 5C) -- 508.1c: "No more than two creatures can attack you each combat"
+        from app.rules import combat_rules
 
-    declared = [(x.card_id, x.target) for x in a.attackers]
-    from app.rules import declaration_groups
+        declared = [(x.card_id, x.target) for x in a.attackers]
+        from app.rules import declaration_groups
 
-    grouped = declaration_groups.relevant(plan, eligible, 'attack')
-    if grouped and not declaration_groups.legal(plan, seen, 'attack'):
-        raise ActionError('The attacking creatures do not satisfy their companion restrictions')
-    caps = combat_rules.limits(plan)
-    limit = combat_rules.limit_problem(plan, declared, caps)
-    if limit:
-        raise ActionError(limit)
-    if grouped:
-        problem = declaration_groups.attack_requirements(plan, eligible, targets, dict(declared), caps)
-        if problem:
-            raise ActionError(problem)
-    elif "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
-        problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets, dict(declared)),
-                                                    {x.card_id: x.target for x in a.attackers}, caps)
-        if problem:
-            raise ActionError(problem)
-    else:
-        # 508.1d: a creature that "attacks each combat if able" must attack when it can
-        for cid in eligible - seen:
-            card = plan.state.cards.get(cid)
-            if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                    attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
-                    any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
-                raise ActionError(f"{card.name} attacks each combat if able")
-        goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
-        if goad_problem:  # -- keyword actions & face-down (wave 3F) --
-            raise ActionError(goad_problem)
+        grouped = declaration_groups.relevant(plan, eligible, 'attack')
+        if grouped and not declaration_groups.legal(plan, seen, 'attack'):
+            raise ActionError('The attacking creatures do not satisfy their companion restrictions')
+        caps = combat_rules.limits(plan)
+        limit = combat_rules.limit_problem(plan, declared, caps)
+        if limit:
+            raise ActionError(limit)
+        if grouped:
+            problem = declaration_groups.attack_requirements(plan, eligible, targets, dict(declared), caps)
+            if problem:
+                raise ActionError(problem)
+        elif "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
+            problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets, dict(declared)),
+                                                        {x.card_id: x.target for x in a.attackers}, caps)
+            if problem:
+                raise ActionError(problem)
+        else:
+            # 508.1d: a creature that "attacks each combat if able" must attack when it can
+            for cid in eligible - seen:
+                card = plan.state.cards.get(cid)
+                if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
+                        attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
+                        any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
+                    raise ActionError(f"{card.name} attacks each combat if able")
+            goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
+            if goad_problem:  # -- keyword actions & face-down (wave 3F) --
+                raise ActionError(goad_problem)
     banding.validate(plan, a, locked=paying)
     from app.game.rules_state import DeclarationCostReservation
     from app.rules import nonmana_combat_costs
