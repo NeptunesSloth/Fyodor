@@ -96,7 +96,17 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   // preview was placed covered it)
   // (and when the priority or the step changes: the turn dial grows and shrinks with them)
   const chrome = useGame((s) => `${s.view?.stack.length ?? 0}|${s.view?.rules?.decision?.id ?? ""}|${s.view?.rules?.priority ?? ""}|${s.view?.turn.phase ?? ""}`);
-  const key = `${shown}|${ready}|${chrome}`;
+  // ... and when the turn dial changes size by itself (folded or unfolded, its buttons): placed against its old size the preview went under it
+  const [dialSize, setDialSize] = useState("");
+  useEffect(() => {
+    if (!shown || typeof ResizeObserver === "undefined") return;
+    const dial = document.querySelector(".turn-dial-wrap");
+    if (!dial) return;
+    const ro = new ResizeObserver(() => { const r = dial.getBoundingClientRect(); setDialSize(`${Math.round(r.top)}:${Math.round(r.height)}`); });
+    ro.observe(dial);
+    return () => ro.disconnect();
+  }, [shown]);
+  const key = `${shown}|${ready}|${chrome}|${dialSize}`;
   const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
     const node = panel.current;
