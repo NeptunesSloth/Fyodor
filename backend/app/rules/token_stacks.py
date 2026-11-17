@@ -392,6 +392,8 @@ class _Audit:
             return True
         if isinstance(value, dict) and set(value) == {"count"} and isinstance(value["count"], str):
             return True
+        if isinstance(value, dict) and set(value) == {"x"} and isinstance(value["x"], int):
+            return True  # -- playtest B5 -- "Create X … tokens": the X announced for the spell or ability (107.3, 601.2b), one number for all
         return self.blind(value)
 
     def effect_ok(self, e: dict[str, Any], observer: CardInstance) -> bool:

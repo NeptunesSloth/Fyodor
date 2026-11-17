@@ -262,7 +262,10 @@ export const useGame = create<GameStore>((set, get) => ({
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
       else {
         const type = String((action as { type?: unknown }).type ?? "");
-        toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, type)}`.trim(), "error", { label: "Help", run: () => get().openDialog("help", HELP_TOPIC[type] ?? "") });
+        // -- playtest B5 -- a refusal stays until dismissed: a long reason (a token count the engine can't make) vanished before it was read,
+        // and the cast looked as if it had done nothing
+        toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, type)}`.trim(), "error",
+          { label: "Help", run: () => get().openDialog("help", HELP_TOPIC[type] ?? "") }, { sticky: true });
         // mark the card involved on the table, not only in the corner
         const a = action as { card_id?: unknown; card_ids?: unknown; id?: unknown };
         const card = typeof a.card_id === "string" ? a.card_id : Array.isArray(a.card_ids) && typeof a.card_ids[0] === "string" ? a.card_ids[0] : null;
