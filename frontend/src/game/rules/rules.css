@@ -376,5 +376,5 @@ main.table > .zone-browser.folded { top: 8px; bottom: auto; max-height: none; }
 .zb-paying { color: var(--accent-2, #e0b860); }
 
 /* -- playtest (nov 16) -- an extra turn (500.7), under the step: brass, like the turn it adds */
-.td-extra { margin: 0; font: 600 11.5px/1.2 var(--font-ui); color: var(--accent-2, #e0b860); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-extra { margin: 0; min-width: 0; max-width: 100%; font: 600 11.5px/1.2 var(--font-ui); color: var(--accent-2, #e0b860); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .turn-dial.folded .td-extra { display: none; }
