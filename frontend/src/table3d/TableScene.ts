@@ -303,6 +303,15 @@ function angleLerp(a: number, b: number, t: number): number {
 /** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. */
 export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number }
 
+/** -- playtest (nov 17) -- the most stack cards the 3D table fans out; older ones pile under the first fanned card. */
+export const STACK_FAN = 12;
+/** A stack card's height over the base: a piled card's share of a low pile (at most PILE_RISE high), then 0.02 a card along the fan. */
+const PILE_RISE = 0.12;
+export function stackLift(i: number, piled: number): number {
+  if (i < piled) return (i * PILE_RISE) / Math.max(1, piled);
+  return (piled ? PILE_RISE : 0) + (i - piled) * 0.02;
+}
+
 export class TableScene {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
@@ -1707,7 +1716,11 @@ export class TableScene {
     // chain), facing me; the top one stands biggest and highest and says it resolves next
     const n = view.stack.length;
     const myRot = seatOf.get(this.me)?.rot ?? 0;
-    const step = Math.min(1.8, 8 / Math.max(1, n));
+    // -- playtest (nov 17) -- a long chain (95 triggers) rose as one tall ramp over both battlefields: only the last STACK_FAN are fanned,
+    // the older ones gather in a low pile under the first of them (the stack panel lists them all, "×95")
+    const fanned = Math.min(n, STACK_FAN);
+    const piled = n - fanned;
+    const step = Math.min(1.8, 8 / Math.max(1, fanned));
     this.stackBox = null;
     this.stackAnchors.clear();
     const grow = (x: number, z: number, r: number) => {
@@ -1724,17 +1737,18 @@ export class TableScene {
     const topScale = narrow ? 1.7 : Math.min(2.25, fit);
     const restScale = topScale * 0.82;
     const spacing = step * (topScale / 2.25);
-    const x0 = narrow ? -(MAT_W / 2 - (CARD_W * topScale) / 2 - 0.3) + ((n - 1) / 2) * spacing : 0;
+    const x0 = narrow ? -(MAT_W / 2 - (CARD_W * topScale) / 2 - 0.3) + ((fanned - 1) / 2) * spacing : 0;
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
       const top = i === n - 1;
-      const x = x0 + (i - (n - 1) / 2) * spacing;
+      const j = Math.max(0, i - piled); // (its place in the fan: every piled card shares the first)
+      const x = x0 + (j - (fanned - 1) / 2) * spacing;
       const z = 0;
       const wx = x * Math.cos(myRot) + z * Math.sin(myRot);
       const wz = -x * Math.sin(myRot) + z * Math.cos(myRot);
       const scale = top ? topScale : restScale;
-      const y = (top ? 0.42 : 0.3) + i * 0.02;
+      const y = (top ? 0.42 : 0.3) + stackLift(i, piled);
       this.place(c, undefined, wx, wz, y, myRot);
       c.scale = scale;
       grow(wx, wz, (CARD_H / 2) * scale + 0.45);
