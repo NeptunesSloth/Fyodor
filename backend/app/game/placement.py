@@ -62,11 +62,14 @@ def free_spot(state: GameState, zone_key: str, row: str, taken: list[tuple[float
     occupied += taken or []
     base_y = ROWS[row]
     step = CARD_W + 6
+    # -- playtest (nov 16) -- a full row's next layer is laid like bricks, half a card along and a little lower, so each card under it
+    # keeps half its face in view: layers nudged 10 along and 44 down landed almost on the card below (the 2D board clamps the low
+    # layers of the land row up again), which showed only a ~25 px sliver of it
     for layer in range(6):
         y = base_y + layer * 22
-        x = 12.0 + layer * 10
+        x = 12.0 + (layer % 2) * step / 2
         while x + CARD_W <= BATTLEFIELD_W:
-            if all(abs(ox - x) > CARD_W * 0.6 or abs(oy - y) > CARD_H * 0.3 for ox, oy in occupied):
+            if all(abs(ox - x) > CARD_W * 0.6 or abs(oy - y) > CARD_H * 0.15 for ox, oy in occupied):
                 return x, y
             x += step
     return 12.0, base_y
