@@ -103,7 +103,9 @@ export function tickAt(from: number, to: number, t: number): number {
 
 /** The line under the word for the victory and draw variants (the defeat one is ``causeLine``). */
 export function otherLine(view: GameView, variant: EndingVariant): string {
-  const dummies = view.players.filter((p) => p.dummy && !p.left);
-  if (variant === "victory") return dummies.length > 1 ? `Every target dummy is out (${dummies.length}).` : `${dummies[0]?.name ?? "The target dummy"} is out.`;
+  // (-- test opponent -- a bot that lost has left the game: it is named all the same, as an opponent, not a target dummy)
+  const others = view.players.filter((p) => (p.dummy && !p.left) || p.bot);
+  const word = others.every((p) => p.dummy) ? "target dummy" : "opponent";
+  if (variant === "victory") return others.length > 1 ? `Every ${word} is out (${others.length}).` : `${others[0]?.name ?? `The ${word}`} is out.`;
   return view.rules?.draw_reason ? `${view.rules.draw_reason}.` : "The game is a draw.";
 }

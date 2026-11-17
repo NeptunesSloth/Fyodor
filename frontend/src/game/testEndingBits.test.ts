@@ -63,6 +63,10 @@ describe("the test-table ending screen", () => {
     expect(otherLine(view(["Wall"]), "victory")).toBe("Wall is out.");
     expect(otherLine(view(["A", "B"]), "victory")).toBe("Every target dummy is out (2).");
     expect(otherLine(view(["A"], { draw_reason: "Everyone lost at once" }), "draw")).toBe("Everyone lost at once.");
+    // a test opponent that plays a deck (it has left the game by now): named as an opponent, not a target dummy
+    const bots = (names: string[]) => ({ players: names.map((name, i) => ({ id: `p${i + 2}`, name, bot: "simple", left: true })), rules: {} }) as unknown as GameView;
+    expect(otherLine(bots(["Opponent"]), "victory")).toBe("Opponent is out.");
+    expect(otherLine(bots(["Opponent", "Opponent 2"]), "victory")).toBe("Every opponent is out (2).");
   });
 });
 
