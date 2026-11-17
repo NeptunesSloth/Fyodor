@@ -22,7 +22,7 @@ import { FILTER_MIN, filterOptions } from "./optionFilter";
 import { CardFilterBar, filterCardOf } from "../CardFilterBar";
 import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
-import { DUMMIES_WIN, OPPONENTS_WIN } from "../nightEnding";
+import { DUMMIES_WIN, OPPONENTS_WIN, gameEnded } from "../nightEnding";
 import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
@@ -412,7 +412,9 @@ export function RulesStack() {
   const { rows, more } = useChainRows(entries); // (a batch of identical triggers is one row; past ROW_LIMIT rows, "Show more")
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
-  const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
+  // -- playtest (nov 16) -- once the game is over the stack is only a record: no Respond, no Stop after (a live Respond sat beside Victory)
+  const ended = gameEnded(view, me);
+  const mine = !ended && !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
   const top = entries[0]?.id ?? "";
   return (
     <div className="rules-stack-wrap plaque-wrap">
@@ -422,12 +424,13 @@ export function RulesStack() {
           {rows.map((entry, i) => (
             <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
               {/* (a batch: after the last of it, the bottom-most) */}
-              <button className="tt-btn ghost chain-hold" title={entry.ids.length > 1 ? "Stop and give me priority after all of these resolve" : "Stop and give me priority after this resolves"}
-                onClick={() => void setPrefs({ stop_after: entry.ids[entry.ids.length - 1] })}>Stop after</button>
+              {!ended && <button className="tt-btn ghost chain-hold" title={entry.ids.length > 1 ? "Stop and give me priority after all of these resolve" : "Stop and give me priority after this resolves"}
+                onClick={() => void setPrefs({ stop_after: entry.ids[entry.ids.length - 1] })}>Stop after</button>}
             </ChainRow>
           ))}
           {more}
         </ol>
+        {ended && <p className="chain-actions-hint chain-ended" data-testid="stack-ended">The game is over: nothing more resolves.</p>}
         {mine && (
           <div className="chain-actions">
             <button className={`btn small ${responding === top ? "primary" : ""}`} data-testid="stack-respond"

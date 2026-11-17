@@ -347,3 +347,4 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
   .game-screen:has(.turn-dial-wrap) main.table > .zone-browser,
   .game-screen:has(.turn-dial-wrap):has(.log-drawer.open) main.table > .zone-browser { right: 8px; top: 8px; bottom: auto; }
 }
+.chain-ended { margin: 8px 2px 0; }

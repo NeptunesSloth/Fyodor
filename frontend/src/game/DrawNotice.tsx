@@ -4,6 +4,7 @@ import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, type GameView } from "../types/game";
 import { drewLine, mergeBatch, newDraws, noticeFaces, useFreshDraws, wantsNotice, type DrawBatch } from "./drawNotices";
+import { gameEnded } from "./nightEnding";
 import "./drawNotice.css";
 
 const SHOWN_MS = 4500;
@@ -29,6 +30,8 @@ export function DrawNotice() {
       if (next.viewer === "__spectator__" || s.actingAs !== prev.actingAs) return;
       const me = perspective(next, s.actingAs);
       if (prev.view && perspective(prev.view, prev.actingAs) !== me) return;
+      // -- playtest (nov 16) -- the game ended (decked out drawing): the ending speaks now, not the notice over it
+      if (gameEnded(next, me)) { live.current = null; setBatch(null); return; }
       const ev = newDraws(prev.view, next, me);
       if (!ev || !wantsNotice(usePrefs.getState().drawNotice, ev)) return;
       useFreshDraws.getState().add(ev.ids, next.turn.number);
