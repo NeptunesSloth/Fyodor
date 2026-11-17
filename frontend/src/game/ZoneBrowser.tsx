@@ -13,7 +13,7 @@ import { castFromZone, zoneCastables } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
 import { centreOf, displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
-import { legalClass } from "./rules/RulesHud";
+import { legalClass, paying } from "./rules/RulesHud";
 import { useFreshDraws } from "./drawNotices";
 
 /**
@@ -25,6 +25,10 @@ export function ZoneBrowser({ me }: { me: string }) {
   const view = useGame((s) => s.view);
   const [filter, setFilter] = useState<CardFilter>(NO_FILTER);
   const cards = useCardCache((s) => s.cards);
+  // -- playtest (nov 16) -- folded to its header (the cards hidden): by hand, and on its own while I pay a cost, so the land row under it
+  // stays clickable (it covered the lands while a flashback Bolt was paid for); null: as the moment says
+  const [folded, setFolded] = useState<boolean | null>(null);
+  const pay = useGame((s) => paying(s.view, me));
 
   // a search of my library takes the window over from any zone I was looking at (the Command zone, a graveyard…)
   const search = view?.searches[view.viewer] ?? null;
@@ -68,8 +72,9 @@ export function ZoneBrowser({ me }: { me: string }) {
     setFilter(NO_FILTER);
   };
 
+  const fold = folded ?? pay;
   return (
-    <div className="zone-browser">
+    <div className={`zone-browser${fold ? " folded" : ""}`} data-testid="zone-browser" data-folded={fold ? "" : undefined}>
       <div className="zb-head">
         <b>{title}</b>
         <span className="hint">
@@ -80,6 +85,9 @@ export function ZoneBrowser({ me }: { me: string }) {
           // Esc leaves the box: a view closes, a search only lets go of the box (ending a search is its own button)
           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); if (searching) e.currentTarget.blur(); else close(); } }} />}
         <span className="spacer" />
+        {fold && pay && <span className="hint zb-paying">Folded while you pay: your lands stay in reach</span>}
+        <button className="btn small ghost" data-testid="zb-fold" aria-expanded={!fold} title={fold ? "Show the cards again" : "Fold the browser to this bar (the table under it stays clickable)"}
+          onClick={() => setFolded(!fold)}>{fold ? "Show cards" : "Fold"}</button>
         {searching ? (
           <>
             <button className="btn small" onClick={() => close(false)}>Done (no shuffle)</button>
@@ -89,7 +97,8 @@ export function ZoneBrowser({ me }: { me: string }) {
           <button className="btn small" onClick={() => close()}>Close</button>
         )}
       </div>
-      {filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : myHand ? "Hand order" : "Newest first"} />}
+      {!fold && filters && <CardFilterBar value={filter} onChange={setFilter} orderLabel={zone === "library" ? "Library order" : myHand ? "Hand order" : "Newest first"} />}
+      {!fold && <>
       <div className="zb-hint hint">
         {myHand
           ? "Drag a card onto the table to play or cast it · double-click or Enter plays it · right-click for more"
@@ -103,6 +112,7 @@ export function ZoneBrowser({ me }: { me: string }) {
           ? shown.map((id) => <HandBrowserCard key={id} id={id} me={me} index={ids.length ? (view.zones[zoneKey] as string[]).indexOf(id) : 0} />)
           : shown.map((id) => <BrowserCard key={id} id={id} me={me} owner={player ?? me} />)}
       </div>
+      </>}
     </div>
   );
 }

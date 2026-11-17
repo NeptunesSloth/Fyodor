@@ -445,9 +445,25 @@ export function RulesStack() {
   );
 }
 
+/**
+ * -- playtest (nov 16) -- I'm paying a cost with my lands: the payment plaques (tap mana, pay), or a question that says to tap mana first
+ * ("Rings of Brighthearth: pay {2}? (tap your mana first)"). The land row has to stay in view: the body gets `paying`, which moves other
+ * prompts up off my mat, and the zone browser folds to its header (game/rules/rules.css, ZoneBrowser.tsx).
+ */
+export function paying(view: GameView | null, me: string): boolean {
+  const d = view?.rules?.decision;
+  if (!d || d.player !== me || view?.rules?.paused) return false;
+  return d.display?.kind === "tap_mana" || d.display?.kind === "payment" || /tap (?:your )?(?:mana|lands)/i.test(d.prompt ?? "");
+}
+
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
 export function DecisionPanel() {
   const ctx = useRules();
+  const pay = !!ctx && paying(ctx.view, ctx.me);
+  useEffect(() => {
+    document.body.classList.toggle("paying", pay);
+    return () => document.body.classList.remove("paying");
+  }, [pay]);
   const wheelOn = usePrefs((s) => s.choiceWheel);
   const selection = useGame((s) => s.selection); // (the card just cast, when the prompt names a card I hold twice)
   useCardCache((s) => s.cards); // the targeting bar names what to choose from the candidates' type lines
