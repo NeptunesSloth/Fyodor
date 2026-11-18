@@ -28,7 +28,7 @@ export function dropCards(ids: string[], anchorId: string, target: DropResult | 
     const off = same ? ids.filter((id) => away.has(id) && view.cards[id]?.zone === target.zone) : [];
     if (off.length && automationOn(view)) {
       // rules on: an unattached Aura would go to the graveyard (704.5m), no surprise from a drag: it springs back
-      toast(`${nameOf(view.cards[off[0]!])}${off.length > 1 ? ` and ${off.length - 1} more` : ""} stays attached — use its menu to move it`, "info");
+      toast(`${nameOf(view.cards[off[0]!])}${off.length > 1 ? ` and ${off.length - 1} more stay attached — use their menus to move them` : " stays attached — use its menu to move it"}`, "info");
       return;
     }
     if (off.length) {
