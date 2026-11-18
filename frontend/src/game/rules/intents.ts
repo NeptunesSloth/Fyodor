@@ -94,6 +94,9 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
         ...kickerItems(card.id, kicker, true, spot)], `${data?.name ?? "Cast"}: kicker?`);
       return true;
     }
+    // -- round 5 (replicate) -- a card with replicate / squad / offspring, or given replicate (Djinn Illuminatus, Hugh), asks how many times
+    // to pay it first (601.2b): the count chooser, at 0 (a drag or a double-click never offered it; only the right-click menu did, for a grant)
+    if (openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
     void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot });
     return true;
   }
@@ -272,6 +275,66 @@ export function kickerItems(cardId: string, kicker: string, castable = true, spo
         { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId, ...spot }, field: "kicker" }) }] }];
   }
   return [{ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) }];
+}
+
+/** -- round 5 (replicate) -- one count of an optional additional cost asked before a cast: the card's own replicate / squad (any number of
+ * times) or offspring (once), sent as cast_spell's `kicker`; or one replicate a permanent gives the spell (Hugh, Djinn Illuminatus: the
+ * hints' `replicate111r3`), sent at its `slot` of `replicate` (702.56b). `cost`: one payment ("{1}{U}", or the words of a cost that isn't mana). */
+export interface CountRow { label: string; cost: string; field: "kicker" | "replicate"; slot?: number; once?: boolean }
+
+/** The open count chooser (RulesHud's CountPrompt): the cast it completes, the card's name, its rows. */
+export const useCountPrompt = create<{ action: Action | null; title: string; rows: CountRow[] }>(() => ({ action: null, title: "", rows: [] }));
+
+/** 702.56a replicate, 702.157a squad: "[cost]" any number of times; 702.175a offspring: once. Mana costs, or "Replicate—Tap an untapped Dalek …". */
+const COUNTED = /^(replicate|squad|offspring) ((?:\{[^}]+\})+)$|^(replicate|squad)—(.+?)\.?$/i;
+
+/** The counts a cast of this card from my hand asks for (none: cast it as before). */
+export function countRows(cardId: string, view: GameView): CountRow[] {
+  const card = view.cards[cardId];
+  if (!card || card.hidden || !card.card_id) return [];
+  const data = useCardCache.getState().cards[card.card_id];
+  const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+  const rows: CountRow[] = [];
+  for (const line of abilityLines(oracle)) {
+    const m = COUNTED.exec(line);
+    if (!m) continue;
+    const word = (m[1] ?? m[3] ?? "").toLowerCase();
+    rows.push({ label: word[0]!.toUpperCase() + word.slice(1), cost: m[2] ?? m[4] ?? "", field: "kicker", once: word === "offspring" });
+    break; // (one such cost a card has: CastSpell.kicker is its count)
+  }
+  (view.rules?.hints.replicate111r3?.[cardId] ?? []).forEach((label, slot) => {
+    const cost = /\{[^(]*\}/.exec(label)?.[0] ?? "";
+    const from = /\(([^)]+)\)\s*$/.exec(label)?.[1];
+    rows.push({ label: from ? `Replicate (${from})` : "Replicate", cost, field: "replicate", slot });
+  });
+  return rows;
+}
+
+/** Open the count chooser for `action` (a cast of `cardId`) when the card has counts to choose; false when it has none. */
+export function openCountPrompt(cardId: string, view: GameView, action: Action): boolean {
+  const rows = countRows(cardId, view);
+  if (!rows.length) return false;
+  const card = view.cards[cardId];
+  const name = card && !card.hidden && card.card_id ? useCardCache.getState().cards[card.card_id]?.name ?? card.name : undefined;
+  useCountPrompt.setState({ action, title: name ?? "Cast", rows });
+  return true;
+}
+
+/** Send the chooser's cast with these counts (one per row; 0: not paid). A cast paying none keeps `ask_optional` (other optional costs are asked). */
+export function submitCounts(counts: number[]): void {
+  const { action, rows } = useCountPrompt.getState();
+  useCountPrompt.setState({ action: null, title: "", rows: [] });
+  if (!action) return;
+  const out: Action = { ...action };
+  const replicate: number[] = [];
+  rows.forEach((row, i) => {
+    const n = Math.max(0, Math.min(row.once ? 1 : 1000, Math.floor(counts[i] ?? 0)));
+    if (row.field === "kicker") {
+      if (n) out.kicker = n;
+    } else replicate[row.slot ?? 0] = n;
+  });
+  if (replicate.some((n) => n)) out.replicate = Array.from(replicate, (n) => n ?? 0);
+  void send(out);
 }
 
 /** The kicker line of a card's rules text, if it has one the table can offer (702.33, 702.42 entwine). */

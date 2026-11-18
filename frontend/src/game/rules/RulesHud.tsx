@@ -10,7 +10,7 @@ import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { isVisible, PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete, imageUrl } from "../../services/cards";
-import { isLand, canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { isLand, canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, submitCounts, tapForMana, useCountPrompt, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
@@ -702,7 +702,7 @@ const PROMPT = {
  * -- playtest (nov 16) -- the X prompt's guide: my untapped lands and floating mana, and the largest X they leave after the rest of the
  * cost (each land counted as one mana; the server checks the real cost). Null when the card isn't known here.
  */
-export function xEstimate(view: GameView, me: string, action: { card_id?: unknown; type?: unknown }): { line: string; max: number } | null {
+export function xEstimate(view: GameView, me: string, action: { card_id?: unknown; type?: unknown }): { line: string; max: number; have: number; fixed: number } | null {
   const lands = ((view.zones[`${me}:battlefield`] as string[] | undefined) ?? []).filter((id) => !view.cards[id]?.tapped && isLand(id, view)).length;
   const pool = Object.values(view.players.find((p) => p.id === me)?.mana ?? {}).reduce((a, b) => a + b, 0);
   const card = typeof action.card_id === "string" ? view.cards[action.card_id] : undefined;
@@ -714,13 +714,73 @@ export function xEstimate(view: GameView, me: string, action: { card_id?: unknow
   const fixed = symbols.reduce((n, m) => n + (m === "{X}" ? 0 : /^\{\d+\}$/.test(m) ? Number(m.slice(1, -1)) : 1), 0);
   const have = lands + pool;
   const line = `You have ${lands} untapped ${lands === 1 ? "land" : "lands"}${pool ? ` and ${pool} mana floating` : ""}.`;
-  return { line, max: xs ? Math.max(0, Math.floor((have - fixed) / xs)) : 0 };
+  return { line, max: xs ? Math.max(0, Math.floor((have - fixed) / xs)) : 0, have, fixed };
+}
+
+/** -- round 5 (replicate) -- one payment's mana value ("{1}{U}" → 2; a cost that isn't mana counts 0). */
+export function paymentValue(cost: string): number {
+  return (cost.match(/\{[^}]+\}/g) ?? []).reduce((n, m) => n + (/^\{\d+\}$/.test(m) ? Number(m.slice(1, -1)) : /^\{[WUBRGCS](\/[WUBRGCP])?\}$/i.test(m) ? 1 : 0), 0);
+}
+
+/**
+ * -- round 5 (replicate) -- how many times to pay replicate / squad / offspring (and each replicate a permanent gives the spell), asked
+ * before the cast (601.2b): one row per count, at 0, with its cost per payment, −/+ and a typed number, and what my lands and floating
+ * mana pay for (an estimate: the server checks the total cost, 601.2f).
+ */
+export function CountPrompt() {
+  const action = useCountPrompt((s) => s.action);
+  const title = useCountPrompt((s) => s.title);
+  const rows = useCountPrompt((s) => s.rows);
+  const [counts, setCounts] = useState<number[]>([]);
+  useEffect(() => setCounts(rows.map(() => 0)), [action, rows]);
+  if (!action) return null;
+  const view = useGame.getState().view;
+  const me = view ? perspective(view, useGame.getState().actingAs) : "";
+  const est = view ? xEstimate(view, me, action) : null;
+  const base = est?.fixed ?? 0;
+  const have = est?.have ?? 0;
+  const extra = rows.reduce((n, r, i) => n + paymentValue(r.cost) * (counts[i] ?? 0), 0);
+  const set = (i: number, v: number) => setCounts((xs) => rows.map((r, k) => (k === i ? Math.max(0, Math.min(r.once ? 1 : 1000, Math.floor(v) || 0)) : xs[k] ?? 0)));
+  const close = () => useCountPrompt.setState({ action: null, title: "", rows: [] });
+  const paid = counts.some((n) => n > 0);
+  return (
+    <div className="decision-panel frame" data-testid="count-prompt" onKeyDown={(e) => { if (e.key === "Escape") close(); }}>
+      <div className="decision-prompt">{title}: pay {rows.length === 1 ? rows[0]!.label.split(" (")[0]!.toLowerCase() : "these costs"} how many times?</div>
+      {est && <div className="decision-hint" data-testid="count-mana">{est.line}{base + extra > 0 ? ` This cast: about ${base + extra} mana.` : ""}</div>}
+      <div className="decision-options count-rows">
+        {rows.map((r, i) => {
+          const each = paymentValue(r.cost);
+          const max = r.once ? 1 : each > 0 && have > base ? Math.floor((have - base - (extra - each * (counts[i] ?? 0))) / each) : 0;
+          return (
+            <div key={i} className="count-row" data-testid={`count-row-${i}`}>
+              <span className="count-label">{r.label} <ManaText text={r.cost} />{r.once ? "" : " each"}</span>
+              <button className="tt-btn" data-testid={`count-minus-${i}`} aria-label={`One fewer ${r.label}`} disabled={(counts[i] ?? 0) <= 0} onClick={() => set(i, (counts[i] ?? 0) - 1)}>−</button>
+              <input className="decision-name count-input" data-testid={`count-input-${i}`} type="number" min={0} max={r.once ? 1 : 1000} value={counts[i] ?? 0}
+                autoFocus={i === 0} onFocus={(e) => e.currentTarget.select()} onChange={(e) => set(i, Number(e.target.value))}
+                onKeyDown={(e) => { if (e.key === "Enter") submitCounts(counts); }} />
+              <button className="tt-btn" data-testid={`count-plus-${i}`} aria-label={`One more ${r.label}`} disabled={(counts[i] ?? 0) >= (r.once ? 1 : 1000)} onClick={() => set(i, (counts[i] ?? 0) + 1)}>+</button>
+              {!r.once && max > 0 && <button className="tt-btn" data-testid={`count-max-${i}`} title="The most your untapped lands and floating mana pay for (an estimate: the server checks the cost)"
+                onClick={() => set(i, max)}>≈ Max {max}</button>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="decision-options">
+        <button className="tt-btn brass" data-testid="count-done" onClick={() => submitCounts(counts)}>
+          {paid ? `Cast, ${rows.map((r, i) => (counts[i] ? `${r.label.split(" (")[0]} ×${counts[i]}` : "")).filter(Boolean).join(", ")}` : rows.length === 1 ? `Cast without ${rows[0]!.label.split(" (")[0]!.toLowerCase()}` : "Cast, paying none"}
+        </button>
+        <button className="tt-btn" data-testid="count-cancel" onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
 }
 
 export function XPrompt() {
   const action = useXPrompt((s) => s.action);
   const field = useXPrompt((s) => s.field);
   const [x, setX] = useState("0");
+  const counting = useCountPrompt((s) => s.action);
+  if (counting && !action) return <CountPrompt />;
   if (!action) return null;
   const close = () => { useXPrompt.setState({ action: null, field: "x_value", slot: undefined }); setX("0"); };
   const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
@@ -883,7 +943,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
       {filterable && <CardFilterBar value={cardFilter} onChange={setCardFilter} text orderLabel="Library order" />}
       {listed.map((o) => (
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
-          onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
+          onClick={() => toggle(o.id)}>{o.card_id ? optionLabel(o, view) : <ManaText text={o.label} />}</button>
       ))}
       <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max, exactly)} onClick={() => done(picked)}>
         {doneLabel(picked.length, min, max)}

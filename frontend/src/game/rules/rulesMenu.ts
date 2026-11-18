@@ -2,7 +2,7 @@
 import type { AbilityRow, MenuItem } from "../../components/ContextMenu";
 import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
-import { abilityLines, automationOn, isLand, kickerItems, kickerLine, send, setPrefs, useXPrompt } from "./intents";
+import { abilityLines, automationOn, countRows, isLand, kickerItems, kickerLine, openCountPrompt, send, setPrefs, useXPrompt } from "./intents";
 
 /** -- Star Trek beam me up (wave 112T) -- the server's label of a beam me up cost: "<source>: beam me up {cost}". */
 const BEAM = /^(.*): beam me up ((?:\{[^}]+\})+)$/;
@@ -114,7 +114,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Cast with Chorus of the Conclave…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id }, field: "chorus" }) });
   }
   if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
-    items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
+    // -- round 5 -- 118.9d: the server then asks for the optional additional costs still payable (Omniscience with kicker, replicate)
+    items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true, ask_optional: true }) });
   }
   // Alternative costs written on cards (118.9): Force of Will's own, Jodah's for every spell. The server lists the
   // ones usable now; targets and the cards to exile or sacrifice are asked for as usual.
@@ -168,6 +169,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const kicker = kickerLine(oracle);
   if (mine && (zone === "hand" || zone === "command") && kicker) {
     items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
+  }
+  // -- round 5 (replicate) -- the card's own replicate / squad / offspring: "Cast with Replicate {1}{U}…" opens the count chooser (601.2b)
+  const own = countRows(card.id, view).find((r) => r.field === "kicker");
+  if (mine && (zone === "hand" || zone === "command") && own) {
+    items.push({ label: `Cast with ${own.label} ${own.cost}${own.once ? "" : "…"}`, disabled: !hints.castable?.includes(card.id),
+      onClick: () => (own.once ? void send({ type: "cast_spell", card_id: card.id, kicker: 1 }) : void openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id })) });
   }
   // -- granted replicate (wave 111R3) -- 702.56b: each replicate a permanent gives this spell (Hugh, First of Many) is paid
   // separately, in the order the server lists them (CastSpell.replicate); listed only for castable cards

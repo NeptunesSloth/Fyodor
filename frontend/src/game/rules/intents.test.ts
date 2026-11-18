@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { abilityLines, automationOn, canConcede, choose, concede, countRows, divide, dropAsIntent, submitCounts, useCountPrompt, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { canSubmitChoice, clickAnswer, dialState, doneLabel, justAnswered, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 import { libraryTopActions } from "../ZonePile";
@@ -385,6 +385,55 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.c1!, v, "p1")).some((l) => l.startsWith("Cast with Replicate"))).toBe(false);
   });
 
+  // -- round 5 (replicate) -- "I tried replicate and wasn't offered a choice": a drag / double-click of a replicate card asks the count first
+  it("asks how many times to pay a card's own replicate before a drag cast (601.2b), at 0", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, giga: { id: "giga", name: "Gigadrowse", type_line: "Instant",
+      oracle_text: "Replicate {U} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nTap target permanent." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["g1"] } });
+    const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:hand", "giga") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("g1", v)).toEqual([{ label: "Replicate", cost: "{U}", field: "kicker", once: false }]);
+    expect(dropAsIntent(["g1"], { zone: "stack" })).toBe(true);
+    expect(sent).toEqual([]); // nothing sent yet: the chooser is open
+    expect(useCountPrompt.getState().title).toBe("Gigadrowse");
+    submitCounts([3]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g1", ask_optional: true, kicker: 3 }]);
+    expect(useCountPrompt.getState().action).toBeNull();
+    // paying none casts it plainly (other optional costs still asked)
+    expect(dropAsIntent(["g1"], { zone: "stack" })).toBe(true);
+    submitCounts([0]);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "g1", ask_optional: true });
+    // the card menu offers it too
+    const item = rulesMenu(v.cards.g1!, v, "p1").find((i) => i !== "separator" && i.label === "Cast with Replicate {U}…");
+    if (!item || item === "separator") throw new Error("expected the replicate entry");
+    item.onClick?.();
+    expect(useCountPrompt.getState().rows).toHaveLength(1);
+    useCountPrompt.setState({ action: null, title: "", rows: [] });
+  });
+
+  it("asks the count of a granted replicate (Djinn Illuminatus) on a drag, in its slot (702.56b)", () => {
+    const v = view({ ...RULES, hints: { castable: ["c2"], replicate111r3: { c2: ["Replicate {R} (Djinn Illuminatus)"] } } });
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("c2", v)).toEqual([{ label: "Replicate (Djinn Illuminatus)", cost: "{R}", field: "replicate", slot: 0 }]);
+    expect(dropAsIntent(["c2"], { zone: "stack" })).toBe(true);
+    submitCounts([2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", ask_optional: true, replicate: [2] }]);
+  });
+
+  it("offers squad and offspring the same way (offspring at most once)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      arco: { id: "arco", name: "Arco-Flagellant", type_line: "Creature — Human", oracle_text: "Squad {2} (As an additional cost to cast this spell, you may pay {2} any number of times.)\nThis creature can't block." } as CardData,
+      mouse: { id: "mouse", name: "Manifold Mouse", type_line: "Creature — Mouse", oracle_text: "Offspring {2} (You may pay an additional {2} as you cast this spell.)" } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["a1", "m1"] } });
+    const v = { ...base, cards: { ...base.cards, a1: card("a1", "p1:hand", "arco"), m1: card("m1", "p1:hand", "mouse") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("a1", v)[0]).toMatchObject({ label: "Squad", cost: "{2}", once: false });
+    expect(countRows("m1", v)[0]).toMatchObject({ label: "Offspring", cost: "{2}", once: true });
+    expect(dropAsIntent(["m1"], { zone: "p1:battlefield" })).toBe(true);
+    submitCounts([5]); // (clamped to once)
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "m1", ask_optional: true, kicker: 1 }]);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;
@@ -513,6 +562,8 @@ describe("rules card menu", () => {
     expect(cast[0]!.disabled).toBe(true);
     cast[2]!.onClick?.();
     expect(sent).toEqual([{ type: "cast_spell", card_id: "dr", free: true, optional_costs: ["dr:casualty"] }]);
+    cast[1]!.onClick?.(); // -- round 5 -- 118.9d: the plain free cast lets the server ask what may still be paid (kicker, replicate …)
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "dr", free: true, ask_optional: true });
   });
 
   it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {

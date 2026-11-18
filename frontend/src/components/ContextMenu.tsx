@@ -97,7 +97,7 @@ function Rows({ items, onDone, openSub, setOpenSub }: { items: MenuItem[]; onDon
                 </>
               ) : (
                 <>
-                  <span>{item.label}</span>
+                  <span><ManaText text={item.label} /></span>
                   {item.hint && <span className="ctx-hint">{item.hint}</span>}
                   {item.submenu && <span className="ctx-arrow">›</span>}
                 </>
