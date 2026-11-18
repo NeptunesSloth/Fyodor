@@ -410,9 +410,11 @@ def start_declare_attackers(plan: Plan) -> None:
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     with plan.reading():  # -- big boards (Kiki end step) -- the guide only reads: each creature derived once, not once per check
-        display = {**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets)}
+        display = {**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets),
+                   "stats": {cid: combat_stats(plan, plan.state.cards[cid]) for cid in eligible}}  # -- playtest (nov 18) -- P/T, keywords
+        labels = {cid: face_name(plan, plan.state.cards[cid], "Creature") for cid in eligible}
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
-           options=[DecisionOption(id=f"a:{cid}", label=plan.state.cards[cid].name or "Creature", card_id=cid) for cid in eligible]
+           options=[DecisionOption(id=f"a:{cid}", label=labels[cid], card_id=cid) for cid in eligible]
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)
               for t in targets],
            min_choices=0, max_choices=len(eligible), resume={"step": "declare_attackers"},
@@ -955,6 +957,13 @@ def combat_stats(plan: Plan, card: CardInstance) -> dict[str, Any]:
     return {"pt": f"{'*' if p is None else p}/{'*' if t is None else t}", "keywords": [k for k in COMBAT_KEYWORDS if k in ch.keywords]}
 
 
+def face_name(plan: Plan, card: CardInstance, fallback: str) -> str:
+    """-- playtest (nov 18) -- the name a combat prompt lists a creature by: the face that is up (712.8: a transformed Tovolar is "Tovolar, the
+    Midnight Scourge", never "Tovolar, Dire Overlord // Tovolar, the Midnight Scourge"); a face-down one keeps the label it had."""
+    ch = plan.ch(card)
+    return (ch.name if ch.name and not ch.face_down else card.name) or fallback
+
+
 def ask_next_blocker(plan: Plan) -> None:
     r = plan.rules
     state = plan.state
@@ -974,8 +983,8 @@ def ask_next_blocker(plan: Plan) -> None:
         who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
         decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
                display={"kind": "blockers", "stats": {c.id: combat_stats(plan, c) for c in [*attackers, *blockers]}},
-               options=[DecisionOption(id=f"b:{c.id}", label=c.name or "Creature", card_id=c.id) for c in blockers]
-               + [DecisionOption(id=f"a:{c.id}", label=c.name or "Attacker", card_id=c.id) for c in attackers],
+               options=[DecisionOption(id=f"b:{c.id}", label=face_name(plan, c, "Creature"), card_id=c.id) for c in blockers]
+               + [DecisionOption(id=f"a:{c.id}", label=face_name(plan, c, "Attacker"), card_id=c.id) for c in attackers],
                min_choices=0, max_choices=len(blockers), resume={"step": "declare_blockers"})
         return
 
