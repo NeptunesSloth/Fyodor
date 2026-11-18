@@ -1480,14 +1480,14 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     if todo:
         a, blockers, need = todo[0]
         tgt, free = a.attacking, None
-        options = [DecisionOption(id=t.id, label=t.name or "Blocker", card_id=t.id) for t in blockers]
+        options = [DecisionOption(id=t.id, label=face_name(plan, t, "Blocker"), card_id=t.id) for t in blockers]
         if "trample" in plan.ch(a).keywords and tgt is not None and (tgt.id in plan.state.players or tgt.id in plan.state.cards):
             free = len(options)
             options.append(DecisionOption(id=tgt.id, label=plan.state.players[tgt.id].name if tgt.id in plan.state.players
                                           else plan.state.cards[tgt.id].name or "Planeswalker"))
         p = _assigns(a, plan.ch(a)) or 0
         lethal = need if free is not None else []
-        decide(plan, player=banding.damage_chooser(plan, a, blockers), kind="divide", prompt=f"Divide {a.name}'s {p} combat damage among the creatures blocking it"
+        decide(plan, player=banding.damage_chooser(plan, a, blockers), kind="divide", prompt=f"Divide {face_name(plan, a, 'the attacker')}'s {p} combat damage among the creatures blocking it"
                + (" and what it attacks" if free is not None else ""), options=options, min_choices=len(options), max_choices=len(options),
                display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal,
                         # -- playtest (nov 18) -- the prompt's rows: each blocker's lethal damage now (702.2c deathtouch: 1; damage already
@@ -1505,7 +1505,7 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
         if len(targets) < 2 or bp is None or bp <= 0 or not _deals(bch, rnd):
             continue
         decide(plan, player=banding.damage_chooser(plan, b, targets), kind="divide", prompt=f"Divide {b.name}'s {bp} combat damage among the creatures it blocks",
-               options=[DecisionOption(id=t.id, label=t.name or "Attacker", card_id=t.id) for t in targets],
+               options=[DecisionOption(id=t.id, label=face_name(plan, t, "Attacker"), card_id=t.id) for t in targets],
                min_choices=len(targets), max_choices=len(targets), display={"kind": "divide", "total": bp, "what": "damage", "least": 0},
                resume={"step": "block_split", "round": rnd, "then": then, "creature": b.id, "total": bp, "least": 0})
         return True
