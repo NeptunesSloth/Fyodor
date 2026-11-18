@@ -1,0 +1,58 @@
+/* -- day and night (CR 726) -- game/DayNightLayer.tsx. Durations follow the player's animation speed (--anim-scale, 0 with
+   reduced motion); transform and opacity only; nothing runs while the table is settled. */
+
+/* the 2D table at night: the wood and the felt a shade cooler and darker, under every card (cards keep their contrast).
+   The wood: a layer under the seats (every child of the table is a z-index 1 layer; this one comes first). The felt: the
+   mat's binding layer (::after, over the felt, under the cards) takes a night wash. */
+main.table > .daynight-tint.daynight-tint {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse 80% 70% at 50% 42%, rgba(30, 50, 110, 0.16), rgba(4, 8, 24, 0.42) 100%);
+  transition: opacity calc(1000ms * var(--anim-scale, 1)) var(--ease-in-out);
+}
+main.table > .daynight-tint.on { opacity: 1; }
+main.table:not(.is-3d) .battlefield::after { transition: background-color calc(1000ms * var(--anim-scale, 1)) var(--ease-in-out); }
+main.table:not(.is-3d):has(> .daynight-tint.on) .battlefield::after { background-color: rgba(8, 18, 52, 0.3); }
+/* a skip (any click or key while the moment shows): no fade */
+main.table.dn-instant > .daynight-tint, main.table.dn-instant .battlefield::after { transition: none !important; }
+
+/* the moment: a small plate under the top bar's indicator, the new sun or moon rising over a horizon, the old one setting */
+main.table > .daynight-moment.daynight-moment {
+  position: fixed; z-index: 60; pointer-events: none; translate: -50% 0;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 14px 7px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 16px rgba(0, 0, 0, 0.55);
+  animation: dnm-plate calc(1400ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.dnm-sky { position: relative; width: 72px; height: 30px; overflow: hidden; }
+.dnm-horizon {
+  position: absolute; left: 4px; right: 4px; bottom: 5px; height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--frame-hi) 80%, transparent), transparent);
+}
+.dnm-glyph { position: absolute; left: 50%; bottom: 5px; width: 22px; height: 22px; translate: -50% 0; line-height: 0; }
+.dnm-glyph.day { color: #f5d77a; }
+.dnm-glyph.night { color: #b9c9f4; }
+.dnm-glyph.rises { animation: dnm-rise calc(820ms * var(--anim-scale, 1)) var(--ease-out) calc(120ms * var(--anim-scale, 1)) both; }
+.dnm-glyph.sets { animation: dnm-set calc(560ms * var(--anim-scale, 1)) var(--ease-in-out) both; }
+.dnm-line {
+  font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; font-variant: small-caps;
+  color: var(--text); white-space: nowrap;
+}
+.daynight-moment.to-night .dnm-line { color: #d3dcf5; }
+
+/* comes in from the bar, holds, goes (exit shorter than entrance) */
+@keyframes dnm-plate {
+  0% { opacity: 0; translate: -50% -6px; }
+  14% { opacity: 1; translate: -50% 0; }
+  82% { opacity: 1; translate: -50% 0; }
+  100% { opacity: 0; translate: -50% -4px; }
+}
+/* up from under the horizon on a short arc, east to overhead */
+@keyframes dnm-rise {
+  0% { opacity: 0; translate: calc(-50% - 16px) 24px; }
+  55% { opacity: 1; translate: calc(-50% - 6px) 5px; }
+  100% { opacity: 1; translate: -50% 0; }
+}
+@keyframes dnm-set {
+  0% { opacity: 1; translate: -50% 0; }
+  100% { opacity: 0; translate: calc(-50% + 16px) 24px; }
+}

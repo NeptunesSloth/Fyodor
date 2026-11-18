@@ -41,6 +41,9 @@ const PATHS = {
   bot: "M12 3.5v3M7.5 6.5h9a2.5 2.5 0 0 1 2.5 2.5v6.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 15.5V9a2.5 2.5 0 0 1 2.5-2.5zM9.5 11.5v1M14.5 11.5v1M9.5 15.5h5M2.5 11v3M21.5 11v3",
   // a padlock: a table with a password
   lock: "M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9.5H6zM12 14.5v2.5",
+  // a sun with eight short rays, and a crescent moon: day and night (CR 726)
+  sun: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4",
+  moon: "M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

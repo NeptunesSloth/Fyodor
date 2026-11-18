@@ -56,9 +56,12 @@ export function TopBar() {
       <AutomationHud />
       <BotSpeed />
       {dayNight && (
-        <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
+        // -- day and night -- a sun or a moon and the word, never colour alone; a click cycles day → night → neither
+        <button className={`tt-btn ghost daynight ${dayNight}`} data-testid="day-night"
+          aria-label={`It is ${dayNight}. Click for: ${dayNight === "day" ? "night" : "neither day nor night"}`}
+          title={`It is ${dayNight} (CR 726). Click for: ${dayNight === "day" ? "night" : "neither"}`}
           onClick={() => void send({ type: "set_day_night", value: dayNight === "day" ? "night" : null })}>
-          {dayNight === "day" ? "☀ Day" : "☾ Night"}
+          <Icon name={dayNight === "day" ? "sun" : "moon"} size={14} /> {dayNight === "day" ? "Day" : "Night"}
         </button>
       )}
       <CombatFilterButton filter={filter} hotkey={keyLabel("combat_filter", keymap)} />

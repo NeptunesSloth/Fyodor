@@ -46,6 +46,7 @@ import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
 import { BagDraws } from "./BagDraws";
 import { PlanechasePlaque } from "./PlanechasePlaque";
+import { DayNightLayer } from "./DayNightLayer";
 
 /**
  * -- 3D fallback -- the 3D table couldn't start on this computer (no working WebGL, a graphics driver refusing it, its part of
@@ -114,6 +115,8 @@ export function GameScreen() {
       <TurnDial />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
+          {/* -- day and night -- first, so the 2D night tint lies over the felt and under every card */}
+          <DayNightLayer three={three} />
           {three ? <CrashScreen quiet={<Fall2D />}><Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense></CrashScreen> : <TablePlaymat />}
           {!three && <FocusKeys others={others} me={me} />}
           {!three && <FocusKeys2D />}
