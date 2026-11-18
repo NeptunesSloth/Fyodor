@@ -2393,20 +2393,27 @@ def _best_option_index(plan: Plan, options: tuple[tuple[str, ...], ...]) -> int:
     d = plan.rules.decision
     if d is None or not d.resume or "cost" not in d.resume:
         return 0
+    from app.rules import mana_units
+
     cost = M.parse_cost(d.resume["cost"])
-    cost = _constrained(_spending_cost(plan.state, plan.actor, plan.info, life_for_mana(plan.state, plan.actor, plan.info, cost)), _prompt_purpose(plan, d.resume))
+    purpose = _prompt_purpose(plan, d.resume)
+    cost = _constrained(_spending_cost(plan.state, plan.actor, plan.info, life_for_mana(plan.state, plan.actor, plan.info, cost)), purpose)
     pool = dict(plan.state.players[plan.actor].mana)
+    # -- playtest (nov 18) -- mana already tapped sits in remembered units (mana_units.needs_unit keeps every source): counted too,
+    # as the payment itself counts it. Without them a Rockfall Vale tapped with {R}{R}{R}{R} in the pool and {G} left to pay added {R}
+    units = mana_units.unit_sources(plan.state, plan.actor, purpose)
+    have = {sym for sym, n in mana_units.visible_pool(plan.state, plan.actor).items() if n}
     for option_index, opt in enumerate(options):
         trial = dict(pool)
         for m in opt:
             trial[m] = trial.get(m, 0) + 1
         try:
-            M.solve(cost, trial, [])
+            M.solve(cost, trial, units)
             return option_index
         except M.ManaError:
             pass
     needed = set(cost.colored) | {c for h in cost.hybrid for c in h} | {c for p in cost.phyrexian for c in p.split("/")}
-    return next((i for i, o in enumerate(options) if set(o) & needed - set(pool)),
+    return next((i for i, o in enumerate(options) if set(o) & needed - have),
                 next((i for i, o in enumerate(options) if set(o) & needed), 0))
 
 
