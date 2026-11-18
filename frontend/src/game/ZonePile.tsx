@@ -9,7 +9,7 @@ import { useCardCache } from "../state/cardCache";
 import { draw, moveCards, send } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
-import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
+import { castOrCount, dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
 import { castableIn } from "./exileCastables";
 import "./exile.css";
@@ -50,7 +50,7 @@ export function libraryTopActions(player: string, me: string): MenuItem[] {
     items.push({ label: `Play ${whose} as your land`, onClick: () => void sendIntent({ type: "play_land", card_id: topId }) });
   }
   if (hints.castable?.includes(topId)) {
-    items.push({ label: `Cast ${whose}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId }) });
+    items.push({ label: `Cast ${whose}`, onClick: () => void castOrCount({ type: "cast_spell", card_id: topId }) });
   }
   if (hints.chorus?.includes(topId)) {
     items.push({ label: `Cast ${whose} with Chorus of the Conclave…`, onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: topId }, field: "chorus" }) });

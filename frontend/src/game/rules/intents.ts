@@ -85,6 +85,10 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     const spot = to.zone === "battlefield" && target.x != null && target.y != null ? { x: target.x, y: target.y } : {};
     // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
     // -- playtest nov 6 -- a card with kicker asks first (a drag never offered it; only the right-click menu did): cast plain, or kicked
+    // -- round 5 (replicate) -- a card with replicate / squad / offspring, or given replicate (Djinn Illuminatus, Hugh), asks how many times
+    // to pay it first (601.2b): the count chooser, at 0 (a drag or a double-click never offered it; only the right-click menu did, for a grant),
+    // with the spell's own kicker as a row of the same chooser when it has both (Burst Lightning under Djinn Illuminatus)
+    if (openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
     const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
     const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
     if (kicker) {
@@ -94,9 +98,6 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
         ...kickerItems(card.id, kicker, true, spot)], `${data?.name ?? "Cast"}: kicker?`);
       return true;
     }
-    // -- round 5 (replicate) -- a card with replicate / squad / offspring, or given replicate (Djinn Illuminatus, Hugh), asks how many times
-    // to pay it first (601.2b): the count chooser, at 0 (a drag or a double-click never offered it; only the right-click menu did, for a grant)
-    if (openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
     void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot });
     return true;
   }
@@ -302,11 +303,15 @@ export function countRows(cardId: string, view: GameView): CountRow[] {
     rows.push({ label: word[0]!.toUpperCase() + word.slice(1), cost: m[2] ?? m[4] ?? "", field: "kicker", once: word === "offspring" });
     break; // (one such cost a card has: CastSpell.kicker is its count)
   }
-  (view.rules?.hints.replicate111r3?.[cardId] ?? []).forEach((label, slot) => {
+  const granted = view.rules?.hints.replicate111r3?.[cardId] ?? [];
+  granted.forEach((label, slot) => {
     const cost = /\{[^(]*\}/.exec(label)?.[0] ?? "";
     const from = /\(([^)]+)\)\s*$/.exec(label)?.[1];
     rows.push({ label: from ? `Replicate (${from})` : "Replicate", cost, field: "replicate", slot });
   });
+  // a spell given replicate that has its own kicker / multikicker: one chooser for both (601.2b: each announced; CastSpell.kicker and .replicate)
+  const kick = granted.length && !rows.some((r) => r.field === "kicker") ? /^(multi)?kicker ((?:\{[^}]+\})+)$/i.exec(kickerLine(oracle) ?? "") : null;
+  if (kick) rows.unshift({ label: kick[1] ? "Multikicker" : "Kicker", cost: kick[2]!, field: "kicker", once: !kick[1] });
   return rows;
 }
 
@@ -335,6 +340,16 @@ export function submitCounts(counts: number[]): void {
   });
   if (replicate.some((n) => n)) out.replicate = Array.from(replicate, (n) => n ?? 0);
   void send(out);
+}
+
+/** -- round 5 (replicate) -- a plain cast from a pile (the top of a library, an exile, the command zone): the count chooser first when the card has
+ * counts to choose (replicate, squad, offspring, a granted replicate), else sent as it is. */
+export function castOrCount(action: Action): Promise<boolean> {
+  const view = useGame.getState().view;
+  const id = action.card_id as string | undefined;
+  if (view && id && action.type === "cast_spell" && !action.free && action.alt_cost === undefined && !action.kicker && !action.replicate
+      && openCountPrompt(id, view, action)) return Promise.resolve(true);
+  return send(action);
 }
 
 /** The kicker line of a card's rules text, if it has one the table can offer (702.33, 702.42 entwine). */

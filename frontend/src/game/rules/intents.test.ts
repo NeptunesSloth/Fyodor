@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, canConcede, choose, concede, countRows, divide, dropAsIntent, submitCounts, useCountPrompt, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { abilityLines, automationOn, canConcede, castOrCount, choose, concede, countRows, divide, dropAsIntent, submitCounts, useCountPrompt, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { canSubmitChoice, clickAnswer, dialState, doneLabel, justAnswered, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 import { libraryTopActions } from "../ZonePile";
@@ -418,6 +418,35 @@ describe("rules card menu", () => {
     expect(dropAsIntent(["c2"], { zone: "stack" })).toBe(true);
     submitCounts([2]);
     expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", ask_optional: true, replicate: [2] }]);
+  });
+
+  it("asks a kicked spell's kicker and its granted replicate in one chooser (Burst Lightning under Djinn Illuminatus)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, burst: { id: "burst", name: "Burst Lightning", type_line: "Instant",
+      oracle_text: "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["b1"], replicate111r3: { b1: ["Replicate {R} (Djinn Illuminatus)"] } } });
+    const v = { ...base, cards: { ...base.cards, b1: card("b1", "p1:hand", "burst") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("b1", v).map((r) => [r.label, r.cost, r.field, r.once])).toEqual([["Kicker", "{4}", "kicker", true], ["Replicate (Djinn Illuminatus)", "{R}", "replicate", undefined]]);
+    expect(dropAsIntent(["b1"], { zone: "stack" })).toBe(true);
+    submitCounts([1, 1]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "b1", ask_optional: true, kicker: 1, replicate: [1] }]);
+    // without a grant, the kicker menu as before (no chooser)
+    useGame.setState({ view: { ...v, rules: { ...RULES, hints: { castable: ["b1"] } } } as unknown as GameView });
+    expect(countRows("b1", useGame.getState().view!)).toEqual([]);
+  });
+
+  it("asks the count from a pile too (the top of a library, an exile)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, giga: { id: "giga", name: "Gigadrowse", type_line: "Instant",
+      oracle_text: "Replicate {U}\nTap target permanent." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["g2"] } });
+    const v = { ...base, cards: { ...base.cards, g2: card("g2", "p1:exile", "giga") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    void castOrCount({ type: "cast_spell", card_id: "g2" });
+    expect(sent).toEqual([]);
+    submitCounts([2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g2", kicker: 2 }]);
+    void castOrCount({ type: "cast_spell", card_id: "c2" }); // (no counts: sent at once)
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2" });
   });
 
   it("offers squad and offspring the same way (offspring at most once)", () => {

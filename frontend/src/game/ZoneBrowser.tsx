@@ -13,7 +13,7 @@ import { castFromZone, zoneCastables } from "./exileCastables";
 import "./exile.css";
 import { useHoverCard } from "./hoverCard";
 import { centreOf, displayOrder, grabHandCard, handCardMenu, playFromHand } from "./Hand";
-import { automationOn, send as sendIntent } from "./rules/intents";
+import { automationOn, castOrCount } from "./rules/intents";
 import { legalClass, paying } from "./rules/RulesHud";
 import { useFreshDraws } from "./drawNotices";
 
@@ -203,7 +203,7 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
         const now = useGame.getState().view;
         if (castable && now && castFromZone(card as GameCard, now, me, { clientX: e.clientX, clientY: e.clientY })) return;
         if (commanderHere(card as GameCard, me)) { // (as the command pile: cast it, never into the hand)
-          void (automationOn(now) ? sendIntent({ type: "cast_spell", card_id: id, ask_optional: true }) : moveCards([id], "stack"));
+          void (automationOn(now) ? castOrCount({ type: "cast_spell", card_id: id, ask_optional: true }) : moveCards([id], "stack"));
           return;
         }
         void moveCards([id], "hand", { player: owner });

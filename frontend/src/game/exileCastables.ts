@@ -5,7 +5,7 @@
  */
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import type { GameCard, GameView } from "../types/game";
-import { send } from "./rules/intents";
+import { castOrCount, send } from "./rules/intents";
 import { rulesMenu } from "./rules/rulesMenu";
 
 export interface ExileCastable { id: string; play: boolean; owner: string; source?: string }
@@ -64,7 +64,7 @@ export function castableIn(view: GameView | null, zoneKey: string): number {
 
 /** Cast it (asking for X first when the spell has X) or play the land. */
 export function playFromExile(c: Pick<ExileCastable, "id" | "play">): Promise<boolean> {
-  return send(c.play ? { type: "play_land", card_id: c.id } : { type: "cast_spell", card_id: c.id });
+  return c.play ? send({ type: "play_land", card_id: c.id }) : castOrCount({ type: "cast_spell", card_id: c.id });
 }
 
 type Row = Exclude<MenuItem, "separator">;
