@@ -104,15 +104,25 @@ def for_info(info: CardInfo) -> ReadPass | None:
 def once(state: GameState, info: CardInfo | None, key: Any, compute: Callable[[], T]) -> T:
     """``compute()`` — an answer that depends on this table and the arguments in ``key`` alone — read once per pass (outside a pass, and
     while a derivation is part-way, every time). ``compute`` must not change the table and must not be handed the answer back changed:
-    it is shared."""
-    from app.rules.layers import settled  # (layers imports this module)
+    it is shared. -- late-game speed -- also kept and served at the top level of a whole derivation of this table (``layers.quiet``):
+    the answer there is the settled one."""
+    from app.rules.layers import quiet, settled  # (layers imports this module)
 
     sc = current(state, info)
-    if sc is None or not settled():
+    if sc is None or not (settled() or quiet(state, info)):
         return compute()
     if key not in sc.once:
         sc.once[key] = compute()
     return sc.once[key]
+
+
+def once_viewing(state: GameState, info: CardInfo | None, key: Any, compute: Callable[[], T]) -> T:
+    """-- late-game speed -- ``once``, only in a pass over a table no Plan owns (``scope``: a view, its hints, a bot's look at the table),
+    which nothing changes while it is open; in a Plan's kept pass (a table carried out step by step) it is worked out every time, as
+    before. For answers read from more of the rules state than a kept pass compares."""
+    if _owned(state) is not None:
+        return compute()
+    return once(state, info, key, compute)
 
 
 def card_fact(state: GameState, key: str, compute: Callable[[], T]) -> T | None:
@@ -123,10 +133,23 @@ def card_fact(state: GameState, key: str, compute: Callable[[], T]) -> T | None:
 
     Only for a pass over the scratch table of a Plan (``own``): that table's cards change only through ``Plan.do`` (the table actions,
     which count themselves in ``Plan.writes``), so an answer kept with the count it was read at is the table's answer while the
-    count is the same, even if a block that only reads were to carry out an action part-way. Any other table: None."""
+    count is the same, even if a block that only reads were to carry out an action part-way.
+
+    -- late-game speed -- And for a pass over a table no Plan owns (``scope``: a view, its hints, a bot's look at the table): such a pass
+    is opened only around code that reads, and the table does not change while it is open, as for every answer the pass keeps
+    (``derived``): the fact is kept for the whole pass. Building a view derived every permanent, each reading every card in the game for
+    what is attached to it. Any other table (no pass over it): None."""
     got = _owned(state)
     if got is None:
-        return None
+        sc = getattr(_PASS, "cur", None)
+        if sc is None or sc.state is not state:
+            return None
+        hit = sc.facts.get(key)
+        if hit is not None and hit[0] is None:
+            return hit[1]
+        value = compute()
+        sc.facts[key] = (None, value)
+        return value
     sc, plan = got
     writes = getattr(plan, "writes", 0)
     hit = sc.facts.get(key)

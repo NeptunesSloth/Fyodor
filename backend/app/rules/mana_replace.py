@@ -106,7 +106,14 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn
 
 
 def _statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
-    """(controller, definition) of every such static in play right now."""
+    """(controller, definition) of every such static in play right now. -- late-game speed -- read once per view's read pass (each
+    permanent's mana abilities read the whole battlefield for them); the list is shared, its readers only read it."""
+    from app.rules import read_pass
+
+    return read_pass.once_viewing(state, info, "mana_replace.statics", lambda: _statics_now(state, info))
+
+
+def _statics_now(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
     from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules.copying import copy_index

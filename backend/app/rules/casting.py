@@ -396,7 +396,15 @@ def _mana_condition_holds(state: GameState, card: CardInstance, cond: str, info:
 
 def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[int, M.ManaAbility]]:
     """The permanent's mana abilities the engine can carry out right now (options resolved:
-    chosen color, lands' mana; conditions, once-per-turn and non-mana costs checked)."""
+    chosen color, lands' mana; conditions, once-per-turn and non-mana costs checked).
+    -- late-game speed -- read once per view's read pass for a card of the table (the hints asked every permanent again for each card
+    in a hand: ``mana_sources`` per castable check); the list is shared, its readers only read it."""
+    if state.cards.get(card.id) is card:
+        return read_pass.once_viewing(state, info, ("casting.mana_abilities", card.id), lambda: _mana_abilities(state, card, info))
+    return _mana_abilities(state, card, info)
+
+
+def _mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[int, M.ManaAbility]]:
     from app.rules.layers import derive
 
     ch = derive(state, card, chars.of(card, info), info)  # (granted mana abilities: Cryptolith Rite …)

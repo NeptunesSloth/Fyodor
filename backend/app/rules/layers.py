@@ -1042,6 +1042,21 @@ def settled() -> bool:
     or characteristic-defining read)? Only then does a question about the table get the answer it has when nothing is half-finished,
     so only then may a read-only pass keep it or serve it (app/rules/read_pass.py)."""
     return _T.memo is None and not (_T.depth or _T.solving or _T.l4 or _T.cda)
+
+
+def quiet(state: GameState, info: CardInfo | None) -> bool:
+    """-- late-game speed -- Is the only thing part-way a whole derivation of this table (``derive``'s statics memo for exactly ``state``
+    and ``info``), at its top level? Nothing else is: no object's subject or condition being read (``depth`` 0), no group layers being
+    solved, no layer-4 or characteristic-defining read, no rule static judged or read whole (``pt``, ``rules_off``, ``judging``), no
+    prospective probe, no grant or borrowed-ability capture. A derivation is here after its layers, adding what a card in a hand or a
+    graveyard gets from the table (zone grants, Dream Devourer's foretell: ``_derive``). A question about the table asked here derives
+    each object it reads as a top-level derivation does, with the same statics table (the memo's, which is the table's), so it gets the
+    answer it has when ``settled``: a read-only pass may keep and serve it (``read_pass.once``). Each card in a hand derived the whole
+    battlefield again to find the statics of the table, once per card and per view (36 cards in hand, 80 permanents: ~0.3 s a view)."""
+    memo = _T.memo
+    return (memo is not None and memo[0] is state and memo[1] is info and not (
+        _T.depth or _T.solving or _T.l4 or _T.cda or _T.pt or _T.rules_off or _T.judging)
+        and _T.probe is None and _T.grant_capture45 is None and _T.borrow_capture is None)
 # -- end review (wave 5R) --
 
 
