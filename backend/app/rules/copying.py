@@ -1244,9 +1244,10 @@ def storm(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sid = e["spell"]
     card = plan.state.cards.get(sid)
     if card is not None and plan.manual(card):
-        plan.note("Storm: the spell is handled by hand, so there is nothing to copy")
+        plan.note(f"{e.get('label') or 'Storm'}: the spell is handled by hand, so there is nothing to copy")
         return True
-    job = new_job(ctx, controller=ctx["controller"], objects=[(sid, e["object"], int(e["n"]))], retarget=True, label="Storm",
+    # (-- round 5 -- replicate's copies are made here too: its trigger names itself, "Replicate: 2 copies of Gigadrowse")
+    job = new_job(ctx, controller=ctx["controller"], objects=[(sid, e["object"], int(e["n"]))], retarget=True, label=e.get("label") or "Storm",
                   excepts=[CopyExcept.model_validate(ex) for ex in e.get("excepts") or []])
     return run(plan, job)  # (run copies it as it was, or asks for the copy by hand: never silently none)
 

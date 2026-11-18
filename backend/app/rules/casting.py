@@ -5116,7 +5116,7 @@ def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, time
     if times and any(ab.kind == "keywords" and "replicate" in ab.keywords for ab in ch.abilities):
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6150,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
-                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times, "label": "Replicate"}]})
 
 
 def _demonstrate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None = None) -> None:
@@ -5333,7 +5333,11 @@ def _ask_table_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Char
     """-- playtest fixes (nov 5) -- 601.2b: a spell cast from the table (``ask_optional``: dragged to the stack) announces the optional additional
     costs the table offers for it — the ones the hints list (``optional_costs``: Silverquill's "has casualty 1" (702.153a), Defiler of Vigor's
     life …), each payable now — as a private question (none may be chosen); the answer re-runs the cast with them (``resume_free_optional``).
-    A cast that already announced its costs, or with another way of casting it chosen, isn't asked. True while the question waits."""
+    A cast that already announced its costs, or with another way of casting it chosen, isn't asked. True while the question waits.
+    -- round 5 (additional costs) -- a cast without paying its mana cost from the table (Omniscience: ``free`` with ``ask_optional``) is asked
+    what a free cast an effect makes is asked (118.9d: kicker, replicate, multikicker, bargain … may still be paid: announce_free_optional)."""
+    if a.ask_optional and a.free and a.alt_cost is None and not a.face_down:
+        return announce_free_optional(plan, a, card, ch)
     if not a.ask_optional or a.optional_asked or a.optional_costs or a.kicker or a.chorus or a.replicate or a.free or a.alt_cost is not None \
             or a.face_down or plan.manual(card):
         return False
