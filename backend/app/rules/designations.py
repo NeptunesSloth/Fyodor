@@ -961,6 +961,92 @@ def day_night(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- late-game speed (day and night) -- ``day_night_sync`` runs before every look at triggers (603.2), and finding the daybound and
+# nightbound permanents derived the whole battlefield each time: a third of the derivations of passing priority on a big board, in a game
+# without a single werewolf. An object has daybound or nightbound, or "If it's neither day nor night, it becomes day as ~ enters", only
+# from text that says so: its own (its card's faces, its token definition, a merged permanent's parts), or text another object or an
+# effect gives it. So the game's text is read first (strings only, no derivation, ``_kinds``): no such words anywhere, nothing to look at;
+# the words only on objects' own keyword lines, only those objects are derived; anything else (a sentence that could give the keyword to
+# another object, an effect or a copy effect carrying the words, an ability that takes other objects' abilities or text) derives the
+# whole battlefield as before. Each answer is still the derived one: the text only decides which permanents are worth deriving.
+_OWN, _OTHER, _TAKES = 1, 2, 4  # the words on an object's own keyword line; anywhere else; an ability taking other objects' abilities
+_BOUND_WORDS = re.compile(r"daybound|nightbound|neither day nor night", re.IGNORECASE)
+_OWN_LINE = re.compile(r"(?:[A-Za-z][A-Za-z' \-]*,\s*)*(?:daybound|nightbound)(?:,\s*[A-Za-z][A-Za-z' \-]*)*(?:\s*\([^()]*\))?"
+                       r"|If it's neither day nor night, it becomes day as [^.]+ enters\.", re.IGNORECASE)
+# ("has all activated abilities of", "has the full text of", Cairn Wanderer's "the same is true for", a text box taken from another card)
+_TAKES_WORDS = re.compile(r"abilities of|full text|same is true for|text box", re.IGNORECASE)
+
+
+@cache
+def _text_kind(text: str) -> int:
+    """The day/night words of this rules text (``_OWN`` | ``_OTHER`` | ``_TAKES``; 0: none). Errs on the side of ``_OTHER``: a line
+    that is not a plain keyword line (a keyword, its reminder text) or the "as ~ enters" sentence counts as one that could reach others."""
+    kind = _TAKES if _TAKES_WORDS.search(text) else 0
+    if _BOUND_WORDS.search(text):
+        for line in text.splitlines():
+            if _BOUND_WORDS.search(line):
+                kind |= _OWN if _OWN_LINE.fullmatch(line.strip()) else _OTHER
+    return kind
+
+
+def _token_kind(token: TokenDef | dict[str, Any] | None) -> int:
+    kind = 0
+    for _ in range(4):  # (a token's back face; a recipe's token is the TokenDef's fields)
+        if token is None:
+            break
+        if isinstance(token, dict):
+            kind |= _text_kind(str(token.get("text") or ""))
+            back = token.get("back")
+            token = back if isinstance(back, dict) else None
+        else:
+            kind |= _text_kind(token.text or "")
+            token = token.back
+    return kind
+
+
+def _printing_kind(plan: Plan, card_id: str | None) -> int:
+    data = plan.info.get(card_id) if card_id else None
+    if not data:
+        return 0
+    kind = _text_kind(str(data.get("oracle_text") or ""))
+    for face in data.get("faces") or ():
+        kind |= _text_kind(str(face.get("oracle_text") or ""))
+    return kind
+
+
+def _kinds(plan: Plan) -> tuple[int, list[CardInstance]]:
+    """The day/night words in the game: of every card in every zone (one in a hand or a library can be on the battlefield later in
+    the same action) and of every continuous effect that gives text, keywords or copiable values; and the cards whose own text has
+    them (a merged permanent: any of its parts)."""
+    total = 0
+    own: list[CardInstance] = []
+    for c in plan.state.cards.values():
+        k = _printing_kind(plan, c.card_id) | _token_kind(c.token)
+        if c.ability is not None:
+            k |= _text_kind(c.ability.text or "")
+        for part in c.merged:
+            k |= _printing_kind(plan, part.card_id) | _token_kind(part.token)
+        if k:
+            total |= k
+            if k & (_OWN | _OTHER):
+                own.append(c)
+    for e in plan.rules.effects:
+        k = _text_kind(", ".join(e.add_keywords)) if e.add_keywords else 0
+        for text in e.add_abilities:
+            k |= _text_kind(text)
+        if e.text_box110a:
+            k |= _text_kind(str(e.text_box110a))
+        if (rec := e.copy_recipe) is not None:  # (a copy of an object with the words has them: copiable values, 707.2)
+            k |= _printing_kind(plan, rec.printing) | _token_kind(rec.token)
+            for x in rec.excepts:
+                for text in x.add_text:
+                    k |= _text_kind(text)
+        if k & (_OWN | _OTHER):
+            k |= _OTHER  # (an effect's words reach the objects it affects, not its source)
+        total |= k
+    return total, own
+
+
 @reads
 def _bound(plan: Plan) -> tuple[list[CardInstance], list[CardInstance], bool]:
     """Daybound and nightbound permanents, and whether one says "If it's neither day nor night, it
@@ -970,7 +1056,10 @@ def _bound(plan: Plan) -> tuple[list[CardInstance], list[CardInstance], bool]:
     day: list[CardInstance] = []
     night: list[CardInstance] = []
     as_enters = False
-    for c in plan.state.cards.values():
+    words, own = _kinds(plan)
+    if not words & (_OWN | _OTHER):
+        return day, night, as_enters  # (no day/night words anywhere in the game: nothing has them)
+    for c in (plan.state.cards.values() if words & (_OTHER | _TAKES) else own):
         if not c.zone.endswith(":battlefield") or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)

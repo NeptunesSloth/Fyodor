@@ -732,3 +732,65 @@ def test_daybound_permanent_enters_transformed_at_night(cards):
     wolves = [c for c in s.state.cards.values() if c.name == "Wolf" and c.zone == "p1:battlefield"]
     assert len(wolves) == 2  # only Tovolar's Packleader's "enters" trigger: the front face never was on the battlefield
     roundtrip(s)
+
+
+# -- late-game speed (day and night) -- the daybound / nightbound permanents are found by deriving only what the game's text says can
+# have the words (app/rules/designations.py ``_kinds``); each answer is still the derived one
+def test_day_night_text_kinds():
+    from app.rules import designations as d
+
+    assert d._text_kind("Menace\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)") == d._OWN
+    assert d._text_kind("Trample, nightbound") == d._OWN
+    assert d._text_kind("If it's neither day nor night, it becomes day as Brimstone Vandal enters.\nWhenever day becomes night or "
+                        "night becomes day, Brimstone Vandal deals 1 damage to each opponent.") == d._OWN
+    assert d._text_kind("Other Werewolves you control have daybound.") == d._OTHER
+    assert d._text_kind("Flying\nAt the beginning of your upkeep, if it's night, draw a card.") == 0  # (day and night alone: no keyword)
+    assert d._text_kind("Each creature you control has all activated abilities of creature cards in your graveyard.") == d._TAKES
+
+
+def _bound_derivations(s, cards, monkeypatch):
+    from app.rules import designations, layers
+
+    calls = [0]
+    real = layers._derive
+
+    def counted(*args, **kw):  # type: ignore[no-untyped-def]
+        calls[0] += 1
+        return real(*args, **kw)
+
+    monkeypatch.setattr(layers, "_derive", counted)
+    day, night, as_enters = designations._bound(Plan(s.state, "p1", cards, None))
+    monkeypatch.setattr(layers, "_derive", real)
+    return calls[0], sorted(c.name for c in day + night), as_enters
+
+
+def test_day_night_check_derives_nothing_in_a_game_without_day_night_words(cards, monkeypatch):
+    s = table(cards, mine=("Elvish Visionary", "Ambush Viper", "Llanowar Elves"), theirs=("Merfolk Looter",))
+    assert _bound_derivations(s, cards, monkeypatch) == (0, [], False)
+    assert s.state.table.day_night is None
+
+
+def test_day_night_check_derives_only_the_permanents_with_the_words(cards, monkeypatch):
+    s = table(cards, mine=("Fearful Villager // Fearsome Werewolf", "Elvish Visionary", "Ambush Viper", "Llanowar Elves"),
+              hand=("Tovolar's Huntmaster // Tovolar's Packleader",), theirs=("Merfolk Looter",))
+    derived, bound, _ = _bound_derivations(s, cards, monkeypatch)
+    assert bound == ["Fearful Villager // Fearsome Werewolf"] and derived == 1  # (Tovolar's Huntmaster is in the hand: not derived)
+    assert s.state.table.day_night == "day"
+
+
+def test_a_token_made_with_daybound_by_hand_makes_it_day(cards):
+    s = table(cards, mine=("Llanowar Elves",))
+    assert s.state.table.day_night is None
+    act(s, "p1", type="create_token", player="p1", token={"name": "Wolfish", "type_line": "Token Creature — Werewolf", "power": "2",
+                                                         "toughness": "2", "text": "Daybound"})
+    act(s, "p1", type="pass_priority")
+    assert s.state.table.day_night == "day"  # 702.145d
+
+
+def test_words_that_could_reach_another_object_derive_the_whole_battlefield(cards, monkeypatch):
+    s = table(cards, mine=("Elvish Visionary", "Ambush Viper", "Llanowar Elves"))
+    act(s, "p1", type="create_token", player="p1", token={"name": "Moon Lord", "type_line": "Token Creature — Werewolf", "power": "2",
+                                                         "toughness": "2", "text": "Other Werewolves you control have nightbound."})
+    board = len(s.state.zones["p1:battlefield"]) + len(s.state.zones["p2:battlefield"])
+    derived, _, _ = _bound_derivations(s, cards, monkeypatch)
+    assert derived >= board  # (every permanent: what the sentence gives is the derived answer's to say)
