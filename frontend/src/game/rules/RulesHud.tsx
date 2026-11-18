@@ -10,7 +10,7 @@ import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { isVisible, PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete, imageUrl } from "../../services/cards";
-import { isLand, canConcede, choose, chooseName, concede, delveCard, divide, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, submitCounts, tapForMana, useCountPrompt, useXPrompt, submitNumericPrompt } from "./intents";
+import { isLand, canConcede, choose, chooseName, concede, delveCard, next, passOrResolve, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, submitCounts, tapForMana, useCountPrompt, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
@@ -28,7 +28,9 @@ import { CardFilterBar, filterCardOf } from "../CardFilterBar";
 import { NO_FILTER, filterCards, type CardFilter } from "../cardFilters";
 import { isOut } from "../outOfGame";
 import { DUMMIES_WIN, OPPONENTS_WIN, gameEnded } from "../nightEnding";
-import { attackDeclarations, attackingCount, attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { DeclareAttackers } from "./DeclareAttackers";
+import { DivideRows } from "./DivideRows";
+import { LookedChoice } from "./LookedChoice";
 import { combatStats, numberedNames, statLine } from "./blockerLabels";
 import { groupByController } from "./decisionGroups";
 import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
@@ -41,6 +43,9 @@ import { Icon } from "../../components/Icon";
 import { SANDBOX_HINT, isSandbox } from "../tableFormat";
 import { useHoverCard } from "../hoverCard";
 import { PlayerInitial } from "../PlayerInitial";
+import { ResponseCallButton, ResponseShout } from "../ResponseCall";
+import { concedeAndFlip } from "../TableFlip";
+import { resolveTitle, resolveVerb } from "./resolveRun";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -108,6 +113,9 @@ export function AutomationHud() {
         <span className="auto-pill" data-testid="concede-confirm">
           Concede the game?{" "}
           <button className="tt-btn ghost" data-testid="concede-yes" onClick={() => { setConceding(false); void concede(); }}>Concede</button>
+          {/* -- flip the table -- the same concession, with (╯°□°)╯︵ ┻━┻ for everyone */}
+          <button className="tt-btn ghost concede-flip" data-testid="concede-flip" title="Concede and flip the table: everyone sees your side flip"
+            onClick={() => { setConceding(false); void concedeAndFlip(); }}>Concede and flip the table ┻━┻</button>
           <button className="tt-btn ghost" data-testid="concede-no" onClick={() => setConceding(false)}>Keep playing</button>
         </span>
       ) : (
@@ -251,10 +259,10 @@ export function passTitle(stack: boolean): string {
 }
 
 export const RESOLVE_ALL_TITLE =
-  "Keep passing until the stack is empty. Stops when you draw a card you could cast now, and after 20 objects if the stack keeps refilling (a loop)";
+  "Keep passing until the stack is empty. Stops when you draw a card you could cast now, and after 20 objects if the stack keeps refilling (a loop) (Shift+Space)";
 
 const PASSING: Record<string, string> = {
-  stack_changes: "Resolving the top object", stack_empty: "Resolving all", next_action: "Passing until someone acts",
+  stack_changes: "Resolving the top object", own_triggers: "Resolving your triggers", stack_empty: "Resolving all", next_action: "Passing until someone acts",
   next_step: "Passing to the next step", next_turn: "Passing to the next turn", my_turn: "Passing until my turn", combat: "Passing until combat",
 };
 
@@ -330,7 +338,7 @@ export function TurnDial() {
   const stack = view.stack.length > 0;
   const top = stack ? view.cards[view.stack[view.stack.length - 1]!] : undefined;
   const topName = top && "name" in top ? top.name : "the top of the stack";
-  const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
+  const verb = stack ? resolveVerb(view, me) : NEXT_VERB[step] ?? "Next"; // (-- smart resolve -- "Resolve 6 triggers")
   // passing is refused while my own decision is open: grey the buttons out instead of erroring
   const deciding = auto && rules!.decision?.player === me;
   // -- resolving progress -- a long chain is being worked out: another pass would only wait behind it (and pass again after it)
@@ -339,6 +347,7 @@ export function TurnDial() {
   return (
     <div className={`turn-dial-wrap plaque-wrap${folded ? " folded" : ""}`}>
       <ResolvingIndicator />
+      <ResponseShout />
       <PassStopBanner mine={auto && mine} />
       <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}${folded ? " folded" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <div className="td-top">
@@ -379,17 +388,26 @@ export function TurnDial() {
         </div>
         {auto && mine && (
           <>
-            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? passTitle(stack)} disabled={deciding || busy} onClick={() => void passOrResolve(view.stack.length)}>
-              {verb}
-            </button>
+            {/* -- smart resolve -- RESOLVE (through a run of your own triggers) and RESOLVE ALL side by side, never below the fold */}
+            <div className="td-pass-row">
+              <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? (stack ? resolveTitle(view, me) : passTitle(false))} disabled={deciding || busy} onClick={() => void passOrResolve(view.stack.length)}>
+                {verb}
+              </button>
+              {view.stack.length > 1 && (
+                <button className="td-pass-all" data-testid="resolve-all" disabled={deciding || busy} title={blocked ?? RESOLVE_ALL_TITLE} onClick={resolveAll}
+                  aria-label={`Resolve all ${view.stack.length}`}>
+                  All {view.stack.length}<small>Shift+Space</small>
+                </button>
+              )}
+            </div>
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding || busy} title={blocked ?? RESOLVE_ALL_TITLE} onClick={resolveAll}>Resolve all</button>}
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding || busy} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
           </>
         )}
+        {auto && !mine && !watching && !out && !over && <ResponseCallButton view={view} me={me} />}
         {!auto && !watching && !out && (
           <>
             {stack ? (
@@ -880,6 +898,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const toggles = d.kind === "choose_cards" && options.filter((o) => o.card_id).length <= FILTER_MIN;
   useDigitPicks((oneClick || toggles) && answers > 1 && options[0]?.id !== NAME_OPTION && options[0]?.id !== NUMBER_OPTION, d.id);
 
+  if (d.kind === "choose_cards" && d.display?.kind === "looked") return <LookedChoice d={d} view={view} />; // the cards looked at, the ones that don't qualify shown
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
   if (d.kind === "choose_one" && options[0]?.id === NAME_OPTION) return <CardNameChoice d={d} view={view} />;
@@ -924,7 +943,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   }
   if (d.kind === "order") return <OrderChoice d={d} view={view} />;
   if (d.kind === "reconcile") return <Reconcile d={d} />;
-  if (d.kind === "divide") return <Divide d={d} view={view} />;
+  if (d.kind === "divide") return <DivideRows key={d.id} d={d} />;
   // choose_cards. A long list of cards (a library search's legal finds, shown to the chooser only): filter and sort them as in the
   // zone browser, by what the chooser already sees of each; picks stay listed, and options that aren't cards (Panglacial Wurm) always show
   const cardOptions = options.filter((o) => o.card_id);
@@ -1025,34 +1044,6 @@ function optionLabel(o: DecisionOptionView, view: GameView): string {
   return c && !c.hidden && c.name ? c.name : o.label;
 }
 
-/** 601.2d: divide damage or counters among the chosen targets (at least 1 each, all of it). */
-function Divide({ d, view }: { d: DecisionView; view: GameView }) {
-  const options = d.options ?? [];
-  const total = Number(d.display?.total ?? 0);
-  const least = Number(d.display?.least ?? 1); // 510.1d: a blocker may assign 0 to some of the attackers it blocks
-  const lethal = (d.display?.lethal as number[] | undefined) ?? []; // 702.19b: a trampler starts at lethal on each blocker, the rest on its target
-  const [amounts, setAmounts] = useState<number[]>(() =>
-    lethal.length ? options.map((_, i) => (i < lethal.length ? (lethal[i] ?? 0) : total - lethal.reduce((a, b) => a + b, 0)))
-      : options.map((_, i) => (i === 0 ? total - (options.length - 1) * least : least)));
-  const sum = amounts.reduce((a, b) => a + b, 0);
-  const upto = d.display?.upto === true; // 115.6: "distribute up to N" may divide fewer than N
-  const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(least, v) : x)));
-  return (
-    <div className="decision-options">
-      {options.map((o, i) => (
-        <label key={o.id} className="decision-divide">
-          <span>{optionLabel(o, view)}</span>
-          <input type="number" min={least} max={total} value={amounts[i] ?? least} data-testid={`divide-${o.id}`}
-            onChange={(e) => set(i, Number(e.target.value) || least)} />
-        </label>
-      ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={upto ? sum > total : sum !== total} onClick={() => void divide(d.id, amounts)}>
-        Done ({sum}/{total})
-      </button>
-    </div>
-  );
-}
-
 function Reconcile({ d }: { d: DecisionView }) {
   const groups = new Map<string, DecisionOptionView[]>();
   for (const o of d.options ?? []) groups.set(o.group ?? o.id, [...(groups.get(o.group ?? o.id) ?? []), o]);
@@ -1072,90 +1063,6 @@ function Reconcile({ d }: { d: DecisionView }) {
       ))}
       <button className="tt-btn brass" data-testid="decision-done" disabled={Object.keys(answers).length !== groups.size}
         onClick={() => void choose(d.id, Object.values(answers))}>Done</button>
-    </div>
-  );
-}
-
-function DeclareAttackers({ d }: { d: DecisionView }) {
-  const opts = d.options ?? [];
-  const attackers = opts.filter((o) => o.id.startsWith("a:"));
-  const targets = opts.filter((o) => o.id.startsWith("t:"));
-  const [plan, setPlan] = useState<Record<string, string>>(() => initialAttackPlan(d)); // (attackPlan.ts: what must attack, 508.1d)
-  const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
-  // -- engine token stacks -- how many of a "Goblin ×512" attack (all unless lowered; the server splits the rest off)
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const cards = useGame((s) => s.view?.cards);
-  const sizes = Object.fromEntries(attackers.map((a) => [a.id, Math.max(1, cards?.[a.id.slice(2)]?.quantity ?? 1)]));
-  const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
-  const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
-    holders: string[]; members: string[]; description: string;
-  }[];
-  const leaders = new Set([...banding, ...qualities.flatMap((q) => q.holders)]);
-  const groups = new Map<string, string[]>();
-  for (const [a, group] of Object.entries(bandPlan)) {
-    if (group && plan[a]) groups.set(group, [...(groups.get(group) ?? []), a]);
-  }
-  const bands = [...groups.values()];
-  const invalidBand = bands.some((members) => {
-    const banders = members.filter((a) => banding.has(a.slice(2))).length;
-    const ordinary = banders > 0 && members.length - banders <= 1;
-    const qualified = qualities.some((q) => members.some((a) => q.holders.includes(a.slice(2)))
-      && members.every((a) => q.members.includes(a.slice(2))));
-    return (!ordinary && !qualified) || new Set(members.map((a) => plan[a])).size > 1;
-  });
-  const set = (a: string, t: string) => setPlan((p) => {
-    const nextPlan = { ...p };
-    if (!t) delete nextPlan[a];
-    else nextPlan[a] = t;
-    return nextPlan;
-  });
-  const declare = () => void send({
-    type: "declare_attackers",
-    attackers: attackDeclarations(plan, counts, sizes),
-    bands: bands.map((members) => members.map((a) => a.slice(2))),
-  });
-  return (
-    <div className="decision-combat">
-      {attackers.map((a) => (
-        <label key={a.id} className="combat-row">
-          <span>{a.label}{mustAttack(d, a.id) && <em className="combat-must"> (must attack)</em>}</span>
-          <select data-testid={`attack-${a.id.slice(2)}`} value={plan[a.id] ?? ""} onChange={(e) => set(a.id, e.target.value)}
-            disabled={!attackTargetsFor(d, a.id).length} title={attackTargetsFor(d, a.id).length ? undefined : "It can't attack anyone now"}>
-            <option value="">Doesn't attack</option>
-            {attackTargetsFor(d, a.id).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-          {(sizes[a.id] ?? 1) > 1 && plan[a.id] && (
-            <span className="combat-count">
-              <input type="number" min={1} max={sizes[a.id]} step={1} aria-label={`How many of the ${a.label} attack`}
-                data-testid={`attack-count-${a.id.slice(2)}`} value={counts[a.id] ?? sizes[a.id]}
-                onChange={(e) => {
-                  const k = Math.floor(Number(e.target.value));
-                  setCounts((c) => ({ ...c, [a.id]: Math.min(sizes[a.id] ?? 1, Math.max(1, Number.isFinite(k) ? k : 1)) }));
-                }} />
-              <span className="combat-count-of">of {(sizes[a.id] ?? 1).toLocaleString("en-US")}</span>
-            </span>
-          )}
-          {leaders.size > 0 && plan[a.id] && (
-            <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
-              value={bandPlan[a.id] ?? ""} onChange={(e) => setBandPlan({ ...bandPlan, [a.id]: e.target.value })}>
-              <option value="">No band</option>
-              {Array.from({ length: leaders.size }, (_, i) => <option key={i + 1} value={String(i + 1)}>Band {i + 1}</option>)}
-            </select>
-          )}
-        </label>
-      ))}
-      {invalidBand && <div role="alert">{qualities.length
-        ? "Each band needs compatible banding abilities, matching creatures, and the same defender."
-        : "Each band needs banding, at most one creature without it, and the same defender."}</div>}
-      <div className="decision-options">
-        {targets.length === 1 && (
-          <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers
-            .filter((a) => attackTargetsFor(d, a.id).some((t) => t.id === targets[0]!.id)).map((a) => [a.id, targets[0]!.id])))}>All attack</button>
-        )}
-        <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
-          {Object.keys(plan).length ? `Attack with ${attackingCount(plan, counts, sizes).toLocaleString("en-US")}` : "No attack"}
-        </button>
-      </div>
     </div>
   );
 }
