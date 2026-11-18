@@ -52,6 +52,11 @@ export function DrawNotice() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [batch]);
+  // -- playtest (nov 18) -- pointing at a card I just drew (in my hand, 2D or 3D) says I've seen it: the notice goes
+  const hover = useGame((s) => s.hover);
+  useEffect(() => {
+    if (batch && hover && batch.ids.includes(hover)) setBatch(null);
+  }, [batch, hover]);
   const view = useGame((s) => s.view);
   if (!batch || !view) return null;
   const { faces, more } = noticeFaces(batch);
