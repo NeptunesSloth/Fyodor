@@ -144,7 +144,7 @@ for (const layout of ["arranged", "free"] as const) {
   });
 }
 
-test("dragging my Aura drawn under an opponent's creature: on their board it springs back, onto mine it comes off (2D)", async ({ page }) => {
+test("dragging my Aura drawn under an opponent's creature: on their board it springs back; onto mine it stays attached with rules on, comes off on a manual table (2D)", async ({ page }) => {
   await prefs(page, "2d", "arranged");
   const g = await setup(page);
   await open(page, g.id, "2d");
@@ -162,7 +162,18 @@ test("dragging my Aura drawn under an opponent's creature: on their board it spr
   const bob = (await page.locator('[data-drop="p2:battlefield"]').boundingBox())!;
   await drag(bob.x + bob.width * 0.8, bob.y + bob.height * 0.5);
   expect(await card()).toMatchObject({ zone: "p1:battlefield", attached_to: await g.byName("p2", "Goblin Chieftain") });
+  const chieftain = await g.byName("p2", "Goblin Chieftain");
   const mine = (await page.locator('[data-drop="p1:battlefield"]').boundingBox())!;
+  // rules automation on: no detach (the state-based actions would bin it), it springs back and says so
+  await g.act({ type: "configure", automation: "full" });
+  await page.waitForTimeout(1500);
+  await drag(mine.x + mine.width * 0.75, mine.y + mine.height * 0.5);
+  expect(await card()).toMatchObject({ zone: "p1:battlefield", attached_to: chieftain });
+  await expect(page.getByText(/Rancor stays attached/)).toBeVisible();
+  await shot(page, "2d-drag-home-automation");
+  // a manual table: pulled home, it comes off
+  await g.act({ type: "configure", automation: "off" });
+  await page.waitForTimeout(1500);
   await drag(mine.x + mine.width * 0.75, mine.y + mine.height * 0.5);
   expect(await card()).toMatchObject({ zone: "p1:battlefield" });
   expect((await card()).attached_to ?? null).toBeNull();

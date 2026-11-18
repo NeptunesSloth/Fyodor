@@ -5,6 +5,7 @@ import { moveCards, send } from "./actions";
 import type { DropResult } from "./dnd";
 import { groupPositions } from "./geometry";
 import { dropFromHand } from "./handDrop";
+import { automationOn } from "./rules/intents";
 import { guests } from "./attachments";
 import { toast } from "../components/Toasts";
 
@@ -18,12 +19,18 @@ export function dropCards(ids: string[], anchorId: string, target: DropResult | 
   const { zone, player } = splitZone(target.zone);
   // -- attached elsewhere -- my Aura drawn under your creature (game/attachments.ts): let go on your board, it springs back
   // under its host (never a move onto your battlefield, which would hand it to you); pulled back onto my own board, it comes off
+  // (a manual table only: with rules automation on it stays attached and says so)
   const away = guests(view);
   const guest = away.get(anchorId);
   if (guest && target.zone === guest.board && anchor?.zone !== target.zone) return;
   if (zone === "battlefield" && target.x != null && target.y != null) {
     const same = !!anchor && target.zone === anchor.zone;
     const off = same ? ids.filter((id) => away.has(id) && view.cards[id]?.zone === target.zone) : [];
+    if (off.length && automationOn(view)) {
+      // rules on: an unattached Aura would go to the graveyard (704.5m), no surprise from a drag: it springs back
+      toast(`${nameOf(view.cards[off[0]!])}${off.length > 1 ? ` and ${off.length - 1} more` : ""} stays attached — use its menu to move it`, "info");
+      return;
+    }
     if (off.length) {
       void send({ type: "detach", card_ids: off });
       toast(off.length === 1 ? `${nameOf(view.cards[off[0]!])}: detached` : `${off.length} cards detached`, "info");
