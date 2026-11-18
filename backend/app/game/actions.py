@@ -34,6 +34,7 @@ ZoneName = Literal[
     "attractions", "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
+MAX_AMOUNT = 2**31 - 1  # an amount to divide (damage, counters): a power can double far past any table limit
 # Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the
 # division (601.2d) of each divided group with two or more targets, amount per target in order.
 # -- target limits (wave 29C) -- the most targets one target group takes: the limit of the Choose action's options (a group's targets are
@@ -43,7 +44,7 @@ Coord = Annotated[float, Field(ge=-100000, le=100000)]
 MAX_TARGETS = 250
 MAX_GROUPS = 10
 TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=MAX_TARGETS)]], Field(max_length=MAX_GROUPS)]
-Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=MAX_TARGETS * MAX_GROUPS)]
+Division = Annotated[list[Annotated[int, Field(ge=1, le=MAX_AMOUNT)]], Field(max_length=MAX_TARGETS * MAX_GROUPS)]
 FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
@@ -1515,8 +1516,9 @@ class Choose(_Intent):
     type: Literal["choose"] = "choose"
     decision_id: Id
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
-    # A "divide" decision (601.2d): the amount for each option, in the options' order.
-    amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=MAX_TARGETS)
+    # A "divide" decision (601.2d): the amount for each option, in the options' order. -- playtest (nov 18) -- as large as a power
+    # can get (a Mossborn Hydra with 262144 counters tramples over: 10000 refused its damage assignment)
+    amounts: list[Annotated[int, Field(ge=0, le=MAX_AMOUNT)]] = Field(default_factory=list, max_length=MAX_TARGETS)
     # -- card names (wave 22B) -- 201.4: the typed card name that answers a "choose a card name" decision
     name: Annotated[str, Field(max_length=200)] | None = None
     # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD; for a trigger order, ALWAYS USE THIS

@@ -105,6 +105,19 @@ def test_trample_deathtouch_and_lifelink(cards):
     assert st.cards[wurm.id].zone == "p1:battlefield" and st.cards[wurm.id].damage == 2
 
 
+
+def test_a_huge_trampler_divides_its_damage(cards):
+    # -- playtest (nov 18) -- a Mossborn Hydra at 262144 power: its damage assignment was refused (amounts were capped at 10000)
+    s = table(cards)
+    hydra = creature(s, "p1", "Hydra", "262144/262144", "Trample")
+    guard = creature(s, "p2", "Guard", "2/2")
+    automate(s)
+    attack(s, (hydra, "p2"))
+    block(s, "p2", (guard, hydra))
+    act(s, "p1", type="choose", decision_id=decision(s).id, amounts=[2, 262142])
+    assert s.state.players["p2"].life == 40 - 262142
+    assert guard.id not in s.state.cards
+
 def test_evasion_flying_reach_and_menace(cards):
     s = table(cards)
     bird = creature(s, "p1", "Bird", "1/1", "Flying")
