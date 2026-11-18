@@ -62,3 +62,20 @@ def resolved(plan: Any) -> None:
     except Exception:  # noqa: BLE001 - showing progress must never break the action: stop showing it
         log.exception("Resolving progress failed; the rest of this action is shown when it is done")
         _LOCAL.watcher = None
+
+
+def calls(plan: Any) -> tuple[str, ...]:
+    """-- I have a response -- the players who called "wait, I have a response!" while this action is being worked out (the hub's
+    pending holds, ``watcher.calls``: app/multiplayer/hub.py). The one thing the engine takes in from outside part way through an
+    action: a hold heard mid-chain stops the chain at its next priority (app/rules/response_call.py). What it changes is part of the
+    action's recorded steps like everything else, so history, undo and replay still never depend on it."""
+    watcher = getattr(_LOCAL, "watcher", None)
+    if watcher is None or plan is not getattr(_LOCAL, "plan", None):
+        return ()
+    pending = getattr(watcher, "calls", None)
+    if not pending:
+        return ()
+    try:
+        return tuple(pending.copy())
+    except RuntimeError:  # (changed while copied, on the event loop: the next look sees it)
+        return ()

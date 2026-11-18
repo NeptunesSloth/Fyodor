@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game import bot
 from app.game.autoseat import bots_of
+from app.multiplayer import response_call
 
 if TYPE_CHECKING:
     from app.multiplayer.hub import GameHub, Room
@@ -108,6 +109,8 @@ async def _drive(hub: GameHub, room: Room, d: Driver) -> None:
                     return  # -- final board -- a finished table is looked at, not played
                 if d.speed == "step" and d.steps <= 0:
                     return
+                if response_call.waiting(room):
+                    continue  # -- I have a response -- a player called for a hold that hasn't landed yet: the opponent waits for it
                 session = room.game
                 history = session.history
                 if history.cursor != d.seen:  # the player (or an undo) changed the table since: a new run

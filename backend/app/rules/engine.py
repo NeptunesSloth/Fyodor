@@ -82,6 +82,7 @@ from app.rules import (
     recursion,  # -- static_other sweep (wave 17C) --
     regeneration_choices,
     replacements,
+    response_call,  # -- I have a response --
     rooms,  # -- Rooms (wave 18G) --
     sba,
     scripts,
@@ -511,6 +512,8 @@ def pass_mark(plan: Plan, until: str) -> str:
         return str(r.actions)
     if until == "stack_changes":
         return stack_signature(plan)
+    if until == "own_triggers":
+        return f"{stack_signature(plan)}|0"
     if until in ("next_step", "combat"):
         return r.step or f"{plan.state.turn.number}:{plan.state.turn.phase}"
     return str(plan.state.turn.number)
@@ -524,6 +527,8 @@ def pass_until_met(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
         return r.actions > int(mark or 0) and r.last_actor not in (None, player)
     if until == "stack_changes":
         return stack_signature(plan) != mark
+    if until == "own_triggers":
+        return own_run_over(plan, player, prefs)
     if until == "stack_empty":
         return not state.zones.get(STACK)
     if until == "next_step":
@@ -535,6 +540,27 @@ def pass_until_met(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
     if until == "combat":
         return r.step != mark and state.turn.phase in ("begin_combat", "declare_attackers")
     return True
+
+
+OWN_RUN = 20  # -- smart resolve -- objects one RESOLVE press resolves at most (a run that keeps refilling stops here too)
+
+
+def own_run_over(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
+    """-- smart resolve -- RESOLVE (``own_triggers``): one press resolves the top object and goes on through the run of the player's own
+    triggered abilities under it (six landfall triggers, a ×N batch: one press, not six). It is over (the player gets priority, 117.3b)
+    as soon as the top is anything else (their own spell or activated ability, another player's object put on it), the stack is empty
+    (then the usual stops decide, as after RESOLVE ONE), or ``OWN_RUN`` objects resolved. A decision always comes to them, and a card
+    they drew meanwhile that they could cast now stops it (``new_response``): what they choose to pass over is what they saw."""
+    sig, _, n = prefs.pass_mark.partition("|")
+    now, count = stack_signature(plan), int(n or 0)
+    if now != sig:
+        count += 1
+        prefs.pass_mark = f"{now}|{count}"
+    stack = plan.state.zones.get(STACK)
+    if not stack or count >= OWN_RUN:
+        return True
+    top = plan.rules.stack.get(stack[-1])
+    return top is None or top.kind != "trigger" or controller_of(plan.state, top.controller) != controller_of(plan.state, player)
 
 
 def bluff_stop(state: GameState, player: str) -> bool:
@@ -560,6 +586,8 @@ def is_stop(plan: Plan, player: str) -> bool:
         return True  # they just kept priority (HOLD PRIORITY)
     if plan.state.turn.phase == "untap" and not plan.state.zones.get(STACK):
         return False  # no one gets priority in the untap step (502.4)
+    if player in r.responding:
+        return True  # -- I have a response -- they called for it: whatever they set, they get this priority (response_call.py)
     if prefs.force_stop:
         prefs.force_stop = False  # consumed
         return True
@@ -573,7 +601,7 @@ def is_stop(plan: Plan, player: str) -> bool:
             return False
         until = prefs.pass_until
         prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
-        if until != "stack_changes" or plan.state.zones.get(STACK):
+        if until not in ("stack_changes", "own_triggers") or plan.state.zones.get(STACK):
             return True
         # RESOLVE (the top object) emptied the stack: the usual stops decide, as after any pass (a lone spell resolves and play
         # goes on with one press). With something still on the stack the player gets priority back (117.3b): one object a press.
@@ -636,6 +664,7 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
         clean_at, checked = len(plan.steps), False
         if r.decision is not None:
             return
+        response_call.take_calls(plan)  # -- I have a response -- a hold called while this action is worked out (a long chain)
         stack_now = set(plan.state.zones.get(STACK, []))
         r.stack = {k: v for k, v in r.stack.items() if k in stack_now}  # (objects removed by hand)
         if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
@@ -643,6 +672,7 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
                 return
             continue
         players = plan.live()
+        response_call.prune(r, players)
         # game over (one player left of several, or nobody): the table stays a sandbox. A table seated for one from the start is
         # solo testing (goldfishing a deck), not a won game: its turns go on.
         if not players or (len(players) == 1 and len(plan.state.seat_order) > 1):
@@ -667,13 +697,16 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
         r.priority = holder
         if r.auto_pass is not None:  # -- core review -- the Arena-style pass after their own cast / activation (casting.py)
             auto, r.auto_pass = r.auto_pass, None
-            if auto == holder:
+            if auto == holder and holder not in r.responding:
                 r.passed.append(holder)
+                response_call.passed_for(r, holder)
                 checked = clean and clean_at == len(plan.steps)
                 continue
         if is_stop(plan, holder):
+            response_call.reached(plan, holder)
             return
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)
+        response_call.passed_for(r, holder)  # (-- I have a response -- a pass they never chose: a hold may take it back)
         checked = clean and clean_at == len(plan.steps)
 
 
@@ -769,13 +802,15 @@ def pass_priority(plan: Plan, a: A.PassPriority) -> None:
     require_no_decision(plan)
     require_priority(plan)
     if a.until is not None:
-        if a.until in ("stack_changes", "stack_empty") and not plan.state.zones.get(STACK):
+        if a.until in ("stack_changes", "own_triggers", "stack_empty") and not plan.state.zones.get(STACK):
             raise ActionError("The stack is empty")
         prefs = plan.prefs(plan.actor)
         prefs.pass_until, prefs.pass_mark = a.until, pass_mark(plan, a.until)
         prefs.pass_hand = list(plan.state.zones.get(zone_key(plan.actor, "hand"), []))  # (-- runaway chains -- new_response)
     if plan.actor not in plan.rules.passed:
         plan.rules.passed.append(plan.actor)
+    if plan.actor in plan.rules.auto_passed:  # (-- I have a response -- their own pass: it stands)
+        plan.rules.auto_passed.remove(plan.actor)
     plan.rules.priority = plan.after(plan.actor)
     advance(plan)
 
@@ -1915,9 +1950,13 @@ def concede(plan: Plan, _: A.Action) -> None:
 
     watchers = life_game_history.loss_watchers(plan)  # 603.10f: looked back to before the concession's 800.4a departure
     r.conceded.append(plan.actor)
+    if plan.actor in r.responding:
+        r.responding.remove(plan.actor)
     if r.declaration_cost_reserved and r.declaration_cost_reserved.payer == plan.actor:
         r.declaration_cost_reserved = None
     plan.note(f"{plan.name(plan.actor)} conceded")
+    if getattr(_, "flip", False):  # -- flip the table -- (the flip itself is cosmetic: app/multiplayer/response_call.py)
+        plan.note(f"{plan.name(plan.actor)} flipped the table (╯°□°)╯︵ ┻━┻")
     casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
@@ -2031,6 +2070,8 @@ def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
             setattr(prefs, key, list(value) if isinstance(value, list) else value)
     if a.cancel_pass:
         prefs.pass_until, prefs.pass_mark, prefs.stop_after, prefs.pass_hand = None, "", None, []
+    if a.respond is not None:  # -- I have a response -- (public: said in the log, shown on every table)
+        response_call.call(plan, plan.actor, a.respond)
     if a.forget_trigger_orders:  # -- trigger order memory --
         prefs.trigger_orders = []
     elif a.forget_trigger_order is not None and a.forget_trigger_order < len(prefs.trigger_orders):

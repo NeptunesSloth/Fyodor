@@ -1497,7 +1497,7 @@ class DeclareBlockers(_Intent):
     sources: list[Id] | None = Field(default=None, max_length=60)
 
 
-PASS_UNTIL = ("next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
+PASS_UNTIL = ("next_action", "stack_changes", "own_triggers", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
 
 
 class PassPriority(_Intent):
@@ -1505,7 +1505,8 @@ class PassPriority(_Intent):
     RESOLVE ONE = stack_changes, RESOLVE ALL = stack_empty …); decisions still come to you."""
 
     type: Literal["pass_priority"] = "pass_priority"
-    until: Literal["next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat"] | None = None
+    # (-- smart resolve -- "own_triggers": RESOLVE, the top object and the run of your own triggered abilities under it: engine.pass_until_met)
+    until: Literal["next_action", "stack_changes", "own_triggers", "stack_empty", "next_step", "next_turn", "my_turn", "combat"] | None = None
 
 
 class Choose(_Intent):
@@ -1525,6 +1526,8 @@ class Choose(_Intent):
 
 class Concede(_Intent):
     type: Literal["concede"] = "concede"
+    # -- flip the table -- concede and flip it (╯°□°)╯︵ ┻━┻: the concession as ever, a log line, and a cosmetic flip on every table
+    flip: bool = False
 
 
 class SetStops(_Intent):
@@ -1572,6 +1575,8 @@ class SetPrefs(_Intent):
     hold_priority: bool | None = None
     full_control: bool | None = None
     force_stop: bool | None = None
+    # -- I have a response -- "wait, I have a response!": a public hold (True) or its cancel (False); app/rules/response_call.py
+    respond: bool | None = None
     cancel_pass: bool = False  # cancel a PASS UNTIL … / HOLD AFTER THIS RESOLVES
     stop_after: Id | None = None  # HOLD AFTER THIS RESOLVES: a card on the stack
     # PREFER / NORMAL / SAVE for one of your mana sources ("normal" clears it).

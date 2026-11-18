@@ -186,6 +186,9 @@ Response = Literal["off", "auto", "on"]
 PassUntil = Literal[
     "next_action",  # until another player does something (casts, activates, plays, attacks)
     "stack_changes",  # until an object is added to or leaves the stack ("resolve": the top object; with the stack empty then, the usual stops)
+    # -- smart resolve -- RESOLVE: the top object, then on while the top is the player's own triggered ability (a landfall batch), at most
+    # OWN_RUN objects; stops as soon as anything else is on top (a spell, another player's object), as stack_changes when it empties
+    "own_triggers",
     "stack_empty",  # until the stack is empty ("resolve all until decision")
     "next_step",  # until the next step or phase
     "next_turn",  # until the next turn
@@ -1569,6 +1572,11 @@ class RulesState(BaseModel):
     # -- core review -- the player the engine passes for once, Arena-style, right after they cast a spell or activated an
     # ability: consumed by engine.advance once the triggers that cast caused are on the stack (117.3c, 603.3)
     auto_pass: str | None = None
+    # -- I have a response -- the players who called "wait, I have a response!" and haven't had priority since (public: everyone
+    # heard it), and the players in ``passed`` whose pass the engine made for them (an automatic pass, never shown: a hold takes it
+    # back, a pass of their own can't be). app/rules/response_call.py
+    responding: list[str] = Field(default_factory=list)
+    auto_passed: list[str] = Field(default_factory=list)
     decision: Decision | None = None
     # -- nested payment choices (wave 28D) -- 605.3a: the "tap your mana" / pay-or-sacrifice prompt a mana ability's own chosen cost
     # (Ashnod's Altar's creature, Phyrexian Altar's color) is nested in; it comes back once that choice is made or cancelled

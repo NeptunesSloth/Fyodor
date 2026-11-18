@@ -27,6 +27,7 @@ from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
 from app.game.visibility import publicly_visible
+from app.multiplayer import response_call
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
 from app.multiplayer.night import Night, Proposal, bot_seat, rematch_missing
@@ -297,7 +298,7 @@ PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
 
 
 class SignalIn(BaseModel):
-    kind: Literal["nudge", "react", "ping"]
+    kind: Literal["nudge", "react", "ping", "flip"]
     emoji: str | None = Field(default=None, max_length=16)
     as_player: str | None = Field(default=None, max_length=8)
     # a ping points at a card everyone can see, or at a spot on someone's battlefield (virtual units, as card x/y)
@@ -359,6 +360,15 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
             raise HTTPException(422, "Point at a card or at a spot on a battlefield")
         last[f"ping:{actor}"] = now
         await _to_everyone(services, room, ping)
+        return {"sent": True}
+    if body.kind == "flip":  # -- flip the table -- (╯°□°)╯︵ ┻━┻ for fun: cosmetic, your own side only, once in a while
+        if actor is None or actor not in state.players:
+            raise HTTPException(403, "Only a player at the table can flip it")
+        if not room.night.reactions:
+            raise HTTPException(409, "The host has turned reactions off at this table")
+        if (wait := response_call.flip_wait(room, actor)) > 0:
+            raise HTTPException(429, f"The table needs a moment: flip it again in {int(wait) + 1} s")
+        response_call.flip(services.hub, room, actor, concede=False)
         return {"sent": True}
     # reactions: from spectators and players already out of the game; emotes (fixed table talk): from anyone at the table
     emote = body.emoji in EMOTES

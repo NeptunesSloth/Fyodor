@@ -28,7 +28,10 @@ from app.game.ops import down_public
 from app.game.session import GameSession
 from app.game.summary import player_commanders
 from app.game.visibility import OMNISCIENT, SPECTATOR
-from app.multiplayer import bots  # -- test opponent -- the server's pacing of its actions
+from app.multiplayer import (
+    bots,  # -- test opponent -- the server's pacing of its actions
+    response_call,  # -- I have a response / flip the table --
+)
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules, rematch_missing
@@ -374,6 +377,7 @@ class GameHub:
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
         bots.forget(game_id)
+        response_call.forget(game_id)
         if room:
             if room.game is not None:
                 room.game.history.listener = None
@@ -631,9 +635,16 @@ class GameHub:
         broadcast after the action is the table's word. Anything else is performed at once, as before."""
         session = room.session
         if payload.get("type") not in INTENT_TYPES or session.state.rules is None or not room.connections:
-            return session.perform(actor, payload, host=host)
+            done = False
+            try:
+                action = session.perform(actor, payload, host=host)
+                done = True
+                return action
+            finally:
+                response_call.after(self, room, actor, payload, applied=done)  # -- I have a response / flip the table --
         loop = asyncio.get_running_loop()
         stream = InterimStream(self, room, loop, actor)
+        stream.calls = response_call.pending(room)  # -- I have a response -- a hold heard while this is worked out stops its chain
         room.acting = loop.create_future()
         applied = False
         try:
@@ -648,6 +659,7 @@ class GameHub:
             done, room.acting = room.acting, None
             if done is not None and not done.done():
                 done.set_result(None)
+            response_call.after(self, room, actor, payload, applied=applied)  # -- I have a response / flip the table --
             if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
                 await self.broadcast(room, resync=True)
 
@@ -796,6 +808,7 @@ class InterimStream:
         self.task: asyncio.Task[None] | None = None
         self.sent = False
         self.frames = 0  # sets built (tests)
+        self.calls: dict[str, float] = {}  # -- I have a response -- the room's pending holds (app/rules/progress.py calls)
 
     # -- on the worker thread --
     def watch(self, plan: Any, resolved: int) -> None:

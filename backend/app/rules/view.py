@@ -81,6 +81,9 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "paused": r.paused,
         "priority": r.priority,
         "passed": list(r.passed),
+        # -- I have a response -- who called "wait, I have a response!" and hasn't had priority since (public: they said it aloud;
+        # only while someone has)
+        **({"responding": [p for p in r.responding if p in live_players(state)]} if r.responding else {}),
         "attacking_bands": banding.live_bands(state),
         "conceded": list(r.conceded),
         "lost": dict(r.lost),

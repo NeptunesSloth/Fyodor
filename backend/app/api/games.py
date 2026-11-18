@@ -53,7 +53,7 @@ from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarCard
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
-from app.multiplayer import lan_art
+from app.multiplayer import lan_art, response_call
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, undo_voters
 from app.multiplayer.lobby import (
     CardPermissions,
@@ -427,6 +427,7 @@ async def post_action(
     _check_host_only(room, body.action, host=room.is_host(x_seat_token))
     _check_assets(services, body.action)
     cid = body.client_action_id
+    response_call.early(services.hub, room, actor, body.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
         if cid is not None and cid in room.client_actions:
             previous = room.client_actions[cid]
@@ -1953,6 +1954,8 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             await send({"type": "error", "id": msg.id, "message": str(exc.detail)})
             return
     cid = msg.client_action_id if isinstance(msg, WsAction) else None
+    if isinstance(msg, WsAction):
+        response_call.early(services.hub, room, actor, msg.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
         if cid is not None and cid in room.client_actions:
             previous = room.client_actions[cid]
