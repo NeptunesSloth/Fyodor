@@ -38,7 +38,7 @@ import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { makeTether } from "./tethers";
 import { combatCardIds, frameBox, isCloseUp } from "./focus";
-import { attachmentLinks, tetherAnchor } from "../game/attachments";
+import { attachmentLinks, boardCards, guests, guestSpot, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
@@ -1460,7 +1460,7 @@ export class TableScene {
     this.setBadge(c, pile);
     if (pile && o) {
       const { pile: _n, ...rest } = o;
-      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.keywords.length || rest.counters.length ? rest : null;
+      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.guest || rest.keywords.length || rest.counters.length ? rest : null;
     }
     const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
     const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
@@ -1471,7 +1471,8 @@ export class TableScene {
     const mat = new THREE.MeshBasicMaterial({
       // -- arranged boards -- a tile's badges are laid out for its proportions (table3d/tiles.ts)
       map: canvasTexture(c.tile ? tileOverlayCanvas(o, 256, look) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      // (a guest lies tucked a hair under its host: a slope-scaled offset would lift its frame through the host's face)
+      polygonOffset: true, polygonOffsetFactor: o.guest ? 0 : -2, polygonOffsetUnits: -2,
     });
     const m = new THREE.Mesh(this.cardFaceGeo, mat);
     m.position.y = THICK + FACE_LIFT * 2;
@@ -1583,6 +1584,7 @@ export class TableScene {
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
+    const peek = new Set(store.peek);
     this.selectedIds = selection;
     this.beams = targetBeams(view, this.me);
     // -- combat filter -- (game/combatFilter.ts) the cards it leaves lit, worked out here once per sync: dimming is a material swap, no per-frame cost
@@ -1610,7 +1612,11 @@ export class TableScene {
     for (const seat of this.seatList) {
       const pid = seat.player;
       // battlefield
-      const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
+      // -- attached elsewhere -- with the other players' Auras and Equipment attached to permanents here, each just under its host
+      const bfZone = `${pid}:battlefield`;
+      const bf = boardCards(view, bfZone);
+      const guest = (id: string) => view.cards[id]?.zone !== bfZone;
+      const hostAt = (h: string): [number, number] | null => pending[h] ?? (view.cards[h] ? [view.cards[h]!.x ?? 0, view.cards[h]!.y ?? 0] : null);
       const piles = this.arranged ? this.boards.piles(pid) : zonePileTops(view, `${pid}:battlefield`);
       // -- token piles -- what lies wholly under another card (a pile's buried cards) is hidden; a raised card (selected, a
       // targeting choice, on its way somewhere) neither hides nor is hidden
@@ -1624,7 +1630,7 @@ export class TableScene {
       }
       const covers = this.arranged ? null : freeCovers(bf.flatMap((id, i) => {
         const card = view.cards[id];
-        if (!card) return [];
+        if (!card || guest(id)) return [];
         const [x, y] = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const look = isVisible(card) ? `${card.card_id ?? `token:${card.name}`}|${card.face ?? 0}|${card.face_down ? 1 : 0}` : "hidden";
         return [{ id, x, y, turn: (card.tapped ? 1 : 0) + (card.flipped ? 2 : 0) + (card.rotation ?? 0) * 4, lifted: lifted(id) || hosts.has(id), look }];
@@ -1633,7 +1639,8 @@ export class TableScene {
         const card = view.cards[id];
         const c = show(id);
         if (!card || !c) return;
-        const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
+        const away = guest(id);
+        const pos = (away ? guestSpot(view, id, hostAt) : null) ?? pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
         // -- targeting -- the choices lift off the felt (the one pointed at or chosen more), the rest darkens
@@ -1652,8 +1659,12 @@ export class TableScene {
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
-        this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
+        // -- attached elsewhere -- its controller's seat colour round the edge and their initial in the corner that peeks out
+        const ctl = away ? view.players.find((p) => p.id === card.controller) : undefined;
+        const visitor = ctl ? { initial: ctl.name.slice(0, 1).toUpperCase(), color: ctl.color, front: c.tile && this.boards.mats.get(pid)?.mirrored ? "bottom" as const : "top" as const } : undefined;
+        this.setOverlay(c, pile || owner || visitor ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}) } : overlay);
+        const lit2 = selection.has(id) || peek.has(id); // (peek: a plaque's "attached elsewhere" chip is hovered)
+        this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -1791,7 +1802,7 @@ export class TableScene {
     const view = this.view;
     if (!view) return;
     const store = useGame.getState();
-    const links = attachmentLinks(view, [store.hover, ...store.selection]);
+    const links = attachmentLinks(view, [store.hover, ...store.selection, ...store.peek]);
     const ends: [THREE.Vector3, THREE.Vector3][] = [];
     const foot = (c: CardObj) => ({ x: c.target.x, y: c.target.z, hw: (CARD_W / 2) * c.scale, hh: (CARD_H / 2) * c.scale, rot: -c.rot });
     // just over the card's face, as high as the hover or selection lift carries it
@@ -2580,6 +2591,7 @@ export class TableScene {
     const view = this.view;
     const seat = this.seatList.find((s) => s.player === this.me);
     if (!view || !seat || !ids.length) return false;
+    if (ids.some((id) => guests(view).has(id))) return false; // -- attached elsewhere -- it lies on another mat: an exact drop (game/drop.ts)
     if (this.arranged) return this.flickArranged(ids, vx, vz);
     const now = performance.now();
     const d = { ids };
@@ -2631,6 +2643,7 @@ export class TableScene {
     const c = this.cards.get(anchor);
     const mat = this.boards.mats.get(zone.split(":")[0]!);
     if (!this.arranged || !view || !c || !mat || mat.zone !== zone || !ids.every((id) => view.cards[id]?.zone === zone)) return false;
+    if (ids.some((id) => guests(view).has(id))) return false; // -- attached elsewhere -- pulled home: game/drop.ts detaches it
     const [lx, lz] = toLocal(mat.frame, c.target.x, c.target.z);
     const order = reorderMat(mat, ids, lx, lz);
     if (order) {

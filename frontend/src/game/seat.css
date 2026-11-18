@@ -99,6 +99,16 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
   display: inline-flex; align-items: center; gap: 3px; padding: 0 4px; color: #efe2c2;
   font: 600 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
 }
+/* -- attached elsewhere -- (SeatPlate AttachedElsewhere) this player's Auras/Equipment tucked under other players' permanents: a card
+   (solid, in the seat colour) over a dashed one, and the count; hover lights them on the table, a click selects them */
+.seat-elsewhere {
+  display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 6px 0 4px; flex: none; cursor: pointer;
+  color: #efe2c2; background: rgba(0, 0, 0, 0.35); border: 1px solid color-mix(in srgb, var(--player-color, #d7ae63) 70%, transparent);
+  border-radius: 11px; font: 700 12.5px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.seat-elsewhere-glyph { width: 14px; height: 14px; color: var(--player-color, #d7ae63); flex: none; }
+.seat-elsewhere:hover, .seat-elsewhere:focus-visible { background: rgba(0, 0, 0, 0.55); border-color: var(--accent-2, #f0c36d); }
+.seat-elsewhere:focus-visible { outline: 2px solid var(--accent-2, #f0c36d); outline-offset: 1px; }
 /* the hand count's cards: the icon set's fanned pair, in the plaque's brass */
 .seat-hand .icon { color: #d7ae63; flex: none; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)); }
 /* + : add a counter that isn't on the plaque yet (zeros stay off it). A brass-ringed stud; it waits, like the steppers,

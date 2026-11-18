@@ -8,6 +8,7 @@
  * Display only: the server's positions are untouched (free placement and saves use them). Pure (no three.js), so it
  * is unit-tested.
  */
+import { boardCards } from "../game/attachments";
 import { applyOrder, arrangeBoard, arrangeCard, reorderOnDrop, TILE_RATIO, type BoardLayout } from "../game/arrange";
 import { isVisible, type GameView } from "../types/game";
 import type { CardData } from "../types/cards";
@@ -173,7 +174,8 @@ export class ArrangedBoards {
     const stats = view.rules?.stats;
     for (const seat of seats) {
       const zone = `${seat.player}:battlefield`;
-      const ids = (view.zones[zone] as string[] | undefined) ?? [];
+      // -- attached elsewhere -- another player's Aura on a permanent here is laid out here, tucked under it (game/attachments.ts)
+      const ids = boardCards(view, zone);
       const order = src.order(zone);
       // a mat across the table faces me: its front (the creatures) is toward me, the bottom of the mat as I see it
       const mirrored = seat.side !== mine.side;

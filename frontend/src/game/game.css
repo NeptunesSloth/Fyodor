@@ -640,6 +640,20 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .card-marks .mark.lock { background: transparent; }
 /* owner gem: someone else's card, in their seat colour, with their initial (never colour alone) */
 .card-marks .mark.owner { background: var(--owner); color: #0e0b08; font-weight: 800; border-radius: 50%; min-width: 16px; text-align: center; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.6); }
+/* -- attached elsewhere -- (game/attachments.ts guests) another player's Aura or Equipment tucked under a permanent here: a frame
+   in its controller's seat colour, and their initial on a tab in the corner that peeks out from under the host (right edge, the
+   edge toward the middle of the table), so whose it is never rests on colour alone */
+.table-card.guest::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--guest); pointer-events: none; z-index: 3; }
+.guest-tab {
+  position: absolute; right: 0; z-index: 4; pointer-events: auto;
+  width: clamp(11px, calc(var(--tw, 90px) * 0.115), 16px); height: clamp(14px, calc(var(--tw, 90px) * 0.165), 22px);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--guest); color: #0e0b08; font: 800 clamp(8.5px, calc(var(--tw, 90px) * 0.1), 11px)/1 var(--font-ui, system-ui, sans-serif);
+  box-shadow: 0 0 0 1.5px rgba(14, 11, 8, 0.75);
+}
+.guest-tab.top { top: 0; border-radius: 0 4px 0 3px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); }
+.guest-tab.bottom { bottom: 0; border-radius: 3px 0 4px 0; clip-path: polygon(0 16%, 50% 0, 100% 16%, 100% 100%, 0 100%); }
+.table-card.peek { box-shadow: 0 0 0 2px var(--accent-2), 0 0 14px rgba(240, 195, 109, 0.55); }
 .combat-arrows .arrow line { stroke-width: 2; opacity: 0.55; stroke-linecap: round; }
 .combat-arrows .arrow.block line { stroke: #6aa7e8; }
 .combat-arrows .arrow.target line { stroke: #d9b36a; stroke-dasharray: 6 4; }

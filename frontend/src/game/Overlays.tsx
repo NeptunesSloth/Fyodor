@@ -132,11 +132,12 @@ export function AttachLines() {
   const cards = useGame((s) => s.view?.cards);
   const hover = useGame((s) => s.hover);
   const selection = useGame((s) => s.selection);
+  const peek = useGame((s) => s.peek);
   const focus = useGame((s) => s.focus);
   const [lines, setLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   useEffect(() => {
     if (!cards) return;
-    const links = attachmentLinks({ cards }, [hover, ...selection]);
+    const links = attachmentLinks({ cards }, [hover, ...selection, ...peek]);
     if (!links.length) {
       setLines((old) => (old.length ? [] : old));
       return;
@@ -166,7 +167,7 @@ export function AttachLines() {
       window.clearTimeout(late);
       window.removeEventListener("resize", compute);
     };
-  }, [cards, hover, selection, focus]);
+  }, [cards, hover, selection, peek, focus]);
   if (!lines.length) return null;
   return (
     <svg className="attach-lines" data-testid="attach-lines" aria-hidden>

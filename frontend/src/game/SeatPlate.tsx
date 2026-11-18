@@ -10,6 +10,7 @@ import { Icon } from "../components/Icon";
 import type { PlayerView } from "../types/game";
 import "./seat.css";
 import { PlayerInitial } from "./PlayerInitial";
+import { guestsOf } from "./attachments";
 
 /**
  * Taps on a counter gathered into one change: three quick clicks send "−3" once (one log line, one undo step),
@@ -141,6 +142,32 @@ function addCounterItems(p: PlayerView, sources: { key: string; name: string; ow
   return items;
 }
 
+/**
+ * -- attached elsewhere -- how many of this player's Auras and Equipment are drawn on other players' boards, under what they're
+ * attached to (game/attachments.ts guests). Hover or focus lights them (and their lines) on the table; a click selects them.
+ */
+function AttachedElsewhere({ player, name }: { player: string; name: string }) {
+  const key = useGame((s) => (s.view ? guestsOf(s.view, player).join(",") : "")); // (a string: a stable snapshot)
+  if (!key) return null;
+  const ids = key.split(",");
+  const n = ids.length;
+  const say = `${n} of ${name}'s ${n === 1 ? "Aura or Equipment is" : "Auras and Equipment are"} attached to other players' permanents`;
+  const peek = (on: boolean) => useGame.getState().setPeek(on ? ids : []);
+  return (
+    <button className="seat-elsewhere" data-testid={`elsewhere-${player}`} aria-label={`${say}. Select them`}
+      title={`${say}, tucked under them with ${name}'s initial. Hover to light them, click to select them`}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerEnter={() => peek(true)} onPointerLeave={() => peek(false)} onFocus={() => peek(true)} onBlur={() => peek(false)}
+      onClick={(e) => { e.stopPropagation(); useGame.getState().select(ids); }}>
+      <svg viewBox="0 0 16 16" aria-hidden className="seat-elsewhere-glyph">
+        <rect x="2.5" y="1.5" width="8" height="11" rx="1.3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2 1.6" />
+        <rect x="6" y="4" width="8" height="11" rx="1.3" fill="currentColor" />
+      </svg>
+      <span>{n}</span>
+    </button>
+  );
+}
+
 /** A hand holding a fan of cards (the Oops table's hand marker), in the seat's colour (currentColor). */
 function HandGlyph() {
   return (
@@ -172,6 +199,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   // -- playtest (nov 17) -- this seat's player lost or conceded (800.4a): its plaque says so (a bot at -38 life looked still in the game)
   const gone = useGame((s) => seatGone(s.view, player));
   const plate = useRef<HTMLDivElement>(null);
+  const elsewhere = useGame((s) => !!s.view && guestsOf(s.view, player).length > 0);
   if (!p) return null;
   const flat = variant === "2d";
   const poison = p.resources.poison ?? 0;
@@ -201,6 +229,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
           testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
       ))}
+      <AttachedElsewhere player={player} name={p.name} />
       <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
         <Icon name="cards" size={14} />{p.hand_count}
       </span>
@@ -220,7 +249,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
     // -- the 3D table -- no name box (the user's call): beside the heart, a hand of cards in the seat's colour with the
     // hand count, as on the Oops table; clicking it opens the player's panel (commander damage, poison, counters). Only
     // the counters that are something show beside it.
-    const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0);
+    const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0) || elsewhere;
     return (
       <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""} ${gone ? "seat-gone" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
         <div className="t3d-seat-main">

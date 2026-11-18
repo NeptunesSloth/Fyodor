@@ -15,7 +15,7 @@ import { proxyFontsReady, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 import { countText } from "../game/piles";
 import { keywordCode } from "../game/counters";
-import type { CardOverlay } from "./textures";
+import { drawGuestMark, type CardOverlay } from "./textures";
 
 /** Tile canvas width (px); its height is 1.12 times that (game/arrange.ts TILE_RATIO). */
 export const TILE_PX = 320;
@@ -438,5 +438,6 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
     g.font = `800 ${Math.round(R * 0.85)}px ${UI}`;
     g.fillText(`+${kw.length - shown.length}`, cx, cy + 1);
   }
+  if (o.guest) drawGuestMark(g, W, H, o.guest);
   return c;
 }

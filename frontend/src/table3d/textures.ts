@@ -801,6 +801,48 @@ export interface CardOverlay {
   pile?: number;
   /** The encoder's owner gem: someone else owns this card (their initial, in their seat colour). */
   owner?: { initial: string; color: string };
+  /**
+   * -- attached elsewhere -- another player's attachment tucked under a permanent here (game/attachments.ts guests): a frame in
+   * their seat colour and their initial on a tab in the corner that peeks out (the right edge, at the `front` end: the edge toward
+   * the middle of the table).
+   */
+  guest?: { initial: string; color: string; front: "top" | "bottom" };
+}
+
+/** The guest frame and tab (CardOverlay.guest) on a W × H overlay. */
+export function drawGuestMark(g: CanvasRenderingContext2D, W: number, H: number, guest: NonNullable<CardOverlay["guest"]>): void {
+  const lw = Math.max(3, W * 0.028);
+  g.save();
+  g.strokeStyle = guest.color;
+  g.lineWidth = lw;
+  roundRect(g, lw / 2, lw / 2, W - lw, H - lw, W * 0.045);
+  g.stroke();
+  // the tab: inside the strip a tucked card shows (12% of the width), a notched flag hanging from the front edge
+  const tw = W * 0.115;
+  const th = W * 0.17;
+  const x = W - tw;
+  const down = guest.front === "top";
+  const y0 = down ? 0 : H;
+  const y1 = down ? th : H - th;
+  const notch = down ? th * 0.82 : H - th * 0.82;
+  g.beginPath();
+  g.moveTo(x, y0);
+  g.lineTo(W, y0);
+  g.lineTo(W, y1);
+  g.lineTo(x + tw / 2, notch);
+  g.lineTo(x, y1);
+  g.closePath();
+  g.fillStyle = guest.color;
+  g.fill();
+  g.lineWidth = Math.max(2, W * 0.008);
+  g.strokeStyle = "rgba(14, 11, 8, 0.8)";
+  g.stroke();
+  g.fillStyle = "#0e0b08";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = `800 ${Math.round(tw * 0.78)}px Inter, Arial, sans-serif`;
+  g.fillText(guest.initial, x + tw / 2, down ? th * 0.4 : H - th * 0.4);
+  g.restore();
 }
 
 export const OVERLAY_W = 512;
@@ -1075,5 +1117,6 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.fillStyle = "#f4ead6";
     g.fillText(text, x + w / 2, y + h / 2 + 2);
   });
+  if (o.guest) drawGuestMark(g, W, H, o.guest);
   return c;
 }

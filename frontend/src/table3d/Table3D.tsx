@@ -97,7 +97,7 @@ export function Table3D({ me }: { me: string }) {
     };
     sync();
     const unGame = useGame.subscribe((s, prev) => {
-      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      if (s.view !== prev.view || s.selection !== prev.selection || s.peek !== prev.peek || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
       if (s.errorCard && s.errorCard !== prev.errorCard) setTimeout(sync, ERROR_MS + 50);
     });
     const unCards = useCardCache.subscribe((s, prev) => {

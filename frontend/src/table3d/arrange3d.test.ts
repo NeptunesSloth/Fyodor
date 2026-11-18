@@ -95,6 +95,23 @@ describe("arranged 3D boards: every board reads upright from my seat", () => {
     expect([...tops.values()]).toEqual([3]);
   });
 
+  it("tucks my Aura on an opponent's creature under it on their mat, not on mine (game/attachments.ts guests)", () => {
+    const b = new ArrangedBoards();
+    const s = seats(["p1", "p2", "p3", "p4"], "p1");
+    const v = view();
+    v.cards["p1-aura"] = vis("p1-aura", "p1", "Ring", { attached_to: "p2-bear" });
+    v.zones["p1:battlefield"] = [...(v.zones["p1:battlefield"] as string[]), "p1-aura"];
+    const spots = b.layout(v, s, "p1", src);
+    const aura = spots.get("p1-aura")!;
+    const host = spots.get("p2-bear")!;
+    expect(aura.player).toBe("p2"); // laid out on the host's mat
+    expect(Math.hypot(aura.x - host.x, aura.z - host.z)).toBeLessThan(host.w * 0.5); // peeking out from under it
+    expect(aura.rank).toBeLessThan(host.rank);
+    // and the board is laid out again when that changes, though the opponent's own zone array didn't
+    const v2 = { ...v, cards: { ...v.cards, "p1-aura": { ...v.cards["p1-aura"]!, attached_to: null } } } as GameView;
+    expect(b.layout(v2, s, "p1", src).get("p1-aura")!.player).toBe("p1");
+  });
+
   it("reuses a mat whose cards are the same objects (the view shares unchanged ones)", () => {
     const b = new ArrangedBoards();
     const s = seats(["p1", "p2", "p3", "p4"], "p1");

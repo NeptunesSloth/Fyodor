@@ -30,10 +30,14 @@ interface Props {
   tile?: boolean;
   /** The combat filter dims it (game/combatFilter.ts): drawn darker, still fully usable. */
   dim?: boolean;
+  /** The player whose board it is drawn on: a card controlled by someone else is attached here from their board (game/attachments.ts guests). */
+  board?: string;
+  /** Which edge of the card faces the middle of the table on this board (where a tucked card peeks out). */
+  front?: "top" | "bottom";
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false, board, front = "top" }: Props) {
   const card = useCardView(id);
   const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
@@ -45,6 +49,18 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     const c = s.view?.cards[id];
     return c && c.owner !== c.controller ? s.view?.players.find((p) => p.id === c.owner) : undefined;
   });
+  // -- attached elsewhere -- drawn on another player's board: its controller's seat colour and initial, never colour alone
+  const guest = useGame((s) => {
+    const c = s.view?.cards[id];
+    return board && c && c.zone !== `${board}:battlefield` ? s.view?.players.find((p) => p.id === c.controller) : undefined;
+  });
+  const guestOf = useGame((s) => {
+    const c = guest ? s.view?.cards[id] : undefined;
+    if (!c) return "";
+    const host = c.attached_to ? s.view?.cards[c.attached_to] : undefined;
+    return host ? (isVisible(host) ? host.name : "a face-down permanent") : s.view?.players.find((p) => p.id === c.attached_player)?.name ?? "";
+  });
+  const peek = useGame((s) => s.peek.includes(id));
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
@@ -67,14 +83,17 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}${guest ? " guest" : ""}${peek ? " peek" : ""}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
       data-tile={tile ? "" : undefined}
-      style={tile
-        // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
-        ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
-        : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+      style={{
+        ...(tile
+          // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
+          ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
+          : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }),
+        ...(guest ? { ["--guest" as string]: guest.color } : {}),
+      }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -95,6 +114,12 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     >
       {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
       {legal === "rules-target" && <TargetMark id={id} />}
+      {guest && (
+        <span className={`guest-tab ${front}`} data-testid="guest-tab" aria-label={`${guest.name}'s, attached to ${guestOf}`}
+          title={`${guest.name} controls this${guestOf ? ` (attached to ${guestOf})` : ""}`}>
+          {guest.name.slice(0, 1).toUpperCase()}
+        </span>
+      )}
       {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>{countText(count.n)}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}

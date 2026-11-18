@@ -74,6 +74,8 @@ interface GameStore {
   /** The card whose action was just refused, flashed on the table for a moment. */
   errorCard: { id: string; at: number } | null;
   hover: string | null;
+  /** -- attached elsewhere -- cards a plaque's "attached elsewhere" chip points at while hovered (game/SeatPlate.tsx): lit on the table. */
+  peek: string[];
   inspect: string | null;
   browser: BrowserState | null;
   dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn" | "token_math"
@@ -105,6 +107,7 @@ interface GameStore {
   select: (ids: string[], mode?: "replace" | "toggle" | "add") => void;
   clearSelection: () => void;
   setHover: (id: string | null) => void;
+  setPeek: (ids: string[]) => void;
   setInspect: (id: string | null) => void;
   openBrowser: (b: BrowserState | null) => void;
   openDialog: (d: GameStore["dialog"], arg?: string | null) => void;
@@ -197,6 +200,7 @@ export const useGame = create<GameStore>((set, get) => ({
   picks: 0,
   errorCard: null,
   hover: null,
+  peek: [],
   inspect: null,
   browser: null,
   dialog: null,
@@ -350,6 +354,7 @@ export const useGame = create<GameStore>((set, get) => ({
     }),
   clearSelection: () => set({ selection: [] }),
   setHover: (id) => set({ hover: id }),
+  setPeek: (ids) => set((s) => (ids.length || s.peek.length ? { peek: ids } : s)),
   setInspect: (id) => set({ inspect: id }),
   openBrowser: (b) => set({ browser: b }),
   openDialog: (dialog, arg = null) => set({ dialog, dialogArg: arg }),
