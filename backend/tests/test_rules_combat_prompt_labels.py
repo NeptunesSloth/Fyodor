@@ -69,3 +69,35 @@ def test_blockers_prompt_lists_the_face_up(cards):
     labels = {o["id"]: o["label"] for o in d["options"]}
     assert labels[f"b:{delver.id}"] == "Insectile Aberration"
     assert labels[f"a:{bears.id}"] == "Grizzly Bears"
+
+
+def test_trample_division_lists_each_blockers_lethal_damage_and_the_rest(cards):
+    alice = deck(cards, "Atraxa, Praetors' Voice", [(1, "Garruk's Horde"), (10, "Forest")])
+    bob = deck(cards, "Krenko, Mob Boss", [(2, "Grizzly Bears"), (10, "Mountain")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    horde = put(s, "Garruk's Horde", "p1")
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"]
+    for b in bears:
+        act(s, "p2", type="move", card_ids=[b.id], to={"player": "p2", "zone": "battlefield"})
+    for _ in range(4):
+        d = play_to(s, "declare_attackers", "p1")
+        if any(o["id"] == f"a:{horde.id}" for o in d["options"]):
+            break
+        act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": horde.id, "target": "p2"}])
+    play_to(s, "declare_blockers", "p2")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": horde.id} for b in bears])
+    for _ in range(50):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "divide":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options[: max(1, d.min_choices)]])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    shown = s.view("p1")["rules"]["decision"]
+    assert shown["kind"] == "divide" and [o["id"] for o in shown["options"]] == [*(b.id for b in bears), "p2"]
+    display = shown["display"]
+    assert (display["need"], display["free"], display["deathtouch"], display["total"]) == ([2, 2], 2, False, 7)
+    assert display["stats"][bears[0].id] == {"pt": "2/2", "keywords": [], "damage": 0}

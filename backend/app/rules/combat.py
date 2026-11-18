@@ -1489,7 +1489,11 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
         lethal = need if free is not None else []
         decide(plan, player=banding.damage_chooser(plan, a, blockers), kind="divide", prompt=f"Divide {a.name}'s {p} combat damage among the creatures blocking it"
                + (" and what it attacks" if free is not None else ""), options=options, min_choices=len(options), max_choices=len(options),
-               display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal},
+               display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal,
+                        # -- playtest (nov 18) -- the prompt's rows: each blocker's lethal damage now (702.2c deathtouch: 1; damage already
+                        # marked counted), its power/toughness and marked damage, and which row is what it attacks (702.19b trample)
+                        "need": need, "deathtouch": "deathtouch" in plan.ch(a).keywords, "free": free,
+                        "stats": {t.id: {**combat_stats(plan, t), "damage": t.damage} for t in blockers}},
                resume={"step": "block_split", "round": rnd, "then": then, "creature": a.id, "total": p, "least": 0,
                        "lethal": lethal, "free": free})
         return True
