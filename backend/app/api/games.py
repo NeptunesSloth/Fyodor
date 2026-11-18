@@ -1210,6 +1210,23 @@ class LobbyBotIn(BaseModel):
     seat: str | None = Field(default=None, pattern=r"^p[1-6]$")  # (None: the first open seat; a bot's seat: change that bot)
 
 
+def _bot_deck_for_lobby(services: Services, deck_id: str, seed: str, local: bool) -> SubmittedDeck:
+    """-- bot decks -- a deck of the host's library, or a special source (app/decks/bot_decks.py: "@random", "@precon[:<id>]",
+    "@generated"; seeded from the room and the seat; nothing saved)."""
+    from app.decks import bot_decks
+
+    try:
+        source = bot_decks.resolve(deck_id, library=services.decks.list_all() if deck_id == bot_decks.RANDOM else [],
+                                   cards=services.cards, rng=bot_decks.seeded(seed, deck_id))
+    except bot_decks.DeckSourceError as exc:
+        raise HTTPException(exc.status, str(exc)) from None
+    if "deck_id" in source:
+        return _import_for_lobby(services, LobbyDeckIn(deck_id=source["deck_id"]), local)
+    deck = _import_for_lobby(services, LobbyDeckIn(text=source["text"], name=source["name"]), local)
+    deck.source_kind = source["kind"]
+    return deck
+
+
 @router.post("/games/{game_id}/lobby/bot")
 async def lobby_bot(game_id: str, body: LobbyBotIn, request: Request, services: ServicesDep,
                     x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
@@ -1220,7 +1237,8 @@ async def lobby_bot(game_id: str, body: LobbyBotIn, request: Request, services: 
     viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
     deck = None
     if body.deck_id:
-        deck = await run_in_threadpool(_import_for_lobby, services, LobbyDeckIn(deck_id=body.deck_id), is_local_request(request))
+        deck = await run_in_threadpool(_bot_deck_for_lobby, services, body.deck_id, f"{room.id}:{body.seat or len(room.seats)}",
+                                       is_local_request(request))
     async with room.lock:
         if room.started:
             raise HTTPException(409, "The game has already started")

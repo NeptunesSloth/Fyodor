@@ -12,7 +12,8 @@ import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
 import { DUMMY_BLOCKS, DUMMY_COLOR, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
-import { BOT_COLOR, BOT_LEVELS, DEFAULT_BOT_LEVEL, botName, botRequests, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
+import { BOT_COLOR, BOT_LEVELS, DEFAULT_BOT_LEVEL, botName, botRequests, deckSourceLabel, isDeckSource, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
+import { BotDeckSources } from "./BotDeckSources";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
@@ -422,6 +423,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             </li>
             {bots.map((b, i) => {
               const deck = decks.find((d) => d.id === b.deck_id);
+              const source = b.deck_id && isDeckSource(b.deck_id) ? deckSourceLabel(b.deck_id, b.deck_label) : null; // -- bot decks --
               const label = b.name.trim() || botName(i);
               return (
                 <li key={`bot-${i}`} className="pg-seat pg-dummy pg-bot" style={chipStyle(BOT_COLOR)} data-testid="bot-seat">
@@ -437,9 +439,9 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                       <Icon name="close" size={14} />
                     </button>
                   </div>
-                  <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={() => setPickingBot(i)} disabled={!decks.length} data-testid="bot-deck"
-                    aria-label={`${label}'s deck: ${deck ? deckTitle(deck) : "none"}. Choose a deck`}>
-                    {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : (
+                  <button className={`pg-art ${deck || source ? "" : "no-deck"}`} onClick={() => setPickingBot(i)} data-testid="bot-deck"
+                    aria-label={`${label}'s deck: ${deck ? deckTitle(deck) : source ? source.title : "none"}. Choose a deck`}>
+                    {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : source ? <CommanderArt back /> : (
                       <span className="pg-slot"><Icon name="cards" size={26} /><span>Choose a deck</span></span>
                     )}
                   </button>
@@ -449,8 +451,13 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                         <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
                         <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
                       </>
+                    ) : source ? (
+                      <>
+                        <p className="pg-cmdr" title={source.title}>{source.title}</p>
+                        <p className="pg-sub"><span className="pg-deckname">{source.sub}</span></p>
+                      </>
                     ) : (
-                      <p className="pg-note">{decks.length ? "Choose the deck it plays." : "No decks yet: import one on the Decks page."}</p>
+                      <p className="pg-note">Choose the deck it plays: one of yours, a precon or a generated one.</p>
                     )}
                   </div>
                   <div className="pg-seat-foot pg-dummy-opts pg-bot-opts">
@@ -468,7 +475,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                         })}
                       </span>
                     </span>
-                    {decks.length > 0 && <button className="tt-btn" onClick={() => setPickingBot(i)}>{deck ? "Change deck" : "Choose deck"}</button>}
+                    <button className="tt-btn" onClick={() => setPickingBot(i)}>{deck || source ? "Change deck" : "Choose deck"}</button>
                   </div>
                 </li>
               );
@@ -516,8 +523,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                   <span>Add a target dummy</span>
                   <span className="pg-add-note">{dummies.length || bots.length ? `${free} more at most` : "An opponent with no deck to aim damage at"}</span>
                 </button>
-                <button className="pg-add pg-add-bot" data-testid="add-bot" disabled={!decks.length}
-                  title={decks.length ? undefined : "Import a deck on the Decks page first"}
+                <button className="pg-add pg-add-bot" data-testid="add-bot"
                   onClick={() => { setBots((bs) => [...bs, { name: botName(bs.length), deck_id: null, level: DEFAULT_BOT_LEVEL }]); setPickingBot(bots.length); }}>
                   <span className="pg-add-mark"><Icon name="cards" size={26} /></span>
                   <span>Add an opponent</span>
@@ -661,8 +667,10 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
       </div>
 
       {pickingBot !== null && bots[pickingBot] && (
-        <DeckPicker decks={decks} value={bots[pickingBot]!.deck_id} seat={bots[pickingBot]!.name.trim() || botName(pickingBot)} usedBy={new Map()}
-          onClose={() => setPickingBot(null)} onPick={(id) => { updateBot(pickingBot, { deck_id: id }); setPickingBot(null); }} />
+        <DeckPicker decks={decks} value={bots[pickingBot]!.deck_id} seat={bots[pickingBot]!.name.trim() || botName(pickingBot)} usedBy={new Map()} noEmpty
+          extra={<BotDeckSources value={bots[pickingBot]!.deck_id} hasLibrary={decks.length > 0}
+            onPick={(id, deckLabel) => { updateBot(pickingBot, { deck_id: id, deck_label: deckLabel }); setPickingBot(null); }} />}
+          onClose={() => setPickingBot(null)} onPick={(id) => { updateBot(pickingBot, { deck_id: id, deck_label: undefined }); setPickingBot(null); }} />
       )}
       {pickingHost && (
         <DeckPicker decks={decks} value={hostDeck} seat={players[0]?.name.trim() || "You"} usedBy={new Map()}

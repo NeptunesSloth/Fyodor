@@ -50,6 +50,7 @@ import { TURN_ORDER_LABEL, canNudge, miniSeats, moveSeat, nudgeSeat, previewLine
 import "./lobby.css";
 import { Icon } from "../components/Icon";
 import { BOT_LEVELS, DEFAULT_BOT_LEVEL, botLevelName } from "../game/botSeat";
+import { BotDeckSources } from "./BotDeckSources";
 import type { BotLevel } from "../types/game";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
@@ -868,9 +869,11 @@ function AddBotDialog({ lobby, seat, bot, onClose, onDone }: {
             data-testid={`add-bot-level-${l.id}`}>{l.label}</button>
         ))}
       </div>
+      <BotDeckSources value={null} hasLibrary={!!decks?.length} busy={busy} onPick={(id) => void add(id)} />
+      <p className="bds-head lobby-bot-mine">Or one of your decks</p>
       <div className="deck-pick-list" data-testid="add-bot-decks">
         {decks === null && <p className="hint">Loading the decks…</p>}
-        {decks?.length === 0 && <p className="hint">No decks in this computer's library: import one on the Decks page (on the host computer).</p>}
+        {decks?.length === 0 && <p className="hint">No decks in this computer's library: import one on the Decks page (on the host computer), or choose one above.</p>}
         {decks?.map((d) => (
           <button key={d.id} className="deck-pick" disabled={busy} onClick={() => void add(d.id)}>
             <b>{d.name}</b>

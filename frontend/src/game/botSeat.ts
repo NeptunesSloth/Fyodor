@@ -10,8 +10,32 @@ export const MAX_NON_HUMAN = MAX_DUMMIES;
 /** The opponent seat's colour (the server's: a muted violet no pod seat starts with). */
 export const BOT_COLOR = "#7d6b9e";
 
-/** An opponent seat set up on the Sandbox start: its name, the deck it plays (null: not chosen yet) and how well it plays. */
-export interface BotSeat { name: string; deck_id: string | null; level?: BotLevel }
+/** An opponent seat set up on the Sandbox start: its name, the deck it plays (null: not chosen yet; a library deck's id or a
+ * {@link BOT_DECK_RANDOM}-style source), how well it plays, and a source deck's name to show (a precon's). */
+export interface BotSeat { name: string; deck_id: string | null; level?: BotLevel; deck_label?: string }
+
+/** -- bot decks -- where a bot's deck comes from besides one of your decks (the server's app/decks/bot_decks.py). */
+export const BOT_DECK_RANDOM = "@random";
+export const BOT_DECK_PRECON = "@precon";
+export const BOT_DECK_GENERATED = "@generated";
+
+/** A precon's source ("@precon:<id>"; none: a random precon). */
+export function preconDeck(id?: string | null): string {
+  return id ? `${BOT_DECK_PRECON}:${id}` : BOT_DECK_PRECON;
+}
+
+/** Whether a bot's deck id is a source (random, precon, generated) rather than a deck of the library. */
+export function isDeckSource(id: string | null | undefined): boolean {
+  return !!id && id.startsWith("@");
+}
+
+/** What a source deck is called on the seat ("Random deck", the precon's name, "Generated deck"). */
+export function deckSourceLabel(id: string, label?: string): { title: string; sub: string } {
+  if (id === BOT_DECK_RANDOM) return { title: "Random deck", sub: "One of your decks, picked at random" };
+  if (id === BOT_DECK_GENERATED) return { title: "Generated deck", sub: "100 cards for a random commander" };
+  if (id === BOT_DECK_PRECON) return { title: "Random precon", sub: "A preconstructed Commander deck" };
+  return { title: label || "Precon", sub: "Preconstructed Commander deck" };
+}
 
 /** -- bot levels -- how well it plays, as the chips name them (the server's app/game/bot.py). */
 export const BOT_LEVELS: { id: BotLevel; label: string; hint: string }[] = [
@@ -55,14 +79,18 @@ export function seatsLeft(dummies: number, bots: number): number {
   return Math.max(0, MAX_NON_HUMAN - dummies - bots);
 }
 
-/** The opponent seats remembered by "Same as last time": only decks still in the library (a deck deleted since: none chosen). */
+/** The opponent seats remembered by "Same as last time": only decks still in the library (a deck deleted since: none chosen); a
+ * source (random, precon, generated) is kept. */
 export function rememberedBots(last: { bots?: unknown } | null, known: (id: string) => boolean): BotSeat[] {
   if (!last || !Array.isArray(last.bots)) return [];
   return last.bots.slice(0, MAX_NON_HUMAN).flatMap((b, i): BotSeat[] => {
     if (!b || typeof b !== "object") return [];
     const { name, deck_id, level } = b as Partial<BotSeat>;
-    return [{ name: typeof name === "string" ? name : botName(i), deck_id: typeof deck_id === "string" && known(deck_id) ? deck_id : null,
-      level: BOT_LEVELS.some((l) => l.id === level) ? level : DEFAULT_BOT_LEVEL }];
+    const { deck_label } = b as Partial<BotSeat>;
+    const source = typeof deck_id === "string" && isDeckSource(deck_id); // (a source is never deleted: kept as it was)
+    return [{ name: typeof name === "string" ? name : botName(i), deck_id: typeof deck_id === "string" && (source || known(deck_id)) ? deck_id : null,
+      level: BOT_LEVELS.some((l) => l.id === level) ? level : DEFAULT_BOT_LEVEL,
+      ...(source && typeof deck_label === "string" ? { deck_label } : {}) }];
   });
 }
 

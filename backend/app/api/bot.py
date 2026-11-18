@@ -1,6 +1,7 @@
 """-- test opponent -- seating an opponent that plays a deck, and the table's bot speed (app/game/bot.py, app/multiplayer/bots.py).
 
-* ``POST /games/{id}/bot``: the host seats an opponent with one of their saved decks (or precons). The server builds the ``add_bot`` action
+* ``POST /games/{id}/bot``: the host seats an opponent with one of their saved decks, or a special source (``deck_id`` "@random",
+  "@precon[:<id>]", "@generated": app/decks/bot_decks.py). The server builds the ``add_bot`` action
   from the deck, as it builds ``load_deck``: a client can't send card lists.
 * ``POST /games/{id}/bot/speed``: Normal, Fast or Step (anyone seated: it only paces the opponents' actions).
 * ``POST /games/{id}/bot/step``: Step mode's button: play the opponent's next action.
@@ -16,7 +17,10 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.api.deps import is_local_request
 from app.api.games import ServicesDep, _check_table_open, _deck_cards, _room, authorize
+from app.decks import bot_decks
 from app.decks import service as deck_service
+from app.decks.models import DeckImportRequest
+from app.decks.parser import DeckTextTooLarge
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
 from app.game.errors import ActionError
@@ -43,15 +47,32 @@ class StepIn(BaseModel):
     as_player: str | None = Field(default=None, alias="as", max_length=16)
 
 
-def _cards(services: Services, deck_id: str) -> tuple[str, list[A.LoadDeckCard]]:
+def _cards(services: Services, deck_id: str, seed: str = "") -> tuple[str, str | None, list[A.LoadDeckCard]]:
+    """The bot's deck: one of the host's library, or a special source (app/decks/bot_decks.py: a random deck of the library, a precon,
+    a generated deck; seeded from ``seed``, never saved). (name, the library deck's id or None, its cards)"""
     try:
-        deck = services.decks.get(deck_id)
-    except DeckNotFound:
-        raise HTTPException(404, "That deck isn't in your library") from None
-    entries, _ = deck_service.reconcile_entries(deck.entries, services.cards)
+        source = bot_decks.resolve(deck_id, library=services.decks.list_all() if deck_id == bot_decks.RANDOM else [],
+                                   cards=services.cards, rng=bot_decks.seeded(seed, deck_id))
+    except bot_decks.DeckSourceError as exc:
+        raise HTTPException(exc.status, str(exc)) from None
+    if "text" in source:
+        try:
+            result = deck_service.import_any(DeckImportRequest(text=source["text"]), services.cards)
+        except DeckTextTooLarge as exc:
+            raise HTTPException(413, str(exc)) from exc
+        entries, name, library_id = [e for e in result.entries if e.printing_id], source["name"], None  # (a card this database lacks: left out)
+        if not entries:
+            raise HTTPException(422, "None of that deck's cards are in the card database (update the card database)")
+    else:
+        try:
+            deck = services.decks.get(source["deck_id"])
+        except DeckNotFound:
+            raise HTTPException(404, "That deck isn't in your library") from None
+        entries, _ = deck_service.reconcile_entries(deck.entries, services.cards)
+        name, library_id = deck.name, deck.id
     cards = [A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
              for c in _deck_cards(services, entries) if c.section in ("commander", "companion", "main", "sideboard", "attractions")]
-    return deck.name, cards
+    return name, library_id, cards
 
 
 @router.post("/games/{game_id}/bot", status_code=201)
@@ -63,9 +84,10 @@ async def add_bot(game_id: str, body: BotIn, request: Request, services: Service
         raise HTTPException(403, "Spectators can't seat an opponent")
     if room.mode == "lan" and not room.is_host(x_seat_token):
         raise HTTPException(403, "Only the host can seat an opponent")
-    deck_name, cards = await run_in_threadpool(_cards, services, body.deck_id)
+    seed = f"{game_id}:{len(room.session.state.players)}"  # (-- bot decks -- the game and the seat it takes: the same request, the same deck)
+    deck_name, library_id, cards = await run_in_threadpool(_cards, services, body.deck_id, seed)
     name = clean_text(body.name or "", 40) or None
-    action = A.AddBot(name=name, level=body.level, deck_name=deck_name[:120], deck_id=body.deck_id, cards=cards)
+    action = A.AddBot(name=name, level=body.level, deck_name=deck_name[:120], deck_id=library_id, cards=cards)
     async with room.lock:
         _check_table_open(room)
         try:
