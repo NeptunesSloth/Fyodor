@@ -220,7 +220,9 @@ export const passPriority = (until?: string) => send({ type: "pass_priority", ..
  * triggers resolves one press at a time and every draw is seen. Once the stack is empty your usual stops decide (a lone spell: one
  * press, then play goes on as before). With an empty stack it is a plain pass (the next step).
  */
-export const RESOLVE_UNTIL = "stack_changes";
+// -- smart resolve -- the top object, and on through a run of your own triggered abilities under it (six landfall triggers: one press);
+// it stops for anything else on top, a decision or a card you drew that you could cast now (backend engine.own_run_over, resolveRun.ts)
+export const RESOLVE_UNTIL = "own_triggers";
 export const passOrResolve = (stackSize: number) => passPriority(stackSize > 0 ? RESOLVE_UNTIL : undefined);
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });

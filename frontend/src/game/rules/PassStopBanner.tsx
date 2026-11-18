@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { perspective, settledChange, useGame } from "../../state/gameStore";
 import { gameEnded } from "../nightEnding";
-import { passOrResolve, passPriority, setPrefs } from "./intents";
+import { passPriority, setPrefs } from "./intents";
 import { autoPassedMyCast, HOLD_HINT, holdHintDue, usePassStop } from "./passStop";
 import { toast } from "../../components/Toasts";
 
@@ -43,7 +43,7 @@ export function PassStopBanner({ mine }: { mine: boolean }) {
           <>
             <button className="tt-btn brass" data-testid="pass-stop-continue" onClick={() => { dismiss(); resolveAll(); }}
               title="Keep passing until the stack is empty (it stops again for the same reasons)">{loop ? "Continue" : "Keep resolving"}</button>
-            <button className="tt-btn" data-testid="pass-stop-one" onClick={() => { dismiss(); void passOrResolve(view.stack.length); }}
+            <button className="tt-btn" data-testid="pass-stop-one" onClick={() => { dismiss(); void passPriority("stack_changes"); }}
               title="Resolve only the top object, then get priority back">Resolve one</button>
           </>
         )}

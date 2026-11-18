@@ -7,6 +7,7 @@ import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView } from "../types/game";
 import { play } from "./sound";
+import { FlipButton, FlipLayer, TABLE_GLYPH } from "./TableFlip";
 
 /*
  * Soft social signals (TABLETOP_QOL_MILESTONE #13-14): a nudge to the player the table is waiting
@@ -94,6 +95,9 @@ export function SignalLayer() {
       )}
       {out && view.game.mode === "lan" && !tableOff && <ReactionBar gameId={view.game.id} />}
       {!out && view.game.mode === "lan" && !tableOff && <EmoteButton gameId={view.game.id} />}
+      {/* -- flip the table -- (any table: a Sandbox test too), and everyone's view of a flip */}
+      <FlipButton />
+      <FlipLayer />
     </>
   );
 }
@@ -103,7 +107,8 @@ function EmoteButton({ gameId }: { gameId: string }) {
   const send = (text: string) => void sendSignal(gameId, "react", text).catch(toastError);
   return (
     <button className="signal-bar signal-emote tt-btn ghost" data-testid="emote" title="Say something to the table"
-      onClick={(e) => openMenu(e, EMOTES.map((t) => ({ label: t, onClick: () => send(t) })), "Say to the table")}>
+      onClick={(e) => openMenu(e, [...EMOTES.map((t) => ({ label: t, onClick: () => send(t) })),
+        { label: `${TABLE_GLYPH} Flip the table…`, onClick: () => window.dispatchEvent(new Event("fyodor:flip-open")) }], "Say to the table")}>
       Emote
     </button>
   );

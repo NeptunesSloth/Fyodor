@@ -34,7 +34,10 @@ export interface ResolvingProgress {
 export type CursorWire = { from: string; gone: true } | { from: string; gone?: false; player: string; x: number; y: number; card?: string; cx?: number; cy?: number };
 
 export interface Signal {
-  kind: "nudge" | "react" | "ping";
+  /** "response": "wait, I have a response!" (``on``); "flip": (╯°□°)╯︵ ┻━┻, cosmetic (``concede``: with a concession) */
+  kind: "nudge" | "react" | "ping" | "response" | "flip";
+  on?: boolean;
+  concede?: boolean;
   from: string | null;
   from_name: string;
   to?: string;

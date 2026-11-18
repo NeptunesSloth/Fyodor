@@ -13,10 +13,10 @@ beforeEach(() => {
 });
 
 describe("resolve the top object", () => {
-  it("passes until the stack changes when something is on the stack", async () => {
+  it("resolves the top object and a run of your own triggers when something is on the stack (-- smart resolve --)", async () => {
     await passOrResolve(3);
-    expect(sent).toEqual([{ type: "pass_priority", until: "stack_changes" }]);
-    expect(RESOLVE_UNTIL).toBe("stack_changes");
+    expect(sent).toEqual([{ type: "pass_priority", until: "own_triggers" }]);
+    expect(RESOLVE_UNTIL).toBe("own_triggers");
   });
 
   it("is a plain pass with an empty stack", async () => {
@@ -34,6 +34,7 @@ describe("resolve the top object", () => {
 
   it("names a pass in progress in words", () => {
     expect(passingLabel("stack_changes")).toBe("Resolving the top object");
+    expect(passingLabel("own_triggers")).toBe("Resolving your triggers");
     expect(passingLabel("stack_empty")).toBe("Resolving all");
     expect(passingLabel("some_new_mode")).toBe("Passing until some new mode");
   });

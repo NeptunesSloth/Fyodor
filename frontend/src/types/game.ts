@@ -566,6 +566,8 @@ export interface RulesView {
   paused: boolean;
   priority: string | null;
   passed: string[];
+  /** -- I have a response -- who called "wait, I have a response!" and hasn't had priority since (public; absent while nobody has). */
+  responding?: string[];
   attacking_bands?: string[][]; // Public card IDs; bands last until their members leave combat.
   conceded: string[];
   lost: Record<string, string>;
