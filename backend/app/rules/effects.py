@@ -3396,10 +3396,43 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     choosers = _players(plan, ctx, e["chooser"]) if e.get("chooser") else [pid]
     if not choosers:
         return True
-    decide(plan, player=choosers[0], kind="choose_cards", prompt=e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
+    prompt, display = _looked_shown(plan, ctx, e, choosers[0], looked, options, which)
+    decide(plan, player=choosers[0], kind="choose_cards", prompt=prompt or e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})
+           min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e}, display=display)
     return False
+
+
+def _looked_shown(plan: Plan, ctx: Context, e: dict[str, Any], chooser: str, looked: list[str], options: list[str],
+                  which: str | None) -> tuple[str | None, dict[str, Any] | None]:
+    """-- the looked-at cards, shown (playtest nov 18) -- A pick with a filter ("If it's a land card, you may …", "reveal a creature card
+    from among them") shows every card the chooser looked at, in library order (``display["cards"]``, the chooser's alone): the options
+    stay the cards that qualify (engine.choose refuses any other), the rest are shown with why. Only cards the chooser already sees
+    (701.20e: they looked) — a pick made by someone else shows only its answers. The one-card gate (top_library.private_gate) is worded
+    from the card. (prompt or None, display or None)"""
+    from app.game.visibility import can_see
+    from app.rules import top_library
+
+    filtered = e.get("sel") is not None or bool(e.get("sels")) or bool(e.get("types_cast110m"))
+    if not filtered or which in ("that", "all"):
+        return None, None
+    seen = [c for c in looked if c in options or can_see(plan.state, plan.state.cards[c], chooser)]
+    gate = bool(e.get("gate") or e.get("prompt") == top_library.GATE_PROMPT) and len(seen) == 1
+    if seen == options and not gate:
+        return None, None
+    what = top_library.describe(e.get("sel")) if not e.get("sels") and not e.get("types_cast110m") else None
+    display: dict[str, Any] = {"kind": "looked", "cards": seen, "ineligible": f"not {what}" if what else "doesn't qualify"}
+    prompt = None
+    if gate:
+        card = plan.state.cards[seen[0]]
+        ok = seen[0] in options
+        goes = top_library.otherwise(ctx["effects"][ctx["next"]:], e.get("did"))
+        prompt = top_library.gate_prompt(ctx.get("name"), card.name or "a card", what, ok, e["to"], bool(e.get("reveal")), goes)
+        if ok and (doing := top_library.act(e["to"], bool(e.get("reveal")))):
+            display["take"] = doing[0].upper() + doing[1:]
+        if goes:
+            display["otherwise"] = goes[0].upper() + goes[1:]
+    return prompt, display
 
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:

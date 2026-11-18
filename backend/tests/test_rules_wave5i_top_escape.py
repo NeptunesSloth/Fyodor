@@ -337,7 +337,7 @@ def test_crystal_skull_historic_lands_and_spells(cards):
 def until_upkeep(s, number):
     for _ in range(200):
         d = s.state.rules.decision
-        if s.state.turn.number == number and d is not None and "card you looked at" in (d.prompt or ""):
+        if s.state.turn.number == number and d is not None and "you looked at" in (d.prompt or ""):
             return d
         if d is not None and d.kind == "declare_attackers":
             act(s, d.player, type="declare_attackers", attackers=[])
@@ -361,7 +361,9 @@ def test_heralds_horn_asks_whatever_the_card_is(cards, top, takes):
     c = move(s, top, "library", "top")
     d = until_upkeep(s, 3)  # (Alice's next upkeep)
     assert d.player == "p1" and d.min_choices == 0
-    assert [o.id for o in d.options] == ([c.id] if takes else [])  # asked either way (701.20e)
+    # asked either way (701.20e); the card looked at is shown either way, an answer only when it qualifies (playtest nov 18)
+    assert [o.id for o in d.options] == ([c.id] if takes else [])
+    assert d.display["cards"] == [c.id] and f"you looked at {top}" in d.prompt  # the card is shown either way (playtest nov 18)
     library = len(s.state.zones["p1:library"])
     answer(s, [c.id] if takes else [])
     drive(s)

@@ -39,7 +39,7 @@ export interface Targeting {
   instruction: string;
 }
 
-const NOT_ON_BOARD = new Set(["payment", "tap_mana", "divide", "optional_cost"]);
+const NOT_ON_BOARD = new Set(["payment", "tap_mana", "divide", "optional_cost", "looked"]); // (looked: the cards looked at, in the panel)
 
 /** The decision the table answers by clicking, or null (someone else's, a list of words, a payment, the wheel's). */
 export function targetingOf(view: GameView | null | undefined, me: string, selection: readonly string[] = []): Targeting | null {

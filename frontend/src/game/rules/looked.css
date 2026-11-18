@@ -1,0 +1,16 @@
+/* -- the cards looked at (LookedChoice.tsx) -- each card's face in library order: the ones that qualify pick like any choice; the others
+   dimmed, struck through in name and marked in words (never color alone), not clickable. */
+.looked-choice { display: flex; flex-direction: column; gap: 10px; }
+.looked-cards { display: flex; flex-wrap: wrap; gap: 10px; margin: 2px 0 0; padding: 0; list-style: none; }
+.looked-card { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 96px; }
+.looked-face { display: block; width: 96px; padding: 0; border: 0; border-radius: 5px; background: none; color: inherit; line-height: 0; }
+button.looked-face { cursor: pointer; transition: transform 0.12s; }
+button.looked-face:hover { transform: translateY(-3px); }
+.looked-card.eligible .looked-face { box-shadow: 0 0 0 1px var(--frame-hi), 0 6px 14px rgba(0, 0, 0, 0.5); }
+.looked-card.on .looked-face { box-shadow: 0 0 0 2px var(--select), 0 0 12px var(--select-glow); }
+.looked-face.dim { filter: grayscale(0.85) brightness(0.55); cursor: not-allowed; box-shadow: 0 0 0 1px var(--line-2); }
+.looked-name { max-width: 100%; overflow: hidden; color: var(--text); font-size: 12px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.looked-card.ineligible .looked-name { color: var(--room-bone-dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--room-bone-dim) 60%, transparent); }
+.looked-why { color: var(--room-bone-dim); font-size: 11px; font-style: italic; line-height: 1.2; text-align: center; }
+.looked-name-only { display: grid; place-items: center; aspect-ratio: 63 / 88; padding: 6px; border: 1px solid var(--line-2); border-radius: 5px; line-height: 1.2; }
+@media (prefers-reduced-motion: reduce) { button.looked-face { transition: none; } button.looked-face:hover { transform: none; } }
