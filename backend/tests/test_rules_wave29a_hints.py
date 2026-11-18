@@ -22,6 +22,8 @@ The proof that nothing else changed:
   listed as castable; nothing else in the golden moved.)
   (Pod audit: the free-cast hint does the same, so Cyclonic Rift under Omniscience with no opponent's nonland permanent is no longer listed
   as free_castable; nothing else in the golden moved.)
+  (Nov 18: every rules view gained ``lost_source`` and ``prefs.trigger_orders`` (both empty on these tables), and the attackers decision
+  shows each creature's P/T and combat keywords (``display.stats``); nothing else in the golden moved.)
 * the same boards with the pass switched off (the old code path, still there for every engine action) must give the same views;
 * a pass is read-only by construction: the table is the same at the end, and no value is stored in it while the table differs from its start;
 * it ends with the call (nothing survives to the next action), belongs to one thread, one table object and one card info, and a probe's copy of
