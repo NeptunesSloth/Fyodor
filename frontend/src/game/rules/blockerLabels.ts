@@ -10,7 +10,7 @@ export interface CombatStats { pt: string; keywords: string[] }
 
 /** The stats the server sent for this prompt's creatures, by card id (an older table: none). */
 export function combatStats(d: DecisionView): Record<string, CombatStats> {
-  const raw = d.display?.kind === "blockers" ? d.display.stats : undefined;
+  const raw = d.display?.stats; // (the blockers prompt, and the attackers prompt since nov 18)
   return raw && typeof raw === "object" ? (raw as Record<string, CombatStats>) : {};
 }
 

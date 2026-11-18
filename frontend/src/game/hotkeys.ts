@@ -18,6 +18,7 @@ export type HotkeyId =
   | "help"
   | "respond"
   | "pass"
+  | "resolve_all"
   | "auto_pass"
   | "hud"
   | "cam_seat"
@@ -34,7 +35,8 @@ export type HotkeyId =
   | "hand_browse"
   | "dice"
   | "token_math"
-  | "combat_filter";
+  | "combat_filter"
+  | "attack_all";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -54,8 +56,9 @@ export const HOTKEYS: Hotkey[] = [
   { id: "to_graveyard", keys: ["delete", "backspace"], label: "Put selected into their owner's graveyard" },
   { id: "cancel", keys: ["escape"], label: "Clear selection / close views" },
   { id: "help", keys: ["shift+?", "?"], label: "Show shortcuts" },
-  { id: "respond", keys: ["r"], label: "Respond (keep priority)" },
+  { id: "respond", keys: ["r"], label: "I have a response! Hold the game for your answer while someone else has priority (again: cancel); in a response check: Respond" },
   { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
+  { id: "resolve_all", keys: ["shift+ "], label: "Resolve all: keep passing until the stack is empty (stops for a decision or a card you could cast)" },
   { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
   { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
   { id: "cam_seat", keys: ["1"], label: "Look from your seat (2D: the whole table)" },
@@ -76,6 +79,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
   { id: "token_math", keys: ["shift+t"], label: "Token math: Scute Swarm, landfall, copies and token doublers worked out (open / close)" },
   { id: "combat_filter", keys: ["b"], label: "Combat filter: all permanents → creatures only → can attack / block (dims the rest)" },
+  { id: "attack_all", keys: ["a"], label: "Declaring attackers: attack with everything that can (again: at the next defender, then none)" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

@@ -35,6 +35,7 @@ import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
+import { DayNightLight } from "./dayNight";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { makeTether } from "./tethers";
 import { combatCardIds, frameBox, isCloseUp } from "./focus";
@@ -75,6 +76,7 @@ import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarF
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
 import { tokenArtFace, tokenArtId } from "../game/tokenArt";
+import { attackDrop, attackHint, defenderBadge, livePlan, myAttackDecision, useAttackDraft, type AttackSpot } from "../game/rules/attackDraft";
 import { Cursors3D, type CursorMessage } from "./cursors3d";
 import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
@@ -318,6 +320,8 @@ export class TableScene {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(TABLE_FOV, 1, 0.1, 400);
   private env: Environment | null = null;
+  /** -- day and night -- the room's light at night (table3d/dayNight.ts). */
+  private dayNight = new DayNightLight();
   private world = new THREE.Group();
   private cards = new Map<string, CardObj>();
   private piles = new Map<string, PileObj>();
@@ -637,6 +641,7 @@ export class TableScene {
       this.rebuildTable();
       this.updateCameraGoal();
     }
+    this.dayNight.show(view.table.day_night);
     const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
     const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
@@ -1027,6 +1032,43 @@ export class TableScene {
     return null;
   }
 
+  /**
+   * -- playtest (nov 18) -- while I declare attackers, what a drag of creatures points at: a planeswalker or battle that may be attacked,
+   * or a player's heart, under the pointer; an opponent's mat; the open table ahead of my mat: the opponent whose seat lies most in that
+   * direction (as a player pushes a card toward whomever it attacks); my own mat: "home". Null elsewhere or outside the decision.
+   */
+  attackSpot(clientX: number, clientY: number, dragged: string[] = []): AttackSpot {
+    const view = this.view;
+    const d = myAttackDecision(view);
+    if (!view || !d) return null;
+    const offered = new Set((d.options ?? []).filter((o) => o.id.startsWith("t:")).map((o) => o.id.slice(2)));
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card && !dragged.includes(hit.card) && offered.has(hit.card)) return hit.card;
+    if (hit?.heart && offered.has(hit.heart)) return hit.heart;
+    const p = this.tablePoint(clientX, clientY);
+    if (!p) return null;
+    for (const seat of this.seatList) {
+      const [lx, lz] = toLocal(seat, p.x, p.z);
+      if (!onBattlefield(lx, lz)) continue;
+      if (seat.player === this.me) return "home";
+      return offered.has(seat.player) ? seat.player : null;
+    }
+    const mine = this.seatList.find((s) => s.player === this.me);
+    if (!mine) return null;
+    const [vx, vz] = [p.x - mine.x, p.z - mine.z];
+    const cl = Math.hypot(mine.x, mine.z) || 1;
+    if ((vx * -mine.x + vz * -mine.z) / cl < MAT_D / 2) return null; // not ahead of my mat
+    let best: string | null = null;
+    let score = -2;
+    for (const seat of this.seatList) {
+      if (seat.player === this.me || !offered.has(seat.player)) continue;
+      const [sx, sz] = [seat.x - mine.x, seat.z - mine.z];
+      const cos = (vx * sx + vz * sz) / ((Math.hypot(vx, vz) || 1) * (Math.hypot(sx, sz) || 1));
+      if (cos > score) [best, score] = [seat.player, cos];
+    }
+    return best;
+  }
+
   /** Drop resolution for DOM drags (from the hand) over the canvas. */
   resolveDrop(clientX: number, clientY: number, offset?: THREE.Vector3): DropResult | null {
     const p = this.tablePoint(clientX, clientY);
@@ -1130,6 +1172,7 @@ export class TableScene {
     const size = tableSize(this.seatList);
     this.env = buildEnvironment(this.plane, size, this.quality, propSpots(this.seatList, size));
     this.world.add(this.env.group);
+    this.dayNight.attach(this.env);
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
       const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(MAT_FELT, MAT_NAP, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
@@ -1460,7 +1503,7 @@ export class TableScene {
     this.setBadge(c, pile);
     if (pile && o) {
       const { pile: _n, ...rest } = o;
-      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.guest || rest.keywords.length || rest.counters.length ? rest : null;
+      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.guest || rest.combat || rest.keywords.length || rest.counters.length ? rest : null;
     }
     const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
     const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
@@ -1662,7 +1705,12 @@ export class TableScene {
         // -- attached elsewhere -- its controller's seat colour round the edge and their initial in the corner that peeks out
         const ctl = away ? view.players.find((p) => p.id === card.controller) : undefined;
         const visitor = ctl ? { initial: ctl.name.slice(0, 1).toUpperCase(), color: ctl.color, front: c.tile && this.boards.mats.get(pid)?.mirrored ? "bottom" as const : "top" as const } : undefined;
-        this.setOverlay(c, pile || owner || visitor ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}) } : overlay);
+        // -- playtest (nov 18) -- whom it attacks (planned in the prompt, or declared), or how many it blocks when several
+        const plannedTo = livePlan(view)[`a:${id}`]?.slice(2);
+        const to = plannedTo ? defenderBadge(view, { id: plannedTo }) : card.attacking ? defenderBadge(view, card.attacking) : null;
+        const blocks = card.blocking ? 1 + (card.blocking_more?.length ?? 0) : 0;
+        const combat = to ? { to: { initial: to.initial, color: to.color, planned: !!plannedTo } } : blocks > 1 ? { blocks } : undefined;
+        this.setOverlay(c, pile || owner || visitor || combat ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}), ...(combat ? { combat } : {}) } : overlay);
         const lit2 = selection.has(id) || peek.has(id); // (peek: a plaque's "attached elsewhere" chip is hovered)
         this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
@@ -1835,44 +1883,67 @@ export class TableScene {
    * and facing them; each blocker steps up directly in front of the attacker it blocks.
    */
   private layoutCombat(view: GameView): void {
-    // -- arranged boards -- attackers and blockers stay in their rows, stepping forward, as on Arena; arrows say whom
-    // they attack (syncArrows)
-    if (this.arranged) return;
+    // -- playtest (nov 18) -- arranged boards too (they had kept attackers in their rows with an arrow to the defender: the user preferred
+    // the cards pushed toward whom they attack, as at a real table); and an attack still being planned in the declare-attackers prompt
+    // (game/rules/attackDraft.ts) already slides out toward its defender, a little less far than a declared one
     const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
-    const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
+    const planned = livePlan(view);
+    const groups = new Map<string, { a: Seat; d: Seat; ids: string[]; plan: boolean }>();
     for (const card of Object.values(view.cards)) {
-      if (!card.attacking || !card.zone.endsWith(":battlefield")) continue;
+      const plan = planned[`a:${card.id}`]?.slice(2);
+      const at = card.attacking ?? (plan ? { kind: view.players.some((p) => p.id === plan) ? "player" : "card", id: plan } : undefined);
+      if (!at || !card.zone.endsWith(":battlefield")) continue;
       const a = seatOf(card.controller);
-      const d = seatOf(card.attacking.kind === "player" ? card.attacking.id : view.cards[card.attacking.id]?.controller);
+      const d = seatOf(at.kind === "player" ? at.id : view.cards[at.id]?.controller);
       if (!a || !d || a === d) continue;
-      const key = `${a.player}>${d.player}`;
-      const g = groups.get(key) ?? { a, d, ids: [] };
+      const key = `${a.player}>${d.player}${card.attacking ? "" : "?"}`;
+      const g = groups.get(key) ?? { a, d, ids: [], plan: !card.attacking };
       g.ids.push(card.id);
       groups.set(key, g);
     }
     const blockers = Object.values(view.cards).filter((b) => b.blocking && b.zone.endsWith(":battlefield"));
-    for (const { a, d, ids } of groups.values()) {
-      const dx = d.x - a.x;
-      const dz = d.z - a.z;
-      const len = Math.hypot(dx, dz) || 1;
-      const [ux, uz] = [dx / len, dz / len];
-      const [px, pz] = [-uz, ux];
-      const out = MAT_D / 2 + 1.4; // just past the attacker's mat edge, into the open wood
-      ids.forEach((id, i) => {
-        const c = this.cards.get(id);
-        if (!c) return;
-        const off = (i - (ids.length - 1) / 2) * CARD_H * 1.15; // tapped attackers lie sideways
-        const x = a.x + ux * out + px * off;
-        const z = a.z + uz * out + pz * off;
-        c.target.set(x, c.target.y + 0.04, z);
-        blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
-          const bc = this.cards.get(b.id);
-          if (!bc) return;
-          const side = (j - (all.length - 1) / 2) * CARD_W * 1.1;
-          bc.target.set(x + ux * CARD_H * 1.3 + px * side, bc.target.y + 0.04, z + uz * CARD_H * 1.3 + pz * side);
-          bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+    // -- playtest (nov 18) -- one line per attacking player, just past the front edge of their own mat (pushed forward, as at a real
+    // table), the creatures attacking each defender side by side, ordered and nudged toward where that defender sits; a long line
+    // closes up (cards overlap) rather than run off the mat's width. Each blocker stands right in front of the attacker it blocks.
+    const bySeat = new Map<Seat, { a: Seat; d: Seat; ids: string[]; plan: boolean }[]>();
+    for (const g of groups.values()) bySeat.set(g.a, [...(bySeat.get(g.a) ?? []), g]);
+    for (const [a, list] of bySeat) {
+      const fl = Math.hypot(a.x, a.z) || 1;
+      const [fx, fz] = [-a.x / fl, -a.z / fl]; // toward the middle of the table
+      const [px, pz] = [-fz, fx];
+      const lat = (d: Seat) => (d.x - a.x) * px + (d.z - a.z) * pz;
+      list.sort((g, h) => lat(g.d) - lat(h.d));
+      const scale = Math.max(1, ...list.flatMap((g) => g.ids.map((id) => this.cards.get(id)?.scale ?? 1)));
+      const n = list.reduce((k, g) => k + g.ids.length, 0);
+      const gap = CARD_H * 0.6 * scale;
+      let step = CARD_H * 1.15 * scale; // (tapped attackers lie sideways)
+      const room = MAT_W * 0.92 - gap * (list.length - 1);
+      if (n * step > room) step = Math.max(CARD_W * 0.35, room / n);
+      const total = n * step + gap * (list.length - 1);
+      const mean = list.reduce((k, g) => k + lat(g.d) * g.ids.length, 0) / Math.max(1, n);
+      const bias = Math.max(-MAT_W * 0.2, Math.min(MAT_W * 0.2, mean * 0.25));
+      let off = bias - total / 2 + step / 2;
+      for (const { d, ids, plan } of list) {
+        const out = MAT_D / 2 + (plan ? 0.9 : 1.4) * scale; // just past the attacker's mat edge, into the open wood
+        ids.forEach((id) => {
+          const c = this.cards.get(id);
+          const at = off;
+          off += step;
+          if (!c) return;
+          const x = a.x + fx * out + px * at;
+          const z = a.z + fz * out + pz * at;
+          c.target.set(x, c.target.y + 0.04, z);
+          blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
+            const bc = this.cards.get(b.id);
+            if (!bc) return;
+            const side = (j - (all.length - 1) / 2) * CARD_W * 1.1 * (bc.scale ?? 1);
+            const ahead = CARD_H * 1.3 * Math.max(scale, bc.scale ?? 1);
+            bc.target.set(x + fx * ahead + px * side, bc.target.y + 0.04, z + fz * ahead + pz * side);
+            bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+          });
         });
-      });
+        off += gap;
+      }
     }
   }
 
@@ -1918,9 +1989,12 @@ export class TableScene {
       const b = edge(to, a) ?? b0;
       if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
-    for (const c of Object.values(view.cards)) {
-      if (c.attacking && (c.attacking.kind !== "player" || this.arranged)) add(c.id, c.attacking.id, ATTACK_RED, true);
-      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
+    // -- playtest (nov 18) -- combat reads from where the cards are (attackers pushed toward their defender, each blocker in front of its
+    // attacker) and from their badges; an arrow shows only for the attacker or blocker hovered or selected (or its partner in the block)
+    const lit = new Set([this.hovered, ...useGame.getState().selection].filter((x): x is string => !!x));
+    if (lit.size) for (const c of Object.values(view.cards)) {
+      if (c.attacking && lit.has(c.id)) add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) if (lit.has(c.id) || lit.has(t)) add(c.id, t, "#5fa8ff", true);
     }
     // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
     const beams = this.beams;
@@ -2379,6 +2453,7 @@ export class TableScene {
     if (id) s.setHover(id);
     else if (s.hover) s.setHover(null);
     this.syncTethers();
+    if (this.view && !this.beams) this.syncArrows(this.view); // (combat arrows show for the hovered attacker or blocker)
     if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";
   }
@@ -2516,6 +2591,11 @@ export class TableScene {
         const off = d.offsets.get(cid);
         if (c && off) c.target.set(p.x + off.x, LIFT, p.z + off.z);
       }
+      // declaring attackers: what letting go here does ("Attack Bob"), by the pointer
+      if (myAttackDecision(this.view)) {
+        const h = attackHint(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids));
+        useAttackDraft.setState({ hint: h ? { ...h, x: e.clientX, y: e.clientY } : null });
+      }
       return;
     }
     const hit = this.pick(e.clientX, e.clientY);
@@ -2561,6 +2641,13 @@ export class TableScene {
     if (!d) return;
     document.body.classList.remove("dragging");
     if (!d.active) return;
+    // -- playtest (nov 18) -- declaring attackers: a creature dragged toward an opponent attacks them, dragged back home it doesn't
+    // (game/rules/attackDraft.ts); nothing moves on the table: the formation shows the plan
+    if (useAttackDraft.getState().hint) useAttackDraft.setState({ hint: null });
+    if (attackDrop(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids))) {
+      this.syncCards();
+      return;
+    }
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
     if (target && this.flick(d, e.timeStamp)) return;
@@ -2848,6 +2935,7 @@ export class TableScene {
     let n = 0;
     // table motion (motion3d.ts): flights, riffles, numbers; nothing to do while idle
     const moving = this.motion.active;
+    if (this.dayNight.active) this.dayNight.update(started, reduced);
     if (moving) this.motion.update(started, reduced);
     this.planar.update(started); // -- planechase -- a planeswalk or chaos playing (idle: nothing)
     for (const c of this.cards.values()) {

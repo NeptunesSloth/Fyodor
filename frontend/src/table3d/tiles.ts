@@ -15,7 +15,7 @@ import { proxyFontsReady, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 import { countText } from "../game/piles";
 import { keywordCode } from "../game/counters";
-import { drawGuestMark, type CardOverlay } from "./textures";
+import { drawCombatChip, drawGuestMark, type CardOverlay } from "./textures";
 
 /** Tile canvas width (px); its height is 1.12 times that (game/arrange.ts TILE_RATIO). */
 export const TILE_PX = 320;
@@ -381,7 +381,9 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
     g.fillStyle = "#0e0b08";
     g.font = `800 ${Math.round(W * 0.09)}px ${UI}`;
     g.fillText(o.owner.initial, W * 0.04 + rr, left + rr + 1);
+    left += rr * 2 + W * 0.03;
   }
+  if (o.combat) drawCombatChip(g, W * 0.04, left, W * 0.17, o.combat); // -- playtest (nov 18) -- whom it attacks / how many it blocks
   // other counters, top right under the name bar (as many as fit above the P/T plate)
   const room = Math.max(1, Math.floor((pt.y - bar - W * 0.04) / (W * 0.185)));
   o.counters.slice(0, Math.min(3, room)).forEach(({ label, n }, i) => {

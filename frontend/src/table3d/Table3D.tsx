@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
+import { useAttackDraft } from "../game/rules/attackDraft";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
@@ -102,6 +103,10 @@ export function Table3D({ me }: { me: string }) {
     });
     const unCards = useCardCache.subscribe((s, prev) => {
       if (s.cards !== prev.cards) sync();
+    });
+    // -- playtest (nov 18) -- an attack planned in the declare-attackers prompt slides out toward its defender (rules/attackDraft.ts)
+    const unAttack = useAttackDraft.subscribe((s, prev) => {
+      if (s.plan !== prev.plan || s.decision !== prev.decision) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
     setPingLocator3D({
@@ -257,6 +262,7 @@ export function Table3D({ me }: { me: string }) {
       scene.onFrame = null;
       unGame();
       unCards();
+      unAttack();
       setDropResolver3D(null);
       setPingLocator3D(null);
       ro.disconnect();

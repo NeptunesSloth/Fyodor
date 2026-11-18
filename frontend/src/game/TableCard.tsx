@@ -16,6 +16,8 @@ import { countMark, countText } from "./piles";
 import { BoardTile, packStats } from "./BoardTile";
 import { reorderArranged } from "./arrangeDrop";
 import { useHoverCard } from "./hoverCard";
+import { attackDrop, attackSpot2D, defenderBadge, myAttackDecision, useAttackDraft } from "./rules/attackDraft";
+import "./rules/attackers.css";
 
 interface Props {
   id: string;
@@ -61,10 +63,26 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     return host ? (isVisible(host) ? host.name : "a face-down permanent") : s.view?.players.find((p) => p.id === c.attached_player)?.name ?? "";
   });
   const peek = useGame((s) => s.peek.includes(id));
+  // -- playtest (nov 18) -- combat read physically: an attacker (planned in the declare-attackers prompt, or declared) is pushed forward
+  // toward the middle of the table and says whom it attacks ("→ B Bob"); a blocker steps forward too ("blocks 2" when it blocks several)
+  const draftTarget = useAttackDraft((d) => d.plan[`a:${id}`]);
+  const draftId = useAttackDraft((d) => d.decision);
+  const deciding = useGame((s) => myAttackDecision(s.view, s.actingAs)?.id);
+  const planned = draftId && draftId === deciding ? draftTarget : undefined;
+  const attackTo = useGame((s) => {
+    const c = s.view?.cards[id];
+    const t = planned ? { id: planned.slice(2) } : c?.attacking;
+    const b = s.view && t ? defenderBadge(s.view, t) : null;
+    return b ? `${b.initial}|${b.color}|${b.name}` : "";
+  });
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
   const count = countMark(card, pile); // ×N: the land pile it tops, or the token stack it is
+  const fights = !!(card.attacking || card.attacking_without_target || card.blocking || card.blocking_without_attacker);
+  const pushed = !!planned || (fights && !tile); // (an arranged tile's forward step is the layout's: game/arrange.ts)
+  const [atkInitial, atkColor, atkName] = attackTo ? attackTo.split("|") : [];
+  const blocks = card.blocking ? 1 + (card.blocking_more?.length ?? 0) : 0;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -78,14 +96,20 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     // (a click on the one selected card selects it afresh: its action bar, closed when the stack moved on, opens again: Hud.tsx SelectionBar)
     if (!store.selection.includes(id) || store.selection.length === 1) store.select([id]);
     const ids = targetsFor(id);
-    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t) });
+    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => {
+      // declaring attackers: dragged toward an opponent it attacks them, back in my row it doesn't (rules/attackDraft.ts)
+      const v = useGame.getState().view;
+      if (t?.at && v && attackDrop(ids, attackSpot2D(v, me, t.zone, t.at.clientX, t.at.clientY))) return;
+      return (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t);
+    } });
   };
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}${guest ? " guest" : ""}${peek ? " peek" : ""}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}${guest ? " guest" : ""}${peek ? " peek" : ""}${pushed ? ` pushed${front === "bottom" ? " push-down" : ""}` : ""}${planned ? " attack-planned" : ""}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
+      data-attack-planned={planned ? planned.slice(2) : undefined}
       data-tile={tile ? "" : undefined}
       style={{
         ...(tile
@@ -93,6 +117,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
           : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }),
         ...(guest ? { ["--guest" as string]: guest.color } : {}),
+        ...(pushed ? { ["--push" as string]: `${Math.round(width * 0.3)}px` } : {}),
       }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
@@ -136,7 +161,12 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>
         )}
         {(card.attacking || card.attacking_without_target) && <span className="mark atk" title="Attacking"><Icon name="swords" size={11} /></span>}
+        {attackTo && (
+          <span className={`mark atk-to${planned ? " planned" : ""}`} data-testid="attack-to" style={{ ["--seat" as string]: atkColor }}
+            title={`${planned ? "Will attack" : "Attacking"} ${atkName}`}>→ <i>{atkInitial}</i>{atkName}</span>
+        )}
         {(card.blocking || card.blocking_without_attacker) && <span className="mark blk" title="Blocking">⛨</span>}
+        {blocks > 1 && <span className="mark blk-n" data-testid="blocks-n" title={`Blocking ${blocks} attackers`}>blocks {blocks}</span>}
         {card.locked && <span className="mark lock" title="Locked in place">🔒</span>}
         {visible && card.choices && Object.keys(card.choices).length > 0 && (
           <span className="mark choice" title={Object.entries(card.choices).map(([k, v]) => `${k}: ${v}`).join("\n")}>

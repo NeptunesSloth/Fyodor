@@ -807,6 +807,46 @@ export interface CardOverlay {
    * the middle of the table).
    */
   guest?: { initial: string; color: string; front: "top" | "bottom" };
+  /**
+   * -- playtest (nov 18) -- combat read physically: whom this attacker attacks ("→" and the defender's initial on their seat colour; a
+   * dashed rim while only planned in the declare-attackers prompt), and how many attackers a blocker blocks when it blocks several.
+   */
+  combat?: { to?: { initial: string; color: string; planned: boolean }; blocks?: number };
+}
+
+/** The combat chip (CardOverlay.combat) at (x, y), `h` tall, on any overlay canvas: "→ (B)" for an attacker, "blocks 2" for a blocker. */
+export function drawCombatChip(g: CanvasRenderingContext2D, x: number, y: number, h: number, combat: NonNullable<CardOverlay["combat"]>): void {
+  const to = combat.to;
+  const label = to ? "→" : `blocks ${combat.blocks ?? ""}`;
+  g.save();
+  g.font = `800 ${Math.round(h * 0.62)}px Inter, Arial, sans-serif`;
+  const tw = g.measureText(label).width;
+  const w = tw + h * (to ? 1.35 : 0.55);
+  g.fillStyle = "#16110c";
+  roundRect(g, x, y, w, h, h * 0.3);
+  g.fill();
+  g.lineWidth = Math.max(2, h * 0.07);
+  g.strokeStyle = to ? "#e0645c" : "#5fa8ff";
+  if (to?.planned) g.setLineDash([h * 0.16, h * 0.1]);
+  g.stroke();
+  g.setLineDash([]);
+  g.textAlign = "left";
+  g.textBaseline = "middle";
+  g.fillStyle = "#f6ead8";
+  g.fillText(label, x + h * 0.22, y + h / 2 + 1);
+  if (to) {
+    const r = h * 0.36;
+    const cx = x + h * 0.32 + tw + r;
+    g.beginPath();
+    g.arc(cx, y + h / 2, r, 0, Math.PI * 2);
+    g.fillStyle = to.color;
+    g.fill();
+    g.fillStyle = "#0e0b08";
+    g.textAlign = "center";
+    g.font = `800 ${Math.round(h * 0.46)}px Inter, Arial, sans-serif`;
+    g.fillText(to.initial, cx, y + h / 2 + 1);
+  }
+  g.restore();
 }
 
 /** The guest frame and tab (CardOverlay.guest) on a W × H overlay. */
@@ -1016,6 +1056,7 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.font = "800 58px Inter, Arial, sans-serif";
     g.fillText(o.owner.initial, 78, 154);
   }
+  if (o.combat) drawCombatChip(g, 14, 232, 120, o.combat); // (under the owner gem, over the art's left edge)
   // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
   if (o.pt) {
     const w = 380;
