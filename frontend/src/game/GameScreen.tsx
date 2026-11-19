@@ -255,6 +255,7 @@ function useShortcuts() {
           if (view.my_views?.some((v) => v.kind === "look")) void send({ type: "end_view" });
           break;
         case "help":
+          e.preventDefault(); // -- sweep B2 -- the "?" isn't typed into the help's search box too (it filtered the list down to itself)
           s.openDialog("help");
           break;
         case "ping":
