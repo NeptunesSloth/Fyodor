@@ -27,6 +27,7 @@ import type { CardData } from "../types/cards";
 import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckWarning, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
 import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, printingsShown, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
+import { DeckStats } from "./DeckStats";
 import "./decks.css";
 
 /**
@@ -47,6 +48,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const [printingFor, setPrintingFor] = useState<number | null>(null);
   const [exportText, setExportText] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [addSection, setAddSection] = useState<Section>("main");
   const [groupBy, setGroupBy] = useState<"type" | "category">(() => (localStorage.getItem("fyodor.deck.groupBy") === "category" ? "category" : "type"));
   const [exportFormat, setExportFormat] = useState<"archidekt" | "plain">("archidekt");
@@ -225,6 +227,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
           </p>
         </div>
         <div className="de-acts">
+          <button className="tt-btn ghost" onClick={() => setStatsOpen(true)} data-testid="deck-stats-open">Stats</button>
           <button className="tt-btn ghost" onClick={() => setImportOpen(true)}>Import text</button>
           <button className="tt-btn ghost" onClick={() => exportDeck(id, exportFormat).then(setExportText, toastError)} title="Archidekt-compatible text">Export</button>
           <button className={`tt-btn de-play ${dirty ? "" : "brass"}`} onClick={() => navigate(`/play?deck=${id}`)} disabled={dirty} title={dirty ? "Save the deck to play it" : undefined}>
@@ -456,6 +459,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
           }}
         />
       )}
+      {statsOpen && <DeckStats entries={entries} cards={cards} onClose={() => setStatsOpen(false)} />}
       {importOpen && <ImportInto id={id} onClose={() => setImportOpen(false)} onDone={(d) => { load(d); setImportOpen(false); }} />}
     </div>
   );
