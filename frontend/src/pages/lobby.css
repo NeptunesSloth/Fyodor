@@ -137,6 +137,10 @@ button.pl-name:hover { color: var(--accent-2); }
   background: rgba(0, 0, 0, 0.25); color: var(--text-dim); cursor: pointer; }
 .lobby-bot-levels button.on { color: var(--accent-ink, #1a1208); background: var(--accent); border-color: transparent; cursor: default; }
 .lobby-bot-levels button:disabled { opacity: 0.6; }
+.lobby-bot-level-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.lobby-bot-level-row .bds-head { margin: 0; }
+.lobby-bot-level-row .lobby-bot-levels { margin: 0; }
+.hint.lobby-bot-level-hint { margin: 4px 0 2px; }
 .lobby .presence { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #55595e; }
 .lobby .presence.on { background: #7cc48f; box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.4); }
 .pl-tools { display: inline-flex; align-items: center; gap: 2px; margin-right: -4px; }
@@ -147,6 +151,15 @@ button.pl-name:hover { color: var(--accent-2); }
 .seat-grip:active { cursor: grabbing; }
 .pl-kick { margin-left: 4px; }
 .pl-kick:hover { color: var(--danger); }
+.plinth > .lobby-bot-levels { margin: 0 10px 6px 12px; }
+/* Table settings: Planechase's line under its box ("PlanechaseOff: no planar deck." ran together) */
+.planechase-field > .hint { display: block; margin-top: 4px; }
+/* five or six seats on a laptop: the seat tools (move, grip, remove) take a row of their own under the name, which got "B…" beside them */
+.plinth { container-type: inline-size; }
+@container (max-width: 250px) {
+  .pl-plate { flex-wrap: wrap; row-gap: 0; }
+  .pl-tools { order: 3; flex: 1 0 100%; justify-content: flex-end; margin: -4px -4px -2px 0; }
+}
 
 /* a seat's chip: a clay poker chip in the seat colour, edge spots and all */
 .seat-chip {

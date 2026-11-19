@@ -11,10 +11,36 @@ function parse(): Route {
   return { path: path.split("/").filter(Boolean).map(decodeURIComponent), query: new URLSearchParams(query) };
 }
 
+// -- leave guard -- a page with unsaved work (the deck editor) may refuse to be left: a link, the top bar, navigate() or the
+// browser's Back. The address changes before the app hears of it, so a refusal puts the page's own address back (replaceState:
+// no second hashchange) and the page never unmounts.
+let accepted = typeof window === "undefined" ? "" : window.location.hash;
+let leaveGuard: (() => boolean) | null = null;
+
+/** While set, `guard` runs before the app leaves the current page; returning false stays. Returns the function that clears it. */
+export function setLeaveGuard(guard: () => boolean): () => void {
+  leaveGuard = guard;
+  return () => {
+    if (leaveGuard === guard) leaveGuard = null;
+  };
+}
+
+function mayLeave(): boolean {
+  const next = window.location.hash;
+  if (next !== accepted && leaveGuard && !leaveGuard()) {
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${accepted}`);
+    return false;
+  }
+  accepted = next;
+  return true;
+}
+
 export function useHashRoute(): Route {
   const [route, setRoute] = useState(parse);
   useEffect(() => {
-    const onChange = () => setRoute(parse());
+    const onChange = () => {
+      if (mayLeave()) setRoute(parse());
+    };
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);

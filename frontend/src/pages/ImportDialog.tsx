@@ -90,8 +90,12 @@ export function ImportDialog({ onClose, onCreated }: { onClose: () => void; onCr
     try {
       const deck = await createDeck({ ...req, name: name.trim() || undefined, });
       const r = deck.import_report;
-      const issues = (r?.unresolved.length ?? 0) + (r?.fallbacks.length ?? 0);
-      toast(issues ? `Imported ${deck.name} — ${issues} card(s) need a look` : `Imported ${deck.name}`, issues ? "warn" : "info");
+      // (a card not found needs the player; a printing swapped for one this computer has is only worth a mention)
+      const missing = r?.unresolved.length ?? 0;
+      const swapped = r?.fallbacks.length ?? 0;
+      toast(missing ? `Imported ${deck.name}: ${missing === 1 ? "1 card wasn't found" : `${missing} cards weren't found`}`
+        : swapped ? `Imported ${deck.name} (${swapped === 1 ? "1 printing" : `${swapped} printings`} swapped for one on this computer)`
+        : `Imported ${deck.name}`, missing ? "warn" : "info");
       let jobId: string | undefined;
       if (cacheImages && options?.archidekt_url) {
         jobId = (await cacheArt(deck.id).catch(() => null))?.id;
@@ -218,7 +222,7 @@ export function ImportDialog({ onClose, onCreated }: { onClose: () => void; onCr
                   <li className={r.unresolved.length ? "warn" : "ok"}>
                     {r.resolved} card names resolved{r.unresolved.length ? `, ${r.unresolved.length} not found` : ""}
                   </li>
-                  <li className="ok">{r.exact_printings} exact printings resolved</li>
+                  <li className="ok">{r.exact_printings} exact printing{r.exact_printings === 1 ? "" : "s"} resolved</li>
                   {r.fallbacks.length > 0 && (
                     <li className="warn">
                       {r.fallbacks.length} printing fallback{r.fallbacks.length > 1 ? "s" : ""}

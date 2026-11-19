@@ -11,7 +11,7 @@ export function PlanechaseSetting({ value, onChange }: { value: Planechase; onCh
   const on = !!value.planechase;
   const size = value.planar_deck_size ?? 10;
   return (
-    <div className="field" data-testid="lobby-planechase">
+    <div className="field planechase-field" data-testid="lobby-planechase">
       <label className="inline"><input type="checkbox" checked={on} onChange={(e) => onChange({ planechase: e.target.checked })} /> Planechase</label>
       {on && (
         <span className="inline">

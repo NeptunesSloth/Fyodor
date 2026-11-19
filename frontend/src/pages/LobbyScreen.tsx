@@ -863,12 +863,17 @@ function AddBotDialog({ lobby, seat, bot, onClose, onDone }: {
   return (
     <Modal title={bot ? `Choose ${bot.name}'s deck` : `Add a bot to seat ${seat.slice(1)}`} onClose={onClose}>
       <p className="hint">The server plays it, through the same rules as everyone (rules automation must be Full). It never sees your hands.</p>
-      <div className="lobby-bot-levels" role="radiogroup" aria-label="Bot level">
-        {BOT_LEVELS.map((l) => (
-          <button key={l.id} className={level === l.id ? "on" : ""} aria-pressed={level === l.id} title={l.hint} onClick={() => setLevel(l.id)}
-            data-testid={`add-bot-level-${l.id}`}>{l.label}</button>
-        ))}
+      {/* how well it plays, named and explained here (the hint was only a tooltip) */}
+      <div className="lobby-bot-level-row">
+        <span className="bds-head" id="add-bot-level">Plays</span>
+        <div className="lobby-bot-levels" role="radiogroup" aria-labelledby="add-bot-level">
+          {BOT_LEVELS.map((l) => (
+            <button key={l.id} className={level === l.id ? "on" : ""} aria-pressed={level === l.id} title={l.hint} onClick={() => setLevel(l.id)}
+              data-testid={`add-bot-level-${l.id}`}>{l.label}</button>
+          ))}
+        </div>
       </div>
+      <p className="hint lobby-bot-level-hint">{BOT_LEVELS.find((l) => l.id === level)?.hint}.</p>
       <BotDeckSources value={null} hasLibrary={!!decks?.length} busy={busy} onPick={(id) => void add(id)} />
       <p className="bds-head lobby-bot-mine">Or one of your decks</p>
       <div className="deck-pick-list" data-testid="add-bot-decks">
@@ -992,6 +997,7 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
     setFile({ name: f.name, body: isJson ? { json: content, name: base } : { text: content, name: base } });
   };
 
+  const companions = Array.from(new Map(saved.flatMap(d => d.companions ?? []).map(c => [c.name, c])).values());
   const tabs: [Source, string][] = [
     ...(brought ? ([["brought", `Your decks, from ${brought.from ?? "your computer"}`]] as [Source, string][]) : []),
     ...(hostDecks ? ([["table", "Table decks"]] as [Source, string][]) : []),
@@ -1010,13 +1016,15 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
           </button>
         ))}
       </div>
-      <label className="field">Companion from My decks (optional)
-        <select value={companion} disabled={busy} onChange={e => setCompanion(e.target.value)}>
-          <option value="">Use the deck's companion, if any</option>
-          {Array.from(new Map(saved.flatMap(d => d.companions ?? []).map(c => [c.name, c])).values()).map(c =>
-            <option key={c.name} value={c.printing_id}>{c.name}</option>)}
-        </select>
-      </label>
+      {/* (a companion from My decks instead of the deck's own: offered only when My decks hold one; chosen before the deck) */}
+      {companions.length > 0 && (
+        <label className="field deck-src-companion">Companion from My decks (optional)
+          <select value={companion} disabled={busy} onChange={e => setCompanion(e.target.value)}>
+            <option value="">Use the deck's companion, if any</option>
+            {companions.map(c => <option key={c.name} value={c.printing_id}>{c.name}</option>)}
+          </select>
+        </label>
+      )}
       <div className="deck-src-body">
         {source === "brought" && brought && (
           <div className="deck-pick-list" data-testid="brought-decks">

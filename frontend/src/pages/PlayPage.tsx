@@ -454,7 +454,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                     ) : source ? (
                       <>
                         <p className="pg-cmdr" title={source.title}>{source.title}</p>
-                        <p className="pg-sub"><span className="pg-deckname">{source.sub}</span></p>
+                        <p className="pg-sub"><span className="pg-deckname" title={source.sub}>{source.sub}</span></p>
                       </>
                     ) : (
                       <p className="pg-note">Choose the deck it plays: one of yours, a precon or a generated one.</p>
@@ -798,12 +798,11 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
       <div className="pg-tile-main">
         <h3><span className="pg-tile-name">{g.name}</span>{lan && g.has_password && <Icon name="lock" size={14} label="Password" className="pg-lock" />}</h3>
         <p className="pg-meta">
-          <span>{lan ? "LAN" : "Hot-seat"}</span>
-          {isSandbox(g.format) && <span>Sandbox</span>}
+          {isSandbox(g.format) ? <span>Sandbox</span> : <span>{lan ? "LAN" : "Hot-seat"}</span>}
           {lan && g.code && <span>Room <b className="pg-room">{g.code}</b></span>}
           <span>{lobby ? "In the lobby" : `Turn ${g.turn}`}</span>
         </p>
-        <p className="pg-who">{who.join(", ")}</p>
+        <p className="pg-who" title={who.join(", ")}>{who.join(", ")}</p>
       </div>
       {host && (
         <div className="pg-tile-acts">
@@ -876,7 +875,8 @@ function SaveTile({ save: s, onDeleted }: { save: SaveSummary; onDeleted: () => 
           <span>{whenSaved(s.created_at)}</span>
           <span>Turn {s.turn}</span>
         </p>
-        <p className="pg-who">{s.players.map((p) => `${p.name} ${p.life}`).join(", ")}</p>
+        {/* (name and life apart: "Player 1 40" read as "Player 140") */}
+        <p className="pg-who" title={s.players.map((p) => `${p.name}: ${p.life} life`).join(", ")}>{s.players.map((p) => `${p.name}: ${p.life} life`).join(", ")}</p>
       </div>
       <div className="pg-tile-acts">
         {/* a saved game comes back as a LAN night, like every new one: the host takes their seat, the pod rejoins with the code */}

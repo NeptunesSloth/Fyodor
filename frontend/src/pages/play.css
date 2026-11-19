@@ -562,6 +562,12 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 /* -- bot levels -- Simple / Intermediate / Advanced: the segmented chips, a size smaller to fit the seat tile */
 .play .pg-bot-levels { display: flex; }
 .play .pg-bot-levels label { flex: 1 1 auto; justify-content: center; height: 26px; padding: 0 6px; font-size: 12px; white-space: nowrap; }
+/* (four seats on a laptop: the three no longer fit side by side, so they stand one above the other rather than cut off "Advanced") */
+@container (max-width: 230px) {
+  .play .pg-bot-levels { flex-direction: column; }
+  .play .pg-bot-levels label + label { border-left: 0; border-top: 1px solid color-mix(in srgb, var(--frame) 40%, transparent); }
+}
+.pg-seat-foot > .tt-btn { white-space: nowrap; }
 @container (max-width: 210px) {
   /* three dummies on a laptop: a smaller, tighter name ("Target Dummy 3" whole) and a smaller seat chip */
   .play .pg-dummy .pg-plate { gap: 6px; padding-left: 8px; }

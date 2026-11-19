@@ -7,7 +7,7 @@ import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
-import { navigate } from "../hooks/useHashRoute";
+import { navigate, setLeaveGuard } from "../hooks/useHashRoute";
 import { getPrintings } from "../services/cards";
 import { type ArtStatus, applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, resetDeckRows, unlinkSource, updateDeck, waitForJob } from "../services/decks";
 import { askText } from "../components/Prompt";
@@ -24,7 +24,7 @@ import {
   typeGroup,
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
-import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
+import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckWarning, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
 import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
 import "./decks.css";
@@ -121,6 +121,11 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  // (and inside the app: the top bar, a link or Back would drop the edits without a word)
+  useEffect(() => {
+    if (!dirty) return;
+    return setLeaveGuard(() => window.confirm(`Leave without saving? Your changes to “${name.trim() || "this deck"}” aren't saved yet.`));
+  }, [dirty, name]);
 
   const edit = (fn: (list: DeckEntry[]) => DeckEntry[]) => {
     setEntries((list) => fn(list));
@@ -187,6 +192,9 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const total = sectionCount(entries, "main") + sectionCount(entries, "commander");
   const maxCurve = Math.max(1, ...curve.buckets);
   const checks = checkSummary(deck.warnings);
+  // each card's own checks, marked on its row (off-colour, more than one copy, banned): the panel lists them below the fold
+  const cardChecks = new Map<string, DeckWarning[]>();
+  for (const w of deck.warnings) if (w.card) cardChecks.set(w.card, [...(cardChecks.get(w.card) ?? []), w]);
   const showChecks = () => {
     checksRef.current?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     checksRef.current?.focus({ preventScroll: true });
@@ -267,6 +275,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                             key={`${entry.section}-${entry.printing_id ?? entry.name}-${index}`}
                             entry={entry}
                             card={entry.printing_id ? cards[entry.printing_id] : undefined}
+                            checks={entry.printing_id ? cardChecks.get(entry.name) : undefined}
                             onHover={() => setHover(entry.printing_id)}
                             onQty={(d) => edit((l) => changeQuantity(l, index, d))}
                             onRemove={() => edit((l) => removeEntry(l, index))}
@@ -443,6 +452,8 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
 function EntryRow(props: {
   entry: DeckEntry;
   card: CardData | undefined;
+  /** this card's deck checks (as of the last save) */
+  checks?: DeckWarning[];
   onHover: () => void;
   onQty: (delta: number) => void;
   onRemove: () => void;
@@ -487,6 +498,11 @@ function EntryRow(props: {
       {fallback && (
         <span className="de-fallback" title={`Requested ${[entry.requested?.set_code?.toUpperCase(), entry.requested?.collector_number && `#${entry.requested.collector_number}`].filter(Boolean).join(" ") || "a printing"} that isn't in the local card data; using ${entry.set_code?.toUpperCase()} #${entry.collector_number}`} aria-label="Printing substituted">!</span>
       )}
+      {props.checks && props.checks.length > 0 && (() => {
+        const level = props.checks.some((w) => w.level !== "info") ? "warning" : "info";
+        const text = props.checks.map((w) => w.message).join(" ");
+        return <span className={`de-cardcheck ${level}`} title={text} role="img" aria-label={text}>{level === "info" ? "i" : "!"}</span>;
+      })()}
       <span className="de-cost"><ManaText text={card?.mana_cost} /></span>
       <button className="de-set" onClick={props.onPrinting} title="Choose printing">{entry.set_code?.toUpperCase() ?? "?"}</button>
       {entry.section !== "commander" ? (

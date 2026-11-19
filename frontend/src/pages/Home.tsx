@@ -202,15 +202,15 @@ function Continue({ last }: { last: LastTable }) {
   };
   return (
     <button className="home-continue" onClick={() => void go()} disabled={busy} data-testid="home-continue"
-      aria-label={`Continue “${name}”, ${table ? `${table.mode === "lan" ? "LAN" : "hot-seat"}, ${table.phase === "lobby" ? "in the lobby" : `turn ${table.turn}`}` : `saved ${whenSaved(save!.created_at)}, turn ${save!.turn}`}`}>
+      aria-label={`Continue “${name}”, ${table ? `${isSandbox(table.format) ? "sandbox" : table.mode === "lan" ? "LAN" : "hot-seat"}, ${table.phase === "lobby" ? "in the lobby" : `turn ${table.turn}`}` : `saved ${whenSaved(save!.created_at)}, turn ${save!.turn}`}`}>
       <TableMosaic seats={seats} />
       <span className="home-continue-text">
         <span className="home-continue-name">{name}</span>
         <span className="home-continue-meta">
           {table ? (
             <>
-              <span>{table.mode === "lan" ? "LAN" : "Hot-seat"}</span>
-              {isSandbox(table.format) && <span>Sandbox</span>}
+              {/* (a Sandbox is a LAN table too, but nobody joins it: "LAN" there only puzzled) */}
+              {isSandbox(table.format) ? <span>Sandbox</span> : <span>{table.mode === "lan" ? "LAN" : "Hot-seat"}</span>}
               <span>{table.phase === "lobby" ? "In the lobby" : `Turn ${table.turn}`}</span>
             </>
           ) : (

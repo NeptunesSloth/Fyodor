@@ -40,7 +40,7 @@ export function BotDeckSources({ value, hasLibrary, busy, onPick }: {
   const preconOn = !!value && value.startsWith("@precon:");
   return (
     <div className="bot-deck-sources" data-testid="bot-deck-sources">
-      <p className="bds-head">Without one of your decks</p>
+      <p className="bds-head">Random, precon or generated</p>
       <div className="bds-row">
         {choice(BOT_DECK_RANDOM, "bot", "Random from my decks", hasLibrary ? "One of your decks, picked at random" : "Your library is empty",
           !hasLibrary, "bot-deck-random")}
