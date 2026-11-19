@@ -6363,8 +6363,32 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     selected = options[selected_index]
     outer = plan.rules.decision
     assert outer is not None
+    own_cost = _spare_pool_cost(plan, _who(plan, card), mana_activation_cost(plan.state, card, ch, parsed, plan.info), outer, ch.name)
     plan.rules.payment_outer, plan.rules.decision = outer, None
-    _manual_produce(plan, card, parsed, selected, a.ability, nested=True, option_index=selected_index)
+    _manual_produce(plan, card, parsed, selected, a.ability, nested=True, option_index=selected_index, activation_cost=own_cost)
+
+
+def _spare_pool_cost(plan: Plan, player: str, cost: M.ManaCost, outer: Any, name: str) -> M.ManaCost:
+    """-- sweep B2 -- a mana ability with a generic cost (Cabal Coffers' {2}) activated while paying another cost takes from the pool the
+    mana that cost's coloured symbols don't need (the {G}{U} floating for a spell's {G}{U} stays for it): the generic cost as those units
+    (colourless first, then the most plentiful). Refused when only the mana the outer cost needs could pay it: tap other mana first."""
+    from collections import Counter
+
+    owed = (outer.resume or {}).get("cost")
+    if not owed or not cost.generic or cost.colored or cost.hybrid or cost.phyrexian or cost.x or cost.unsupported:
+        return cost
+    pool = Counter({k: v for k, v in plan.state.players[player].mana.items() if v > 0})
+    spare = pool - Counter(M.parse_cost(owed).colored)
+    if spare.total() < cost.generic:
+        if pool.total() >= cost.generic:
+            raise ActionError(f"Paying {cost.text()} for {name} would spend the mana floating for {owed}: tap other mana for {name} first")
+        return cost  # (the pool is short anyway: the usual refusal)
+    picked: list[str] = []
+    for _ in range(cost.generic):
+        k = max((c for c in spare if spare[c] > 0), key=lambda c: (c == "C", spare[c]))
+        spare[k] -= 1
+        picked.append(k)
+    return M.ManaCost(colored=tuple(picked))
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
@@ -7278,11 +7302,11 @@ def _ask_to_tap_for_mana_ability(plan: Plan, card: CardInstance, ch: Characteris
 
 
 def _manual_produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
-                    *, nested: bool = False, option_index: int | None = None) -> None:
+                    *, nested: bool = False, option_index: int | None = None, activation_cost: M.ManaCost | None = None) -> None:
     from app.rules import replace as replacements_
 
     after = _mana_terminal(plan, nested=nested)
-    if produce(plan, card, ability, option, index, then=after, option_index=option_index):
+    if produce(plan, card, ability, option, index, then=after, option_index=option_index, activation_cost=activation_cost):
         replacements_.run_then(plan, after)
 
 

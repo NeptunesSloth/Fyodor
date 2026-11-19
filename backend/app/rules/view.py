@@ -13,6 +13,7 @@ from typing import Any
 
 from app.game import ops
 from app.game.control import acting_as, controller_of, decider_of
+from app.game.errors import ActionError
 from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
@@ -26,12 +27,28 @@ from app.rules.casting import (
     can_use_tap_abilities,
     castable,
     free_castable,
+    mana_sources,
     optional_castable,
     summoning_sick,
 )
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
+
+
+def mana_now(state: GameState, viewer: str, info: CardInfo) -> int:
+    """-- sweep B2 -- about how much mana ``viewer``'s untapped sources make now, for the X prompt's estimate: each source's largest output,
+    less what a source with a mana cost takes from the others (Cabal Coffers with five Swamps: 5 − 2). The floating mana is not counted."""
+    best: dict[str, int] = {}
+    try:
+        sources = mana_sources(state, viewer, info)
+    except ActionError:  # (a saved ability with unknown producer choices: no estimate)
+        return 0
+    for src in sources:
+        a = src.activation
+        n = max((len(o) for o in src.options), default=0) - (a.generic + len(a.colored) + len(a.hybrid) + len(a.phyrexian) if a else 0)
+        best[src.card_id] = max(best.get(src.card_id, 0), n)
+    return sum(best.values())
 
 
 def cost_now(state: GameState, viewer: str, castable: list[str], with_x: set[str], info: CardInfo) -> dict[str, str]:
@@ -375,6 +392,8 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         out["offspring110a"] = offspring
     if costs := cost_now(state, viewer, out["castable"], set(out.get("x_cast") or ()), info):
         out["cost_now"] = costs
+    if any(k in out for k in ("x_cast", "x_kicker", "chorus", "replicate111r3")):
+        out["mana_now"] = mana_now(state, viewer, info)  # -- sweep B2 -- the X / count prompts' "≈ Max" (Cabal Coffers counts its Swamps)
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

@@ -44,5 +44,8 @@ describe("the X prompt's guide (playtest nov 16: it started at 0 with no max)", 
     } as unknown as GameView;
     expect(xEstimate(v, "p1", { type: "cast_spell", card_id: "s" })).toEqual({ line: "You have 5 untapped lands and 2 mana floating.", max: 6, have: 7, fixed: 1 });
     expect(xEstimate(v, "p1", { type: "cast_spell", card_id: "f" })!.max).toBe(3); // (7 - 1) / 2
+    // -- sweep B2 -- the server's count of what the untapped sources make (Cabal Coffers with five Swamps: 3 more than its land)
+    const coffers = { ...v, rules: { hints: { mana_now: 8 } } } as unknown as GameView;
+    expect(xEstimate(coffers, "p1", { type: "cast_spell", card_id: "s" })).toEqual({ line: "You have 5 untapped lands (about 8 mana) and 2 mana floating.", max: 9, have: 10, fixed: 1 });
   });
 });

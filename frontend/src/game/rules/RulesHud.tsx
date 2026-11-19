@@ -744,8 +744,9 @@ export function xEstimate(view: GameView, me: string, action: { card_id?: unknow
   const symbols = cost.match(/\{[^}]+\}/g) ?? [];
   const xs = symbols.filter((m) => m === "{X}").length;
   const fixed = symbols.reduce((n, m) => n + (m === "{X}" ? 0 : /^\{\d+\}$/.test(m) ? Number(m.slice(1, -1)) : 1), 0);
-  const have = lands + pool;
-  const line = `You have ${lands} untapped ${lands === 1 ? "land" : "lands"}${pool ? ` and ${pool} mana floating` : ""}.`;
+  const sources = view.rules?.hints.mana_now; // (-- sweep B2 -- the server's count: Cabal Coffers makes a Swamp each, mana creatures count)
+  const have = (sources ?? lands) + pool;
+  const line = `You have ${lands} untapped ${lands === 1 ? "land" : "lands"}${sources !== undefined && sources !== lands ? ` (about ${sources} mana)` : ""}${pool ? ` and ${pool} mana floating` : ""}.`;
   return { line, max: xs ? Math.max(0, Math.floor((have - fixed) / xs)) : 0, have, fixed };
 }
 
