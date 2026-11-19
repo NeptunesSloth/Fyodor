@@ -477,4 +477,5 @@ def summarize(deck: Deck, data: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "color_identity": [c for c in COLOR_ORDER if c in identity],
         "cover_id": cover,
         "unresolved": sum(1 for e in deck.entries if not e.printing_id),
+        "shared": deck.shared,
     }

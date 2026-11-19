@@ -79,6 +79,13 @@ class DeckRepository:
             if cur.rowcount == 0:
                 raise DeckNotFound(deck_id)
 
+    def set_shared(self, deck_id: str, shared: bool) -> None:
+        """-- deck sharing -- not an edit of the deck: ``updated_at`` stays."""
+        with self.lock, transaction(self.conn):
+            cur = self.conn.execute("UPDATE decks SET shared = ? WHERE id = ?", (1 if shared else 0, deck_id))
+            if cur.rowcount == 0:
+                raise DeckNotFound(deck_id)
+
     def row_overrides(self, deck_id: str) -> dict[str, str]:
         """-- saved rows -- the deck's remembered battlefield rows ({} for a deck that's gone)."""
         with self.lock:
@@ -133,6 +140,7 @@ class DeckRepository:
             entries=[_entry(c) for c in cards],
             folder=row["folder"],
             row_overrides=_rows(row["row_overrides"]),
+            shared=bool(row["shared"]),
         )
 
 

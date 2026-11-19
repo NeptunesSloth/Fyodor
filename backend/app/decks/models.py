@@ -116,6 +116,7 @@ class Deck(DeckIn):
     folder: str = ""  # the shelf folder it sits in ('' = none); set on its own, so saving a list never moves a deck
     # -- saved rows -- card name -> "land" / "creature" / "other": where the owner moved it at the table (learned in games, not edited)
     row_overrides: dict[str, str] = Field(default_factory=dict)
+    shared: bool = False  # -- deck sharing -- shown to friends on the network while sharing is on (set on its own, like folder)
     source: DeckSource | None = None
     # Normalized entries as last imported/acknowledged from the source (for "check source" diffs).
     source_snapshot: list[DeckEntry] | None = None

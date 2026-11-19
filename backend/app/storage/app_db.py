@@ -178,6 +178,10 @@ MIGRATIONS: list[str] = [
         updated_at TEXT NOT NULL
     );
     """,
+    # 13: -- deck sharing -- the owner marked this deck to show to friends on the network (app/decks/sharing.py; off by default)
+    """
+    ALTER TABLE decks ADD COLUMN shared INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 

@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, ValidationError
 from app.api.deps import get_services, require_local
 from app.cards import share
 from app.cards.images import UUID_RE
+from app.decks import sharing
+from app.decks.models import Deck
 from app.decks.parser import format_deck_text
 from app.multiplayer import lan_art
 from app.multiplayer.discovery import Discovery, computer_name, on_local_network
@@ -189,13 +191,13 @@ def handoff_target(url: str) -> str | None:
     return f"http://{f'[{ip}]' if ip.version == 6 else ip}:{port}"
 
 
-def library_payload(services: Services) -> tuple[dict[str, Any], list[str]]:
-    """This computer's deck library as the host's lobby reads a pasted list (newest first, within the size caps), and every
-    printing in it (the host says which it lacks)."""
+def library_payload(services: Services, library: list[Deck] | None = None) -> tuple[dict[str, Any], list[str]]:
+    """This computer's deck library (or ``library``) as the host's lobby reads a pasted list (newest first, within the size
+    caps), and every printing in it (the host says which it lacks)."""
     decks: list[dict[str, Any]] = []
     printings: list[str] = []
     size = 200
-    for deck in services.decks.list_all():
+    for deck in services.decks.list_all() if library is None else library:
         if len(decks) >= MAX_DECKS:
             break
         if not deck.entries:
@@ -269,3 +271,54 @@ async def send_decks(body: SendIn, request: Request, services: ServicesDep) -> d
     if not isinstance(token, str) or not 16 <= len(token) <= 64:
         raise HTTPException(502, "That table's computer didn't take your decks")
     return {"token": token, "decks": len(payload["decks"]), "cards": len(cards)}
+
+
+# --------------------------------------------------------------------------- friends' decks (app/decks/sharing.py)
+
+
+@router.get("/lan/decks")
+async def shared_decks(request: Request, services: ServicesDep) -> dict[str, Any]:
+    """The decks this computer shares with friends on the network: names, commanders and card lists, nothing else. Read only;
+    nothing at all while sharing is off (the owner's opt-in, Settings)."""
+    if not on_local_network(_sender(request)):
+        raise HTTPException(403, "Only computers on this network can browse shared decks")
+    prefs = sharing.load(services.settings.data_dir)
+    if not prefs["enabled"]:
+        raise HTTPException(404, "This computer isn't sharing its decks")
+    payload, _ = await run_in_threadpool(lambda: library_payload(services, sharing.shared(services.decks.list_all(), prefs)))
+    return {"from": payload["from"], "decks": [{k: d[k] for k in ("name", "commanders", "text")} for d in payload["decks"]]}
+
+
+@router.get("/lan/friend-decks")
+async def friend_decks(url: str, request: Request) -> dict[str, Any]:
+    """A friend's shared decks, asked by this computer's server (straight to their address: no proxy, no internet). This
+    computer only."""
+    require_local(request)
+    target = handoff_target(url)
+    if target is None:
+        raise HTTPException(422, "Decks only come from a Fyodor on this network (http://address:port)")
+    try:
+        async with httpx.AsyncClient(trust_env=False, timeout=httpx.Timeout(5.0)) as client:
+            res = await client.get(f"{target}/api/lan/decks")
+    except httpx.HTTPError:
+        raise HTTPException(502, "Couldn't reach that computer") from None
+    if res.status_code == 404:
+        raise HTTPException(404, "That computer isn't sharing its decks")
+    if res.status_code != 200 or len(res.content) > MAX_BYTES:
+        raise HTTPException(502, "That computer didn't send a deck list")
+    try:
+        body = res.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or not isinstance(body.get("decks"), list):
+        raise HTTPException(502, "That computer didn't send a deck list")
+    decks = []
+    for raw in body["decks"][:MAX_DECKS]:  # from the network: checked deck by deck
+        try:
+            d = BroughtDeckIn.model_validate(raw)
+        except ValidationError:
+            continue
+        decks.append({"name": clean_text(d.name, 120) or "Deck", "commanders": [clean_text(c, 200) for c in d.commanders if c.strip()],
+                      "text": d.text})
+    source = body.get("from")
+    return {"from": clean_text(source, 40) if isinstance(source, str) else "", "url": target, "decks": decks}

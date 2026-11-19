@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
 from app.cards.repository import CardDatabaseUnavailable
-from app.decks import archidekt, service, sites
+from app.decks import archidekt, service, sharing, sites
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
@@ -148,6 +148,37 @@ def art_keeper_status(services: ServicesDep) -> dict[str, Any]:
 def set_art_keeper(body: ArtKeeperIn, services: ServicesDep) -> dict[str, Any]:
     services.art_keeper.set_enabled(body.enabled)
     return {**services.art_keeper.status(), "network": services.settings.allow_network}
+
+
+# -- deck sharing -- friends on the network may browse the decks shared here (app/decks/sharing.py, GET /api/lan/decks)
+
+
+class SharingIn(BaseModel):
+    enabled: bool
+    all: bool = False
+
+
+class SharedIn(BaseModel):
+    shared: bool
+
+
+@router.get("/decks/sharing")
+def sharing_status(services: ServicesDep) -> dict[str, Any]:
+    return sharing.load(services.settings.data_dir)
+
+
+@router.put("/decks/sharing")
+def set_sharing(body: SharingIn, services: ServicesDep) -> dict[str, Any]:
+    return sharing.save(services.settings.data_dir, enabled=body.enabled, all=body.all)
+
+
+@router.put("/decks/{deck_id}/shared")
+def set_deck_shared(deck_id: str, body: SharedIn, services: ServicesDep) -> dict[str, Any]:
+    try:
+        services.decks.set_shared(deck_id, body.shared)
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "shared": body.shared}
 
 
 @router.post("/decks/preview")
