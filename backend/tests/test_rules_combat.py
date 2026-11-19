@@ -83,6 +83,8 @@ def test_blocks_trade_and_first_strike_wins(cards):
     assert st.cards[knight.id].zone == "p1:battlefield" and st.cards[knight.id].damage == 0
     assert st.players["p2"].life == 40
     assert s.history.rebuild().model_dump(mode="json") == st.model_dump(mode="json")  # replays exactly
+    lines = ["".join(p.t or p.name or "".join(g.name or "" for g in p.group or []) for p in x.parts) for x in st.log]
+    assert "Ox dies" in lines and not any("battlefield to" in line for line in lines)  # 700.4: the log says a creature dies
 
 
 def test_trample_deathtouch_and_lifelink(cards):

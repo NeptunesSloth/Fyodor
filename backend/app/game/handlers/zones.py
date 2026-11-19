@@ -151,7 +151,15 @@ def move(state: GameState, a: A.Move) -> None:
         # their hand", Wheel of Fortune) reads "Bob discarded …", not "Alice discarded … from Bob's hand" (the rules engine's moves keep ids)
         who = split_zone(src)[0] if verb == "discarded" and a.keep_ids and split_zone(src)[0] in state.players else a.actor
         parts = [pname(state, who), text(f" {verb} "), group(state, group_cards, who_saw)]
-        if verb in ("played", "cast", "discarded"):
+        if a.keep_ids and ops.zone_name(src) == "battlefield" and ops.zone_name(dest) == "graveyard":
+            # the rules engine's own move: "Grizzly Bears dies", "Sol Ring is put into Alice's graveyard" (not "Alice moved … from
+            # their battlefield to their graveyard": nobody moved it, and whose graveyard it is reads by name)
+            many = len(group_cards) > 1
+            if all(c.id in (a.died or ()) for c in group_cards):
+                parts = [group(state, group_cards, who_saw), text(" die" if many else " dies")]
+            else:
+                parts = [group(state, group_cards, who_saw), text(f" {'are' if many else 'is'} put into {zone_label(state, dest)}")]
+        elif verb in ("played", "cast", "discarded"):
             if split_zone(src)[0] != who:
                 parts.append(text(f" from {zone_label(state, src, a.actor)}"))
         elif verb.startswith("put on"):

@@ -216,6 +216,10 @@ class Plan:
             payload = kept_counters(self, graveyard_order.unordered(self, replace_move(self, payload, actor)))
         if payload.get("type") in ("move", "mill", "put_top_face_down"):
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
+        if payload.get("type") == "move":  # (the log: a creature put into a graveyard from the battlefield "dies", 700.4)
+            died = [cid for cid in payload.get("card_ids") or [] if (c := self.state.cards.get(cid)) is not None
+                    and c.zone.endswith(":battlefield") and self.ch(c).is_creature]
+            payload = {**payload, "died": died} if died else payload
         if payload.get("type") == "rules_sync" and self.renumber_face_down():
             payload = {**payload, "rules": self.rules.model_dump(mode="json")}  # (the ids changed)
         from app.rules import payment_card_facts, stickers101

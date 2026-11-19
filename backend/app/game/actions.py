@@ -126,6 +126,7 @@ class Move(Base):
     keep_counters: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
     keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
+    died: list[Id] | None = Field(default=None, max_length=250)  # server-built by the rules engine: the creatures among them (the log says "dies", 700.4)
 
 
 class SetPosition(Base):
