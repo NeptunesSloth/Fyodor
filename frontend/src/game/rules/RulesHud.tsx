@@ -426,7 +426,7 @@ export function TurnDial() {
             </div>
           </>
         )}
-        {auto && prefs?.pass_until && (
+        {auto && prefs?.pass_until && !gameEnded(view, me) && ( /* (-- sweep B2 -- a game that ended mid-RESOLVE ALL resolves nothing more) */
           <button className="tt-btn ghost td-cancel" data-testid="cancel-pass" onClick={() => void setPrefs({ cancel_pass: true })}>
             {passingLabel(prefs.pass_until)}: cancel
           </button>
@@ -558,7 +558,13 @@ function useKeyboardPay(first: string) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const a = document.activeElement;
-    if (a instanceof HTMLElement && a.closest(".hand-card") && a.matches(":focus-visible")) ref.current?.querySelector<HTMLElement>(first)?.focus();
+    if (!(a instanceof HTMLElement && a.closest(".hand-card") && a.matches(":focus-visible"))) return;
+    ref.current?.querySelector<HTMLElement>(first)?.focus();
+    // -- sweep B2 -- paid (or cancelled) from the keyboard: it goes on from the hand (the card, or the hand's first), not the top of the page
+    return () => void requestAnimationFrame(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      (a.isConnected ? a : document.querySelector<HTMLElement>('.hand-card[tabindex="0"]'))?.focus();
+    });
   }, [first]);
   return ref;
 }
@@ -614,7 +620,8 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
 /** Pay {1}{G}: tap your own lands (click them on the table); it goes on once your pool covers it. */
 type PaidPart = { card: string; name: string; kind: "convoke" | "improvise" | "delve"; pays: string };
 type TapManaInfo = { cost: string; what: string; sources: string[]; convoke?: string[]; improvise?: string[];
-  delve?: string[]; committed?: string[]; paid?: PaidPart[]; remaining?: string; pool: Record<string, number> };
+  delve?: string[]; committed?: string[]; paid?: PaidPart[]; remaining?: string; pool: Record<string, number>;
+  auto_pay?: string[] | null; auto_why?: string }; // -- auto pay (nov 18) -- the sources the server's solver would tap, or why it can't
 
 const HELPER_LABEL = { convoke: "Convoke", improvise: "Improvise", delve: "Delve" } as const;
 
@@ -624,6 +631,7 @@ export const paidSymbol = (pays: string) => `{${pays}}`;
 function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
   const payRef = useKeyboardPay("[data-testid^=tap-source-], [data-testid=option-pay]");
   const info = d.display as unknown as TapManaInfo;
+  const auto = !!d.options?.some((o) => o.id === "auto");
   const committed = new Set(info.committed ?? []);
   const sources = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
   const helpers = (kind: "convoke" | "improvise" | "delve") => (info[kind] ?? []).filter((id) => view.cards[id]);
@@ -685,11 +693,15 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
       {helperRow("convoke", "Convoke: tap a creature to pay {1} or one mana of its color")}
       {helperRow("improvise", "Improvise: tap an artifact to pay {1}")}
       {helperRow("delve", "Delve: exile a card from your graveyard to pay {1}")}
-      <div className="pay-actions two">
+      <div className={`pay-actions${auto ? "" : " two"}`}>
         {/* -- playtest (nov 17) -- the table's palette: brass for the step forward, blackened steel to back out (and a check / a cross, never colour alone) */}
         <button className="act-btn gold" data-testid="option-pay" onClick={() => void choose(d.id, ["pay"])}><Icon name="check" size={15} />Pay</button>
+        {/* -- auto pay (nov 18) -- one click taps the best untapped sources for what's left (the server picks them) */}
+        {auto && <button className="act-btn" data-testid="option-auto" disabled={!info.auto_pay} aria-describedby={info.auto_pay ? undefined : "auto-why"}
+          title={info.auto_pay ? "Tap the best untapped sources to pay what's left" : info.auto_why} onClick={() => void choose(d.id, ["auto"])}>Auto pay</button>}
         <button className="act-btn cancel" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}><Icon name="close" size={13} />Cancel</button>
       </div>
+      {auto && !info.auto_pay && info.auto_why && <div className="decision-hint" id="auto-why" data-testid="auto-why"><ManaText text={`Auto pay: ${info.auto_why}`} /></div>}
     </div>
   );
 }

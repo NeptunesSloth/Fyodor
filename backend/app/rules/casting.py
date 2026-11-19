@@ -2320,12 +2320,27 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
 
     remaining = P.after_pool(_constrained(_spending_cost(plan.state, player, plan.info, rest), _prompt_purpose(plan, resume)), mana_units.visible_pool(plan.state, player))
     remaining = x_mana_restrictions.visible(remaining)
+    auto, auto_why = _auto_pay(plan, player, rest, resume, exclude)
     # (wave 29C: every helper is listed — the table clicks a creature / artifact / card only if it is on its list, so a cut list hid some)
-    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources,
+    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources, "auto_pay": auto, "auto_why": auto_why,
             "convoke": by_kind["convoke"], "improvise": by_kind["improvise"], "delve": by_kind["delve"],
             "committed": sorted(committed), "paid": paid, "mana_due": rest.text() if not rest.is_free else "",
             "remaining": _left_text(remaining),
             "pool": mana_units.visible_pool(plan.state, player)}
+
+
+def _auto_pay(plan: Plan, player: str, rest: M.ManaCost, resume: dict[str, Any], exclude: set[str]) -> tuple[list[str] | None, str]:
+    """-- auto pay (nov 18) -- AUTO PAY on the "tap your mana" prompt: the sources the engine's own solver (payment "auto", ``find_payment``:
+    the pool first, then the least flexible sources) taps for what's left after the committed helpers, or None and why it can't."""
+    intent = resume.get("intent") or {}
+    card = plan.state.cards.get(intent.get("card_id") or "") if intent.get("type") == "activate_ability" else None
+    if card is not None and dict(mana_abilities(plan.state, card, plan.info)).get(intent.get("ability")) is not None:
+        return None, "Tap the mana for this ability's cost yourself"  # (a mana ability's own cost, Cabal Coffers' {2}: not rerun with sources)
+    try:
+        return find_payment(plan.state, player, rest, plan.info, exclude=tuple(exclude), purpose=_prompt_purpose(plan, resume),
+                            reserve=plan.reserved_life).tapped, ""
+    except (ActionError, M.ManaError) as exc:
+        return None, str(exc) or f"Not enough mana to pay {rest.text()}"
 
 
 def _left_text(cost: M.ManaCost) -> str:
@@ -2352,7 +2367,7 @@ def ask_to_tap(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) 
         " (you can tap artifacts for improvise)" if display["improvise"] else \
         " (you can exile cards from your graveyard for delve)" if display["delve"] else ""
     decide(plan, player=plan.actor, kind="choose_one", prompt=f"Tap mana to pay {cost.text()} for {what}{hint}",
-           display=display, options=[DecisionOption(id="pay", label="Pay"),
+           display=display, options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="auto", label="Auto pay"),
                                     DecisionOption(id="cancel", label="Decline activating mana abilities" if resume.get("required_mana_decline") else "Cancel")],
            resume=resume)
 
@@ -2370,6 +2385,12 @@ def resume_pay_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
             return
         plan.rules.priority = d.player
         plan.hold = d.player
+        return
+    if chosen[0] == "auto":  # -- auto pay (nov 18) -- the solver's sources, tapped as a MANUAL PAY with them would (``_auto_pay``)
+        shown = _tap_display(plan, d.player, M.parse_cost(d.resume["cost"]), d.resume.get("what", ""), d.resume)
+        if shown["auto_pay"] is None:
+            raise ActionError(shown["auto_why"])
+        _rerun(plan, d, A.parse_action(d.resume["intent"]), shown["auto_pay"])
         return
     if _covered(plan, d.player, M.parse_cost(d.resume["cost"]), _prompt_helpers(plan, d.player, d.resume), d.resume) is None:
         # -- sweep B (nov 18) -- what is still missing, as the plaque's "Remaining" says ({G}{U}), not the whole cost ({6}{G}{U}) again
