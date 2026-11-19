@@ -245,8 +245,7 @@ export const useGame = create<GameStore>((set, get) => ({
           resolving: null,
           lobby: null,
           pendingPositions: {},
-          // -- sweep B2 -- a card played or cast from the hand (a drag selects it) is no longer selected: its action bar stayed open for turns
-          selection: s.selection.filter((id) => id in view.cards && !(prev?.cards[id]?.zone.endsWith(":hand") && !view.cards[id]!.zone.endsWith(":hand"))),
+          selection: keptSelection(s.selection, prev, view),
           actingAs: resolveActingAs(view, s.actingAs),
           // a new game of the night (a rematch keeps the table id, as after the lobby): the last game's 2D focus (its end scene
           // focused the winner's side) was that game's, so the table opens whole again; open panels stay (the player's choice)
@@ -378,7 +377,13 @@ function applyInterim(set: (fn: (s: GameStore) => Partial<GameStore>) => void, g
   }
   const view = reconcile(prev, incoming);
   requestCards(cardIdsOf(view));
-  set((s) => ({ view, interim: true, resolving: progress, selection: s.selection.filter((id) => id in view.cards) }));
+  set((s) => ({ view, interim: true, resolving: progress, selection: keptSelection(s.selection, prev, view) }));
+}
+
+/** The selection on a new view: the cards still there, less one that just left my hand. -- sweep B2 -- a card played or cast from the
+ * hand (a drag or a click selects it) is no longer selected: its action bar stayed open for turns. */
+function keptSelection(selection: string[], prev: GameView | null, view: GameView): string[] {
+  return selection.filter((id) => id in view.cards && !(prev?.cards[id]?.zone.endsWith(":hand") && !view.cards[id]!.zone.endsWith(":hand")));
 }
 
 /**
