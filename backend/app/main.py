@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.api import assets, backups, cards, decks, games, health, macros, night, pod, practice, rules, tools
 from app.api import bot as bot_api  # -- test opponent --
+from app.api import updates as updates  # -- install update --
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
 from app.api.teach import router as teach_router  # -- Teach Fyodor --
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(teach_router, prefix="/api")  # -- Teach Fyodor -- (app/api/teach.py)
     app.include_router(tools.router, prefix="/api")
     app.include_router(backups.router, prefix="/api")
+    app.include_router(updates.router, prefix="/api")  # -- install update -- (app/api/updates.py)
     app.include_router(rules.router, prefix="/api")
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)

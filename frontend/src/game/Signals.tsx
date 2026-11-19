@@ -68,6 +68,12 @@ export function SignalLayer() {
   useEffect(() => {
     const on = (e: Event) => {
       const sig = (e as CustomEvent<Signal>).detail;
+      // -- install update -- the host is installing an update: Fyodor closes and comes back (app/api/updates.py), the table returns with it
+      const notice = sig as unknown as { kind: string; message?: string };
+      if (notice.kind === "update") {
+        toast(notice.message || "Updating — Fyodor will restart.", undefined, undefined, { sticky: true });
+        return;
+      }
       if (sig.kind === "nudge" && nudges) {
         toast(`${sig.from_name} nudged you: the table is waiting on your action.`);
         play("response");

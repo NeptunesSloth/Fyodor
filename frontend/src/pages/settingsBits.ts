@@ -22,6 +22,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "st-keys", title: "Keys", blurb: "Click a key, then press the new one. Esc keeps the old key." },
   { id: "card-data", title: "Card database", blurb: "The cards Fyodor knows, kept on the host computer so it plays offline." },
   { id: "backups", title: "Backup & restore", blurb: "Decks, saves, live tables, pod stats, macros and custom sleeves and playmats." },
+  { id: "st-update", title: "Update Fyodor", blurb: "Install a newer Fyodor from an update zip, on a computer without Internet too.", hostOnly: true },
   { id: "st-diag", title: "Diagnostics", blurb: "A troubleshooting file for when something goes wrong.", hostOnly: true },
 ];
 

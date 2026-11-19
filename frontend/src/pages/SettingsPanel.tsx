@@ -15,6 +15,7 @@ import { usePrefs, type Prefs } from "../state/prefs";
 import { PLANES, type PlaneTheme } from "../theme/planes";
 import { activeSection, keyCaps, keyWords, settingsSections } from "./settingsBits";
 import { SettingsSection } from "./SettingsSection";
+import { UpdateSection } from "./UpdateSection";
 import "./settings.css";
 
 /** A tiny painting of a plane for its tile: sky, glow and table surface. */
@@ -415,6 +416,7 @@ export function SettingsPanel() {
           <KeysSection />
           <CardDataSection />
           <BackupSection />
+          {host && <UpdateSection />}
           {host && <DiagnosticsSection />}
         </div>
       </div>

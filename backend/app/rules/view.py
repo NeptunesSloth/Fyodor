@@ -367,7 +367,9 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
 
     if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
         out["replicate111r3"] = replicated
-    from app.rules import wave110a_grants  # -- round 6 (cast choosers) -- card id → the offspring a permanent gives it (Zinnia), CastSpell.kicker 1
+    from app.rules import (
+        wave110a_grants,  # -- round 6 (cast choosers) -- card id → the offspring a permanent gives it (Zinnia), CastSpell.kicker 1
+    )
 
     if offspring := {cid: label for cid in out["castable"] if (label := wave110a_grants.offspring_hint(state, viewer, state.cards[cid], info))}:
         out["offspring110a"] = offspring

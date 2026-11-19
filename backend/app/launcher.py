@@ -123,6 +123,7 @@ def _running_fyodor(url: str) -> bool:
         return False
 
 
+EXIT_FOR_UPDATE = threading.Event()  # set when Settings → Install update ends this program for the updater (serve() exits)
 PAGE_SEEN = threading.Event()  # set when a window has asked this server for the table's page (serve() watches)
 WINDOW_WAIT = 45.0  # seconds before the console says what to do if the window still shows nothing
 MODERN = 111  # Chrome/Edge from this version draw everything the table uses
@@ -331,6 +332,14 @@ def serve(settings: Settings) -> None:
 
         app.state.request_restart = request_restart
 
+        def request_exit(server: uvicorn.Server = server) -> None:
+            """-- install update -- stop the server and end this program (the shutdown saves every table), so the updater can replace
+            Fyodor.exe and _internal (app/api/updates.py); it starts Fyodor again."""
+            EXIT_FOR_UPDATE.set()
+            server.should_exit = True
+
+        app.state.request_exit = request_exit
+
         @app.middleware("http")
         async def note_the_page(request, call_next):  # type: ignore[no-untyped-def]
             if request.url.path == "/" or request.url.path.startswith("/assets/"):
@@ -338,6 +347,13 @@ def serve(settings: Settings) -> None:
             return await call_next(request)
 
         server.run()
+        if EXIT_FOR_UPDATE.is_set():
+            # (the server has shut down and saved; a thread left behind must not keep Fyodor.exe running and locked)
+            print("\nFyodor is closing to install an update; it starts again by itself.\n", flush=True)
+            for stream in (sys.stdout, sys.stderr):
+                with contextlib.suppress(Exception):
+                    stream.flush()
+            os._exit(0)
         if not again.is_set():
             return
         print("\nRestarting Fyodor…\n")
