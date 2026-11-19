@@ -3621,7 +3621,9 @@ def alike(plan: Plan, t: PendingTrigger) -> list[PendingTrigger]:
     if t.ability.get("targets") or t.ability.get("modes") or t.ability.get("target_choice") or not t.ability.get("target"):
         return []
     spec = json.dumps(t.ability.get("target"), sort_keys=True, default=str)
+    attacker = selectors.attacker_of(t.event)  # (each attack trigger's "defending player" is its own attacker's, 508.5a: not alike)
     return [p for p in plan.rules.pending_triggers if p.id != t.id and p.controller == t.controller and p.source_object == t.source_object
+            and selectors.attacker_of(p.event) == attacker
             and p.key == t.key and not p.ability.get("targets") and not p.ability.get("modes") and not p.ability.get("target_choice")
             and json.dumps(p.ability.get("target"), sort_keys=True, default=str) == spec]
 

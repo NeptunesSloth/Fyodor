@@ -130,7 +130,7 @@ def test_actual_garrison_attackers_added_before_or_after_count(cards, create_fir
     s, source, garrison, _ = setup(cards, 'Hanweir Garrison')
     d = s.state.rules.decision
     assert d is not None and d.kind == 'order'
-    options = {o.label: o.id for o in d.options}
+    options = {o.label.split(' — ')[0]: o.id for o in d.options}  # (labels read "Name — ability text")
     order = [NAME, 'Hanweir Garrison'] if create_first else ['Hanweir Garrison', NAME]
     act(s, 'p1', type='choose', decision_id=d.id, option_ids=[options[n] for n in order])
     settle(s)
