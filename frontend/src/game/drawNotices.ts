@@ -28,10 +28,13 @@ export function newDraws(prev: GameView | null | undefined, next: GameView, me: 
   if (prev.searches[me] || next.searches[me] || prev.my_views?.some((v) => v.kind === "search")) return null;
   const had = new Set(before);
   const library = `${me}:library`;
+  // -- sweep B2 -- a card I couldn't see before is a draw only if my library got smaller: one made in my hand (Sandbox's Spawn) isn't
+  const count = (v: GameView) => { const z = v.zones[library]; return Array.isArray(z) ? z.length : z?.count ?? 0; };
+  const fromLibrary = count(prev) > count(next);
   const ids = after.filter((id) => {
     if (had.has(id)) return false;
     const was = prev.cards[id];
-    return !was || was.zone === library;
+    return was ? was.zone === library : fromLibrary;
   });
   if (!ids.length) return null;
   const drawStep = next.turn.phase === "draw" && next.turn.active_player === me && ids.length === 1 && !next.stack.length && !prev.stack.length;

@@ -28,10 +28,7 @@
   width: 64px; margin: 2px 0 0 2px; rotate: -3deg; transform-origin: 50% 90%;
   border-radius: 5%; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
-.tgt-source-none {
-  display: grid; aspect-ratio: 63 / 88; border-radius: 5%;
-  border: 1px solid color-mix(in srgb, var(--frame) 60%, transparent); background: rgba(0, 0, 0, 0.3);
-}
+.tgt-bar.no-source { grid-template-columns: minmax(0, 1fr); }
 .tgt-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .tgt-head { display: flex; align-items: center; gap: 12px; min-height: 34px; }
 .tgt-words { margin: 0; display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.2; }

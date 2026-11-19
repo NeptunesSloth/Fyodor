@@ -80,13 +80,14 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   const groups = traySeats(t, view, me);
   return (
     <>
-      <section ref={bar} className="tgt-bar" data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
+      <section ref={bar} className={`tgt-bar${src ? "" : " no-source"}`} data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
         aria-label={`${t.sourceName ? `${t.sourceName}: ` : ""}${t.instruction}`}
         onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") e.stopPropagation(); /* not the table's T/Space keys */ }}>
-        <div ref={artRef} className="tgt-source" data-tgt-origin="" aria-hidden
+        {/* -- sweep B2 -- no source card (discard to hand size): no empty card frame */}
+        {src && <div ref={artRef} className="tgt-source" data-tgt-origin="" aria-hidden
           {...(t.source ? { onPointerEnter: srcHover.onPointerEnter, onPointerLeave: srcHover.onPointerLeave } : {})}>
-          {src ? <GameCardFace card={src} size="small" /> : <span className="tgt-source-none" />}
-        </div>
+          <GameCardFace card={src} size="small" />
+        </div>}
         <div className="tgt-main">
           <div className="tgt-head">
             <p className="tgt-words">

@@ -101,10 +101,11 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
             <span className="chain-batch-count">×{count.toLocaleString("en-US")}</span>
           </b>
         ) : (
-          <b className="chain-name">{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
+          <b className="chain-name" title={title(c)}>{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
         )}
         <span className="chain-who">{c ? playerName(view, c.controller) : ""}{kindOf(c) ? ` · ${kindOf(c)}` : ""}</span>
-        {visible && c.ability?.text && <span className="chain-text">{c.ability.text}</span>}
+        {/* -- sweep B2 -- an ability with no text of its own ("Smothering Tithe's ability") isn't said twice */}
+        {visible && c.ability?.text && c.ability.text.replace(/['’]s ability$/, " ability") !== title(c) && <span className="chain-text">{c.ability.text}</span>}
         {targets.length > 0 && <span className="chain-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
         {info && (info.x != null || info.tags.length > 0 || info.modes.length > 0) && (
           <span className="chain-notes">

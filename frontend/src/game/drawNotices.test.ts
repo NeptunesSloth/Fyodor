@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { GameView } from "../types/game";
 import { drewLine, mergeBatch, newDraws, noticeFaces, NOTICE_FACES, useFreshDraws, wantsNotice } from "./drawNotices";
 
-type Opts = { hand: string[]; cards?: Record<string, string>; phase?: string; active?: string; stack?: string[]; searching?: boolean; pregame?: boolean; game?: string };
+type Opts = { hand: string[]; library?: number; cards?: Record<string, string>; phase?: string; active?: string; stack?: string[]; searching?: boolean; pregame?: boolean; game?: string };
 
 /** A view of p1's table: their hand, where each known card is (id → zone), the step, the stack. */
 function view(o: Opts): GameView {
@@ -10,7 +10,7 @@ function view(o: Opts): GameView {
   for (const id of o.hand) cards[id] ??= { id, zone: "p1:hand", name: id };
   return {
     game: { id: o.game ?? "g" },
-    zones: { "p1:hand": o.hand, "p1:library": { count: 50, known: [] } },
+    zones: { "p1:hand": o.hand, "p1:library": { count: o.library ?? 50 - o.hand.length, known: [] } }, // (a card new in hand left the library)
     cards,
     turn: { number: 3, active_player: o.active ?? "p1", phase: o.phase ?? "main1" },
     stack: o.stack ?? [],
@@ -52,6 +52,10 @@ describe("what I drew", () => {
     expect(newDraws(view({ hand: [], pregame: true }), view({ hand: ["a", "b"], pregame: true }), "p1")).toBeNull();
     expect(newDraws(view({ hand: [], game: "old" }), view({ hand: ["a"] }), "p1")).toBeNull();
     expect(newDraws(null, view({ hand: ["a"] }), "p1")).toBeNull();
+  });
+
+  it("a card made in my hand (Sandbox's Spawn: my library is no smaller) is not a draw", () => {
+    expect(newDraws(view({ hand: ["a"], library: 40 }), view({ hand: ["a", "spawned"], library: 40 }), "p1")).toBeNull();
   });
 
   it("cards leaving my hand, or the same hand, are nothing", () => {
