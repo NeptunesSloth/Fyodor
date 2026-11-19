@@ -22,6 +22,7 @@ import { NearbyLine } from "./NearbyGames";
 import { deckSubtitle, deckTitle, lastTable, type LastTable } from "./playBits";
 import { TableMosaic, whenSaved } from "./tableBits";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
+import { ShortcutOffer } from "./ShortcutOffer";
 import "./home.css";
 import { Icon, type IconName } from "../components/Icon";
 import { isSandbox } from "../game/tableFormat";
@@ -139,6 +140,7 @@ export function Home() {
           )}
           <span className="home-version">v{health?.version ?? "…"}</span>
         </p>
+        {!showWelcome && host && <ShortcutOffer />}
         {!showWelcome && <button className="tt-link home-guide" onClick={() => { resetWelcome(); setShowWelcome(true); }}>Setup guide</button>}
       </footer>
 

@@ -216,3 +216,5 @@ body.perf-low .hs-card .card-face, body.perf-low .hs-back .card-face { box-shado
 .home-nearby b { color: var(--room-bone); font-weight: 600; }
 .home-nearby-text { min-width: 0; }
 .home-nearby .home-nearby-join { min-height: 32px; font-size: 14px; font-weight: 600; color: var(--accent-2); }
+/* -- desktop shortcut -- the first start's one-time offer */
+.home-shortcut { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text-dim); }
