@@ -161,12 +161,12 @@ button.pl-name:hover { color: var(--accent-2); }
   .pl-tools { order: 3; flex: 1 0 100%; justify-content: flex-end; margin: -4px -4px -2px 0; }
 }
 
-/* a seat's chip: a clay poker chip in the seat colour, edge spots and all */
+/* a seat's chip: a round chip in the seat colour, a plain rim (no poker-chip edge spots) */
 .seat-chip {
   position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center;
   background:
     radial-gradient(circle, var(--seat) 0 56%, rgba(0, 0, 0, 0.28) 57% 61%, transparent 62%),
-    repeating-conic-gradient(var(--seat) 0 22deg, color-mix(in srgb, var(--seat) 45%, #f4ead8) 22deg 38deg);
+    linear-gradient(135deg, color-mix(in srgb, var(--seat) 70%, #f4ead8), var(--seat) 50%, color-mix(in srgb, var(--seat) 70%, #000));
   color: var(--seat-ink, #fff); font: 700 15px/1 var(--font-display); text-shadow: var(--seat-ink-edge, none);
   box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
