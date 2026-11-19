@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, lru_cache
 from typing import Any
 
 from app.game.rules_state import DecisionOption, DungeonMark, Event, TurnFact, emit, turn_log_now
@@ -977,7 +977,7 @@ _OWN_LINE = re.compile(r"(?:[A-Za-z][A-Za-z' \-]*,\s*)*(?:daybound|nightbound)(?
 _TAKES_WORDS = re.compile(r"abilities of|full text|same is true for|text box", re.IGNORECASE)
 
 
-@cache
+@lru_cache(maxsize=4096)  # (bounded: effect texts and hand-made tokens are open-ended)
 def _text_kind(text: str) -> int:
     """The day/night words of this rules text (``_OWN`` | ``_OTHER`` | ``_TAKES``; 0: none). Errs on the side of ``_OTHER``: a line
     that is not a plain keyword line (a keyword, its reminder text) or the "as ~ enters" sentence counts as one that could reach others."""
