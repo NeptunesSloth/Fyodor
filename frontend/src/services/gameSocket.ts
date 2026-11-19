@@ -1,12 +1,16 @@
 /** Live connection to a game room with automatic reconnection. */
 import type { GameView, LobbyView } from "../types/game";
 import { refreshImageless } from "../state/cardCache";
+import { applyPatch, type Patch } from "./viewDelta";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 interface Handlers {
-  /** `replace`: an authoritative resync — replace local state, never merge. */
-  onState: (view: GameView, replace: boolean) => void;
+  /**
+   * `replace`: an authoritative resync — replace local state, never merge. -- view deltas -- may return the view it keeps (the same
+   * content, merged into its own objects): the next patch is applied to that, so unchanged parts stay the very objects shown.
+   */
+  onState: (view: GameView, replace: boolean) => GameView | void;
   onLobby: (lobby: LobbyView) => void;
   onStatus: (status: ConnStatus, detail?: string) => void;
   onClosedByServer: (reason: string) => void;
@@ -50,7 +54,8 @@ export interface Signal {
 }
 
 type ServerMessage =
-  | { type: "state"; view: GameView; revision?: number; resync?: boolean }
+  | { type: "state"; view: GameView; revision?: number; resync?: boolean; vseq?: number }
+  | { type: "delta"; revision?: number; base: number; vseq: number; patch: Patch }
   | { type: "interim"; view?: GameView; revision: number; progress: ResolvingProgress }
   | { type: "lobby"; lobby: LobbyView }
   | { type: "kicked" }
@@ -93,6 +98,14 @@ export class GameConnection {
   revision = 0;
   /** A hot-seat view switch is on its way: its answer replaces the table shown. */
   private seatSwitch = false;
+  /**
+   * -- view deltas (services/viewDelta.ts) -- the last view this connection was sent (as kept by the store) and its number on this
+   * connection: each update after the first full view is a patch from it. A patch from any other view, or one that doesn't fit, asks
+   * for the whole view once (`resyncAsked` until it comes).
+   */
+  private base: GameView | null = null;
+  private vseq = 0;
+  private resyncAsked = false;
 
   constructor(
     private readonly gameId: string,
@@ -105,8 +118,12 @@ export class GameConnection {
     const q = new URLSearchParams();
     if (this.params.token) q.set("token", this.params.token);
     if (this.params.viewer) q.set("viewer", this.params.viewer);
+    q.set("deltas", "1"); // -- view deltas -- (a server without them sends whole views, as before)
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     this.revision = 0; // a fresh connection starts with a full snapshot
+    this.base = null;
+    this.vseq = 0;
+    this.resyncAsked = false;
     const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}?${q}`);
     this.ws = ws;
     this.handlers.onStatus(this.retry ? "reconnecting" : "connecting");
@@ -145,6 +162,22 @@ export class GameConnection {
   /** Ask the server for a fresh authoritative view (it replaces local state). */
   resync(): void {
     this.raw({ type: "resync" });
+  }
+
+  /** -- view deltas -- a patch didn't fit: the whole view once (patches after it are dropped until it comes). */
+  private resyncForDelta(): void {
+    if (this.resyncAsked) return;
+    this.resyncAsked = true;
+    this.resync();
+  }
+
+  /** -- view deltas -- hand a whole view on; it (as the store keeps it) is what the next patch applies to. */
+  private deliver(view: GameView, replace: boolean, vseq: number | undefined): void {
+    const kept = this.handlers.onState(view, replace);
+    if (vseq != null) {
+      this.base = kept ?? view;
+      this.vseq = vseq;
+    }
   }
 
   /** Change the viewing seat (local hot-seat games only). */
@@ -240,6 +273,16 @@ export class GameConnection {
     switch (msg.type) {
       case "state": {
         const rev = msg.revision ?? msg.view.game.revision ?? 0;
+        if (msg.vseq != null) {
+          // -- view deltas -- numbered in the order this connection was sent them: an older one is already superseded
+          if (msg.vseq <= this.vseq) break;
+          this.resyncAsked = false;
+          this.revision = rev;
+          const replace = !!msg.resync || this.seatSwitch;
+          this.seatSwitch = false;
+          this.deliver(msg.view, replace, msg.vseq);
+          break;
+        }
         if (msg.resync || !this.revision) {
           this.revision = rev;
           const replace = !!msg.resync || this.seatSwitch;
@@ -252,6 +295,25 @@ export class GameConnection {
         this.revision = rev;
         this.handlers.onState(msg.view, false);
         if (gap) this.resync(); // missed an update: ask for the authoritative snapshot
+        break;
+      }
+      case "delta": {
+        // -- view deltas -- a patch from the view numbered `base`: anything else (a message missed, a patch that doesn't fit) → whole view
+        if (!this.base || msg.base !== this.vseq) {
+          this.resyncForDelta();
+          break;
+        }
+        let view: GameView;
+        try {
+          view = applyPatch(this.base, msg.patch);
+        } catch (e) {
+          console.warn("View update did not fit, asking for the whole table:", e);
+          this.resyncForDelta();
+          break;
+        }
+        this.revision = msg.revision ?? view.game.revision ?? this.revision;
+        // (during a seat switch: whichever seat this is, the switch's own whole view follows and replaces it)
+        this.deliver(view, this.seatSwitch, msg.vseq);
         break;
       }
       case "interim":

@@ -31,6 +31,7 @@ from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer import (
     bots,  # -- test opponent -- the server's pacing of its actions
     response_call,  # -- I have a response / flip the table --
+    view_delta,  # -- view deltas --
 )
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
@@ -100,6 +101,12 @@ class Connection:
     host: bool = False  # connected with host rights (lobby management)
     close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
+    # -- view deltas (app/multiplayer/view_delta.py) -- the client applies patches (it asked: ``?deltas=1``): after a full view, each
+    # update is the patch from the last view sent here (``sent``, as the client parsed it), naming it by its number on this connection
+    # (``vseq``: every view message sent here counts). None: no view to patch (none sent yet, or a lobby since)
+    deltas: bool = False
+    sent: dict[str, Any] | None = field(default=None, repr=False)
+    vseq: int = 0
 
 
 class GameNotStarted(RuntimeError):
@@ -697,8 +704,13 @@ class GameHub:
                     cache[key] = {**message, "resync": True} if resync else message
             if viewer is not None and room.started:
                 reply = next((m["view"] for k, m in cache.items() if k.split(":", 1)[0] == viewer), None) or self.view(room, viewer)
+        frozen: dict[str, tuple[dict[str, Any], str]] = {}  # -- view deltas -- each view as clients parse it, each patch: worked out once
+        patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]] = {}
         for conn in conns:
-            message = cache[f"{conn.viewer}:{conn.host}"]
+            key = f"{conn.viewer}:{conn.host}"
+            message = cache[key]
+            if conn.deltas:
+                message = self._update(conn, key, message, frozen, patches, full=resync)
             try:
                 await conn.send(message)
             except Exception as exc:  # noqa: BLE001 - a dead socket must not break the table for others
@@ -715,6 +727,35 @@ class GameHub:
                 await conn.send(message)
             except Exception:  # noqa: BLE001 - best effort
                 self.disconnect(room, conn)
+
+    # -- view deltas --------------------------------------------------------------------------
+    def full(self, conn: Connection, message: dict[str, Any]) -> dict[str, Any]:
+        """A full view (or lobby) message about to be sent to ``conn`` outside a broadcast (its first view, a resync, a seat switch): the
+        view the next update is a patch from."""
+        return self._update(conn, f"{conn.viewer}:{conn.host}", message, {}, {}, full=True) if conn.deltas else message
+
+    def _update(self, conn: Connection, key: str, message: dict[str, Any], frozen: dict[str, tuple[dict[str, Any], str]],
+                patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]], *, full: bool) -> dict[str, Any]:
+        """What ``conn`` is sent for ``message`` (built for its viewer): the view itself, or the patch from the last view it was sent. Called
+        right before the send, so the numbers go out in the order they were given."""
+        if message.get("type") != "state" or not isinstance(message.get("view"), dict):
+            conn.sent = None  # (a lobby: the game's first view is whole)
+            return message
+        got = frozen.get(key)
+        if got is None:
+            got = frozen[key] = view_delta.freeze(message["view"])
+        view, text = got
+        base, base_seq = conn.sent, conn.vseq
+        conn.sent, conn.vseq = view, conn.vseq + 1
+        if full or base is None:
+            return {**message, "vseq": conn.vseq}
+        kept = patches.get((id(base), key))  # (connections with the same view had the same last view: one patch)
+        if kept is None or kept[0] is not base:
+            kept = patches[(id(base), key)] = (base, view_delta.checked(base, view, text))
+        if kept[1] is None:  # (a patch that would not give this very view: the whole view)
+            return {**message, "vseq": conn.vseq}
+        return {"type": "delta", "revision": message.get("revision", view.get("game", {}).get("revision")), "base": base_seq,
+                "vseq": conn.vseq, "patch": kept[1]}
 
     def message(self, room: Room, viewer: str, *, host: bool = False) -> dict[str, Any]:
         if not room.started:
@@ -793,7 +834,11 @@ class InterimStream:
     """-- resolving progress -- the interim views of one action (``GameHub.perform``). ``watch`` runs on the worker thread working the
     action out, called by the engine after each object it resolves (app/rules/progress.py): it builds each connection's view of the
     action's scratch table there (only reading it) and hands them to the event loop, which sends the newest set only (a set that
-    arrives while one is being sent replaces any set still waiting). After ``close`` nothing more is sent."""
+    arrives while one is being sent replaces any set still waiting). After ``close`` nothing more is sent.
+
+    -- view deltas -- interim views are always whole, even to a client that takes deltas: they are display only, sent "latest wins" (a
+    set can be dropped), at most a few a second and only during long chains; a patch chain through them would break on every drop. They
+    leave ``Connection.sent`` alone: the action's own update is a patch from the last authoritative view, which the client keeps."""
 
     def __init__(self, hub: GameHub, room: Room, loop: asyncio.AbstractEventLoop, actor: str) -> None:
         self.hub, self.room, self.loop, self.actor = hub, room, loop, actor

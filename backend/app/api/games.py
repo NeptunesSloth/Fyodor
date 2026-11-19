@@ -1870,14 +1870,15 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     async def close(code: int, reason: str) -> None:
         await websocket.close(code=code, reason=reason)
 
-    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close)
+    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close,
+                      deltas=params.get("deltas") == "1")  # -- view deltas -- (app/multiplayer/view_delta.py)
     services.hub.connect(room, conn)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
     cursor_shown = False
     try:
         await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
-        await send(services.hub.message(room, viewer, host=conn.host))
+        await send(services.hub.full(conn, services.hub.message(room, viewer, host=conn.host)))
         await services.hub.broadcast(room)  # others see the connection indicator
         while True:
             raw = await websocket.receive_text()
@@ -1936,7 +1937,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         return
     if msg.type == "resync":  # the client noticed a gap: the server's state wins
         await services.hub.settled(room)  # -- resolving progress --
-        await send({**services.hub.message(room, conn.viewer, host=conn.host), "resync": True, "id": msg.id})
+        await send(services.hub.full(conn, {**services.hub.message(room, conn.viewer, host=conn.host), "resync": True, "id": msg.id}))
         return
     if not room.started:
         await send({"type": "error", "id": msg.id, "message": "The game hasn't started yet"})
@@ -1954,7 +1955,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         conn.actor = new_viewer if new_viewer in room.seats else conn.actor
         services.hub.connect(room, conn)
         await services.hub.settled(room)  # -- resolving progress --
-        await send({"type": "state", "view": services.hub.view(room, conn.viewer)})
+        await send(services.hub.full(conn, {"type": "state", "view": services.hub.view(room, conn.viewer)}))
         return
     actor = conn.actor
     if room.mode == "local" and msg.as_player:

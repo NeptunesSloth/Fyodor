@@ -253,6 +253,7 @@ export const useGame = create<GameStore>((set, get) => ({
         }));
         // -- table motion -- what just happened, for the tables to show (display only; game/motion/tableEvents.ts)
         if (prev && !replace && sameGame) publishTableEvents(prev, view, dragged);
+        return view; // -- view deltas -- (the same content, in the store's objects: the next patch shares them)
       },
       onInterim: (incoming, progress) => {
         // -- resolving progress -- collapse to the latest: one render per INTERIM_GAP_MS at most, however fast they come
