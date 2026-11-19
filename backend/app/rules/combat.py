@@ -982,7 +982,10 @@ def ask_next_blocker(plan: Plan) -> None:
             return
         who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
         decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
-               display={"kind": "blockers", "stats": {c.id: combat_stats(plan, c) for c in [*attackers, *blockers]}},
+               display={"kind": "blockers", "stats": {c.id: combat_stats(plan, c) for c in [*attackers, *blockers]},
+                        # -- sweep B (nov 18) -- 509.1a: how many attackers each creature may block, where it's more than one (Palace Guard: all
+                        # of them), so the prompt offers "+ also blocks…" only on those (it was on every row)
+                        "limits": {c.id: min(n, len(attackers)) for c in blockers if (n := block_limit(plan, plan.ch(c))) > 1}},
                options=[DecisionOption(id=f"b:{c.id}", label=face_name(plan, c, "Creature"), card_id=c.id) for c in blockers]
                + [DecisionOption(id=f"a:{c.id}", label=face_name(plan, c, "Attacker"), card_id=c.id) for c in attackers],
                min_choices=0, max_choices=len(blockers), resume={"step": "declare_blockers"})

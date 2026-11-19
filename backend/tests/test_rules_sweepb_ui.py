@@ -40,3 +40,23 @@ def test_pay_with_mana_missing_names_what_is_left(cards):
     assert d is not None and d.display.get("kind") == "tap_mana"
     with pytest.raises(ActionError, match=r"Tap your mana first: \{R\} isn't paid yet"):
         act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+
+
+def test_the_blockers_prompt_says_which_creatures_may_block_more_than_one(cards):
+    """509.1a: ``display.limits`` lists a creature that may block several attackers, capped at how many attack (the table offers
+    "+ also blocks…" only there); a creature that blocks one isn't listed."""
+    from tests.test_rules_wave13b_multiblock import board, to_blocks
+
+    s, a1, a2, wall = board(cards, wall_text="This creature can block any number of creatures.")
+    to_blocks(s, a1, a2)
+    d = s.view("p2")["rules"]["decision"]
+    assert d["kind"] == "declare_blockers"
+    assert d["display"]["limits"] == {wall.id: 2}  # (any number: as many as attack)
+
+
+def test_a_creature_that_blocks_one_is_not_listed(cards):
+    from tests.test_rules_wave13b_multiblock import board, to_blocks
+
+    s, a1, a2, _ = board(cards, wall_text="")
+    to_blocks(s, a1, a2)
+    assert s.view("p2")["rules"]["decision"]["display"]["limits"] == {}

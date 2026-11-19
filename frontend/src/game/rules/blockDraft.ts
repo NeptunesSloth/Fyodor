@@ -59,6 +59,17 @@ const EMPTY: Record<string, string[]> = {};
 export const blockerOptions = (d: DecisionView): DecisionOptionView[] => (d.options ?? []).filter((o) => o.id.startsWith("b:"));
 export const attackerOptions = (d: DecisionView): DecisionOptionView[] => (d.options ?? []).filter((o) => o.id.startsWith("a:"));
 
+/**
+ * -- sweep B (nov 18) -- how many attackers this blocker ("b:…") may block (509.1a): the server lists those that may block more than one
+ * (`display.limits`; Palace Guard: all of them); any other blocks one. Infinity on an older table that doesn't say (the server decides).
+ */
+export function blockLimit(d: DecisionView, blocker: string): number {
+  const raw = d.display?.limits;
+  if (!raw || typeof raw !== "object") return Infinity;
+  const n = (raw as Record<string, unknown>)[blocker.slice(2)];
+  return typeof n === "number" && n > 1 ? n : 1;
+}
+
 /** This blocker ("b:…") blocks this attacker ("a:…"): alone (`add` false: instead of what it blocked) or as well (`add`). "" : none. */
 export function withBlock(plan: Record<string, string[]>, blocker: string, attacker: string, add = false): Record<string, string[]> {
   const next = { ...plan };
@@ -160,7 +171,7 @@ export function blockHint(ids: string[], spot: BlockSpot, add: boolean = shiftHe
   if (!label) return null;
   const able = mine.filter((b) => !blockRefusal(d, b, a));
   if (!able.length) return { text: `Can't block ${label}: ${blockRefusal(d, mine[0]!, a)}`, kind: "refuse" };
-  const also = add && able.some((b) => plan[b]?.length && !plan[b]!.includes(a));
+  const also = add && able.some((b) => plan[b]?.length && !plan[b]!.includes(a) && plan[b]!.length < blockLimit(d, b));
   return { text: `${also ? "Also block" : "Block"} ${label}${mine.length > 1 ? ` with ${able.length}` : ""}`, kind: "block" };
 }
 
@@ -199,7 +210,7 @@ export function blockDrop(ids: string[], spot: BlockSpot, add: boolean = shiftHe
   for (const b of mine) {
     const why = blockRefusal(d, b, a);
     if (why) refused.push(`${names[b] ?? "It"} (${why})`);
-    else plan = withBlock(plan, b, a, add);
+    else plan = withBlock(plan, b, a, add && (plan[b]?.length ?? 0) < blockLimit(d, b)); // (Shift on one that blocks one only: instead)
   }
   useBlockDraft.setState({ plan });
   if (refused.length) toast(`${refused.join(", ")} can't block ${names[a] ?? "that"}`, "info");

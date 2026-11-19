@@ -10,7 +10,7 @@ vi.mock("../../components/Toasts", () => ({ toast: vi.fn() }));
 
 import { toast } from "../../components/Toasts";
 import {
-  blockDeclarations, blockDrop, blockHint, blockRefusal, blockSummary, liveBlocks, menaceShort, spotForZone, useBlockDraft, withBlock,
+  blockDeclarations, blockDrop, blockHint, blockLimit, blockRefusal, blockSummary, liveBlocks, menaceShort, spotForZone, useBlockDraft, withBlock,
   withoutBlock,
 } from "./blockDraft";
 
@@ -92,6 +92,28 @@ describe("drag onto an attacker (playtest nov 18)", () => {
     expect(useBlockDraft.getState().plan).toEqual({ "b:bears": ["a:gob"] });
     expect(blockDrop(["s1"], "home", false)).toBe(false); // not blocking: a plain move in the row
     expect(blockDrop(["s1"], "board", false)).toBe(true); // a near miss on the attacker's board: nothing moves
+  });
+
+  it("with the server's limits, Shift adds a second attacker only for a creature that may block two (sweep B, nov 18)", () => {
+    const withLimits = (limits: Record<string, number>) => {
+      const d = { ...decision, display: { ...decision.display, limits } } as DecisionView;
+      state.view = { ...(state.view as GameView), rules: { decision: d } } as unknown as GameView;
+      useBlockDraft.setState({ decision: null, plan: {}, hint: null });
+      return d;
+    };
+    const one = withLimits({});
+    expect(blockLimit(one, "b:spider")).toBe(1);
+    expect(blockLimit(decision, "b:spider")).toBe(Infinity); // (an older table that doesn't say: the server decides)
+    blockDrop(["spider"], "angel", false);
+    expect(blockHint(["spider"], "gob", true)).toEqual({ text: "Block Goblin", kind: "block" }); // (not "Also block")
+    blockDrop(["spider"], "gob", true);
+    expect(useBlockDraft.getState().plan["b:spider"]).toEqual(["a:gob"]); // instead: it blocks one
+    const two = withLimits({ spider: 2 });
+    expect(blockLimit(two, "b:spider")).toBe(2);
+    blockDrop(["spider"], "angel", false);
+    expect(blockHint(["spider"], "gob", true)).toEqual({ text: "Also block Goblin", kind: "block" });
+    blockDrop(["spider"], "gob", true);
+    expect(useBlockDraft.getState().plan["b:spider"]).toEqual(["a:angel", "a:gob"]);
   });
 
   it("a gang block: several dragged creatures onto one attacker", () => {

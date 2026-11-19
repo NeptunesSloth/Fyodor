@@ -6,7 +6,7 @@ import { useDrag } from "../dnd";
 import { useHoverCard } from "../hoverCard";
 import { combatStats, statLine } from "./blockerLabels";
 import {
-  attackerOptions, blockDeclarations, blockHint, blockNames, blockRefusal, blockSpot2D, blockSummary, blockerOptions, menaceShort,
+  attackerOptions, blockDeclarations, blockHint, blockLimit, blockNames, blockRefusal, blockSpot2D, blockSummary, blockerOptions, menaceShort,
   openBlockDraft, setBlocks, useBlockDraft, withBlock, withoutBlock,
 } from "./blockDraft";
 import { send } from "./intents";
@@ -57,7 +57,8 @@ export function DeclareBlockers({ d }: { d: DecisionView }) {
       <span className="blockers-head">Your creatures</span>
       {blockers.map((b) => {
         const list = plan[b.id] ?? [];
-        const others = attackers.filter((a) => !list.includes(a.id));
+        // (an "also blocks" choice only for a creature that may block another attacker: 509.1a, the server's limits)
+        const others = list.length < blockLimit(d, b.id) ? attackers.filter((a) => !list.includes(a.id)) : [];
         return (
           <div key={b.id} className={`combat-row blocker-row${list.length ? " blocking" : ""}`} {...(b.card_id ? hover(b.card_id) : {})}>
             <span className="blocker-name">{names[b.id]}{stat(b) && <span className="combat-stat">{stat(b)}</span>}</span>
@@ -76,7 +77,7 @@ export function DeclareBlockers({ d }: { d: DecisionView }) {
                 ))}
                 {others.length > 0 && (
                   <select className="block-also" data-testid={`block-also-${b.id.slice(2)}`} value="" aria-label={`${names[b.id]} also blocks`}
-                    title="If it can block an additional creature (the server checks): Shift-drop on the table does the same"
+                    title="It can block an additional creature: Shift-drop on the table does the same"
                     onChange={(e) => e.target.value && edit(withBlock(plan, b.id, e.target.value, true))}>
                     <option value="">+ also blocks…</option>
                     {others.map((a) => <option key={a.id} value={a.id}>{optionText(b.id, a)}</option>)}
