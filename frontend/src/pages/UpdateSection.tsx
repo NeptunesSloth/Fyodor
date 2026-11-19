@@ -11,7 +11,7 @@ type Phase =
   | { at: "checking"; name: string }
   | { at: "ready"; plan: UpdateSummary }
   | { at: "installing"; plan: UpdateSummary }
-  | { at: "restarting"; plan: UpdateSummary; closes: boolean; stuck?: string };
+  | { at: "restarting"; plan: UpdateSummary; closes: boolean; stuck?: string; done?: string };
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const healthy = () => fetch("/api/health", { cache: "no-store" }).then((r) => r.ok, () => false);
@@ -59,13 +59,19 @@ export function UpdateSection() {
       return;
     }
     setPhase({ at: "restarting", plan, closes });
-    const how = await waitForRestart(healthy, sleep);
+    // (the updater stops a Fyodor that hasn't closed after 90 s: "stuck" only after that)
+    const how = await waitForRestart(healthy, sleep, { downWithin: 120_000 });
+    if (how === "back" && closes) {
+      // the update replaced Fyodor's own window and the new Fyodor opened a new one: this page (another browser) stays as it is, not a twin
+      setPhase({ at: "restarting", plan, closes, done: "Fyodor is back with the update, in a new window. You can close this one." });
+      return;
+    }
     if (how === "back") {
       window.location.reload();
       return;
     }
     setPhase({ at: "restarting", plan, closes, stuck: how === "stuck"
-      ? "Fyodor didn't close for the update. Close its window (the one with the black console) and start Fyodor again; the update is applied as it closes."
+      ? "Fyodor didn't close for the update. Close its window (the one with the black console) and start Fyodor again."
       : `Fyodor hasn't come back yet. Start Fyodor again; if the update failed, the old version is back. What happened is in ${st?.log ?? "update.log"}.` });
   };
 
@@ -118,6 +124,7 @@ export function UpdateSection() {
                 <p><b>Updating — Fyodor will restart.</b> Games are saved, and the players at your tables were told; their tables come back when it starts again.</p>
                 <p className="hint">{phase.closes ? "This window closes while the files are copied; a new one opens with the new version." : "This page comes back by itself in a minute."}</p>
                 {phase.stuck && <p className="warn">{phase.stuck}</p>}
+                {phase.done && <p data-testid="update-done"><b>{phase.done}</b></p>}
               </div>
             </div>
           )}
