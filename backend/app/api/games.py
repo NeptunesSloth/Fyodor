@@ -911,7 +911,8 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
     return _submitted(
         services,
         result.entries,
-        name=body.name or result.parsed.name or "Deck",
+        # (a pasted list with no name of its own is called after its commander(s), as the deck library and the table's importer do)
+        name=body.name or result.parsed.name or " & ".join(full.get("commanders") or []) or "Deck",
         fmt=result.format,
         report=report,
         kind=kind,

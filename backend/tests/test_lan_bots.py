@@ -59,6 +59,8 @@ def test_the_host_seats_a_bot_in_the_lobby(lobby):
     assert seat["bot"] == "advanced" and seat["claimed"] and seat["ready"] and seat["name"] == "Bot" and seat["id"] == "p2"
     assert seat["deck"]["name"] == "Gruul" and "bot:" not in json.dumps(body)
     assert body["start_blockers"] == []
+    tile = next(p for p in client.get(f"/api/games/{gid}").json()["players"] if p["id"] == "p2")
+    assert tile["claimed"] and tile["connected"]  # (the Play page's tile never calls a bot "away")
     # (change its level; then Bob joins: he can't take the bot's seat, and he can't seat a bot)
     body = add_bot(client, gid, alice, None, seat="p2", level="simple")
     assert next(s for s in body["seats"] if s["id"] == "p2")["bot"] == "simple"

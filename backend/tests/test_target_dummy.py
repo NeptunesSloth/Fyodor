@@ -419,6 +419,7 @@ def test_the_play_pages_sandbox_start_with_a_dummy(client):
     assert dummy["dummy"] is True and dummy["name"] == "Target Dummy" and dummy["life"] == 40
     tile = client.get(f"/api/games/{gid}").json()
     assert [p["claimed"] for p in tile["players"]] == [True, True]  # (not a seat to join)
+    assert tile["players"][1]["connected"]  # (and never "away" on the tile)
     assert client.post("/api/join", json={"code": code, "name": "Eve"}).status_code != 200
     res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "configure", "automation": "full"}}, headers=host)
     assert res.status_code == 200, res.text

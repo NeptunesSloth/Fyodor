@@ -217,7 +217,7 @@ class Room:
                         "id": pid,
                         "name": self.seat_name(pid),
                         "claimed": s.token is not None,
-                        "connected": s.connections > 0,
+                        "connected": s.connections > 0 or s.bot,  # (-- LAN bots -- always at the table, never "away")
                     }
                     for pid, s in self.seats.items()
                 ],
@@ -233,8 +233,10 @@ class Room:
                 {
                     "id": pid,
                     "name": st.players[pid].name,
-                    "claimed": self.seats[pid].token is not None or st.players[pid].dummy,  # (-- target dummy -- not a seat to join)
-                    "connected": self.seats[pid].connections > 0,
+                    # (-- target dummy -- and -- test opponent --: nobody's seat to join, and never "away")
+                    "claimed": self.seats[pid].token is not None or st.players[pid].dummy or st.players[pid].bot is not None,
+                    "connected": self.seats[pid].connections > 0 or self.seats[pid].bot or st.players[pid].dummy
+                    or st.players[pid].bot is not None,
                     **({"color": st.players[pid].color, "commanders": player_commanders(st, pid)} if commanders else {}),
                 }
                 for pid in st.seat_order

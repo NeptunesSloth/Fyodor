@@ -44,6 +44,8 @@ def test_the_sandbox_start_with_an_opponent_and_step_mode(table):
     assert them["hand_count"] == 7 and them["library_count"] == 37 - 7 - 1
     assert view["game"]["bot"]["speed"] == "normal"
     assert client.post("/api/join", json={"code": code, "name": "Eve", "seat": "p2"}).status_code != 200  # (nobody sits there)
+    tile = next(p for p in client.get(f"/api/games/{gid}").json()["players"] if p["id"] == "p2")
+    assert tile["claimed"] and tile["connected"]  # (the Play page's tile: not "1 open seat", never "away")
     guest = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
     refused = client.post(f"/api/games/{gid}/bot", json={"deck_id": deck_id}, headers={"X-Seat-Token": guest})
     assert refused.status_code == 403
