@@ -463,6 +463,57 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "cast_spell", card_id: "m1", ask_optional: true, kicker: 1 }]);
   });
 
+  // -- round 6 (cast choosers) --
+  it("offers offspring a permanent gives (Zinnia, Valley's Voice) in the chooser, paid once as kicker (702.175a)", () => {
+    const v = view({ ...RULES, hints: { castable: ["c2"], offspring110a: { c2: "Offspring {2} (Zinnia, Valley's Voice)" } } });
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("c2", v)).toEqual([{ label: "Offspring (Zinnia, Valley's Voice)", cost: "{2}", field: "kicker", once: true }]);
+    expect(dropAsIntent(["c2"], { zone: "p1:battlefield" })).toBe(true);
+    expect(sent).toEqual([]); // the chooser is open
+    submitCounts([1]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", ask_optional: true, kicker: 1 }]);
+    // the card menu offers it too
+    const item = rulesMenu(v.cards.c2!, v, "p1").find((i) => i !== "separator" && i.label === "Cast with Offspring (Zinnia, Valley's Voice) {2}");
+    if (!item || item === "separator") throw new Error("expected the offspring entry");
+    item.onClick?.();
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2", kicker: 1 });
+    // not hinted (another player's Zinnia, a noncreature spell): no row, cast at once
+    const plain = view({ ...RULES, hints: { castable: ["c2"] } });
+    useGame.setState({ view: plain });
+    expect(countRows("c2", plain)).toEqual([]);
+  });
+
+  it("asks \"Kicker {A} and/or {B}\" and a granted replicate in one chooser (Temporal Firestorm under Djinn Illuminatus, 702.33b)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, storm: { id: "storm", name: "Temporal Firestorm", type_line: "Sorcery",
+      oracle_text: "Kicker {1}{W} and/or {1}{U} (You may pay an additional {1}{W} and/or {1}{U} as you cast this spell.)\nChoose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.\nTemporal Firestorm deals 5 damage to each creature and each planeswalker." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["f1"], replicate111r3: { f1: ["Replicate {3}{R}{R} (Djinn Illuminatus)"] } } });
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:hand", "storm") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("f1", v).map((r) => [r.label, r.cost, r.field, r.once, r.mask])).toEqual([
+      ["Kicker", "{1}{W}", "kicker", true, 1], ["Kicker", "{1}{U}", "kicker", true, 2], ["Replicate (Djinn Illuminatus)", "{3}{R}{R}", "replicate", undefined, undefined]]);
+    expect(dropAsIntent(["f1"], { zone: "stack" })).toBe(true);
+    expect(useCountPrompt.getState().rows).toHaveLength(3); // the chooser, not the old kicker menu
+    submitCounts([1, 1, 2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "f1", ask_optional: true, kicker: 3, replicate: [2] }]);
+    dropAsIntent(["f1"], { zone: "stack" });
+    submitCounts([0, 1, 0]);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "f1", ask_optional: true, kicker: 2 });
+    // the card menu's kicker entry opens the same chooser (no kicker-only submenu that skips the replicate)
+    const menu = rulesMenu(v.cards.f1!, v, "p1");
+    const kick = menu.find((i) => i !== "separator" && i.label.startsWith("Cast with Kicker {1}{W} and/or {1}{U}"));
+    if (!kick || kick === "separator") throw new Error("expected the kicker entry");
+    expect(kick.submenu).toBeUndefined();
+    kick.onClick?.();
+    expect(useCountPrompt.getState().rows).toHaveLength(3);
+    useCountPrompt.setState({ action: null, title: "", rows: [] });
+    expect(menu.filter((i) => i !== "separator" && i.label.startsWith("Cast with Kicker")).length).toBe(1); // (and no second "Cast with Kicker {1}{W}")
+    // without the grant: the kicker menu as before
+    const plain = { ...v, rules: { ...RULES, hints: { castable: ["f1"] } } } as unknown as GameView;
+    expect(countRows("f1", plain)).toEqual([]);
+    const sub = rulesMenu(plain.cards.f1!, plain, "p1").find((i) => i !== "separator" && i.label.startsWith("Cast with Kicker"));
+    expect(sub !== "separator" && sub?.submenu?.length).toBe(3);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;
@@ -921,6 +972,11 @@ describe("wave 110 follow-ups: library top, Chorus, Leonin Arbiter", () => {
     useGame.setState({ view: v });
     const items = libraryTopActions("p1", "p1");
     expect(labels(items)).toEqual(["Cast the top card without paying its mana cost", "Plot the top card (special action)", "—"]);
+    // -- round 6 -- the free cast asks for optional additional costs (118.9d: kicker under Bolas's Citadel / Temporal Aperture)
+    const free = items[0];
+    if (!free || free === "separator") throw new Error("expected the free cast");
+    free.onClick?.();
+    expect(sent.shift()).toEqual({ type: "cast_spell", card_id: "t1", free: true, ask_optional: true });
     const plot = items[1];
     if (!plot || plot === "separator") throw new Error("expected Plot");
     plot.onClick?.();

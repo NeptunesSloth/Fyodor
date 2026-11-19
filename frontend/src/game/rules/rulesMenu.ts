@@ -167,11 +167,18 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });
   }
   const kicker = kickerLine(oracle);
+  const rows = countRows(card.id, view);
   if (mine && (zone === "hand" || zone === "command") && kicker) {
-    items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
+    // -- round 6 (cast choosers) -- a kicked spell a permanent gives replicate (Temporal Firestorm, Burst Lightning under Djinn Illuminatus):
+    // its kicker entry opens the one chooser with the kicker and replicate rows, so the kicker submenu never casts it with replicate unasked
+    if (rows.some((r) => r.kicked)) {
+      items.push({ label: `Cast with ${kicker}…`, disabled: !hints.castable?.includes(card.id),
+        onClick: () => void openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id }) });
+    } else items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
   }
   // -- round 5 (replicate) -- the card's own replicate / squad / offspring: "Cast with Replicate {1}{U}…" opens the count chooser (601.2b)
-  const own = countRows(card.id, view).find((r) => r.field === "kicker");
+  // (-- round 6 -- or offspring a permanent gives it, Zinnia: "Cast with Offspring (Zinnia, Valley's Voice) {2}")
+  const own = rows.find((r) => r.field === "kicker" && !r.kicked);
   if (mine && (zone === "hand" || zone === "command") && own) {
     items.push({ label: `Cast with ${own.label} ${own.cost}${own.once ? "" : "…"}`, disabled: !hints.castable?.includes(card.id),
       onClick: () => (own.once ? void send({ type: "cast_spell", card_id: card.id, kicker: 1 }) : void openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id })) });

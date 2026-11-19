@@ -56,7 +56,8 @@ export function libraryTopActions(player: string, me: string): MenuItem[] {
     items.push({ label: `Cast ${whose} with Chorus of the Conclave…`, onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: topId }, field: "chorus" }) });
   }
   if (hints.free_castable?.includes(topId)) {
-    items.push({ label: `Cast ${whose} ${citadelLike(view!, me) ? "by paying life equal to its mana value" : "without paying its mana cost"}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId, free: true }) });
+    items.push({ label: `Cast ${whose} ${citadelLike(view!, me) ? "by paying life equal to its mana value" : "without paying its mana cost"}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId, free: true, ask_optional: true }) });
+    // (-- round 6 -- ask_optional: kicker, replicate and other optional additional costs may still be paid, 118.9d: Bolas's Citadel, Temporal Aperture)
   }
   for (const a of hints.activatable?.filter((x) => x.card_id === topId) ?? []) {
     items.push({ label: "Plot the top card (special action)", onClick: () => void sendIntent({ type: "activate_ability", card_id: topId, ability: a.ability }) });

@@ -549,6 +549,7 @@ export interface RulesHints {
   x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
   chorus?: string[]; // castable creature cards whose cast may set `chorus` (Chorus of the Conclave, 601.2b, wave 110C)
   replicate111r3?: Record<string, string[]>; // castable card → one label per replicate a permanent gives it (Hugh), in CastSpell.replicate's order (702.56b, wave 111R3)
+  offspring110a?: Record<string, string>; // castable card → the offspring a permanent gives it as it is cast (Zinnia: "Offspring {2} (Zinnia, Valley's Voice)"), paid as CastSpell.kicker 1 (702.175a, round 6)
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   summoning_sick?: string[]; // your untapped permanents that can't use {T} abilities yet (302.6)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)

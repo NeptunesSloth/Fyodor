@@ -282,8 +282,10 @@ export function kickerItems(cardId: string, kicker: string, castable = true, spo
 
 /** -- round 5 (replicate) -- one count of an optional additional cost asked before a cast: the card's own replicate / squad (any number of
  * times) or offspring (once), sent as cast_spell's `kicker`; or one replicate a permanent gives the spell (Hugh, Djinn Illuminatus: the
- * hints' `replicate111r3`), sent at its `slot` of `replicate` (702.56b). `cost`: one payment ("{1}{U}", or the words of a cost that isn't mana). */
-export interface CountRow { label: string; cost: string; field: "kicker" | "replicate"; slot?: number; once?: boolean }
+ * hints' `replicate111r3`), sent at its `slot` of `replicate` (702.56b). `cost`: one payment ("{1}{U}", or the words of a cost that isn't mana).
+ * -- round 6 (cast choosers) -- `kicked`: a row from the spell's kicker line, shown beside a grant (the card menu's kicker entry opens the chooser
+ * then); `mask`: one of "Kicker {A} and/or {B}"'s two costs (702.33b), each paid at most once, OR-ed into `kicker` (1, 2; both: 3). */
+export interface CountRow { label: string; cost: string; field: "kicker" | "replicate"; slot?: number; once?: boolean; kicked?: boolean; mask?: number }
 
 /** The open count chooser (RulesHud's CountPrompt): the cast it completes, the card's name, its rows. */
 export const useCountPrompt = create<{ action: Action | null; title: string; rows: CountRow[] }>(() => ({ action: null, title: "", rows: [] }));
@@ -305,6 +307,13 @@ export function countRows(cardId: string, view: GameView): CountRow[] {
     rows.push({ label: word[0]!.toUpperCase() + word.slice(1), cost: m[2] ?? m[4] ?? "", field: "kicker", once: word === "offspring" });
     break; // (one such cost a card has: CastSpell.kicker is its count)
   }
+  // -- round 6 (cast choosers) -- offspring a permanent gives the spell (Zinnia, Valley's Voice: the hints' `offspring110a`, "Offspring {2} (Zinnia, …)"),
+  // paid once as `kicker` (702.175a); the server lists it only for a spell without a kicker-like cost of its own
+  const offspring = view.rules?.hints.offspring110a?.[cardId];
+  if (offspring && !rows.some((r) => r.field === "kicker")) {
+    const from = /\(([^)]+)\)\s*$/.exec(offspring)?.[1];
+    rows.push({ label: from ? `Offspring (${from})` : "Offspring", cost: /\{[^(]*\}/.exec(offspring)?.[0] ?? "", field: "kicker", once: true });
+  }
   const granted = view.rules?.hints.replicate111r3?.[cardId] ?? [];
   granted.forEach((label, slot) => {
     const cost = /\{[^(]*\}/.exec(label)?.[0] ?? "";
@@ -312,8 +321,13 @@ export function countRows(cardId: string, view: GameView): CountRow[] {
     rows.push({ label: from ? `Replicate (${from})` : "Replicate", cost, field: "replicate", slot });
   });
   // a spell given replicate that has its own kicker / multikicker: one chooser for both (601.2b: each announced; CastSpell.kicker and .replicate)
-  const kick = granted.length && !rows.some((r) => r.field === "kicker") ? /^(multi)?kicker ((?:\{[^}]+\})+)$/i.exec(kickerLine(oracle) ?? "") : null;
-  if (kick) rows.unshift({ label: kick[1] ? "Multikicker" : "Kicker", cost: kick[2]!, field: "kicker", once: !kick[1] });
+  const line = granted.length && !rows.some((r) => r.field === "kicker") ? kickerLine(oracle) ?? "" : "";
+  const kick = /^(multi)?kicker ((?:\{[^}]+\})+)$/i.exec(line);
+  if (kick) rows.unshift({ label: kick[1] ? "Multikicker" : "Kicker", cost: kick[2]!, field: "kicker", once: !kick[1], kicked: true });
+  // -- round 6 (cast choosers) -- "Kicker {A} and/or {B}" (Temporal Firestorm under Djinn Illuminatus): a row per cost, each once (702.33b)
+  const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(line);
+  if (two) rows.unshift({ label: "Kicker", cost: two[1]!, field: "kicker", once: true, kicked: true, mask: 1 },
+    { label: "Kicker", cost: two[2]!, field: "kicker", once: true, kicked: true, mask: 2 });
   return rows;
 }
 
@@ -337,7 +351,7 @@ export function submitCounts(counts: number[]): void {
   rows.forEach((row, i) => {
     const n = Math.max(0, Math.min(row.once ? 1 : 1000, Math.floor(counts[i] ?? 0)));
     if (row.field === "kicker") {
-      if (n) out.kicker = n;
+      if (n) out.kicker = row.mask ? (Number(out.kicker) || 0) | row.mask : n; // (702.33b: the two costs' mask)
     } else replicate[row.slot ?? 0] = n;
   });
   if (replicate.some((n) => n)) out.replicate = Array.from(replicate, (n) => n ?? 0);

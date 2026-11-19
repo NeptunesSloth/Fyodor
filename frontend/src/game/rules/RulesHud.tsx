@@ -785,7 +785,8 @@ export function CountPrompt() {
       </div>
       <div className="decision-options">
         <button className="tt-btn brass" data-testid="count-done" onClick={() => submitCounts(counts)}>
-          {paid ? `Cast, ${rows.map((r, i) => (counts[i] ? `${r.label.split(" (")[0]} ×${counts[i]}` : "")).filter(Boolean).join(", ")}` : rows.length === 1 ? `Cast without ${rows[0]!.label.split(" (")[0]!.toLowerCase()}` : "Cast, paying none"}
+          {/* (-- round 6 -- "Kicker {A} and/or {B}": each paid cost named by its mana, not "Kicker ×1, Kicker ×1") */}
+          {paid ? <ManaText text={`Cast, ${rows.map((r, i) => (counts[i] ? (r.mask ? `${r.label} ${r.cost}` : `${r.label.split(" (")[0]} ×${counts[i]}`) : "")).filter(Boolean).join(", ")}`} /> : rows.length === 1 ? `Cast without ${rows[0]!.label.split(" (")[0]!.toLowerCase()}` : "Cast, paying none"}
         </button>
         <button className="tt-btn" data-testid="count-cancel" onClick={close}>Cancel</button>
       </div>
