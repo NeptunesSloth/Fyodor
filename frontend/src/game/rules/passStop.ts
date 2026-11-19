@@ -35,7 +35,7 @@ export function loopNote(prev: GameView | null | undefined, next: GameView): str
 }
 
 /** Cards of mine the hints let me cast now (any way: plain, free, an alternative cost). */
-function castableNow(view: GameView, ids: string[]): string[] {
+export function castableNow(view: GameView, ids: string[]): string[] {
   const h = view.rules?.hints;
   if (!h) return [];
   return ids.filter((id) => h.castable?.includes(id) || h.free_castable?.includes(id) || !!h.alt_castable?.[id]);

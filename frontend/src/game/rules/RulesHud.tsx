@@ -4,7 +4,7 @@
  * for every kind of decision, the numbered STACK helper, and the AUTOMATION ERROR panel.
  * Everything here reads `view.rules`; the server decides, the client only asks and shows.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
@@ -1016,8 +1016,10 @@ function OrderChoice({ d, view }: { d: DecisionView; view: GameView }) {
   const remember = triggers && always && d.display?.rememberable === true ? "always_order" : undefined;
   const send = (ids: string[]) => void choose(d.id, ids, remember);
   const complete = picked.length === rows.length;
+  const self = useRef<HTMLDivElement>(null);
+  useClearOf(self, rows.map((r) => r.source).filter((x): x is string => !!x));
   return (
-    <div className="order-choice" data-testid="order-choice">
+    <div className="order-choice" data-testid="order-choice" ref={self}>
       <ol className="order-list">
         {rows.map((r) => {
           const at = picked.indexOf(r.key);
@@ -1056,6 +1058,25 @@ function OrderChoice({ d, view }: { d: DecisionView; view: GameView }) {
       </div>
     </div>
   );
+}
+
+/** -- sweep B2 -- the prompt plaque `inside` sits in moves off these cards of the 2D table (the trigger order covered the names of the
+ * creatures whose abilities it orders): above them when it fits there, else below them; the CSS place when it covers none of them. */
+function useClearOf(inside: React.RefObject<HTMLElement | null>, cards: string[]): void {
+  const key = cards.join(",");
+  useLayoutEffect(() => {
+    const panel = inside.current?.closest<HTMLElement>(".decision-panel");
+    if (!panel || !cards.length) return;
+    panel.style.top = panel.style.bottom = "";
+    const boxes = cards.flatMap((id) => [...document.querySelectorAll(`.battlefield [data-card-id="${CSS.escape(id)}"]`)].map((n) => n.getBoundingClientRect()));
+    const p = panel.getBoundingClientRect();
+    if (!boxes.some((b) => b.left < p.right && b.right > p.left && b.top < p.bottom && b.bottom > p.top)) return;
+    const top = Math.min(...boxes.map((b) => b.top));
+    const bottom = Math.max(...boxes.map((b) => b.bottom));
+    if (top - 8 - p.height >= 56) panel.style.bottom = `${Math.round(window.innerHeight - top + 8)}px`;
+    else if (bottom + 8 + p.height <= window.innerHeight - 8) Object.assign(panel.style, { top: `${Math.round(bottom + 8)}px`, bottom: "auto" });
+    return () => { panel.style.top = panel.style.bottom = ""; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** A choose_cards answer is legal with min..max picks; min 0 lets an EMPTY answer through (a cost

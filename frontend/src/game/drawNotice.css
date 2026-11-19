@@ -53,3 +53,5 @@
 body.lands-clear .draw-notice { bottom: max(168px, var(--lands-clear)); }
 body.lands-clear .draw-card { width: 80px; margin-left: -18px; }
 body.lands-clear .draw-card:first-child { margin-left: 0; }
+/* -- sweep B2 -- a selected card's action bar is where the notice would fan up: it shows under the top bar instead (its line first, the cards under it) */
+body .draw-notice.dodge { top: 64px; bottom: auto; flex-direction: column-reverse; }

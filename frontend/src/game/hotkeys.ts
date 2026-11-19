@@ -44,6 +44,12 @@ export interface Hotkey {
   label: string;
 }
 
+/** Shift+P at a table with rules automation: what the dial's End turn does (manual tables: the response checks' auto-pass, above). */
+export const AUTO_PASS_RULES = "End turn: pass to the next turn (in your turn you attack with nothing); another player's spell or ability, or a choice you must make, still stops you";
+
+/** A shortcut's description for this table: Shift+P does something else once the rules engine runs priority. */
+export const hotkeyLabel = (h: Hotkey, automated: boolean): string => (h.id === "auto_pass" && automated ? AUTO_PASS_RULES : h.label);
+
 export const HOTKEYS: Hotkey[] = [
   { id: "undo", keys: ["ctrl+z"], label: "Undo" },
   { id: "redo", keys: ["ctrl+shift+z", "ctrl+y"], label: "Redo" },
@@ -59,7 +65,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "respond", keys: ["r"], label: "I have a response! Hold the game for your answer while someone else has priority (again: cancel); in a response check: Respond" },
   { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
   { id: "resolve_all", keys: ["shift+ "], label: "Resolve all: keep passing until the stack is empty (stops for a decision or a card you could cast)" },
-  { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
+  { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass the response checks for the rest of this turn" },
   { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
   { id: "cam_seat", keys: ["1"], label: "Look from your seat (2D: the whole table)" },
   { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "Look at the next players' boards, in seat order" },

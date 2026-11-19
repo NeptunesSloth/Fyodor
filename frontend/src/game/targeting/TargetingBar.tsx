@@ -78,6 +78,10 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   const src = (from && view.cards[from]) || srcObj;
   const dock = t.candidates.some((c) => c.where === "hand") ? "above-hand" : "hand";
   const groups = traySeats(t, view, me);
+  // -- sweep B2 -- Shift+click and "Select all" read the tray's order (discarding 30 cards was 30 clicks)
+  useEffect(() => useTargeting.getState().setOrder(groups.flatMap((g) => g.runs.flat()).map((c) => ({ opt: c.option.id, ref: c.ref }))));
+  const many = t.multi && t.max >= 4 && t.candidates.length > 1;
+  const all = Math.min(t.max, t.candidates.length);
   return (
     <>
       <section ref={bar} className={`tgt-bar${src ? "" : " no-source"}`} data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
@@ -104,6 +108,10 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
                   Cancel <kbd aria-hidden>Esc</kbd>
                 </button>
               )}
+              {many && (picked.length >= all
+                ? <button className="tt-btn ghost" data-testid="targeting-clear" onClick={() => useTargeting.getState().fill(d.id, 0)}>Clear</button>
+                : <button className="tt-btn ghost" data-testid="targeting-all" title="Shift+click a card to choose every card between it and the last one you clicked"
+                  onClick={() => useTargeting.getState().fill(d.id, all)}>{all === t.candidates.length ? "Select all" : `Select first ${all}`}</button>)}
               {t.multi && (
                 <button className="tt-btn brass tgt-done" data-testid="decision-done" disabled={!canDone} onClick={done}>
                   {doneLabel(picked.length, t.min, t.max)}
@@ -177,8 +185,9 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
     s().setHot(null);
     if (kind === "card") cardHover.onPointerLeave(e);
   };
-  const choose1 = () => {
-    if (multi) s().toggle(decision, { opt, ref: refId }, max);
+  const choose1 = (e: React.MouseEvent) => {
+    if (multi && e.shiftKey && s().anchor && s().decision === decision) s().range(decision, { opt, ref: refId }, max); // (-- sweep B2 -- a run)
+    else if (multi) s().toggle(decision, { opt, ref: refId }, max);
     else void choose(decision, [opt]);
   };
   const shownNote = twins > 1 ? `${twins} alike` : note || (where && where !== "battlefield" ? (where === "stack" ? "on the stack" : `in ${where}`) : "");

@@ -168,4 +168,19 @@ describe("targeting: choosing several", () => {
     s().toggle("d2", { opt: "x", ref: "x" }, 3); // a new decision starts empty
     expect(s().picked.map((p) => p.ref)).toEqual(["x"]);
   });
+
+  it("Shift+click chooses the run since the last click, and Select all the first ones allowed (sweep B2: discard 30)", () => {
+    const s = useTargeting.getState;
+    s().setOrder(["a", "b", "c", "d", "e", "f"].map((r) => ({ opt: r, ref: r })));
+    s().toggle("d1", { opt: "b", ref: "b" }, 4);
+    s().range("d1", { opt: "e", ref: "e" }, 4);
+    expect(s().picked.map((p) => p.ref)).toEqual(["b", "c", "d", "e"]);
+    s().fill("d1", 0);
+    expect(s().picked).toEqual([]);
+    s().toggle("d1", { opt: "f", ref: "f" }, 3);
+    s().range("d1", { opt: "a", ref: "a" }, 3); // backwards, capped at the most allowed
+    expect(s().picked.map((p) => p.ref)).toEqual(["f", "a", "b"]);
+    s().fill("d1", 5);
+    expect(s().picked.map((p) => p.ref)).toEqual(["a", "b", "c", "d", "e"]);
+  });
 });

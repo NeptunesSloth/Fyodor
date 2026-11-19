@@ -14,6 +14,7 @@ import { useCardCache } from "../../state/cardCache";
 import type { Action, GameView, ResponseMode } from "../../types/game";
 import { splitZone } from "../../types/game";
 import type { DropResult } from "../dnd";
+import { castableNow } from "./passStop";
 
 /** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
  * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
@@ -88,10 +89,13 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     // -- round 5 (replicate) -- a card with replicate / squad / offspring, or given replicate (Djinn Illuminatus, Hugh), asks how many times
     // to pay it first (601.2b): the count chooser, at 0 (a drag or a double-click never offered it; only the right-click menu did, for a grant),
     // with the spell's own kicker as a row of the same chooser when it has both (Burst Lightning under Djinn Illuminatus)
-    if (openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
+    // -- sweep B2 -- only for a card the hints let me cast now: otherwise the plain cast goes and the server's refusal says why (it's Bob's
+    // decision, not my priority, no mana …), not after the kicker was chosen
+    const now = castableNow(view, [card.id]).length > 0;
+    if (now && openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
     const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
     const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
-    if (kicker) {
+    if (kicker && now) {
       // -- second pass S1 -- the chooser opens where the card was clicked or dropped (`at`, as handDrop.ts's face chooser), else mid-screen
       const at = target.at ?? { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
       openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot }) },

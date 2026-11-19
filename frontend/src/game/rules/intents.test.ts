@@ -81,7 +81,7 @@ describe("automation intents", () => {
 
   it("asks about kicker when a kicker card is dragged to cast (Rite of Replication): plain, or kicked (playtest nov 6)", async () => {
     const { useMenu } = await import("../../components/ContextMenu");
-    const base = view(RULES);
+    const base = view({ ...RULES, hints: { castable: ["r1"] } });
     const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView;
     useGame.setState({ view: v });
     expect(dropAsIntent(["r1"], { zone: "stack" })).toBe(true);
@@ -95,10 +95,20 @@ describe("automation intents", () => {
 
   it("opens the kicker chooser where the card was clicked or dropped (second pass S1)", async () => {
     const { useMenu } = await import("../../components/ContextMenu");
-    const base = view(RULES);
+    const base = view({ ...RULES, hints: { castable: ["r1"] } });
     useGame.setState({ view: { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView });
     expect(dropAsIntent(["r1"], { zone: "stack", at: { clientX: 312, clientY: 845 } })).toBe(true);
     expect(useMenu.getState().menu).toMatchObject({ x: 312, y: 845 });
+  });
+
+  it("casts plainly, no kicker chooser, when the hints don't let me cast it now: the server's refusal says why (sweep B2)", async () => {
+    const { useMenu } = await import("../../components/ContextMenu");
+    useMenu.setState({ menu: null });
+    const base = view({ ...RULES, hints: { has_priority: false } });
+    useGame.setState({ view: { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView });
+    expect(dropAsIntent(["r1"], { zone: "stack" })).toBe(true);
+    expect(useMenu.getState().menu).toBeNull();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "r1", ask_optional: true }]);
   });
 
   it("turns a drop from hand into play_land or cast_spell", () => {

@@ -10,7 +10,7 @@ import { SpawnDialog } from "./SpawnDialog";
 import { TokenMathDialog } from "./TokenMathDialog";
 import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
-import { HOTKEYS, keyCap } from "./hotkeys";
+import { HOTKEYS, hotkeyLabel, keyCap } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
 import { CardDetails } from "../cards/CardDetails";
 import { CardFace } from "../cards/CardFace";
@@ -309,7 +309,8 @@ const TABLE_LEGEND: [string, string][] = [
 function HelpDialog({ onClose, initial }: { onClose: () => void; initial: string }) {
   const [q, setQ] = useState(initial);
   const match = ([k, v]: [string, string]) => !q.trim() || `${k} ${v}`.toLowerCase().includes(q.trim().toLowerCase());
-  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].filter(match);
+  const automated = useGame((s) => !!s.view?.rules);
+  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), hotkeyLabel(h, automated)])].filter(match);
   const how = HOW_TO.filter(match);
   const legend = TABLE_LEGEND.filter(match);
   return (

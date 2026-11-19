@@ -57,12 +57,24 @@ export function DrawNotice() {
   useEffect(() => {
     if (batch && hover && batch.ids.includes(hover)) setBatch(null);
   }, [batch, hover]);
+  // -- sweep B2 -- a selected card's action bar low on the screen (where the notice fans up): the notice goes to the top instead
+  const selection = useGame((s) => s.selection);
+  const [dodge, setDodge] = useState(false);
+  useEffect(() => {
+    if (!batch) return;
+    const frame = requestAnimationFrame(() => {
+      const bar = document.querySelector<HTMLElement>(".selection-bar.anchored");
+      const r = bar && bar.style.visibility !== "hidden" ? bar.getBoundingClientRect() : null;
+      setDodge(!!r && r.height > 0 && r.bottom > window.innerHeight * 0.45);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [batch, selection]);
   const view = useGame((s) => s.view);
   if (!batch || !view) return null;
   const { faces, more } = noticeFaces(batch);
   const names = batch.ids.map((id) => nameOf(view, id)).filter((x): x is string => !!x);
   return (
-    <aside className="draw-notice" role="status" aria-live="polite" data-testid="draw-notice"
+    <aside className={`draw-notice${dodge ? " dodge" : ""}`} role="status" aria-live="polite" data-testid="draw-notice"
       onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)} onClick={() => setBatch(null)}>
       <div className="draw-cards" aria-hidden>
         {faces.map((id, i) => <DrawnCard key={id} view={view} id={id} i={i} n={faces.length} />)}
