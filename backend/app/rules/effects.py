@@ -18,6 +18,7 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 from __future__ import annotations
 
 import contextlib
+import copy
 import itertools
 import json
 import re
@@ -4167,6 +4168,14 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if entry.optional and entry.effects and barred_search(plan, ctx, entry.effects[0]):
         finish(plan, ctx)  # (-- prohibitions (wave 24D) -- "you may search …" can't be chosen: nothing is asked, nothing shuffled)
         return
+    if entry.optional and entry.effects and entry.effects[0]["do"] == "action_gate":
+        from app.rules import restrictions
+
+        gate = entry.effects[0]
+        if restrictions.uses(plan.rules, gate["object"], int(gate["index"]), plan.state.turn.number):
+            action_gate(plan, ctx, gate)  # -- playtest (nov 18) -- 603.2h: already done this turn: nothing to ask (Terrasymbiosis asked again)
+            finish(plan, ctx)
+            return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
@@ -4177,7 +4186,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                 finish(plan, ctx)
                 return
         else:
-            summary = describe(entry.effects)
+            summary = describe(entry.effects, amount=lambda v: _foreseen(plan, ctx, v))
             decide(plan, player=entry.controller, kind="confirm", prompt=f"{entry.name}: {summary}?",
                    options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
                    resume={"step": "may", "ctx": ctx}, memory_key=key)
@@ -4354,7 +4363,9 @@ def _said(e: dict[str, Any]) -> str | None:
     return None
 
 
-def describe(effects: list[dict[str, Any]]) -> str:
+def describe(effects: list[dict[str, Any]], amount: Callable[[Any], int] | None = None) -> str:
+    """The words of a "you may" question. ``amount`` works out an amount the first instruction reads ("draw that many cards": "Draw 3 card(s)",
+    not "Draw X card(s)"); a later instruction's amount stays X (what comes before it may change it)."""
     if said := next((e["say110n"] for e in effects if e.get("say110n")), None):  # -- (wave 110N) -- an effect that words its own question (Vislor Turlough)
         return str(said).capitalize()
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
@@ -4367,14 +4378,38 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "remove_counters": "remove {n} {kind} counter(s)",  # (pod deck audit: Arixmethes asked "Remove_counters?")
              "replace_vat_pool": "return each other card exiled with it to its owner's graveyard",  # (pod deck audit: Mimic Vat)
              "gain_control": "gain control of it"}  # (pod deck audit: Roil Elemental asked "Until, gain_control?")
-    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
+    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data, unless ``amount`` works it out)
+    worded = _worded(effects)
+    first = worded[0] if worded else None
     parts = [_said(e) or (("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else _pay_words(e) if e["do"] == "optional_payment"  # (pod deck audit: the Go-Shintai end-step triggers read "Optional_payment")
-             else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()})) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "fold_check", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             else words.get(e["do"], e["do"]).format(**{k: _said_amount(v, amount if e is first else None) if isinstance(v, (dict, list)) else v for k, v in e.items()}))
+             for e in worded]
     said = ", ".join(parts) or "do it"
     return said[:1].upper() + said[1:]  # (pod deck audit: not str.capitalize, which made "Draw X card(s)" "Draw x card(s)" and "{G}" "{g}")
+
+
+def _foreseen(plan: Plan, ctx: Context, v: Any) -> int:
+    """An amount read for the question only: on a copy of the context, its log lines unsaid (they are said as it resolves)."""
+    plan.note = lambda *_a, **_k: None  # type: ignore[method-assign]
+    try:
+        return values.evaluate(plan, copy.deepcopy(ctx), v)
+    finally:
+        del plan.note
+
+
+def _said_amount(v: Any, amount: Callable[[Any], int] | None) -> Any:
+    if amount is None or not isinstance(v, dict):
+        return "X"
+    try:
+        return amount(v)
+    except Exception:  # noqa: BLE001 (not every value expression can be worked out before it resolves: X it stays)
+        return "X"
+
+
+def _worded(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [e for e in effects if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "fold_check", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
 
 
 # -- delayed triggered abilities (603.7) and durations (611.2): app/rules/delayed.py (agent J) ------
