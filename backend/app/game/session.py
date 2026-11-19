@@ -33,8 +33,12 @@ CONTROLLED_MAY = (INTENT_TYPES - {"set_card_automation"}) | {"chat", "set_positi
                                                             "set_appearance", "set_table_playmat"}
 
 
+# -- sweep B2 -- the undo line in words a player says ("Alice undid: choose" read like a bug)
+_SAID = {"choose": "a choice", "pass_priority": "a pass", "cast_spell": "a cast", "activate_ability": "an activation", "play_land": "a land drop"}
+
+
 def describe(action: Action) -> str:
-    return action.type.replace("_", " ")
+    return _SAID.get(action.type, action.type.replace("_", " "))
 
 
 @dataclass

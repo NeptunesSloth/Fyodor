@@ -392,7 +392,7 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         out["offspring110a"] = offspring
     if costs := cost_now(state, viewer, out["castable"], set(out.get("x_cast") or ()), info):
         out["cost_now"] = costs
-    if any(k in out for k in ("x_cast", "x_kicker", "chorus", "replicate111r3")):
+    if out["castable"]:  # (any castable card may open the X or the count prompt: natural replicate and multikicker are read client-side)
         out["mana_now"] = mana_now(state, viewer, info)  # -- sweep B2 -- the X / count prompts' "≈ Max" (Cabal Coffers counts its Swamps)
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
