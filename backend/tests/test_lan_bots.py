@@ -204,3 +204,29 @@ def test_after_a_restart_the_rematch_and_the_lobby_still_know_the_bots_deck(lobb
     assert client.post(f"/api/games/{gid}/night/vote", json={"choice": "lobby"}, headers=h(alice)).json()["decision"] == "lobby"
     bot = next(s for s in client.get(f"/api/games/{gid}/lobby", headers=h(alice)).json()["seats"] if s.get("bot"))
     assert bot["deck"]["name"] == "Gruul" and bot["ready"]
+
+
+def test_a_restart_keeps_the_pod_rule_and_the_commanders_on_the_seat_cards(lobby):
+    """-- sweep C -- the server restarts mid-game: back in the lobby the turn order is still the pod rule (it fell back to Random)
+    and each seat card still shows its commander's art and colours (the restored decks had none)."""
+    client, gid, code, alice, deck_id = lobby
+    assert client.post(f"/api/games/{gid}/lobby/settings", json={"turn_order": "pod"}, headers=h(alice)).status_code == 200
+    add_bot(client, gid, alice, deck_id)
+    start(client, gid, alice)
+    _play_until(client, gid, alice, lambda v: (v.get("rules") or {}).get("priority") == v["viewer"]
+                and not (v.get("pregame") and not v["pregame"].get("finished")))
+    hub = client.app.state.services.hub
+    room = hub.get(gid)
+    meta = json.loads(json.dumps(hub.meta(room)))  # (what the crash record keeps)
+    from app.multiplayer.night import Night
+
+    room.night = Night.from_meta(meta["night"])
+    hub.restore(meta, room.game, {})
+    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "concede"}}, headers=h(alice)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(alice)).status_code == 200
+    res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "lobby"}, headers=h(alice))
+    assert res.status_code == 200 and res.json()["decision"] == "lobby", res.text
+    body = client.get(f"/api/games/{gid}/lobby", headers=h(alice)).json()
+    assert body["settings"]["turn_order"] == "pod"
+    decks = [s["deck"] for s in body["seats"] if s.get("deck")]
+    assert len(decks) == 2 and all(d["commander_ids"] for d in decks)

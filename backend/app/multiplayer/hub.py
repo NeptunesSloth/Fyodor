@@ -404,6 +404,7 @@ class GameHub:
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
             "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
+            "lobby": room.lobby.model_dump(mode="json") if room.lobby is not None else None,  # (the pod rule, mulligans… for the next game)
         }
 
     def persist(self, room: Room) -> None:
@@ -466,6 +467,8 @@ class GameHub:
         room.spectator_tokens = set(meta.get("spectator_tokens") or [])
         room.result_id = meta.get("result_id")
         room.night = Night.from_meta(meta.get("night"))
+        if meta.get("lobby"):
+            room.lobby = LobbySettings.model_validate(meta["lobby"])
         room.created_at = float(meta.get("created_at") or time.time())
         room.client_actions = dict(client_actions)
         if any(r.code == room.code for r in self.rooms.values()):

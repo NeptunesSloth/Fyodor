@@ -31,6 +31,7 @@ from app.multiplayer import response_call
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
 from app.multiplayer.night import Night, Proposal, bot_seat, rematch_missing
+from app.rules import commander as commander_rules
 from app.services import Services
 
 router = APIRouter(tags=["game night"])
@@ -215,14 +216,17 @@ def rematch(services: Services, room: Room) -> None:
     services.autosave(room)
 
 
-def _info_from_setup(setup: PlayerSetup | None, player: PlayerState) -> LobbySeatInfo:
+def _info_from_setup(setup: PlayerSetup | None, player: PlayerState, services: Services) -> LobbySeatInfo:
     # (-- LAN bots -- after a restart the setups are gone: the bot keeps its level from the seat it played, not the default)
     level = setup.bot_level if setup is not None else player.bot_level if player.bot is not None else None
     info = LobbySeatInfo(name=player.name, color=player.color, bot=level)
     if setup is not None and setup.cards:
+        # (the commander's art and colour identity on the seat card, as when the deck was brought)
+        ids = [c.printing_id for c in setup.cards if c.section == "commander" and c.printing_id]
+        identity = list(commander_rules.deck_identity(list(services.cards.get_many(ids).values()))) if ids and services.cards.available else []
         info.deck = SubmittedDeck(
-            name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id,
-            commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=[],
+            name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id, commander_ids=ids,
+            commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=identity,
             card_count=sum(c.quantity for c in setup.cards if c.section != "maybeboard"), collection=list(setup.collection))
     return info
 
@@ -244,7 +248,7 @@ def to_lobby(services: Services, room: Room) -> None:
     night = room.night
     infos: dict[str, LobbySeatInfo] = {}
     for pid in old.seat_order:
-        info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid])
+        info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid], services)
         info.ready = pid in room.seats and room.seats[pid].bot and info.deck is not None  # (-- LAN bots -- a bot is always ready)
         infos[pid] = info
     if room.lobby is None:  # (after a restart: the table settings the game was played with, not the defaults, Automation Off among them)

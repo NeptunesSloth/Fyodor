@@ -139,7 +139,7 @@ class Services:
                 self.journal.forget(live.game_id)
                 continue
             room = self.hub.restore(live.meta, session, live.client_actions)
-            session.notice("Fyodor restarted — the table was restored. Reconnect to take your seat again.")
+            session.notice("Fyodor restarted — the table was restored where it left off.")  # (every table reconnects on its own)
             self.autosave(room)  # a fresh checkpoint (compacts the journal)
             out.append({"game_id": room.id, "name": session.state.name, "replayed": replayed, "entries": len(live.entries)})
             log.info("Recovered table %s (%s): %d of %d journal entries replayed", room.id, session.state.name,
