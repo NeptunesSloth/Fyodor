@@ -1,3 +1,4 @@
+import { showFirstGameGuide } from "./FirstGameGuide";
 import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { DicePanel } from "./DicePanel";
@@ -337,6 +338,8 @@ function HelpDialog({ onClose, initial }: { onClose: () => void; initial: string
       )}
       {!how.length && !legend.length && !keys.length && <p className="hint">Nothing matches “{q}”. Try a game word like attack, mana, stack or undo.</p>}
       <p className="hint">With automation on, the rules engine decides what's legal; with it off, you decide, as at a real table. Everything is logged and can be undone.</p>
+      {/* -- first-game guide -- offered once on a first Sandbox game; this brings it back */}
+      <button className="tt-btn ghost" data-testid="help-first-game-guide" onClick={() => { showFirstGameGuide(); onClose(); }}>Show the first-game guide (Sandbox)</button>
     </Modal>
   );
 }

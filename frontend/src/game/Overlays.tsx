@@ -5,7 +5,8 @@ import { GameCardFace } from "./GameCardFace";
 import { attachmentLinks, tetherAnchor } from "./attachments";
 import { dropCaption, dropFacts, handDropKind } from "./handDrop";
 import { isLand } from "./rules/intents";
-import { chainEntries } from "./StackChain";
+import { chainEntries, stackFocus } from "./StackChain";
+import { locate as locateTarget } from "./targeting/TargetArrows";
 import { arrowLines } from "./stackGroups";
 
 /** Card ghosts that follow the pointer while dragging. */
@@ -79,13 +80,18 @@ export function CombatArrows() {
   const view = useGame((s) => s.view);
   const cards = view?.cards;
   const arrows = view?.arrows;
+  const hover = useGame((s) => s.hover);
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => {
     if (!cards || !view) return;
+    // -- stack readability -- a stack object's target arrows only while its row (or its card) is pointed at
+    const onStack = new Set(view.stack);
+    const focus = stackFocus(view, hover);
     const compute = () => {
       const out: Line[] = [];
       // blocks are shown by the combat strip (CombatStrip), not by lines across the table
       for (const l of arrowLines(arrows ?? [], view.stack.length ? chainEntries(view) : [])) {
+        if (onStack.has(l.source) && !focus?.ids.has(l.source)) continue;
         const a = locate(l.source);
         const b = a && locate(l.target);
         if (!a || !b) continue;
@@ -101,7 +107,7 @@ export function CombatArrows() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", compute);
     };
-  }, [cards, arrows, view]);
+  }, [cards, arrows, view, hover]);
   if (!lines.length) return null;
   return (
     <svg className="combat-arrows" data-testid="table-arrows">
@@ -120,6 +126,30 @@ export function CombatArrows() {
       ))}
     </svg>
   );
+}
+
+/**
+ * -- stack readability -- while a stack object is pointed at (its row hovered or focused), its targets wear a ring and the permanent
+ * it comes from a brass edge, on the 2D table and on the player plaques (both tables; the 3D table lights its own cards).
+ */
+export function StackFocusMarks() {
+  const view = useGame((s) => s.view);
+  const hover = useGame((s) => s.hover);
+  useEffect(() => {
+    const focus = view && stackFocus(view, hover);
+    if (!focus) return;
+    const marked: Element[] = [];
+    const mark = (id: string, how: string) => {
+      const el = locateTarget(id, view);
+      if (!el || el.closest(".chain-list")) return;
+      el.setAttribute("data-stack-hl", how);
+      marked.push(el);
+    };
+    for (const t of focus.targets) mark(t, "target");
+    if (focus.source) mark(focus.source, "source");
+    return () => marked.forEach((el) => el.removeAttribute("data-stack-hl"));
+  }, [view, hover]);
+  return null;
 }
 
 /**

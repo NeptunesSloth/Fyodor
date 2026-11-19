@@ -57,9 +57,11 @@ export function Inspector({ id }: { id?: string | null } = {}) {
             <span className="insp-cost"><ManaText text={faceData?.mana_cost ?? data.mana_cost} /></span>
           </div>
           <div className="hint">{faceData?.type_line ?? data.type_line}</div>
-          <div className="insp-oracle"><OracleText text={faceData?.oracle_text ?? data.oracle_text} /></div>
+          <div className="insp-oracle"><OracleText text={faceData?.oracle_text ?? data.oracle_text} keywords={data.keywords} /></div>
         </div>
       )}
+      {/* -- stack readability -- an ability on the stack: the ability itself, under its source's card */}
+      {visibleCard?.ability?.text && <div className="insp-note" data-testid="insp-ability"><b>{visibleCard.ability.kind === "triggered" ? "Triggered" : "Ability"}:</b> <ManaText text={visibleCard.ability.text} keywords /></div>}
       {visibleCard?.copy_of && <div className="insp-note">Copy of {visibleCard.copy_of.source_name}{visibleCard.copy_of.modifications ? ` — ${visibleCard.copy_of.modifications}` : ""}</div>}
       {(card?.quantity ?? 1) > 1 && <div className="insp-note" data-testid="insp-stack">{countMark(card)!.title}</div>}
       {visibleCard?.note && <div className="insp-note">✎ {visibleCard.note}</div>}

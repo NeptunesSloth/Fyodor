@@ -1,4 +1,5 @@
 import { Fragment, memo } from "react";
+import { splitKeywords, useGlossary } from "./glossary";
 import { symbolInfo, symbolUrl, useSymbols } from "./symbols";
 
 const SYMBOL = /\{([^}]+)\}/g;
@@ -73,28 +74,39 @@ export function ManaSymbol({ sym, label }: { sym: string; label?: string }) {
   return <DrawnSymbol sym={sym} label={label} />;
 }
 
-/** Renders `{2}{U}{U}` and oracle text with inline mana symbols. */
-export const ManaText = memo(function ManaText({ text }: { text: string | null | undefined }) {
+/** A keyword in card text: a dotted underline, its reminder on hover or focus (the table's tooltip, cards/symbolTip.ts). */
+function Keywords({ text, own }: { text: string; own: readonly string[] | true }) {
+  const parts = splitKeywords(text, useGlossary(), own === true ? undefined : own);
+  return <>{parts.map((p, i) => (typeof p === "string" ? <Fragment key={i}>{p}</Fragment> : <span key={i} className="kw" tabIndex={0} data-sym-tip={p.tip}>{p.word}</span>))}</>;
+}
+
+/**
+ * Renders `{2}{U}{U}` and oracle text with inline mana symbols. `keywords` marks keywords with their reminders: the card's
+ * own keyword list, or `true` for text without one (an ability on the stack, a prompt), where only a keyword at the start
+ * of a clause counts (cards/glossary.ts). Not inside a button: the marks are focusable.
+ */
+export const ManaText = memo(function ManaText({ text, keywords }: { text: string | null | undefined; keywords?: readonly string[] | true }) {
   if (!text) return null;
   const nodes: React.ReactNode[] = [];
   let last = 0;
+  const plain = (s: string, at: number) => nodes.push(keywords ? <Keywords key={`t${at}`} text={s} own={keywords} /> : <Fragment key={`t${at}`}>{s}</Fragment>);
   for (const match of text.matchAll(SYMBOL)) {
     const index = match.index ?? 0;
-    if (index > last) nodes.push(text.slice(last, index));
+    if (index > last) plain(text.slice(last, index), last);
     nodes.push(<ManaSymbol key={index} sym={match[1] ?? ""} />);
     last = index + match[0].length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
-  return <>{nodes.map((n, i) => (typeof n === "string" ? <Fragment key={`t${i}`}>{n}</Fragment> : n))}</>;
+  if (last < text.length) plain(text.slice(last), last);
+  return <>{nodes}</>;
 });
 
-export function OracleText({ text }: { text: string | null | undefined }) {
+export function OracleText({ text, keywords }: { text: string | null | undefined; keywords?: readonly string[] | true }) {
   if (!text) return null;
   return (
     <>
       {text.split("\n").map((line, i) => (
         <p key={i}>
-          <ManaText text={line} />
+          <ManaText text={line} keywords={keywords} />
         </p>
       ))}
     </>

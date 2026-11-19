@@ -8,7 +8,8 @@ import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
-import { AttachLines, CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { AttachLines, CombatArrows, DragLayer, PickLayer, StackFocusMarks } from "./Overlays";
+import { FirstGameGuide } from "./FirstGameGuide";
 import { FocusKeys2D } from "./focus2d";
 import { Hand, toggleHandBrowser } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
@@ -166,6 +167,8 @@ export function GameScreen() {
       <DragLayer />
       {!three && <CombatArrows />}
       {!three && <AttachLines />}
+      <StackFocusMarks />
+      <FirstGameGuide me={me} />
       <PickLayer />
       {three && <CombatLanes />}
       <GameNight />

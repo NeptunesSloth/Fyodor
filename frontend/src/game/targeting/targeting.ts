@@ -65,6 +65,7 @@ export function targetingOf(view: GameView | null | undefined, me: string, selec
     }
   }
   if (!candidates.length || others.length > 3) return null;
+  if (librarySearch(view, d)) return null; // -- library search -- a card grid in the panel (RulesHud SearchGrid), not the tray
   const multi = d.kind === "choose_cards";
   const exactly = typeof d.display?.exactly === "number" ? d.display.exactly : undefined;
   const source = sourceOf(view, d, me, selection);
@@ -78,6 +79,13 @@ export function targetingOf(view: GameView | null | undefined, me: string, selec
 }
 
 const zoneName = (zone: string) => zone.slice(zone.indexOf(":") + 1);
+
+/** -- library search -- a pick of cards that are all in a library (a tutor's or fetch's legal finds, shown to the chooser only). */
+export function librarySearch(view: GameView, d: DecisionView): boolean {
+  if (d.kind !== "choose_cards") return false;
+  const cards = (d.options ?? []).filter((o) => o.card_id);
+  return cards.length > 0 && cards.every((o) => view.cards[o.card_id!]?.zone.endsWith(":library"));
+}
 
 /** The name a prompt says the choice is for: "Choose a target for Swords to Plowshares", "Contagion Engine: choose a target". */
 export function promptSource(prompt: string): string | null {
@@ -251,9 +259,12 @@ export function ptOf(view: GameView, id: string): string {
 
 /** "1 of 2 chosen", "2 chosen" (any number), "Choose 2" (none or all two). */
 export function progress(n: number, t: Pick<Targeting, "min" | "max" | "exactly">): string {
-  if (t.exactly !== undefined) return `${n} of ${t.exactly} chosen`;
-  if (t.max >= 99) return `${n} chosen`;
-  return `${n} of ${t.max} chosen`;
+  // -- clearer targeting -- and what is still needed before Done ("1 of 3 chosen · 1 more needed")
+  const need = (t.exactly ?? t.min) - n;
+  const more = need > 0 ? ` · ${need} more needed` : "";
+  if (t.exactly !== undefined) return `${n} of ${t.exactly} chosen${more}`;
+  if (t.max >= 99) return `${n} chosen${more}`;
+  return `${n} of ${t.max} chosen${more}`;
 }
 
 /** The next candidate along (wrapping), for Tab / arrow keys: from none, forward starts at the first and back at the last. */

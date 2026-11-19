@@ -15,7 +15,7 @@ export function CardDetails({ card, face = 0, extra }: { card: CardData; face?: 
               {f.name} <span className="cost"><ManaText text={f.mana_cost} /></span>
             </h3>
             <div className="type">{f.type_line}</div>
-            <div className="oracle"><OracleText text={f.oracle_text} /></div>
+            <div className="oracle"><OracleText text={f.oracle_text} keywords={card.keywords} /></div>
             {f.power != null && <div className="pt">{f.power}/{f.toughness}</div>}
             {f.loyalty != null && <div className="pt">Loyalty {f.loyalty}</div>}
             {f.defense != null && <div className="pt">Defense {f.defense}</div>}

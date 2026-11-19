@@ -75,6 +75,8 @@ describe("targeting: which decisions the table answers", () => {
     expect(t.source).toBe("grind");
     expect(t.instruction).toBe("Choose up to two target creatures");
     expect(progress(1, t)).toBe("1 of 2 chosen");
+    expect(progress(1, { min: 3, max: 3, exactly: 3 })).toBe("1 of 3 chosen · 2 more needed"); // (what Done still waits for)
+    expect(progress(0, { min: 1, max: 2, exactly: undefined })).toBe("0 of 2 chosen · 1 more needed");
   });
 
   it("players: their plaques are the candidates, in the words of the rules; with creatures it is either", () => {

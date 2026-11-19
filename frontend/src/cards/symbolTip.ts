@@ -2,6 +2,8 @@
  * The mana symbols' tooltip: a small plaque over the symbol pointed at, naming it ("Green or White", "White"). One
  * delegated listener for the whole page (symbols carry `data-sym-tip`, cards/ManaText.tsx), shown after a short rest and
  * gone as soon as the pointer leaves, the page scrolls or a key is pressed. Screen readers read the symbol's own label.
+ * -- keyword help -- keywords in card text carry it too (cards/ManaText.tsx): focusable, so the tip also shows on keyboard focus
+ * (and is their description); a long reminder wraps.
  */
 const DELAY_MS = 260;
 
@@ -10,17 +12,21 @@ export function installSymbolTips(doc: Document = document): () => void {
   tip.className = "sym-tip";
   tip.setAttribute("role", "tooltip");
   tip.hidden = true;
+  tip.id = "sym-tip";
   doc.body.appendChild(tip);
   let timer = 0;
   let current: Element | null = null;
   const hide = () => {
     window.clearTimeout(timer);
+    current?.removeAttribute("aria-describedby");
     current = null;
     tip.hidden = true;
     tip.classList.remove("on");
   };
   const show = (el: Element) => {
     tip.textContent = el.getAttribute("data-sym-tip");
+    tip.classList.toggle("long", (tip.textContent?.length ?? 0) > 40);
+    if (el.classList.contains("kw")) el.setAttribute("aria-describedby", tip.id);
     tip.hidden = false;
     const r = el.getBoundingClientRect();
     const w = tip.offsetWidth;
@@ -41,8 +47,18 @@ export function installSymbolTips(doc: Document = document): () => void {
     timer = window.setTimeout(() => current === el && el.isConnected && show(el), DELAY_MS);
   };
   const out = (e: PointerEvent) => !e.relatedTarget && hide(); // left the window
+  const focus = (e: FocusEvent) => {
+    const el = (e.target as Element | null)?.closest?.(".kw[data-sym-tip]") ?? null;
+    if (!el || el === current) return;
+    hide();
+    current = el;
+    timer = window.setTimeout(() => current === el && el.isConnected && show(el), 60);
+  };
+  const blur = (e: FocusEvent) => (e.target as Element | null) === current && hide();
   doc.addEventListener("pointerover", over);
   doc.addEventListener("pointerout", out);
+  doc.addEventListener("focusin", focus);
+  doc.addEventListener("focusout", blur);
   doc.addEventListener("pointerdown", hide, true);
   doc.addEventListener("keydown", hide, true);
   window.addEventListener("scroll", hide, true);
@@ -50,6 +66,8 @@ export function installSymbolTips(doc: Document = document): () => void {
     hide();
     doc.removeEventListener("pointerover", over);
     doc.removeEventListener("pointerout", out);
+    doc.removeEventListener("focusin", focus);
+    doc.removeEventListener("focusout", blur);
     doc.removeEventListener("pointerdown", hide, true);
     doc.removeEventListener("keydown", hide, true);
     window.removeEventListener("scroll", hide, true);

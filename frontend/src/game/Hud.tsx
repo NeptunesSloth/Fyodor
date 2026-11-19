@@ -134,7 +134,8 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
         scroll = Math.max(60, Math.floor(oracleH - (shortest + slack - p.maxH)));
       }
     }
-    lastScroll.current = { id: shown, scroll: scroll !== null };
+    // (-- keyword help -- a preview with keywords also lingers, for the pointer to reach their reminders)
+    lastScroll.current = { id: shown, scroll: scroll !== null || !!node.querySelector(".kw") };
     setPlace({ key, ...p, art: fitArt, scroll });
   });
   if (!shown || (skipHand && inHand)) return null;
@@ -149,7 +150,7 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const scrolls = !measuring && !!place?.scroll;
   return (
     <div ref={panel} className={`card-preview ${side}${scrolls ? " scrolls" : ""}`} data-testid="card-preview" data-dock={side} style={style}
-      onPointerEnter={() => scrolls && setHeld(shown)} onPointerLeave={() => setHeld(null)}
+      onPointerEnter={(e) => (scrolls || (e.target as Element).closest?.(".kw")) && setHeld(shown)} onPointerLeave={() => setHeld(null)}
       onScrollCapture={(e) => {
         const t = e.target as HTMLElement;
         panel.current?.toggleAttribute("data-at-end", t.scrollTop + t.clientHeight >= t.scrollHeight - 2);

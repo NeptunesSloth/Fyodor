@@ -30,6 +30,7 @@ import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
 import { answerByClick, clickAnswer, legalClass } from "../game/rules/RulesHud";
 import { targetBeams } from "../game/targeting/beams";
+import { stackFocus } from "../game/StackChain";
 import { useTargeting } from "../game/targeting/store";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
@@ -1681,6 +1682,7 @@ export class TableScene {
     this.beams = targetBeams(view, this.me);
     // -- combat filter -- (game/combatFilter.ts) the cards it leaves lit, worked out here once per sync: dimming is a material swap, no per-frame cost
     const lit = litCards(view, this.me, usePrefs.getState().combatFilter);
+    const sf = stackFocus(view, store.hover); // -- stack readability -- a stack object pointed at: its targets and source glow
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -1763,7 +1765,9 @@ export class TableScene {
           : blocks > 1 ? { blocks } : undefined;
         this.setOverlay(c, pile || owner || visitor || combat ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}), ...(combat ? { combat } : {}) } : overlay);
         const lit2 = selection.has(id) || peek.has(id); // (peek: a plaque's "attached elsewhere" chip is hovered)
-        this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
+        const hl = sf?.targets.includes(id) ? this.plane.ui.accent2 : sf?.source === id ? this.plane.ui.frameHi : null;
+        if (hl) this.setGlow(c, hl, 0.95);
+        else this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -2059,7 +2063,11 @@ export class TableScene {
     // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
     const beams = this.beams;
     if (beams) for (const t of beams.targets) add(beams.source && this.cards.has(beams.source) ? beams.source : MY_HAND, t, this.plane.ui.accent2);
+    // -- stack readability -- a stack object's target arrows only while it is pointed at (its card here or its row in the stack list)
+    const onStack = new Set(view.stack);
+    const sf = onStack.size ? stackFocus(view, useGame.getState().hover) : null;
     for (const ar of view.arrows ?? []) {
+      if (onStack.has(ar.source) && !sf?.ids.has(ar.source)) continue;
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
     }

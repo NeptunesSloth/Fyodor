@@ -241,7 +241,13 @@ body.reduced-motion .phase-dial .pd-needle { transition: none; }
   width: 22px; height: 22px; flex: none; margin-right: 4px; display: inline-grid; place-items: center; border-radius: 50%;
   font: 700 11px/1 var(--font-display); color: var(--text); background: var(--steel-lo); border: 2px solid var(--player-color, var(--frame));
 }
-.decision-remember { display: flex; gap: 6px; align-items: center; color: var(--text-dim); font-size: 12px; margin-top: 0; order: 8; height: 30px; padding: 0 8px; }
+.decision-remember { display: flex; gap: 12px; align-items: center; color: var(--text-dim); font-size: 12px; margin-top: 0; order: 8; height: 30px; padding: 0 8px; }
+.decision-remember label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.decision-remember label:first-child { color: var(--text); font-size: 13px; }
+.decision-remember input { accent-color: var(--frame-hi); width: 15px; height: 15px; margin: 0; }
+/* -- "Always do this" -- the turn dial's list of remembered answers (RememberedAnswers.tsx): a quiet text button */
+.td-remembered { flex: none; border: 0; background: none; padding: 2px 4px; color: var(--text-dim); font-size: 11px; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.td-remembered:hover, .td-remembered:focus-visible { color: var(--frame-hi); }
 .decision-keys { flex-basis: 100%; order: 9; font-size: 11.5px; color: var(--text-dim); }
 .decision-combat, .decision-reconcile { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 /* -- playtest (nov 16) -- 200 hasty Pestermite copies made the attackers list 12 000px tall and put All attack / No attack under
@@ -431,3 +437,21 @@ body.lands-clear .tgt-bar[data-dock="above-hand"] { bottom: max(calc(var(--hand-
 .combat-row.blocker-row.blocking { border-left-color: var(--accent); }
 .blocker-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 13px; }
 .blocker-row select { width: 100%; min-height: 26px; font-size: 12.5px; }
+
+/* -- library search -- a tutor's finds as large cards in a wider panel (RulesHud SearchGrid): filters, a land count, a sort */
+.decision-panel.search { --dw: min(1180px, calc(100vw - 32px)); max-height: min(72vh, 820px); }
+@media (min-width: 721px) { .decision-panel.search:not(.waiting):not(.payment) { --dw: min(1060px, calc(100vw - 354px)); } }
+.search-count { order: 1; flex-basis: 100%; margin: 0; font-size: 12px; }
+.search-grid { order: 2; flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; padding: 4px 2px 8px; }
+.search-card { position: relative; padding: 0; border: 0; background: none; border-radius: 7px; cursor: pointer; transition: transform 120ms var(--ease-out, ease-out); }
+.search-card:hover { transform: translateY(-3px); }
+.search-card:focus-visible { outline: 2px solid var(--frame-hi); outline-offset: 2px; }
+.search-card[aria-pressed="true"] { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.search-pick {
+  position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center;
+  font: 700 12px/1 var(--font-ui); color: #15120e; background: var(--accent-2); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+body.reduced-motion .search-card, body.reduced-motion .search-card:hover { transition: none; transform: none; }
+@media (prefers-reduced-motion: reduce) { .search-card, .search-card:hover { transition: none; transform: none; } }
+.decision-panel.search .decision-options > .tt-btn { order: 3; }
+.td-remembered-row { display: flex; justify-content: flex-end; margin-top: -2px; }

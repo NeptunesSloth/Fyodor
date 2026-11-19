@@ -110,6 +110,8 @@ export function Table3D({ me }: { me: string }) {
     sync();
     const unGame = useGame.subscribe((s, prev) => {
       if (s.view !== prev.view || s.selection !== prev.selection || s.peek !== prev.peek || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      // -- stack readability -- a stack row pointed at (or let go): its targets' glow and arrows
+      else if (s.hover !== prev.hover && s.view && (s.view.stack.includes(s.hover ?? "") || s.view.stack.includes(prev.hover ?? ""))) sync();
       if (s.errorCard && s.errorCard !== prev.errorCard) setTimeout(sync, ERROR_MS + 50);
     });
     const unCards = useCardCache.subscribe((s, prev) => {

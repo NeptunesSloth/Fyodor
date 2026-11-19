@@ -213,3 +213,14 @@ body.perf-low .tgt-bar, body.perf-low .tgt-source { box-shadow: none; }
 .tgt-thumb[data-whole] .tgt-art > :is(.card-face, .face-down-known) { left: 0; width: 100%; margin-top: 0; border-radius: 4px; }
 .tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole] { margin-left: -72px; }
 .tgt-thumb[data-whole] .tgt-label { font-size: 12px; }
+
+/* -- stack readability -- a stack row pointed at: its targets ringed in the target colour, the permanent it comes from edged in brass
+   (game/Overlays.tsx StackFocusMarks). Static: no motion to reduce. A label as well as a colour: the ring's corner tag. */
+[data-stack-hl] { outline: 2px solid var(--accent-2); outline-offset: 3px; border-radius: 6px; }
+[data-stack-hl="source"] { outline-color: var(--frame-hi); outline-style: dashed; }
+[data-stack-hl]::before {
+  content: "Target"; position: absolute; z-index: 3; top: -10px; left: 50%; transform: translateX(-50%); pointer-events: none;
+  font: 600 10px/1 var(--font-ui); letter-spacing: 0.04em; padding: 2px 5px; border-radius: 3px; background: #15120e; color: var(--accent-2);
+  border: 1px solid currentColor; white-space: nowrap;
+}
+[data-stack-hl="source"]::before { content: "Source"; color: var(--frame-hi); }
