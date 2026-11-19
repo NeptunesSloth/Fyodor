@@ -114,12 +114,15 @@ export function manaAbilityIndex(cardId: string, view: GameView): number | null 
   // -- playtest fixes (nov 6) -- a granted mana ability (Cryptolith Rite, Enduring Vitality) works on a token with no card data too
   const granted = view.rules?.stats?.[cardId]?.abilities?.find((a) => a.kind === "mana" && /\{T\}/.test(a.text));
   const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
-  if (!data) return granted ? granted.index : null;
-  const face = data.faces?.[c.face ?? 0];
-  const lines = abilityLines(face?.oracle_text ?? data.oracle_text ?? "");
+  // -- sweep B (nov 18) -- a token made by an effect (a Treasure) has no card data, only its own text: read that ("{T}, Sacrifice this token:
+  // Add one mana of any color."), or a click on a highlighted Treasure while paying selected it instead of adding its mana
+  const tokenText = !data && "token" in c ? c.token?.text : undefined;
+  if (!data && !tokenText) return granted ? granted.index : null;
+  const face = data?.faces?.[c.face ?? 0];
+  const lines = abilityLines(face?.oracle_text ?? data?.oracle_text ?? tokenText ?? "");
   const i = lines.findIndex((l) => /^[^"]*\{T\}[^"]*: Add /.test(l));
   if (i >= 0) return i;
-  const typeLine = face?.type_line ?? data.type_line ?? "";
+  const typeLine = face?.type_line ?? data?.type_line ?? "";
   if (/\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "")) return lines.length;
   return granted ? granted.index : null;
 }
@@ -140,7 +143,8 @@ export function tapForMana(cardId: string, seat?: string): boolean {
     if (pay.convoke?.includes(cardId)) return payWith(cardId, "convoke");
     if (pay.improvise?.includes(cardId)) return payWith(cardId, "improvise");
   }
-  const index = manaAbilityIndex(cardId, view);
+  // (a source the payment prompt offers is tapped for mana even when this table can't tell which ability: the server reads it, tap_gesture.py)
+  const index = manaAbilityIndex(cardId, view) ?? (pay?.sources?.includes(cardId) ? 0 : null);
   if (index == null) return false;
   // -- playtest fixes (nov 5) -- the server reads which mana ability a tap means: a Forest under Chromatic Lantern has two (305.6 + the
   // granted one), so the player is asked which mana (backend app/rules/tap_gesture.py); `ability` is only this table's guess

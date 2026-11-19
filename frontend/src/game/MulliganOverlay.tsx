@@ -7,6 +7,9 @@ import { useHoverCard } from "./hoverCard";
 
 const toBottom = (policy: MulliganPolicy, mulligans: number) => (policy.keep_bottom ?? 0) + Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
 
+/** "Click the card to put on the bottom" / "Click the 2 cards to put on the bottom" (playtest: "Click the 1 cards"). */
+const clickBottom = (n: number) => (n === 1 ? "Click the card to put on the bottom" : `Click the ${n} cards to put on the bottom`);
+
 const nameOf = (card: GameView["cards"][string] | undefined): string => (card && "name" in card && card.name ? card.name : "Exile hand");
 
 function describe(seat: PregameSeat): string {
@@ -113,10 +116,10 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
         {bottoming ? (
           <>Choose <b>exactly {need}</b> card{need > 1 ? "s" : ""} to put on the bottom of your library. The last one you pick goes to the very bottom.</>
         ) : seat.mulligans === 0 ? (
-          keepNow < hand.length ? <>Click the {hand.length - keepNow} cards to put on the bottom, then keep the other {keepNow}. Or take a mulligan.</>
+          keepNow < hand.length ? <>{clickBottom(hand.length - keepNow)}, then keep the other {keepNow}. Or take a mulligan.</>
           : <>Keep these {hand.length} or take a mulligan.</>
         ) : (
-          <>Mulligan #{seat.mulligans}. {hand.length === keepNow ? `Keep ${hand.length}` : `Click the ${hand.length - keepNow} cards to put on the bottom, then keep`}, or go again.</>
+          <>Mulligan #{seat.mulligans}. {hand.length === keepNow ? `Keep ${hand.length}` : `${clickBottom(hand.length - keepNow)}, then keep`}, or go again.</>
         )}
         {!bottoming && policy.partial_hand_selection && <> Select cards to send back only those.</>}
       </p>

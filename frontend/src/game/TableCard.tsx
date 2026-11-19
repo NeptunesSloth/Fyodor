@@ -37,10 +37,13 @@ interface Props {
   board?: string;
   /** Which edge of the card faces the middle of the table on this board (where a tucked card peeks out). */
   front?: "top" | "bottom";
+  /** -- sweep B (nov 18) -- px between the card and its board's edge on the `front` side: a card stepping forward (an attacker or blocker)
+   * stops there, so a creature in the row nearest that edge isn't pushed out of the board (its name and "⛨ Serra Angel" were cut off). */
+  room?: number;
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false, board, front = "top" }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false, board, front = "top", room }: Props) {
   const card = useCardView(id);
   const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
@@ -131,7 +134,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
           : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }),
         ...(guest ? { ["--guest" as string]: guest.color } : {}),
-        ...(pushed ? { ["--push" as string]: `${Math.round(width * 0.3)}px` } : {}),
+        ...(pushed ? { ["--push" as string]: `${pushBy(width, room)}px` } : {}),
       }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
@@ -210,6 +213,9 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     </div>
   );
 });
+
+/** How far a card steps forward (an attacker or blocker, planned or declared): 0.3 of its width, never past its board's edge (`room`). */
+export const pushBy = (width: number, room?: number): number => Math.max(0, Math.min(Math.round(width * 0.3), room == null ? Infinity : Math.floor(room) - 2));
 
 /** The creature's current power/toughness and gained/lost keywords, when the rules change them. */
 export function StatBadge({ stats }: { stats: CardStats }) {

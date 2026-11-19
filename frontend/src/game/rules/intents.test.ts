@@ -145,6 +145,21 @@ describe("automation intents", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "t1", ability: 100, tap_for_mana: true }]);
   });
 
+  it("a Treasure made by an effect (no card data, only its token text) is tapped for mana by a click (sweep B, nov 18)", () => {
+    const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: ["tr", "odd"] }, options: [] } });
+    const treasure = { ...card("tr", "p1:battlefield", "x"), card_id: null, is_token: true, name: "Treasure",
+      token: { name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." } };
+    const odd = { ...card("odd", "p1:battlefield", "x"), card_id: null, is_token: true, name: "Odd" }; // (offered, no text: the server reads it)
+    const v = { ...base, cards: { ...base.cards, tr: treasure, odd } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(manaAbilityIndex("tr", v)).toBe(0);
+    expect(tapForMana("tr", "p1")).toBe(true);
+    expect(tapForMana("odd", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "tr", ability: 0, tap_for_mana: true },
+      { type: "activate_ability", card_id: "odd", ability: 0, tap_for_mana: true }]);
+  });
+
   it("during a convoke / improvise payment, clicking a highlighted creature or artifact taps it for that", () => {
     const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
       display: { kind: "tap_mana", sources: ["f1"], convoke: ["cr"], improvise: ["ar"] }, options: [] } });

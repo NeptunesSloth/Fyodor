@@ -304,6 +304,7 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     try {
       await conn.requestAction({ type: "action", action, as });
+      useToasts.getState().clearRefusals(); // (-- sweep B -- a refusal is stale once an action of theirs goes through)
       const done = undoableSummary(action as Record<string, unknown>);
       // -- undo policy (gap 3) -- offer Undo only when this player may take back the action they just sent (theirs)
       const after = get().view;

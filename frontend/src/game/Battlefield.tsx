@@ -153,7 +153,8 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       {layout && ids.map((id) => {
         const at = layout.place.get(id);
         if (!at || hidden.has(id)) return null;
-        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} dim={!!lit && !lit.has(id)} tile board={player} front={mirrored ? "bottom" : "top"} />;
+        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} dim={!!lit && !lit.has(id)} tile board={player} front={mirrored ? "bottom" : "top"}
+          room={mirrored ? size.h - at.top - layout.h : at.top} />;
       })}
       {!layout && ids.map((id, i) => {
         const c = cards?.[id];
@@ -165,7 +166,8 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
         const top = size.h > cardH + 8 ? Math.max(4, Math.min(size.h - cardH - 4, raw)) : raw;
         // small mats draw cards larger than their share (readable): the right-most stay on the felt too
         const left = Math.max(0, Math.min(size.w - cardW - 2, rawLeft));
-        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} dim={!!lit && !lit.has(id)} board={player} front={mirrored ? "bottom" : "top"} />;
+        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} dim={!!lit && !lit.has(id)} board={player} front={mirrored ? "bottom" : "top"}
+          room={mirrored ? size.h - top - cardH : top} />;
       })}
       {marquee && (
         <div

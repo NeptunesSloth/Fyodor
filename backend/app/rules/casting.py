@@ -2332,6 +2332,16 @@ def _left_text(cost: M.ManaCost) -> str:
     return "" if cost.is_free else cost.text()
 
 
+def kick_tag(abilities: Any, times: int) -> str:
+    """-- sweep B (nov 18) -- the stack's word for a cast that paid its kicker-like cost ``times`` times: replicate (702.56), squad (702.157)
+    and offspring (702.175) are paid as kicker is, but the spell isn't kicked (Train of Thought replicated three times read "Kicked ×3")."""
+    kick = kicker_cost(abilities)
+    word = (kick.text if kick is not None else "").split(" ", 1)[0].lower()
+    base = {"replicate": "Replicated", "squad": "Squad", "offspring": "Offspring"}.get(word, "Kicked")
+    n = kick.paid(times) if kick is not None else times  # ("Kicker {A} and/or {B}": ``times`` is a mask, both is twice, 702.33d)
+    return base if n == 1 else f"{base} ×{n}"
+
+
 def ask_to_tap(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> None:
     """Open the "tap your mana" prompt: the player taps lands / mana sources (mana abilities are
     allowed while it's open) and, for a spell with convoke / improvise / delve, clicks creatures,
@@ -2362,7 +2372,9 @@ def resume_pay_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.hold = d.player
         return
     if _covered(plan, d.player, M.parse_cost(d.resume["cost"]), _prompt_helpers(plan, d.player, d.resume), d.resume) is None:
-        raise ActionError(f"Tap your mana first: {d.resume['cost']} isn't paid yet")
+        # -- sweep B (nov 18) -- what is still missing, as the plaque's "Remaining" says ({G}{U}), not the whole cost ({6}{G}{U}) again
+        left = _tap_display(plan, d.player, M.parse_cost(d.resume["cost"]), "", d.resume)["remaining"] or d.resume["cost"]
+        raise ActionError(f"Tap your mana first: {left} isn't paid yet")
     _rerun(plan, d, A.parse_action(d.resume["intent"]), [])
 
 
@@ -4453,7 +4465,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
         tags.append("Entwined")
     elif a.kicker:
-        tags.append("Kicked" if kicked == 1 else f"Kicked ×{kicked}")
+        tags.append(kick_tag(ch.abilities, kicked))
     from app.rules import wave111r3_replicate
 
     tags += wave111r3_replicate.tags(data.replicate111r3)  # -- granted replicate (wave 111R3) --
@@ -5869,7 +5881,7 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         plan.reserved_life = 0  # (wave 29C)
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
-             + (["Kicked" if record.kicked == 1 else f"Kicked ×{record.kicked}"] if a.kicker else []) + (["Bargained"] if bargained else [])
+             + ([kick_tag(ch.abilities, record.kicked)] if a.kicker else []) + (["Bargained"] if bargained else [])
              + wave111r3_replicate.tags(data.replicate111r3)})  # (-- granted replicate (wave 111R3) --)
     record.x = a.x_value
     record_payment(plan, card.id, record)

@@ -25,6 +25,24 @@ describe("toasts", () => {
   });
 });
 
+describe("a refusal goes once an action goes through (sweep B, nov 18)", () => {
+  it("clearRefusals drops sticky refusals shown a moment ago, keeps a fresh one and other toasts", () => {
+    vi.useFakeTimers();
+    try {
+      useToasts.setState({ toasts: [] });
+      toast("Tap your mana first: {G}{U} isn't paid yet. Nothing changed.", "error", undefined, { sticky: true });
+      toast("Updating — Fyodor will restart.", undefined, undefined, { sticky: true });
+      useToasts.getState().clearRefusals(); // (just shown: stays)
+      expect(useToasts.getState().toasts).toHaveLength(2);
+      vi.advanceTimersByTime(2000);
+      useToasts.getState().clearRefusals();
+      expect(useToasts.getState().toasts.map((t) => t.text)).toEqual(["Updating — Fyodor will restart."]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("toast text with card symbols (playtest nov 17)", () => {
   it("a toast naming a cost or {T} draws the symbols; plain text stays plain", async () => {
     const { createElement } = await import("react");

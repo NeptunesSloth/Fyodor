@@ -407,7 +407,9 @@ main.table > .zone-browser.folded { top: 8px; bottom: auto; max-height: none; le
 /* -- second pass (nov 17) -- my land row stays in view under every prompt, not only while paying: with my lands measured low on the
    screen (body.lands-clear, --lands-clear: game/landsClear.ts) the prompt plaques, the waiting line and the target bar that steps over
    my hand dock just above the lands (over my other permanents) instead of on them. Paying keeps its own place (above). */
-body.lands-clear:not(.paying) .decision-panel:not(.payment) {
+/* (-- sweep B (nov 18) -- not the prompts docked at the right under the top bar, attackers.css: given a bottom as well as their top, the
+   attackers prompt with one creature stood 440px tall and covered most of an opponent's board) */
+body.lands-clear:not(.paying) .decision-panel:not(.payment):not([data-kind="declare_attackers"], [data-kind="declare_blockers"], [data-kind="divide"]) {
   bottom: max(calc(var(--hand-h, 150px) + 14px), var(--lands-clear));
   max-height: min(46vh, 440px, calc(100vh - var(--lands-clear) - 64px));
 }
