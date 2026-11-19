@@ -48,6 +48,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   .game-top .auto-pill[data-testid="resp-mode"] { display: none; }
   .game-top .seat-switch { font-size: 0; gap: 0; } /* "View" still names the select for assistive tech */
 }
+/* -- sweep B (nov 18) -- two bots' level switches at 1600px pushed More and End game off the screen (1770px of bar): the responses
+   setting goes first there too (it stays in the Automation panel) */
+@media (max-width: 1700px) {
+  .game-top:has(.bot-levels + .bot-levels) .auto-pill[data-testid="resp-mode"] { display: none; }
+  .game-top:has(.bot-levels + .bot-levels) .tt-btn { padding: 0 8px; } /* (and room for the result chip once it's over) */
+}
 .game-top .auto-hud .tt-btn[data-testid="concede-yes"] { color: #ffb4ad; }
 .daynight.day { color: #f5d77a; }
 .daynight.night { color: #9fb7ff; }
