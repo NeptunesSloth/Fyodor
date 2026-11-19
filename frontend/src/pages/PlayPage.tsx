@@ -41,7 +41,7 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
-import { orderGames, ownName, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
+import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
@@ -111,7 +111,7 @@ export function PlayPage({ route }: { route: Route }) {
     if (plan.kind === "open") navigate(`/game/${plan.gameId}`);
     else if (plan.kind === "password") setAskPassword(true);
     else if (plan.kind === "join") {
-      void joinTable({ code: invite.code, name: invite.name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
+      void joinTable({ code: invite.code, name: invite.name || activeProfile().name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
         .catch(toastError);
     }
   }, [invite, games]);
@@ -230,7 +230,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const useLobby = lobby;
   const level: AutomationLevel = automation; // (a Sandbox table starts manual on the server; its chosen level is switched on at once)
   const [players, setPlayers] = useState<CreatePlayer[]>([
-    { name: ownName(activeProfile().name) || "Player 1", deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name
+    { name: activeProfile().name, deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name (as Settings → Profile shows it)
     { name: "Seat 2", deck_id: null, color: COLORS[1] },
   ]);
   const [busy, setBusy] = useState(false);
@@ -295,7 +295,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           name: name.trim() || "Deck test",
           format,
           mode: "lan",
-          players: [{ name: players[0]?.name.trim() || "Player 1", deck_id: hostDeck, color: players[0]?.color }],
+          players: [{ name: players[0]?.name.trim() || activeProfile().name, deck_id: hostDeck, color: players[0]?.color }],
           shuffle: true,
           lobby: false,
           seats: 1,
@@ -326,7 +326,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         format,
         mode: "lan",
         password: password || null,
-        players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p, i) => ({ ...p, name: p.name.trim() || `Seat ${i + 1}` })),
+        players: useLobby ? [{ name: players[0]?.name.trim() || activeProfile().name, deck_id: null }] : players.map((p, i) => ({ ...p, name: p.name.trim() || `Seat ${i + 1}` })),
         shuffle: true,
         lobby: useLobby,
         turn_order: "pod", // the pod's own rule is the default for game nights (Table settings can change it)
@@ -740,7 +740,7 @@ function HostDeck({ deck, canPick, onPick, onClear, note = "You host. Choose you
 function JoinGame({ invite, askPassword }: { invite: Invite | null; askPassword: boolean }) {
   // an invite link (#/play?code=ABC123) fills the room code in; a join link also the name (and asks for a password here)
   const [code, setCode] = useState(() => invite?.code ?? "");
-  const [name, setName] = useState(() => invite?.name || ownName(activeProfile().name));
+  const [name, setName] = useState(() => invite?.name || activeProfile().name); // the profile's name, as the host seat uses it
   const [password, setPassword] = useState("");
   const passwordField = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -833,7 +833,7 @@ function TileJoin({ game: g }: { game: GameSummary }) {
     if (g.has_password && !asking) return setAsking(spectate ? "watch" : "join");
     setBusy(true);
     try {
-      await joinTable({ code: g.code!, name: ownName(activeProfile().name) || undefined, password: password || undefined, spectate });
+      await joinTable({ code: g.code!, name: activeProfile().name || undefined, password: password || undefined, spectate });
     } catch (e) {
       toastError(e); // the server has the last word: a seat taken meanwhile, a wrong password
       setBusy(false);

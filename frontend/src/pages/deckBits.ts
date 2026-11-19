@@ -129,3 +129,8 @@ export function artFirst(printings: CardData[]): CardData[] {
   const here = (p: CardData) => Number(p.own_image ?? p.has_image);
   return printings.map((p, i) => [p, i] as const).sort(([a, i], [b, j]) => here(b) - here(a) || i - j).map(([p]) => p);
 }
+
+/** The printing picker's list: with "only with art" on, printings whose own picture is here, plus the chosen one wherever it is. */
+export function printingsShown(printings: CardData[], chosen: string | null | undefined, onlyArt: boolean): CardData[] {
+  return onlyArt ? printings.filter((p) => (p.own_image ?? p.has_image) || p.id === chosen) : printings;
+}

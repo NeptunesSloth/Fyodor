@@ -17,9 +17,10 @@
 }
 
 /* ---------------------------------------------------------------- the title and the menu */
+/* (the column is a scroll box, which clips: 6px of room each side keeps every item's focus ring whole) */
 .home-col {
-  position: absolute; left: clamp(20px, 6vw, 120px); top: 0; bottom: 64px; width: min(452px, calc(100vw - 40px));
-  display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 28px 0 8px; overflow-y: auto; scrollbar-width: none;
+  position: absolute; left: calc(clamp(20px, 6vw, 120px) - 6px); top: 0; bottom: 64px; width: min(464px, calc(100vw - 28px));
+  display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 28px 6px 8px; overflow-y: auto; scrollbar-width: none;
 }
 .home-head { margin-bottom: 4px; }
 .home-launch .home-title {

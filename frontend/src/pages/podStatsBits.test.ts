@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameResult, Outcome, ResultPlayer } from "../services/pod";
-import { OUTCOME_WORD, groupByNight, nightKey, podSummary, signatureCommanders } from "./podStatsBits";
+import { OUTCOME_WORD, groupByNight, nightKey, podSummary, signatureCommanders, splitBot } from "./podStatsBits";
 
 const seat = (name: string, commanders: string[], outcome: Outcome = "loss"): ResultPlayer =>
   ({ seat: name.toLowerCase(), player_id: `id-${name}`, name, deck_key: null, deck_name: null, commanders, outcome });
@@ -55,5 +55,15 @@ describe("podSummary and outcome words", () => {
     expect(podSummary(results, 2).games).toBe("2+ games"); // the list was cut at its limit
     expect(podSummary([]).last).toBeNull();
     expect(OUTCOME_WORD.win).toBe("Won");
+  });
+});
+
+describe("splitBot", () => {
+  it("shows a recorded bot once, marked as a bot; people's names stay as they are", () => {
+    expect(splitBot("Bot (bot)")).toEqual({ name: "Bot", bot: true });
+    expect(splitBot("Bot 2 (bot)")).toEqual({ name: "Bot 2", bot: true });
+    expect(splitBot("Alice")).toEqual({ name: "Alice", bot: false });
+    expect(splitBot("(bot)")).toEqual({ name: "(bot)", bot: false });
+    expect(splitBot("Robert (Bob)")).toEqual({ name: "Robert (Bob)", bot: false });
   });
 });

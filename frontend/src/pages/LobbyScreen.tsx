@@ -946,6 +946,7 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
   const [companion, setCompanion] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
   const [saved, setSaved] = useState<MyDeck[]>(() => myDecks());
+  const [addOpen] = useState(() => saved.length === 0); // "Add decks to My decks" starts open only while there are none
   const [source, setSource] = useState<Source>(brought ? "brought" : saved.length ? "mine" : "paste");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -954,6 +955,13 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [keepBrought, setKeepBrought] = useState(false);
+  const tabList = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // focus lands on the chosen source's tab (unless that source's own field took it), also when the table's decks arriving
+    // switch the source away from a field that had it; arrows move between tabs
+    const at = document.activeElement;
+    if (!at || at === document.body || at.getAttribute("role") === "dialog") tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  }, [source]);
 
   useEffect(() => {
     // The host's library is offered only on the host computer (the server enforces this too).
@@ -1009,9 +1017,18 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
 
   return (
     <Modal title="Bring a deck" onClose={onClose} wide>
-      <div className="deck-src-tabs" role="tablist">
+      <div className="deck-src-tabs" role="tablist" aria-label="Where the deck comes from" ref={tabList}
+        onKeyDown={(e) => {
+          const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          const at = tabs.findIndex(([k]) => k === source);
+          const next = tabs[(at + step + tabs.length) % tabs.length]![0];
+          setSource(next);
+          requestAnimationFrame(() => tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+        }}>
         {tabs.map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={source === key} className={`tt-tab ${source === key ? "on" : ""}`} onClick={() => setSource(key)}>
+          <button key={key} role="tab" aria-selected={source === key} tabIndex={source === key ? 0 : -1} className={`tt-tab ${source === key ? "on" : ""}`} onClick={() => setSource(key)}>
             {label}
           </button>
         ))}
@@ -1062,11 +1079,17 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
         )}
         {source === "mine" && (
           <div className="deck-pick-list">
-            <p className="hint" data-testid="my-decks-address">
-              My decks are kept in this browser for <b>{window.location.host}</b>: another address (another host, or this one after its
-              address changes) has its own list. Export My decks to carry them there, and import the file at the new address.
-            </p>
-            <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
+            {/* the decks first; where they live and how they travel behind the "?" */}
+            <div className="my-decks-where">
+              <p className="hint" data-testid="my-decks-address">Saved in this browser for <b>{window.location.host}</b>.</p>
+              <details className="my-decks-help">
+                <summary aria-label="About My decks" title="About My decks">?</summary>
+                <div className="my-decks-help-text">
+                  <p>Import decks here while online: their lists are saved on this device and sent as your private collection when you choose one. Reusing them at a table needs no Internet.</p>
+                  <p>Another address (another host, or this one after its address changes) has its own list: Export My decks to carry them there, and import the file at the new address, offline.</p>
+                </div>
+              </details>
+            </div>
             {saved.length === 0 && <p className="hint">No personal decks saved yet.</p>}
             {saved.map((d) => (
               <div key={d.id} className="deck-pick-row">
@@ -1074,9 +1097,13 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
                   <b>{d.name}</b>
                   <span className="hint">{d.commanders.join(" & ") || (d.body.archidekt ? "Archidekt" : "Deck list")}</span>
                 </button>
-                <button className="tt-icon" title="Forget this deck" onClick={() => { forgetMyDeck(d.id); void savedChanged(); }}>✕</button>
+                <button className="tt-icon" title="Forget this deck" aria-label={`Forget ${d.name}`} onClick={() => { forgetMyDeck(d.id); void savedChanged(); }}>✕</button>
               </div>
             ))}
+            <details className="my-decks-add" open={addOpen}>
+              <summary>Add decks to My decks</summary>
+              <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
+            </details>
           </div>
         )}
         {source === "archidekt" && (

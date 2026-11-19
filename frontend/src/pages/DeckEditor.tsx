@@ -25,7 +25,7 @@ import {
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
 import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckWarning, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
-import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, savedRows } from "./deckBits";
+import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, printingsShown, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
 import "./decks.css";
 
@@ -56,6 +56,9 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const [sourceBusy, setSourceBusy] = useState(false);
   const cards = useCardCache((s) => s.cards);
   const checksRef = useRef<HTMLElement>(null);
+  // -- added -- the row a search pick added to (or counted up), lit briefly and brought into view, and a quiet line saying so
+  const [added, setAdded] = useState<{ section: Section; printing_id: string; at: number } | null>(null);
+  const [addedNote, setAddedNote] = useState("");
 
   const load = useCallback((d: Deck) => {
     setDeck(d);
@@ -237,7 +240,14 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
       <div className="de-grid">
         <div className="de-list">
           <div className="de-add">
-            <CardSearchBox onPick={(c) => { edit((l) => addCard(l, c, addSection)); requestCards([c.id]); }} onHover={(c) => setHover(c?.id ?? null)} />
+            <CardSearchBox onPick={(c) => {
+              const next = addCard(entries, c, addSection);
+              const qty = next.find((e) => e.section === addSection && e.printing_id === c.id)?.quantity ?? 1;
+              edit(() => next);
+              requestCards([c.id]);
+              setAdded({ section: addSection, printing_id: c.id, at: Date.now() });
+              setAddedNote(`Added ${c.name} (${qty})${addSection === "main" ? "" : ` to ${SECTION_LABEL[addSection]}`}`);
+            }} onHover={(c) => setHover(c?.id ?? null)} />
             <select value={addSection} aria-label="Add cards to" onChange={(e) => setAddSection(e.target.value as Section)}>
               {SECTIONS.map((s) => <option key={s} value={s}>to {SECTION_LABEL[s]}</option>)}
             </select>
@@ -249,6 +259,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                 </button>
               ))}
             </div>
+            <p className="de-added" role="status" aria-live="polite" data-testid="deck-added">{addedNote}</p>
           </div>
           {grouped.map(({ section, groups }) => (
             <section key={section} className={`de-section de-sec-${section}`} aria-label={SECTION_LABEL[section]}>
@@ -276,6 +287,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                             entry={entry}
                             card={entry.printing_id ? cards[entry.printing_id] : undefined}
                             checks={entry.printing_id ? cardChecks.get(entry.name) : undefined}
+                            added={added && added.section === entry.section && added.printing_id === entry.printing_id ? added.at : undefined}
                             onHover={() => setHover(entry.printing_id)}
                             onQty={(d) => edit((l) => changeQuantity(l, index, d))}
                             onRemove={() => edit((l) => removeEntry(l, index))}
@@ -454,6 +466,8 @@ function EntryRow(props: {
   card: CardData | undefined;
   /** this card's deck checks (as of the last save) */
   checks?: DeckWarning[];
+  /** when a search pick last added to this row: it lights up for a moment and comes into view */
+  added?: number;
   onHover: () => void;
   onQty: (delta: number) => void;
   onRemove: () => void;
@@ -466,6 +480,17 @@ function EntryRow(props: {
   const { entry, card } = props;
   const fallback = entry.resolution === "fallback" || entry.resolution === "set";
   const [menu, setMenu] = useState(false);
+  const row = useRef<HTMLLIElement>(null);
+  const [lit, setLit] = useState(false);
+  useEffect(() => {
+    // (also on remount: the row moves to its type group once the card's data arrives)
+    if (props.added === undefined || Date.now() - props.added > 2500) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+    setLit(true);
+    const t = window.setTimeout(() => setLit(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [props.added]);
   // (built only while the menu is open: a hundred rows render on every edit)
   const items = (): DeckMenuItem[] => [
     { label: "Make commander", icon: "crown", onClick: () => props.onCommander(false) },
@@ -480,7 +505,7 @@ function EntryRow(props: {
     { label: "Remove", icon: "trash", danger: true, onClick: props.onRemove },
   ];
   return (
-    <li className={`de-row ${entry.printing_id ? "" : "unresolved"} ${menu ? "menu-open" : ""}`} onPointerEnter={props.onHover} onFocus={props.onHover}
+    <li ref={row} className={`de-row ${entry.printing_id ? "" : "unresolved"} ${menu ? "menu-open" : ""} ${lit ? "added" : ""}`} onPointerEnter={props.onHover} onFocus={props.onHover}
       onContextMenu={(e) => { e.preventDefault(); setMenu(true); }}>
       <span className="de-qty">
         <button className="de-step" onClick={() => props.onQty(-1)} aria-label="Remove one">−</button>
@@ -535,6 +560,10 @@ function PrintingPicker({ entry, onPick, onClose }: { entry: DeckEntry; onPick: 
   }, [entry.printing_id]);
   const byId = new Map((printings ?? []).map((p) => [p.id, p]));
   const withArt = printings?.filter((p) => p.own_image ?? p.has_image).length ?? 0;
+  // "Only with art" starts on when any printing has art here (the chosen printing always stays in the list)
+  const [onlyArt, setOnlyArt] = useState<boolean | null>(null);
+  const artOnly = (onlyArt ?? withArt > 0) && withArt > 0;
+  const shown = printings && printingsShown(printings, entry.printing_id, artOnly);
   return (
     <Modal title={`Printings of ${entry.name}`} onClose={onClose} wide>
       {!entry.printing_id && <p>This card is not in the local database. Remove it or re-add it from search.</p>}
@@ -543,11 +572,18 @@ function PrintingPicker({ entry, onPick, onClose }: { entry: DeckEntry; onPick: 
         <p className="de-note de-printings-note">
           {withArt === 0
             ? "No printing of this card has art on this computer: it plays as a readable proxy."
-            : `${withArt} of ${printings.length} printings have art on this computer. The others show that art until their own is downloaded.`}
+            : `${withArt} of ${printings.length} printings ${withArt === 1 ? "has" : "have"} art on this computer. The others show that art until their own is downloaded.`}
         </p>
       )}
+      {printings && withArt > 0 && withArt < printings.length && (
+        <label className="row-check de-printings-filter">
+          <input type="checkbox" checked={artOnly} onChange={(e) => setOnlyArt(e.target.checked)} data-testid="printings-art-only" />
+          <span>Only printings with art here</span>
+          <span className="de-n">{artOnly ? `${shown?.length ?? 0} of ${printings.length} shown` : `${printings.length} shown`}</span>
+        </label>
+      )}
       <div className="card-grid small de-printings">
-        {printings?.map((p) => {
+        {shown?.map((p) => {
           const own = p.own_image ?? p.has_image;
           const from = !own && p.art_from ? byId.get(p.art_from) : undefined;
           const title = `${p.set_name} #${p.collector_number}${own ? " — art on this computer" : from ? ` — no art on this computer; shows ${from.set_code.toUpperCase()} #${from.collector_number}'s art` : " — no art on this computer"}`;

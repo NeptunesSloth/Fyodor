@@ -128,7 +128,7 @@ export function Home() {
             <span className="home-db warn"><i aria-hidden />Can't reach the Fyodor server. Is it still running?</span>
           ) : health ? (
             db?.available ? (
-              <span className="home-db" title={`${db.printings.toLocaleString()} printings, ${db.images.toLocaleString()} images cached`}>
+              <span className="home-db" title={`${db.printings.toLocaleString()} printings, ${db.images.toLocaleString()} card pictures downloaded`}>
                 <i aria-hidden />{db.oracle_cards.toLocaleString()} cards ready to play offline
               </span>
             ) : (

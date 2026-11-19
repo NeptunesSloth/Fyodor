@@ -5,8 +5,9 @@ import {
 } from "../services/cardData";
 
 /** -- art folders -- Settings → Card database: more folders of card pictures, read in place on the host (docs/OFFLINE.md). */
-export function ArtFoldersSetting() {
+export function ArtFoldersSetting({ onFolders }: { onFolders?: (folders: ArtFolder[]) => void } = {}) {
   const [list, setList] = useState<ArtFolder[] | null>(null);
+  useEffect(() => { if (list) onFolders?.(list); }, [list, onFolders]);
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {

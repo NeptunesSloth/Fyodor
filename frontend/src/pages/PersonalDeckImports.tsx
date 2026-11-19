@@ -42,7 +42,6 @@ export function PersonalDeckImports({ gameId, onSaved, disabled = false, onBusyC
   };
 
   return <div className="deck-form pdi">
-    <p className="hint">Import your decks here while online. Lists are saved on this device and supplied as your private collection when you choose a deck. Internet is not needed to reuse saved lists at a table.</p>
     <input ref={files} hidden type="file" multiple accept=".txt,.dec,.dek,.json,.csv,text/plain,application/json"
       onChange={e => {
         const chosen = Array.from(e.target.files ?? []);
@@ -73,7 +72,6 @@ export function PersonalDeckImports({ gameId, onSaved, disabled = false, onBusyC
         } catch (error) { toastError(error); }
       }}><Icon name="download" size={15} />Export My decks</button>
     </div>
-    <p className="hint">Export a backup to move your saved decks to another device or table address. Import it here without Internet.</p>
     <label className="field">Public Archidekt deck URLs, one per line
       <textarea value={urls} disabled={busy || disabled} maxLength={15000} rows={3} onChange={e => setUrls(e.target.value)} placeholder="https://archidekt.com/decks/…" />
     </label>

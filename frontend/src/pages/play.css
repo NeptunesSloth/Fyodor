@@ -523,7 +523,9 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-you-art.no-deck { width: 40px; aspect-ratio: 0.716; }
 .pg-you-art:focus-visible { outline: 2px solid var(--room-brass-hi, #e2c27a); outline-offset: 2px; }
 .pg-you-deck-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.pg-you-deck-text b { font: 600 15px/1.25 var(--font-display); color: var(--room-bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30ch; }
+/* (two lines: partner commanders, "Thrasios, Triton Hero & Tymna the Weaver", are named in full) */
+.pg-you-deck-text b { font: 600 15px/1.25 var(--font-display); color: var(--room-bone); max-width: 34ch; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pg-you-deck-text .tt-link { font-size: 13.5px; text-align: left; }
 .pg-you-deck-acts { display: inline-flex; gap: 14px; }
 .pg-you-note { margin: 0 0 0 auto; max-width: 34ch; font-size: 13px; line-height: 1.45; color: var(--text-dim); }

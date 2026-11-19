@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { ResultForm, draftValid, type ResultDraft } from "../components/ResultForm";
 import { toast, toastError } from "../components/Toasts";
@@ -22,7 +23,7 @@ import {
 import type { LobbySeat } from "../types/game";
 import { CommanderArt, useCommanderPrinting } from "./CommanderArt";
 import { EliminationOrder, FinalBoard } from "./GameRecap";
-import { OUTCOME_WORD, groupByNight, podSummary, signatureCommanders } from "./podStatsBits";
+import { OUTCOME_WORD, groupByNight, podSummary, signatureCommanders, splitBot } from "./podStatsBits";
 import "./podstats.css";
 
 const NO_SEATS: LobbySeat[] = [];
@@ -36,6 +37,14 @@ function Art({ commander, fallback, className }: { commander: string | null | un
     </span>
   );
 }
+
+/** A recorded name: a bot shows its name once with a small bot mark ("Bot (bot)" stays as it is in the history). */
+function Name({ name }: { name: string }) {
+  const n = splitBot(name);
+  if (!n.bot) return <>{name}</>;
+  return <>{n.name}<i className="ps-bot" title="A bot: the table played this seat" aria-label="(bot)" role="img"><Icon name="bot" size={13} /></i></>;
+}
+const plain = (name: string) => splitBot(name).name;
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
@@ -127,9 +136,9 @@ export function PodStatsPage() {
                         <td className="name">
                           {/* (the row takes the click; the button makes it reachable by keyboard and says what it does) */}
                           <button type="button" className="ps-who" aria-expanded={on} aria-controls={on ? "pod-player" : undefined}>
-                            <Art commander={cmdrs?.[0]} fallback={p.name} className="ps-who-art" />
+                            <Art commander={cmdrs?.[0]} fallback={plain(p.name)} className="ps-who-art" />
                             <span className="ps-who-text">
-                              <b>{p.name}</b>
+                              <b><Name name={p.name} /></b>
                               {cmdrs && <span>{cmdrs.join(" & ")}</span>}
                             </span>
                           </button>
@@ -159,7 +168,7 @@ export function PodStatsPage() {
                   <h3>{night.label}</h3>
                   <p className="ps-tally">
                     <span>{night.games.length} game{night.games.length === 1 ? "" : "s"}</span>
-                    {night.tally.map(([name, n]) => <span key={name}><b>{name}</b> {n} {n === 1 ? "win" : "wins"}</span>)}
+                    {night.tally.map(([name, n]) => <span key={name}><b><Name name={name} /></b> {n} {n === 1 ? "win" : "wins"}</span>)}
                   </p>
                 </header>
                 <div className="ps-night-games">
@@ -186,11 +195,11 @@ function LastGame({ result: r, onOpen }: { result: GameResult; onOpen: (id: stri
   const cmdr = winners.length === 1 && winners[0]!.commanders.length ? winners[0]!.commanders.join(" & ") : null;
   return (
     <section className="ps-spot" aria-labelledby="ps-spot-title">
-      <Art commander={lead?.commanders[0]} fallback={lead?.name ?? "?"} className="ps-spot-art" />
+      <Art commander={lead?.commanders[0]} fallback={lead ? plain(lead.name) : "?"} className="ps-spot-art" />
       <div className="ps-spot-text">
         <h2 id="ps-spot-title">The last game</h2>
         <p className="ps-spot-result">
-          {won ? <><b>{r.winners.join(" & ")}</b>{" won"}{cmdr ? <>{" with "}<span className="ps-spot-cmdr">{cmdr}</span></> : null}</>
+          {won ? <><b>{r.winners.map((w, i) => <span key={i}>{i > 0 && " & "}<Name name={w} /></span>)}</b>{" won"}{cmdr ? <>{" with "}<span className="ps-spot-cmdr">{cmdr}</span></> : null}</>
             : <b>{RESULT_LABEL[r.result_type]}</b>}
         </p>
         <p className="ps-meta">
@@ -211,8 +220,8 @@ function PlayerSheet({ detail, results, onClose, onOpenGame }: { detail: PodPlay
   return (
     <section className="ps-sheet" id="pod-player" data-testid="pod-player" aria-labelledby="ps-sheet-title">
       <header className="ps-sheet-head">
-        <h2 id="ps-sheet-title">{detail.name}</h2>
-        <button type="button" className="tt-icon ps-close" onClick={onClose} aria-label={`Close ${detail.name}'s sheet`}>✕</button>
+        <h2 id="ps-sheet-title"><Name name={detail.name} /></h2>
+        <button type="button" className="tt-icon ps-close" onClick={onClose} aria-label={`Close ${plain(detail.name)}'s sheet`}>✕</button>
       </header>
       <p className="ps-line">
         <span>Games played: <b>{detail.games}</b></span>
@@ -266,10 +275,10 @@ function SeatTile({ player: p }: { player: ResultPlayer }) {
   return (
     <li className={`ps-seat ${p.outcome}`}>
       <span className="ps-seat-frame">
-        <Art commander={p.commanders[0]} fallback={p.name} className="ps-seat-art" />
+        <Art commander={p.commanders[0]} fallback={plain(p.name)} className="ps-seat-art" />
         {p.outcome === "win" && <span className="ps-won">Won</span>}
       </span>
-      <b className="ps-seat-name">{p.name}</b>
+      <b className="ps-seat-name"><Name name={p.name} /></b>
       {what && <span className="ps-seat-cmdr" title={what}>{what}</span>}
     </li>
   );
@@ -342,7 +351,7 @@ function EditResult({ result, onClose, onSaved }: { result: GameResult; onClose:
         }}>Save</button>
       </>
     }>
-      <ResultForm players={result.players.map((p) => ({ seat: p.seat, name: p.name }))} value={draft} onChange={setDraft} />
+      <ResultForm players={result.players.map((p) => ({ seat: p.seat, name: plain(p.name) }))} value={draft} onChange={setDraft} />
     </Modal>
   );
 }

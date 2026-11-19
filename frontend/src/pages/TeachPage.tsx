@@ -266,14 +266,18 @@ export function TeachPage() {
   const verb = script.name.trim().toLowerCase() || "dive";
   const actionEntry = script.kind === "action" && entry?.kind === "action" ? entry : null;
   const lineProblem = script.kind === "card" && hasWork(script) && !script.card?.line ? "Pick the card's line to teach." : null;
+  // why ▶ Try it can't run yet, in the verdict's own words
+  const tryWhy = !hasWork(script) ? "Try it opens a test table once there's an ability: start with a When piece, or pick a card's line."
+    : checking ? "Checking with the engine…" : `Not ready to try: ${nameProblem ?? lineProblem ?? problems[0]?.message ?? "finish the ability first."}`;
 
   return (
     <div className="page teach-page" data-testid="teach-page">
       <header className="t-top">
         <a className="t-back" href="#/cards" aria-label="Back to Cards"><Icon name="left" size={18} /></a>
         <h1>Teach Fyodor</h1>
-        <button type="button" className="t-play" onClick={tryNow} disabled={!ready || busy !== null} data-testid="teach-try"
-          title={ready ? "Open a test table with this card and a target dummy" : "Finish the ability first"}>
+        {/* (not ready: dimmed flat, still focusable; a click or the tooltip says what's missing) */}
+        <button type="button" className="t-play" onClick={ready ? tryNow : () => toast(tryWhy, "info")} disabled={busy !== null} aria-disabled={!ready || undefined}
+          data-testid="teach-try" title={ready ? "Open a test table with this card and a target dummy" : tryWhy}>
           <span className="t-play-tri" aria-hidden /> Try it
         </button>
         <button type="button" className="t-help" onClick={() => setHelp(true)} aria-label="Help">?</button>
