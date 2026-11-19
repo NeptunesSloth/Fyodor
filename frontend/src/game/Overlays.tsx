@@ -141,7 +141,7 @@ export function StackFocusMarks() {
     const marked: Element[] = [];
     const mark = (id: string, how: string) => {
       const el = locateTarget(id, view);
-      if (!el || el.closest(".chain-list")) return;
+      if (!el || focus.ids.has(el.getAttribute("data-card-id") ?? "")) return; // (a spell it targets on the stack: that row is ringed)
       el.setAttribute("data-stack-hl", how);
       marked.push(el);
     };
