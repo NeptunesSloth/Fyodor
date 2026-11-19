@@ -26,7 +26,7 @@ import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
 import { UndoRequestBar } from "./UndoRequestBar";
 import { AutomationErrorPanel, DecisionPanel, dialState, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
-import { passOrResolve } from "./rules/intents";
+import { passOrResolve, passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes, CombatStrip } from "./CombatLanes";
@@ -42,6 +42,7 @@ import { DrawNotice } from "./DrawNotice";
 import { TableImporter } from "./TableImporter";
 import { ExileCastables } from "./ExileCastablesRow";
 import { useTurnAlert } from "./turnAlert";
+import { HotSeatCover } from "./HotSeatCover";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
 import { BagDraws } from "./BagDraws";
@@ -170,6 +171,7 @@ export function GameScreen() {
       <GameNight />
       <TestEnding />
       <MajorNotices />
+      <HotSeatCover />
       <SignalLayer />
       <PingLayer />
     </div>
@@ -197,6 +199,8 @@ function useShortcuts() {
       if (outKeyBlocked(view, me, id)) return; // -- out of the game -- keys that would move it do nothing (the reason, once)
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
+      const myPriority = !!view.rules && !view.rules.controlled_by && !view.rules.decision
+        && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as));
       if (id.startsWith("cam_")) {
         // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys); the arrows pan the 3D view only
         // (elsewhere they keep scrolling what they scroll)
@@ -269,7 +273,7 @@ function useShortcuts() {
           break;
         }
         case "pass":
-          if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passOrResolve(view.stack.length);
+          if (myPriority) void passOrResolve(view.stack.length);
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
           // manual play: P does what the dial's big button says
           else if (!view.rules) void send(view.stack.length ? { type: "resolve_top" } : { type: "phase", to: "next" });
@@ -296,7 +300,9 @@ function useShortcuts() {
           s.openDialog(s.dialog === "token_math" ? null : "token_math");
           break;
         case "auto_pass":
-          void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
+          // rules automation: the dial's End turn (the response checks below are manual tables' only; hotkeyLabel says which)
+          if (view.rules) { if (myPriority && !view.stack.length) void passPriority("next_turn"); }
+          else void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;
       }
     };

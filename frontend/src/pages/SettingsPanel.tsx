@@ -288,6 +288,7 @@ export function SettingsPanel() {
               <ToggleRow title="Show pings from other players" hint="A ping points at something for everyone: G, or Alt+click." checked={p.pings} onChange={(v) => set({ pings: v })} testId="pref-pings" />
               <ToggleRow title="Show other players' cursors" hint="Their pointers over the 3D table, in their seat colour, with their name." checked={p.cursors} onChange={(v) => set({ cursors: v })} testId="pref-cursors" />
               <ToggleRow title="Flash this tab and chime" hint="When the table waits on you while Fyodor is in a background tab." checked={p.turnAlert} onChange={(v) => set({ turnAlert: v })} testId="pref-turn-alert" />
+              <ToggleRow title="Hot-seat hand-off" hint="Players sharing this computer: when it's another player's turn to act, cover the table with “Pass to …” and switch to their view on a click." checked={p.hotseatHandoff} onChange={(v) => set({ hotseatHandoff: v })} testId="pref-hotseat-handoff" />
               <ToggleRow title="Show spectators' reactions" hint="Reactions from people watching the table and players who are out." checked={p.reactions} onChange={(v) => set({ reactions: v })} />
             </div>
           </SettingsSection>

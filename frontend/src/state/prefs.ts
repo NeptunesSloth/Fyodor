@@ -40,6 +40,8 @@ export interface Prefs {
   cursors: boolean;
   /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
   turnAlert: boolean;
+  /** -- hot-seat hand-off -- several players on this computer: cover the table with "Pass to Bob" before showing Bob's view (HotSeatCover.tsx). */
+  hotseatHandoff: boolean;
   /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
   choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
@@ -97,6 +99,7 @@ export const DEFAULT_PREFS: Prefs = {
   pings: true,
   cursors: true,
   turnAlert: true,
+  hotseatHandoff: true,
   choiceWheel: true,
   handSort: "drawn",
   drawNotice: "effects",
