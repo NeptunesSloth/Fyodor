@@ -597,14 +597,17 @@ def is_stop(plan: Plan, player: str) -> bool:
             prefs.stop_after = None
             return True
     if prefs.pass_until is not None:
-        if not pass_until_met(plan, player, prefs) and not new_response(plan, player, prefs):
+        met = pass_until_met(plan, player, prefs)
+        if not met and not new_response(plan, player, prefs):
             return False
         until = prefs.pass_until
         prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
-        if until not in ("stack_changes", "own_triggers") or plan.state.zones.get(STACK):
+        if plan.state.zones.get(STACK) or not (until in ("stack_changes", "own_triggers") or (until == "next_turn" and met)):
             return True
         # RESOLVE (the top object) emptied the stack: the usual stops decide, as after any pass (a lone spell resolves and play
         # goes on with one press). With something still on the stack the player gets priority back (117.3b): one object a press.
+        # -- END TURN -- likewise once the next turn has begun with an empty stack: the usual stops decide (no "Your priority"
+        # at an opponent's upkeep with nothing on it; a spell or a trigger put on the stack is answered as usual).
     if prefs.full_control or not plan.options.auto_priority_pass or prefs.response == "on":
         return True
     phase = plan.state.turn.phase
