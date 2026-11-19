@@ -446,7 +446,8 @@ def _commander_checks(deck: DeckIn, data: dict[str, dict[str, Any]], count: Coun
             continue
         status = cmdr.legality(card)
         if status == "banned":
-            warnings.append(Warning(level="info", message=f"{e.name} is on the Commander banned list.", card=e.name))
+            # a real deck problem, like an off-colour card (the pod's decision); a Rulebreaker's allowances never unban a card
+            warnings.append(Warning(level="warning", message=f"{e.name} is on the Commander banned list.", card=e.name))
         elif status != "legal":
             warnings.append(Warning(level="info", message=f"{e.name} isn't legal in Commander.", card=e.name))
     return warnings
