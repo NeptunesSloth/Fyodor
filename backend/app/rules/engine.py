@@ -533,8 +533,11 @@ def pass_until_met(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
         return not state.zones.get(STACK)
     if until == "next_step":
         return r.step != mark
-    if until == "next_turn":
-        return str(state.turn.number) != mark
+    if until == "next_turn":  # -- END TURN -- or a spell or ability another player put on the stack (they may want to answer it)
+        me = controller_of(state, player)
+        return str(state.turn.number) != mark or any(
+            controller_of(state, o.controller if (o := r.stack.get(cid)) is not None else state.cards[cid].controller) != me
+            for cid in state.zones.get(STACK, []))
     if until == "my_turn":
         return plan.active == player and str(state.turn.number) != mark
     if until == "combat":

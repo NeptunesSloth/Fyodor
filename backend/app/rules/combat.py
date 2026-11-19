@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.game import actions as A
+from app.game.control import controller_of
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
@@ -413,6 +414,15 @@ def start_declare_attackers(plan: Plan) -> None:
         display = {**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets),
                    "stats": {cid: combat_stats(plan, plan.state.cards[cid]) for cid in eligible}}  # -- playtest (nov 18) -- P/T, keywords
         labels = {cid: face_name(plan, plan.state.cards[cid], "Creature") for cid in eligible}
+    prefs = r.prefs.get(controller_of(plan.state, ap))
+    if who is None and not display["must_attack"] and prefs is not None and prefs.pass_until == "next_turn"             and prefs.pass_mark == str(plan.state.turn.number):
+        # -- END TURN -- pressed in their own turn: they attack with nothing (as Arena's End turn), unless a creature must attack (508.1d)
+        r.no_attackers = True
+        plan.note(f"{plan.name(ap)} doesn't attack")
+        from app.rules import delayed
+
+        delayed.at_step(plan, "declare_attackers")
+        return
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
            options=[DecisionOption(id=f"a:{cid}", label=labels[cid], card_id=cid) for cid in eligible]
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)

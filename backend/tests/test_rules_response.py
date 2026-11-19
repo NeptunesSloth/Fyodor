@@ -77,6 +77,17 @@ def test_pass_until_next_turn_keeps_a_stop_set_for_the_next_turn(s):
     assert where(s) == (2, "upkeep", "p1")
 
 
+def test_end_turn_still_stops_for_another_players_spell(s):
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="pass_priority")
+    assert where(s) == (1, "upkeep", "p2")
+    act(s, "p2", type="pass_priority", until="next_turn")  # Bob presses End turn in Alice's upkeep…
+    assert where(s) == (1, "main1", "p1")
+    ring = cast_ring(s)
+    assert where(s)[2] == "p2" and s.state.cards[ring.id].zone == "stack"  # …and still gets to answer the spell she casts
+    assert rules(s).prefs["p2"].pass_until is None
+
+
 def test_pass_until_needs_a_stack_for_resolve_controls(s):
     main1(s)
     with pytest.raises(ActionError, match="stack is empty"):

@@ -402,7 +402,9 @@ export function TurnDial() {
             </div>
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding || busy} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
+              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding || busy}
+                title={blocked ?? (view.turn.active_player === me ? "Pass to the next turn: you attack with nothing (unless a creature must attack); another player's spell or ability, or a choice you must make, still stops you" : "Pass to the next turn: another player's spell or ability, or a choice you must make, still stops you")}
+                onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
           </>

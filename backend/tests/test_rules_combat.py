@@ -281,6 +281,28 @@ def test_attacks_each_combat_if_able(cards):
     attack(s, (sneak, "p2"))
 
 
+def _end_turn_in_main1(s):
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main 1
+    assert s.state.turn.phase == "main1"
+    act(s, "p1", type="pass_priority", until="next_turn")  # END TURN
+
+
+def test_end_turn_skips_your_own_attack(cards):
+    s = table(cards)
+    creature(s, "p1", "Axe")
+    _end_turn_in_main1(s)
+    assert s.state.turn.number == 2 and (decision(s) is None or decision(s).player != "p1")
+    assert "Alice doesn't attack" in json.dumps(s.view("p2")["log"])
+
+
+def test_end_turn_still_asks_a_creature_that_must_attack(cards):
+    s, sneak, _ = _evasion_table(cards, "This creature attacks each combat if able.")
+    _end_turn_in_main1(s)
+    assert decision(s).kind == "declare_attackers" and decision(s).player == "p1"  # 508.1d: Alice is asked
+    attack(s, (sneak, "p2"))
+
+
 def test_cant_attack(cards):
     s, sneak, _ = _evasion_table(cards, "This creature can't attack.")
     automate(s)
