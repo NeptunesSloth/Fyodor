@@ -51,6 +51,48 @@ def mana_now(state: GameState, viewer: str, info: CardInfo) -> int:
     return sum(best.values())
 
 
+_ORDER = "WUBRGC"
+
+
+def mana_ready(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
+    """-- mana readout -- what ``viewer``'s untapped sources make now, for the line by the hand: ``count`` (``mana_now``) and one symbol per
+    mana: "G", a two-colour choice "G/W", "any" (three or more colours). Sources with a mana cost of their own (Cabal Coffers) are in the
+    count only. Public information (the viewer's own permanents)."""
+    try:
+        sources = mana_sources(state, viewer, info)
+    except ActionError:
+        return {"count": 0, "symbols": []}
+    out: list[str] = []
+    for src in sources:
+        if src.activation is not None:
+            continue
+        if len(src.options) > 1 and all(len(o) == 1 for o in src.options):
+            colors = sorted({o[0] for o in src.options}, key=_ORDER.find)
+            out.append(colors[0] if len(colors) == 1 else "/".join(colors) if len(colors) == 2 else "any")
+        else:
+            out.extend(max(src.options, key=len, default=()))
+    out.sort(key=lambda m: _ORDER.find(m) if len(m) == 1 else 4.5)  # (WUBRG, the choices, then colourless)
+    return {"count": mana_now(state, viewer, info), "symbols": out}
+
+
+def pay_preview(state: GameState, viewer: str, card_id: str, info: CardInfo) -> list[str] | None:
+    """-- pay preview -- the sources the automatic payer (``find_payment``) would tap to cast ``viewer``'s own hand card ``card_id`` now
+    (no X, no kicker, no targets), or None. Read-only: nothing on the table changes."""
+    from app.rules import casting
+
+    card = state.cards.get(card_id)
+    if card is None or card.zone != zone_key(viewer, "hand"):
+        return None  # (never about another player's card: what it costs is theirs to know)
+    ch = chars.of(card, info)
+    if not ch.mana_cost or "{X}" in ch.mana_cost:
+        return None
+    try:
+        cost = casting.spell_cost(state, card, ch, info=info, player=viewer)
+        return casting.find_payment(state, viewer, cost, info, purpose=casting.Purpose(spell=ch, zone=card.zone, player=viewer)).tapped
+    except Exception:  # noqa: BLE001 - a preview never breaks anything; the cast itself is checked when it's made
+        return None
+
+
 def cost_now(state: GameState, viewer: str, castable: list[str], with_x: set[str], info: CardInfo) -> dict[str, str]:
     """-- current costs -- the castable cards (the viewer's own hints) whose total cost to cast right now differs from their mana cost
     (601.2f: Grand Arbiter Augustin's "{1} less" and "{1} more", Thalia, Sphere of Resistance, commander tax): card id -> that cost.

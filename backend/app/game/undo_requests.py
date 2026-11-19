@@ -345,5 +345,9 @@ def view_fields(session: GameSession, viewer: str, *, host: bool, others: list[s
     """The waiting request (public: who asks, what, what it showed, who still has to answer), and why this viewer's own
     undo would ask the table now (None: it undoes directly, or can't)."""
     req = pending(session)
+    h = session.history
+    at = h.cursor - session._glued(h.cursor) - 1  # (the dummy's answers / an opponent's plays go back with the action before them)
     return {"undo_request": req.public(session.state) if req is not None else None,
-            "undo_ask": ask(session, viewer if viewer in session.state.players else None, host=host, others=others)}
+            "undo_ask": ask(session, viewer if viewer in session.state.players else None, host=host, others=others),
+            # -- clearer undo -- what Undo takes back, in the request's words ("cast Lightning Bolt"; a hidden card is never named)
+            "undo_label": label(session.state, h.actions[at]) if at >= 0 else None}

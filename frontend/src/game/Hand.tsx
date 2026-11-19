@@ -9,7 +9,8 @@ import { isVisible, splitZone, type GameCard } from "../types/game";
 import { moveCards, targetsFor } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
-import { ManaText } from "../cards/ManaText";
+import { ManaSymbol, ManaText } from "../cards/ManaText";
+import { PayPreview, previewPay } from "./PayPreview";
 import { GameCardFace } from "./GameCardFace";
 import { dropFromHand } from "./handDrop";
 import { legalClass } from "./rules/RulesHud";
@@ -143,6 +144,7 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
       {compact && shown.length > COMPACT_MAX && (
         <span className="hand-count" data-testid={`hand-count-${player}`} aria-label={`${shown.length} cards in hand`}>×{shown.length}</span>
       )}
+      {mine && <PayPreview me={me} />}
       {mine && layout && ids.length > 0 && (
         <div className="hand-tools" style={{ ["--x0" as string]: `${x0}px` }}>
           <button type="button" className="hand-browse" data-testid="hand-browse" aria-pressed={browsing}
@@ -151,6 +153,7 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
             onClick={() => toggleHandBrowser(me)}>
             Hand <b>{ids.length}</b>
           </button>
+          <ManaReady />
           {range && (
             <div className="hand-scroll" role="group" aria-label="Scroll your hand">
               <button type="button" className="hand-scroll-btn" aria-label="Scroll hand left" data-testid="hand-scroll-left"
@@ -163,6 +166,22 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
         </div>
       )}
     </div>
+  );
+}
+
+/** -- mana readout -- what my untapped sources make now (the server's count: Cabal Coffers its Swamps, mana creatures that can tap). */
+function ManaReady() {
+  const r = useGame((s) => (s.view?.rules && !s.view.rules.paused ? s.view.rules.mana_ready : undefined));
+  if (!r?.count) return null;
+  const extra = r.count - r.symbols.length;
+  const words = r.symbols.map((m) => (m === "any" ? "any colour" : m)).join(" ");
+  return (
+    <span className="mana-ready" data-testid="mana-ready" role="note" aria-label={`${r.count} mana available: ${words}${extra > 0 ? ` and ${extra} more` : ""}`}
+      title="What your untapped lands and mana sources can make now. Point at a card you can cast to see which ones it would tap.">
+      <b>{r.count}</b> available:
+      {r.symbols.map((m, i) => (m === "any" ? <span key={i} className="mr-any" aria-hidden title="Any colour">✦</span> : <ManaSymbol key={i} sym={m} />))}
+      {extra > 0 && <span aria-hidden>+{extra}</span>}
+    </span>
   );
 }
 
@@ -298,7 +317,8 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact, small = f
       }}
       onContextMenu={(e) => handCardMenu(e, id, card, me)}
       onMouseEnter={fresh ? () => useFreshDraws.getState().seen(id) : undefined}
-      onFocus={fresh ? () => useFreshDraws.getState().seen(id) : undefined}
+      onFocus={() => { if (fresh) useFreshDraws.getState().seen(id); if (!compact) previewPay(id, me); }}
+      onBlur={compact ? undefined : () => previewPay(null, me)}
       {...hover(id)}
     >
       <GameCardFace card={card} size={small ? "small" : "normal"} />

@@ -42,6 +42,8 @@ export interface Prefs {
   turnAlert: boolean;
   /** -- hot-seat hand-off -- several players on this computer: cover the table with "Pass to Bob" before showing Bob's view (HotSeatCover.tsx). */
   hotseatHandoff: boolean;
+  /** -- turn recap -- after other players' turns, what they did since my last turn, beside the turn dial (game/TurnRecap.tsx). */
+  turnRecap: boolean;
   /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
   choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
@@ -100,6 +102,7 @@ export const DEFAULT_PREFS: Prefs = {
   cursors: true,
   turnAlert: true,
   hotseatHandoff: true,
+  turnRecap: true,
   choiceWheel: true,
   handSort: "drawn",
   drawNotice: "effects",

@@ -40,7 +40,7 @@ export function stepHeads(items: HistoryItem[]): Map<number, StepHead> {
   return heads;
 }
 
-const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...(p.group.length ? [groupText(p.group)] : []), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
+export const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...(p.group.length ? [groupText(p.group)] : []), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
 
 /** The event history, newest first (the same request the History tab makes). */
 export async function fetchHistory(view: GameView): Promise<HistoryItem[]> {

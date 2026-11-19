@@ -21,6 +21,8 @@ import { COMBAT_FILTERS, cycleCombatFilter, type CombatFilter } from "./combatFi
 import { keyLabel } from "./hotkeys";
 import { dummyMenu } from "./targetDummy";
 import { Icon } from "../components/Icon";
+import { toastError } from "../components/Toasts";
+import { TurnRecap } from "./TurnRecap";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -42,6 +44,7 @@ export function TopBar() {
   const redoWhy = view.game.can_redo ? undoRefusal(view, me, "redo") : null;
   const policy = UNDO_POLICIES.find((p) => p.id === view.game.settings.undo_policy && p.id !== "everyone");
   const note = policy ? ` · undo: ${policy.label.toLowerCase()}` : "";
+  const what = view.game.undo_label ? `Undo: ${view.game.undo_label}` : "Undo"; // -- clearer undo -- names what it takes back
   return (
     <header className="game-top">
       <a className="brand" href="#/play" title="Back to lobby">←</a>
@@ -55,6 +58,7 @@ export function TopBar() {
       <BoardPressure />
       <AutomationHud />
       <BotSpeed />
+      <TurnRecap />{/* (fixed beside the turn dial: mounted here, where it is always on the game screen) */}
       {dayNight && (
         // -- day and night -- a sun or a moon and the word, never colour alone; a click cycles day → night → neither
         <button className={`tt-btn ghost daynight ${dayNight}`} data-testid="day-night"
@@ -67,7 +71,8 @@ export function TopBar() {
       <CombatFilterButton filter={filter} hotkey={keyLabel("combat_filter", keymap)} />
       <span className="tt-split" role="group" aria-label="Undo and redo">
         <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined} data-testid="undo"
-          onClick={() => void undo()} title={undoWhy ?? (mode.kind === "ask" ? `${mode.why} Ask the table (Ctrl+Z)` : `Undo (Ctrl+Z)${note}`)}>
+          aria-label={asks ? `Ask to undo${view.game.undo_label ? `: ${view.game.undo_label}` : ""}` : what}
+          onClick={() => void undo()} title={undoWhy ?? (mode.kind === "ask" ? `${mode.why} Ask the table (Ctrl+Z)` : `${what} (Ctrl+Z)${note}`)}>
           {asks ? "Ask to undo" : "Undo"}
         </button>
         <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo || !!undoWhy || asks} aria-label="Undo back to a recent action"
@@ -131,9 +136,10 @@ function combatFilterItem(filter: CombatFilter): MenuItem {
   };
 }
 
-/** The last few actions, newest first; picking one undoes everything back to and including it. */
+/** The last few actions, newest first; picking one undoes everything back to and including it, at once (the server's undo back to here:
+ * the table's undo setting decides for each of them, and a refusal says why). */
 async function recentMenu(e: React.MouseEvent) {
-  const at = { clientX: e.clientX, clientY: e.clientY };
+  const at = { clientX: Math.min(e.clientX, window.innerWidth - 440), clientY: e.clientY }; // (long lines: kept on screen)
   const s = useGame.getState();
   if (!s.view) return;
   const items = await fetchHistory(s.view).catch(() => []);
@@ -141,7 +147,12 @@ async function recentMenu(e: React.MouseEvent) {
   openMenu(at, live.length ? live.map((it, i) => ({
     label: historyText(it),
     hint: i ? `Undo ${i + 1} actions` : "Undo this action",
-    onClick: async () => { for (let k = 0; k <= i; k++) if (!(await useGame.getState().undo())) break; }, // stops where the undo setting does
+    onClick: () => {
+      const v = useGame.getState().view!;
+      const t = seatToken(v.game.id);
+      const as = v.game.mode === "local" ? useGame.getState().actingAs : null;
+      return api.post(`/games/${v.game.id}/history/${it.position - 1}/undo`, { as }, t ? { "X-Seat-Token": t } : {}).then(() => undefined, toastError);
+    },
   })) : [{ label: "Nothing to undo", disabled: true }], "Undo back to…");
 }
 

@@ -348,6 +348,10 @@ class GameSession:
             if rules is not None:
                 if self.rules_failure is not None:  # public: what failed, not the error internals
                     rules["failure"] = {"intent": self.rules_failure["intent"]["type"], "at": self.rules_failure["at"]}
+                if viewer in state.players:  # -- mana readout -- what my untapped sources make now (the line by my hand)
+                    from app.rules.view import mana_ready
+
+                    rules["mana_ready"] = mana_ready(state, viewer, self.cards or NoCardInfo())
                 view["rules"] = rules
         return view
 

@@ -312,6 +312,8 @@ export interface GameMeta {
   redo_by?: string | null;
   /** -- quick undo request -- why this viewer's undo would ask the table first (null: it undoes directly, or can't). */
   undo_ask?: string | null;
+  /** -- clearer undo -- what Undo takes back, in words ("cast Lightning Bolt"; a card only when everyone can see it). */
+  undo_label?: string | null;
   /** The undo request waiting for the table, if any (public: who asks, what, and who still has to answer). */
   undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
@@ -562,6 +564,8 @@ export interface RulesHints {
 
 export interface RulesView {
   automation: AutomationLevel;
+  /** -- mana readout -- my untapped sources now (my own view only): about how much mana, and a symbol per mana ("G", "G/W", "any"). */
+  mana_ready?: { count: number; symbols: string[] };
   preset: "sandbox" | "assisted" | "full" | "custom";
   options: Record<string, boolean | string>;
   status: { auto: string; resp: string | null };

@@ -1618,6 +1618,24 @@ async def game_history(game_id: str, request: Request, services: ServicesDep,
     return {"cursor": history.cursor, "base_seq": history.base_seq, "items": items}
 
 
+@router.get("/games/{game_id}/pay-preview/{card_id}")
+async def pay_preview(game_id: str, card_id: str, request: Request, services: ServicesDep,
+                      viewer: Annotated[str | None, Query(max_length=32)] = None,
+                      x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- pay preview -- the lands (sources) the automatic payer would tap to cast this hand card of the viewer's now: the hand's hover
+    lights them. Read-only (nothing changes); only about the viewer's own hand (app/rules/view.py pay_preview)."""
+    from app.game.resolve import NoCardInfo
+    from app.rules.view import pay_preview as preview
+
+    room = _room(services, game_id)
+    v, _ = _seated(room, request, x_seat_token, viewer)
+    session = room.session
+    if v not in session.state.players or session.state.rules is None:
+        return {"tapped": None}
+    with session.reading():
+        return {"tapped": preview(session.state, v, card_id, session.cards or NoCardInfo())}
+
+
 @router.get("/games/{game_id}/history/{position}")
 async def history_view(game_id: str, position: int, request: Request, services: ServicesDep,
                        viewer: Annotated[str | None, Query(max_length=32)] = None,
