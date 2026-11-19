@@ -33,7 +33,7 @@
 
 /* the caption by the pointer while a creature is dragged during the decision */
 .attack-drag-hint {
-  position: fixed; z-index: 400; pointer-events: none; padding: 4px 9px; border-radius: 3px; white-space: nowrap;
+  position: fixed; z-index: 3001; pointer-events: none; padding: 4px 9px; border-radius: 3px; white-space: nowrap;
   font: 600 12.5px/1.2 var(--font-ui); color: var(--room-bone); background: var(--hud-surface); border: 1px solid var(--line-2);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
@@ -90,3 +90,36 @@ body.reduced-motion div.table-card { transition: none; }
 .divide-step input { width: 9ch; min-height: 28px; text-align: center; font-variant-numeric: tabular-nums; }
 .divide-warn { font-size: 12px; color: var(--danger, #e0645c); }
 .attack-summary.off { color: var(--danger, #e0645c); }
+
+/* -- playtest (nov 18) -- the declare-blockers prompt (DeclareBlockers.tsx): docked at the side like the attackers prompt, so the attackers
+   and my creatures stay in view while I drag one onto another; the drag's caption, and a planned blocker on the 2D table: pushed forward
+   like a declared one, a dashed rim and "⛨ Serra Angel" while it is only planned */
+@media (min-width: 721px) {
+  body .decision-panel.frame[data-kind="declare_blockers"] {
+    --dw: min(420px, calc(100vw - 32px));
+    left: auto; right: 16px; transform: none; top: 64px; bottom: auto;
+    max-height: calc(100vh - 64px - 330px);
+    padding: 10px 14px 10px;
+  }
+}
+.decision-panel[data-kind="declare_blockers"] .decision-prompt { font-size: 14px; margin-bottom: 6px; }
+.decision-combat.blockers > .decision-options { justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
+.decision-combat.blockers > .decision-options > .tt-btn.brass { min-width: 120px; font-weight: 650; }
+.blockers-attacker.blocked { border-color: #5fa8ff; }
+.blocked-n { font-size: 11px; font-weight: 700; color: #a9cdff; font-variant-numeric: tabular-nums; }
+.blocker-row .block-extra { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.blocker-row .block-extra .block-also { min-height: 24px; font-size: 12px; color: var(--text-dim); }
+.block-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 2px 1px 7px; font-size: 12px; border-radius: 3px;
+  border: 1px solid #5fa8ff; background: rgba(10, 16, 24, 0.6);
+}
+.block-chip button { min-width: 22px; min-height: 22px; padding: 0; border: 0; background: none; color: var(--text-dim); cursor: pointer; font-size: 14px; }
+.block-chip button:hover, .block-chip button:focus-visible { color: var(--room-bone); }
+.attack-drag-hint.block { border-color: #5fa8ff; }
+.attack-drag-hint.block::before { content: "⛨ "; }
+.table-card.block-planned { outline: 2px dashed #5fa8ff; outline-offset: 2px; }
+.mark.blk-to {
+  display: inline-flex; align-items: center; gap: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: rgba(10, 16, 24, 0.88); color: #d6e6ff; border: 1px dashed #5fa8ff;
+}
+.blocker-row .block-extra .block-also { width: auto; max-width: 100%; min-height: 22px; padding-top: 0; padding-bottom: 0; }

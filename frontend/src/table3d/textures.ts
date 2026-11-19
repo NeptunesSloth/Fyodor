@@ -811,13 +811,14 @@ export interface CardOverlay {
    * -- playtest (nov 18) -- combat read physically: whom this attacker attacks ("→" and the defender's initial on their seat colour; a
    * dashed rim while only planned in the declare-attackers prompt), and how many attackers a blocker blocks when it blocks several.
    */
-  combat?: { to?: { initial: string; color: string; planned: boolean }; blocks?: number };
+  combat?: { to?: { initial: string; color: string; planned: boolean }; blocks?: number; planned?: boolean };
 }
 
 /** The combat chip (CardOverlay.combat) at (x, y), `h` tall, on any overlay canvas: "→ (B)" for an attacker, "blocks 2" for a blocker. */
 export function drawCombatChip(g: CanvasRenderingContext2D, x: number, y: number, h: number, combat: NonNullable<CardOverlay["combat"]>): void {
   const to = combat.to;
-  const label = to ? "→" : `blocks ${combat.blocks ?? ""}`;
+  // (a block planned in the declare-blockers prompt: "blocks" — "blocks 2" for several — on a dashed rim until declared)
+  const label = to ? "→" : combat.planned && (combat.blocks ?? 1) <= 1 ? "blocks" : `blocks ${combat.blocks ?? ""}`;
   g.save();
   g.font = `800 ${Math.round(h * 0.62)}px Inter, Arial, sans-serif`;
   const tw = g.measureText(label).width;
@@ -827,7 +828,7 @@ export function drawCombatChip(g: CanvasRenderingContext2D, x: number, y: number
   g.fill();
   g.lineWidth = Math.max(2, h * 0.07);
   g.strokeStyle = to ? "#e0645c" : "#5fa8ff";
-  if (to?.planned) g.setLineDash([h * 0.16, h * 0.1]);
+  if (to?.planned || combat.planned) g.setLineDash([h * 0.16, h * 0.1]);
   g.stroke();
   g.setLineDash([]);
   g.textAlign = "left";

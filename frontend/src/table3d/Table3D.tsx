@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { useAttackDraft } from "../game/rules/attackDraft";
+import { useBlockDraft } from "../game/rules/blockDraft";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
@@ -106,6 +107,10 @@ export function Table3D({ me }: { me: string }) {
     });
     // -- playtest (nov 18) -- an attack planned in the declare-attackers prompt slides out toward its defender (rules/attackDraft.ts)
     const unAttack = useAttackDraft.subscribe((s, prev) => {
+      if (s.plan !== prev.plan || s.decision !== prev.decision) sync();
+    });
+    // -- playtest (nov 18) -- a block planned in the declare-blockers prompt steps in front of its attacker (rules/blockDraft.ts)
+    const unBlock = useBlockDraft.subscribe((s, prev) => {
       if (s.plan !== prev.plan || s.decision !== prev.decision) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
@@ -263,6 +268,7 @@ export function Table3D({ me }: { me: string }) {
       unGame();
       unCards();
       unAttack();
+      unBlock();
       setDropResolver3D(null);
       setPingLocator3D(null);
       ro.disconnect();

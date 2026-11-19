@@ -77,6 +77,7 @@ import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
 import { tokenArtFace, tokenArtId } from "../game/tokenArt";
 import { attackDrop, attackHint, defenderBadge, livePlan, myAttackDecision, useAttackDraft, type AttackSpot } from "../game/rules/attackDraft";
+import { blockDrop, blockHint, liveBlocks, myBlockDecision, spotForZone, useBlockDraft, type BlockSpot } from "../game/rules/blockDraft";
 import { Cursors3D, type CursorMessage } from "./cursors3d";
 import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
@@ -1069,6 +1070,25 @@ export class TableScene {
     return best;
   }
 
+  /**
+   * -- playtest (nov 18) -- while I declare blockers, what a drag of my creatures points at: an attacker under the pointer; my own mat:
+   * "home"; the attacking player's mat: "board" (a near miss does nothing). Null elsewhere or outside the decision.
+   */
+  blockSpot(clientX: number, clientY: number, dragged: string[] = []): BlockSpot {
+    const view = this.view;
+    const d = myBlockDecision(view);
+    if (!view || !d) return null;
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card && !dragged.includes(hit.card) && d.options!.some((o) => o.id === `a:${hit.card}`)) return hit.card;
+    const p = this.tablePoint(clientX, clientY);
+    if (!p) return null;
+    for (const seat of this.seatList) {
+      const [lx, lz] = toLocal(seat, p.x, p.z);
+      if (onBattlefield(lx, lz)) return spotForZone(view, d, `${seat.player}:battlefield`);
+    }
+    return null;
+  }
+
   /** Drop resolution for DOM drags (from the hand) over the canvas. */
   resolveDrop(clientX: number, clientY: number, offset?: THREE.Vector3): DropResult | null {
     const p = this.tablePoint(clientX, clientY);
@@ -1709,7 +1729,9 @@ export class TableScene {
         const plannedTo = livePlan(view)[`a:${id}`]?.slice(2);
         const to = plannedTo ? defenderBadge(view, { id: plannedTo }) : card.attacking ? defenderBadge(view, card.attacking) : null;
         const blocks = card.blocking ? 1 + (card.blocking_more?.length ?? 0) : 0;
-        const combat = to ? { to: { initial: to.initial, color: to.color, planned: !!plannedTo } } : blocks > 1 ? { blocks } : undefined;
+        const plannedBlocks = liveBlocks(view)[`b:${id}`]?.length ?? 0; // (a block planned in the declare-blockers prompt: dashed chip)
+        const combat = to ? { to: { initial: to.initial, color: to.color, planned: !!plannedTo } } : plannedBlocks ? { blocks: plannedBlocks, planned: true }
+          : blocks > 1 ? { blocks } : undefined;
         this.setOverlay(c, pile || owner || visitor || combat ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}), ...(combat ? { combat } : {}) } : overlay);
         const lit2 = selection.has(id) || peek.has(id); // (peek: a plaque's "attached elsewhere" chip is hovered)
         this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
@@ -1901,7 +1923,10 @@ export class TableScene {
       g.ids.push(card.id);
       groups.set(key, g);
     }
-    const blockers = Object.values(view.cards).filter((b) => b.blocking && b.zone.endsWith(":battlefield"));
+    // (with the blocks planned in my declare-blockers prompt, game/rules/blockDraft.ts: each stands in front of its first attacker too)
+    const plannedBlocks = liveBlocks(view);
+    const blockers = Object.values(view.cards).filter((b) => (b.blocking || plannedBlocks[`b:${b.id}`]?.length) && b.zone.endsWith(":battlefield"));
+    const blocksFirst = (b: GameCard) => b.blocking ?? plannedBlocks[`b:${b.id}`]?.[0]?.slice(2);
     // -- playtest (nov 18) -- one line per attacking player, just past the front edge of their own mat (pushed forward, as at a real
     // table), the creatures attacking each defender side by side, ordered and nudged toward where that defender sits; a long line
     // closes up (cards overlap) rather than run off the mat's width. Each blocker stands right in front of the attacker it blocks.
@@ -1924,7 +1949,11 @@ export class TableScene {
       const bias = Math.max(-MAT_W * 0.2, Math.min(MAT_W * 0.2, mean * 0.25));
       let off = bias - total / 2 + step / 2;
       for (const { d, ids, plan } of list) {
-        const out = MAT_D / 2 + (plan ? 0.9 : 1.4) * scale; // just past the attacker's mat edge, into the open wood
+        let out = MAT_D / 2 + (plan ? 0.9 : 1.4) * scale; // just past the attacker's mat edge, into the open wood
+        // -- playtest (nov 18) -- facing mats with little wood between them (two players): no further than the defender's front edge,
+        // so the attackers never lie on the creatures that would block them (drag-to-block picks those up: game/rules/blockDraft.ts)
+        const ahead = (d.x - a.x) * fx + (d.z - a.z) * fz;
+        if (ahead > 0.8 * Math.hypot(d.x - a.x, d.z - a.z)) out = Math.min(out, ahead - MAT_D / 2 - CARD_H * 0.55 * scale);
         ids.forEach((id) => {
           const c = this.cards.get(id);
           const at = off;
@@ -1933,7 +1962,7 @@ export class TableScene {
           const x = a.x + fx * out + px * at;
           const z = a.z + fz * out + pz * at;
           c.target.set(x, c.target.y + 0.04, z);
-          blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
+          blockers.filter((b) => blocksFirst(b) === id).forEach((b, j, all) => {
             const bc = this.cards.get(b.id);
             if (!bc) return;
             const side = (j - (all.length - 1) / 2) * CARD_W * 1.1 * (bc.scale ?? 1);
@@ -1992,9 +2021,11 @@ export class TableScene {
     // -- playtest (nov 18) -- combat reads from where the cards are (attackers pushed toward their defender, each blocker in front of its
     // attacker) and from their badges; an arrow shows only for the attacker or blocker hovered or selected (or its partner in the block)
     const lit = new Set([this.hovered, ...useGame.getState().selection].filter((x): x is string => !!x));
+    const plannedArrows = liveBlocks(view);
     if (lit.size) for (const c of Object.values(view.cards)) {
       if (c.attacking && lit.has(c.id)) add(c.id, c.attacking.id, ATTACK_RED, true);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) if (lit.has(c.id) || lit.has(t)) add(c.id, t, "#5fa8ff", true);
+      for (const t of plannedArrows[`b:${c.id}`] ?? []) if (lit.has(c.id) || lit.has(t.slice(2))) add(c.id, t.slice(2), "#5fa8ff", true);
     }
     // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
     const beams = this.beams;
@@ -2596,6 +2627,11 @@ export class TableScene {
         const h = attackHint(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids));
         useAttackDraft.setState({ hint: h ? { ...h, x: e.clientX, y: e.clientY } : null });
       }
+      // declaring blockers: "Block Serra Angel", "Can't block Serra Angel: flying"
+      if (myBlockDecision(this.view)) {
+        const h = blockHint(d.ids, this.blockSpot(e.clientX, e.clientY, d.ids), e.shiftKey);
+        useBlockDraft.setState({ hint: h ? { ...h, x: e.clientX, y: e.clientY } : null });
+      }
       return;
     }
     const hit = this.pick(e.clientX, e.clientY);
@@ -2645,6 +2681,12 @@ export class TableScene {
     // (game/rules/attackDraft.ts); nothing moves on the table: the formation shows the plan
     if (useAttackDraft.getState().hint) useAttackDraft.setState({ hint: null });
     if (attackDrop(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids))) {
+      this.syncCards();
+      return;
+    }
+    // -- playtest (nov 18) -- declaring blockers: onto an attacker it blocks it (Shift: as well), back on my mat it doesn't
+    if (useBlockDraft.getState().hint) useBlockDraft.setState({ hint: null });
+    if (blockDrop(d.ids, this.blockSpot(e.clientX, e.clientY, d.ids), e.shiftKey)) {
       this.syncCards();
       return;
     }

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { perspective, useGame } from "../../state/gameStore";
 import { usePrefs } from "../../state/prefs";
@@ -159,5 +160,6 @@ function AttackDragHint() {
     shown = h ? { ...h, x: drag.x, y: drag.y } : null;
   }
   if (!shown) return null;
-  return <span className={`attack-drag-hint ${shown.kind}`} role="status" data-testid="attack-drag-hint" style={{ left: shown.x + 18, top: shown.y - 34 }}>{shown.text}</span>;
+  // (on the body, over the dragged card's ghost: the prompt's plaque is a stacking context under the drag layer)
+  return createPortal(<span className={`attack-drag-hint ${shown.kind}`} role="status" data-testid="attack-drag-hint" style={{ left: shown.x + 18, top: shown.y - 34 }}>{shown.text}</span>, document.body);
 }
