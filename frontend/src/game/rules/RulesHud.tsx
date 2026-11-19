@@ -4,7 +4,7 @@
  * for every kind of decision, the numbered STACK helper, and the AUTOMATION ERROR panel.
  * Everything here reads `view.rules`; the server decides, the client only asks and shows.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
@@ -103,7 +103,7 @@ export function AutomationHud() {
         </button>
       ))}
       {seated && rules?.hints.channel && (
-        <button className="auto-pill" data-testid="channel" title="Channel: pay 1 life to add {C} (a mana ability, until end of turn)"
+        <button className="auto-pill" data-testid="channel" title="Channel: pay 1 life to add one colorless mana (a mana ability, until end of turn)"
           disabled={!rules.hints.has_priority || !!rules.decision || rules.paused}
           onClick={() => void send({ type: "activate_ability", card_id: rules.hints.channel, ability: 0 })}>
           Pay 1 life: add <ManaText text="{C}" />
@@ -529,7 +529,7 @@ export function DecisionPanel() {
   if (d.player !== me || !d.options) {
     return (
       <div className="decision-panel waiting" data-testid="decision-waiting">
-        {d.public ? prettyPrompt(d.prompt) : `${playerName(view, d.player)} is deciding: ${prettyPrompt(d.prompt)}`}
+        <ManaText text={d.public ? prettyPrompt(d.prompt) : `${playerName(view, d.player)} is deciding: ${prettyPrompt(d.prompt)}`} />
       </div>
     );
   }
@@ -544,7 +544,7 @@ export function DecisionPanel() {
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
     <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
-      <div className="decision-prompt">{prettyPrompt(d.prompt)}</div>
+      <div className="decision-prompt"><ManaText text={prettyPrompt(d.prompt)} /></div>
       {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
     </div>
@@ -552,7 +552,19 @@ export function DecisionPanel() {
 }
 
 /** Pay {3}{W}: the suggested sources, the alternatives, Auto Pay / Edit Payment / Cancel. */
+/** -- sweep C -- a spell cast from the keyboard (Enter on a hand card): the payment takes the focus (Auto Pay, or the first land to
+ *  tap), so Enter pays; a mouse cast leaves the focus alone (Space still taps the hovered card). */
+function useKeyboardPay(first: string) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && a.closest(".hand-card") && a.matches(":focus-visible")) ref.current?.querySelector<HTMLElement>(first)?.focus();
+  }, [first]);
+  return ref;
+}
+
 function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
+  const payRef = useKeyboardPay("[data-testid=option-pay]");
   const info = d.display as unknown as { cost: string; what: string; suggested: string[]; alternatives: string[]; pool: number };
   const [always, setAlways] = useState(false);
   const pay = () => {
@@ -570,7 +582,7 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
     ) : null;
   });
   return (
-    <div className="decision-panel payment frame ornate" data-testid="decision-panel" data-kind="payment">
+    <div ref={payRef} className="decision-panel payment frame ornate" data-testid="decision-panel" data-kind="payment">
       <div className="pay-head">
         <span className="pay-title">Pay</span>
         <span className="pay-cost"><ManaText text={info.cost} /></span>
@@ -610,6 +622,7 @@ const HELPER_LABEL = { convoke: "Convoke", improvise: "Improvise", delve: "Delve
 export const paidSymbol = (pays: string) => `{${pays}}`;
 
 function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
+  const payRef = useKeyboardPay("[data-testid^=tap-source-], [data-testid=option-pay]");
   const info = d.display as unknown as TapManaInfo;
   const committed = new Set(info.committed ?? []);
   const sources = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
@@ -621,7 +634,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
     if (!ids.length) return null;
     return (
       <>
-        <div className="frame-title">{title}</div>
+        <div className="frame-title"><ManaText text={title} /></div>
         <div className="pay-row alt" data-testid={`pay-${kind}`}>
           {ids.map((id) => (
             <button key={id} className={`pay-thumb${committed.has(id) ? " picked" : ""}`} data-testid={`${kind}-${id}`}
@@ -636,7 +649,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
     );
   };
   return (
-    <div className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
+    <div ref={payRef} className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
       <div className="pay-head">
         <span className="pay-title">{payTitle(info.what)}</span>
         <span className="pay-cost"><ManaText text={info.cost} /></span>
@@ -662,6 +675,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
         <div className="pay-row alt">
           {sources.map((id) => (
             <button key={id} className="pay-thumb" title="Tap for mana" data-testid={`tap-source-${id}`}
+              aria-label={`Tap ${isVisible(view.cards[id]!) ? view.cards[id]!.name : "this card"} for mana`}
               onClick={() => tapForMana(id)} {...hover(id)}>
               <GameCardFace card={view.cards[id]!} size="small" />
             </button>

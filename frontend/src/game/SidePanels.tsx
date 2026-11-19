@@ -130,7 +130,7 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
 function Part({ part }: { part: LogPartView }) {
   const hoverCard = useHoverCard();
   const hover = (printId: string | null | undefined) => (printId ? hoverCard(`print:${printId}`) : {});
-  if ("t" in part) return <>{part.t}</>;
+  if ("t" in part) return <ManaText text={part.t} />;
   if ("card" in part) {
     return (
       <span className="log-card" {...hover(part.card.card_id)}>

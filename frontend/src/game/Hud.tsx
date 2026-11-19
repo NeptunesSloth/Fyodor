@@ -209,7 +209,7 @@ export function LogDrawer() {
       ) : (
         <button className="log-pill" onClick={() => setOpen(true)} title="Game log and chat">
           <span className="log-pill-label">Log</span>
-          <span className="log-pill-last">{text}</span>
+          <span className="log-pill-last"><ManaText text={text} /></span>
         </button>
       )}
     </div>

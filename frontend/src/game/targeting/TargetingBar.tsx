@@ -13,6 +13,7 @@ import { usePrefs } from "../../state/prefs";
 import { resolveRenderer } from "../../table3d/renderer";
 import { isVisible, type GameView } from "../../types/game";
 import { GameCardFace } from "../GameCardFace";
+import { ManaText } from "../../cards/ManaText";
 import { choose } from "../rules/intents";
 import { canSubmitChoice, doneLabel } from "../rules/RulesHud";
 import { pickNumber, useTargeting, type Pick } from "./store";
@@ -90,7 +91,7 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
           <div className="tgt-head">
             <p className="tgt-words">
               {t.sourceName && <span className="tgt-name">{t.sourceName}</span>}
-              <span className="tgt-what" data-testid="targeting-instruction">{t.instruction}</span>
+              <span className="tgt-what" data-testid="targeting-instruction"><ManaText text={t.instruction} /></span>
             </p>
             {t.multi && <span className="tgt-count" aria-live="polite" data-testid="targeting-count">{progress(picked.length, t)}</span>}
             <span className="tgt-actions">
