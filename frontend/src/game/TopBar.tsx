@@ -46,7 +46,7 @@ export function TopBar() {
     <header className="game-top">
       <a className="brand" href="#/play" title="Back to lobby">←</a>
       <div className="game-title">
-        <b>{view.game.name}</b>
+        <b title={view.game.name}>{view.game.name}</b>{/* (-- sweep B -- a crowded bar shortens it: the whole name on hover) */}
         {view.game.mode === "lan" && view.game.code && <span className="room-code" title="Room code for other players">Room {view.game.code}</span>}
         {status !== "open" && <span className={`status ${status}`}>{status === "reconnecting" ? "Reconnecting…" : status}</span>}
       </div>

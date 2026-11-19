@@ -55,7 +55,8 @@ export function MulliganOverlay() {
         <div className="mull-seats">
           {view.seat_order.map((pid) => {
             const seat = view.pregame!.seats[pid];
-            if (!seat) return null;
+            // (-- sweep B -- a target dummy has no deck and no hand: "Kept 0" said nothing; it isn't listed)
+            if (!seat || view.players.find((p) => p.id === pid)?.dummy) return null;
             return (
               <div key={pid} className={`mull-seat ${seat.status}`} data-testid={`mull-seat-${pid}`}>
                 <b>{playerName(view, pid)}{pid === me ? " (you)" : ""}</b>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "../components/Modal";
 import { ResultForm, draftValid, type ResultDraft } from "../components/ResultForm";
-import { toastError } from "../components/Toasts";
+import { toast, toastError } from "../components/Toasts";
 import { gameResult, RESULT_LABEL, recordResult, type GameResult } from "../services/pod";
 import { useGame } from "../state/gameStore";
 import { proposeEnd } from "../services/night";
@@ -47,7 +47,12 @@ export function EndGameDialog({ onClose }: { onClose: () => void }) {
   const record = async () => {
     setBusy(true);
     try {
-      setRecorded(await recordResult(view.game.id, draft));
+      // -- sweep B (nov 18) -- recorded: the dialog closes and says so, and the post-game bar (rematch, lobby) is in reach at once; the
+      // summary stayed up over it. "Game result…" in the menu shows it again.
+      const done = await recordResult(view.game.id, draft);
+      setRecorded(done);
+      toast(`Result recorded: game #${done.number}${done.winners.length ? `, ${done.winners.join(" + ")} won` : ""}.`);
+      onClose();
     } catch (e) {
       toastError(e);
     } finally {

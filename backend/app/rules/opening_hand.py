@@ -52,7 +52,8 @@ WHEN = {
     "your first main phase of the game": {"kind": "step", "step": "main", "whose": "you"},  # 505.1
 }
 _ANNEX = "when each opponent casts their first spell of the game, counter that spell unless that player pays {1}."
-PROMPT = "Opening hand: choose the cards to use, or none (103.6)"
+# (-- sweep B (nov 18) -- in plain words: "choose the cards to use, or none (103.6)" told a new player nothing)
+PROMPT = "Before the game starts, you may use cards whose text says \"opening hand\". Choose any, or none."  # (no card named: others see it too)
 
 
 _POWDER = re.compile(r"Any time you could mulligan and (?:~|[^,.]+?) is in your hand, you may exile all the cards from your hand, then "
