@@ -47,6 +47,9 @@ SMARTS = [
          oracle_text="Test Fireball deals X damage to any target.", colors=["R"], color_identity=["R"]),
     card("Test X Rod", set_code="tbs", number="9", mana_cost="{2}", cmc=2.0, type_line="Artifact",
          oracle_text="{X}, {T}: This artifact deals X damage to target creature."),
+    card("Test Spray", set_code="tbs", number="10", mana_cost="{R}", cmc=1.0, type_line="Sorcery",
+         oracle_text="Test Spray deals 2 damage divided as you choose among one, two, or three targets.", colors=["R"],
+         color_identity=["R"]),
 ]
 
 
@@ -355,4 +358,14 @@ def test_advanced_kills_a_creature_pumped_in_a_fight_in_response(cards, level, a
     assert ("Lightning Bolt" in bot_casts(s)) == answered
     assert (zone(s, bears) == "p1:graveyard") == answered
     assert (zone(s, ogre) == "p2:battlefield") == answered
+    replay_matches(s)
+
+
+def test_divided_damage_never_takes_more_targets_than_damage(cards):
+    """2 damage divided among one, two or three targets, three creatures of Alice's to aim at: two targets at most (at least 1 each,
+    601.2d), and the game goes on."""
+    s, ids = board(cards, mine=("Llanowar Elves", "Llanowar Elves", "Test Ogre"), theirs=("Mountain",), top=[(1, "Test Spray")])
+    play(s, until_turn=3)
+    assert "Test Spray" in bot_casts(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]].count("Llanowar Elves") == 2
     replay_matches(s)

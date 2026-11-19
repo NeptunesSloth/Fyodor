@@ -1319,6 +1319,9 @@ def _answer(b: Board, d: dict[str, Any], info: CardInfo, memory: dict[str, Any])
         best = _target_for(b, source, among)
         need = max(1, int(d.get("min_choices") or 0))
         most = int(d.get("max_choices") or need)
+        if source is not None and "divided" in source.text:  # (at least 1 each, 601.2d: never more targets than it has damage to divide)
+            split = _damage(source) if "x damage" not in source.text else None
+            most = min(most, split) if split is not None else need
         prompt = str(d.get("prompt") or "")
         out = []
         if b.level >= INTERMEDIATE and most > need and len(best) > need and "target" in prompt and _kind(source) in ("harm", "help"):
