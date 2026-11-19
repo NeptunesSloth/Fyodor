@@ -23,6 +23,8 @@ import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
 import { offDice, offMat } from "./framing";
 import { PLATE } from "./layout";
+import { softwareGraphicsDefault } from "./renderer";
+import { toast } from "../components/Toasts";
 import "./table3d.css";
 import { PlayerInitial } from "../game/PlayerInitial";
 
@@ -85,6 +87,14 @@ export function Table3D({ me }: { me: string }) {
   useEffect(() => {
     const el = host.current;
     if (!el) return;
+    // -- software 3D -- the first time this device draws the table without a graphics card: the Low preset (the table is
+    // built once, with it: the change of preset runs this again)
+    const auto = softwareGraphicsDefault(graphics);
+    if (auto) {
+      usePrefs.getState().set({ graphics: auto, tokenCollapse: 5 });
+      toast("This computer draws 3D without a graphics card: graphics set to Low for a smoother table (Settings → Graphics).", "info");
+      return;
+    }
     const quality: Quality = graphics === "low" ? "low" : graphics === "medium" ? "medium" : "high";
     const scene = new TableScene(el, plane(usePrefs.getState().plane), quality);
     sceneRef.current = scene;

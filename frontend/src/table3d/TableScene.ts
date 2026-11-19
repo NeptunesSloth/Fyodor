@@ -303,8 +303,16 @@ function angleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. */
-export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number }
+/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. fps counts drawn frames
+ *  only: a table at rest draws none (see the loop's -- idle --). textures: in GPU memory. */
+export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number; textures?: number }
+
+// -- idle -- every texture change (a card's picture arriving, a canvas redrawn) is counted: a table at rest draws again
+let texChanges = 0;
+{
+  const d = Object.getOwnPropertyDescriptor(THREE.Texture.prototype, "needsUpdate");
+  if (d?.set) Object.defineProperty(THREE.Texture.prototype, "needsUpdate", { ...d, set(v: boolean) { if (v) texChanges++; d.set!.call(this, v); } });
+}
 
 /** -- playtest (nov 17) -- the most stack cards the 3D table fans out; older ones pile under the first fanned card. */
 export const STACK_FAN = 12;
@@ -374,6 +382,16 @@ export class TableScene {
   /** Called once per frame after rendering: DOM overlays that follow the table hook in here, so the
    * three.js loop stays the only animation loop. */
   onFrame: (() => void) | null = null;
+  /** -- idle -- with no ambient motion (low graphics, reduced motion), a table at rest draws no frames (a software renderer
+   *  spent every core redrawing an unchanged table): anything that may change the picture wakes it for a while. */
+  private awakeUntil = 0;
+  private awakeFrames = 0;
+  private texSeen = -1;
+  private idleAt = 0;
+  wake = (): void => {
+    this.awakeUntil = performance.now() + 1500;
+    this.awakeFrames = 20; // (and as many frames: some easings step per frame, and a software renderer draws few a second)
+  };
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
   /** A unit square lying flat: a pile's ×N badge, scaled to its size each frame (sizeBadges). */
@@ -468,7 +486,8 @@ export class TableScene {
     this.envMap = pmrem.fromScene(room, 0.04).texture;
     room.dispose();
     pmrem.dispose();
-    this.scene.environment = this.envMap;
+    // (low: no room reflections on the table and cards, which doubled a software renderer's frame for no visible change)
+    if (quality !== "low") this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
     this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
@@ -484,6 +503,11 @@ export class TableScene {
       this.updateCameraGoal();
     }), useBoardOrderTick.subscribe(() => this.syncCards()));
     this.unsubs.push(useTargeting.subscribe(() => this.syncCards())); // a candidate hovered in the tray, or chosen
+    this.unsubs.push(usePrefs.subscribe(this.wake), useGame.subscribe(this.wake)); // -- idle --
+    for (const type of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown", "keyup"]) {
+      window.addEventListener(type, this.wake, { capture: true, passive: true });
+      this.unsubs.push(() => window.removeEventListener(type, this.wake, { capture: true }));
+    }
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
@@ -517,6 +541,7 @@ export class TableScene {
     const onCursor = (e: Event) => {
       const msg = (e as CustomEvent<CursorMessage>).detail;
       if (this.view && msg.from !== this.view.viewer) this.cursors.receive(msg, performance.now());
+      this.wake();
     };
     window.addEventListener("fyodor:cursor", onCursor);
     this.unsubs.push(() => window.removeEventListener("fyodor:cursor", onCursor));
@@ -616,6 +641,7 @@ export class TableScene {
   }
 
   resize(w: number, h: number): void {
+    this.wake();
     this.viewW = w;
     this.viewH = h;
     this.renderer.setSize(w, h, false);
@@ -630,6 +656,7 @@ export class TableScene {
   }
 
   update(view: GameView, me: string): void {
+    this.wake();
     // landed dice stay for the turn they were rolled in (game/dice.ts)
     if (this.diceTurn >= 0 && view.turn.number !== this.diceTurn) this.dice.clear();
     this.diceTurn = view.turn.number;
@@ -796,6 +823,7 @@ export class TableScene {
 
   /** Table motion (tests and screenshots): freeze every running motion at a time in ms (null: live), and what is running. */
   motionFreeze(ms: number | null): void {
+    this.wake();
     this.motion.freeze(ms);
   }
 
@@ -1631,6 +1659,7 @@ export class TableScene {
   }
 
   private syncCards(): void {
+    this.wake();
     const view = this.view;
     if (!view) return;
     this.motion.layout();
@@ -2215,6 +2244,7 @@ export class TableScene {
   }
 
   private updateCameraGoal(): void {
+    this.wake();
     const mine = this.seatList.find((s) => s.player === this.me) ?? this.seatList[0];
     if (!mine) return;
     const preset = this.preset;
@@ -2934,6 +2964,21 @@ export class TableScene {
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     const started = performance.now();
+    // -- idle -- at rest with nothing moving or changed: no frame (the DOM plates still check the page's chrome now and then)
+    if (texChanges !== this.texSeen) {
+      this.texSeen = texChanges;
+      this.wake();
+    }
+    const ambient = !document.body.classList.contains("reduced-motion") && !this.still; // (candles, dust: always moving)
+    if (!ambient && --this.awakeFrames < 0 && started > this.awakeUntil && !this.grabs.length && !this.afterFrame.length
+      && !this.motion.active && !this.dayNight.active && !this.planar.active && !this.end.active && !this.sliding && !this.drag) {
+      this.clock.update(); // (so the first frame on waking doesn't jump)
+      if (started - this.idleAt > 250) {
+        this.idleAt = started;
+        this.onFrame?.();
+      }
+      return;
+    }
     this.clock.update();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.getElapsed();
@@ -3025,8 +3070,8 @@ export class TableScene {
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
-    this.dice.update(performance.now(), reduced, speed);
-    this.cannon?.update(performance.now(), speed);
+    const diceMoving = this.dice.update(performance.now(), reduced, speed);
+    if (this.cannon?.update(performance.now(), speed) || diceMoving) this.wake();
     this.props.tick(t, this.camera, reduced);
     this.tickFans(ease(dt, 9 * speed, reduced));
     const kc = ease(dt, 5 * speed, reduced);
@@ -3036,7 +3081,7 @@ export class TableScene {
     if (this.camPos.distanceToSquared(this.camGoalPos) < 1e-8 && this.camLook.distanceToSquared(this.camGoalLook) < 1e-8) {
       this.camPos.copy(this.camGoalPos);
       this.camLook.copy(this.camGoalLook);
-    }
+    } else this.wake(); // (still on its way)
     this.camera.position.copy(this.camPos);
     if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
@@ -3049,6 +3094,7 @@ export class TableScene {
     if (this.cursors.group.visible) {
       this.camera.updateMatrixWorld();
       this.cursors.update(dt, started, reduced, this.camera, this.camera.view?.fullHeight ?? this.canvas.clientHeight);
+      if (this.cursors.group.children.some((o) => o.visible)) this.wake(); // (another player's cursor gliding or fading)
     }
     if (!reduced && !this.still) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome
@@ -3080,7 +3126,7 @@ export class TableScene {
     this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {
-      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100 };
+      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100, textures: this.renderer.info.memory.textures };
       this.frames = 0;
       this.frameTime = 0;
       this.fpsAt = t;
