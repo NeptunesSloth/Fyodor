@@ -14,6 +14,7 @@ import { isLand, canConcede, choose, chooseName, concede, delveCard, next, passO
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries, useChainRows } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
+import { RememberedAnswers } from "./RememberedAnswers";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { PhaseDial } from "./PhaseDial";
@@ -36,7 +37,7 @@ import { groupByController } from "./decisionGroups";
 import { autoOrderIds, isTriggerOrder, orderedIds, orderRows, savedOrderLabel } from "./triggerOrder";
 import { usePrefs } from "../../state/prefs";
 import { requestCards, useCardCache } from "../../state/cardCache";
-import { targetingOf } from "../targeting/targeting";
+import { librarySearch, targetingOf } from "../targeting/targeting";
 import { TargetingBar } from "../targeting/TargetingBar";
 import { useTargeting } from "../targeting/store";
 import { Icon } from "../../components/Icon";
@@ -373,6 +374,7 @@ export function TurnDial() {
               <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
               {!watching && <NudgeButton view={view} me={me} />}
             </div>
+            {!watching && <RememberedAnswers yields={prefs?.yields ?? []} view={view} />}
             <ol className="td-track sr-only" aria-label="Steps of the turn">
               {STEP_GROUPS.map((g) => {
                 const here = g.steps.includes(step);
@@ -403,7 +405,7 @@ export function TurnDial() {
             {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding || busy}
-                title={blocked ?? (view.turn.active_player === me ? "Pass to the next turn: you attack with nothing (unless a creature must attack); another player's spell or ability, or a choice you must make, still stops you" : "Pass to the next turn: another player's spell or ability, or a choice you must make, still stops you")}
+                title={blocked ?? `End turn: pass until the next turn. It stops if an opponent casts a spell or activates an ability, so you can respond, and when you must make a choice.${view.turn.active_player === me ? " You attack with nothing (unless a creature must attack)." : ""}`}
                 onClick={() => void passPriority("next_turn")}>End turn</button>}
               <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
@@ -531,7 +533,7 @@ export function DecisionPanel() {
   if (d.player !== me || !d.options) {
     return (
       <div className="decision-panel waiting" data-testid="decision-waiting">
-        <ManaText text={d.public ? prettyPrompt(d.prompt) : `${playerName(view, d.player)} is deciding: ${prettyPrompt(d.prompt)}`} />
+        <ManaText text={d.public ? prettyPrompt(d.prompt) : `${playerName(view, d.player)} is deciding: ${prettyPrompt(d.prompt)}`} keywords />
       </div>
     );
   }
@@ -545,8 +547,8 @@ export function DecisionPanel() {
   if (board) return <TargetingBar key={d.id} t={board} view={view} me={me} />;
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
-    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
-      <div className="decision-prompt"><ManaText text={prettyPrompt(d.prompt)} /></div>
+    <div className={`decision-panel frame ${targeting ? "targeting" : ""}${librarySearch(view, d) ? " search" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
+      <div className="decision-prompt"><ManaText text={prettyPrompt(d.prompt)} keywords /></div>
       {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
     </div>
@@ -914,7 +916,8 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   // the chips read each found card's data, and plain option buttons don't load it the way card faces do
   const printings = d.kind === "choose_cards" ? options.map((o) => (o.card_id ? view.cards[o.card_id] : undefined)).flatMap((c) => (c && !c.hidden && c.card_id ? [c.card_id] : [])) : [];
   const printingKey = printings.join(",");
-  useEffect(() => { if (printings.length > FILTER_MIN) requestCards(printings); }, [printingKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const search = librarySearch(view, d); // -- library search -- a large card grid with filters, a land count and a sort
+  useEffect(() => { if (printings.length > FILTER_MIN || search) requestCards(printings); }, [printingKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
   const min = d.min_choices ?? 1;
@@ -959,12 +962,14 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
             ))}
           </>
         )}
+        {/* -- "Always do this" -- a clear box for the answer to stick (the turn dial's "Remembered" lists and forgets them) */}
         {d.rememberable && (
-          <select className="decision-remember" data-testid="remember" value={remember} onChange={(e) => setRemember(e.target.value)}>
-            <option value="">Ask me every time</option>
-            <option value="yes_this_turn">Same answer this turn</option>
-            <option value="always_yield">Always</option>
-          </select>
+          <span className="decision-remember" data-testid="remember">
+            <label><input type="checkbox" data-testid="remember-always" checked={remember === "always_yield"}
+              onChange={(e) => setRemember(e.target.checked ? "always_yield" : "")} /> Always for this card this game</label>
+            <label className="hint"><input type="checkbox" data-testid="remember-turn" checked={remember === "yes_this_turn"}
+              onChange={(e) => setRemember(e.target.checked ? "yes_this_turn" : "")} /> This turn only</label>
+          </span>
         )}
         {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
         {answers > 1 && answers <= 10 && !filter && <span className="decision-keys hint" data-testid="decision-keys">Keys 1–{answers === 10 ? "9, 0" : answers} pick in order</span>}
@@ -977,7 +982,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   // choose_cards. A long list of cards (a library search's legal finds, shown to the chooser only): filter and sort them as in the
   // zone browser, by what the chooser already sees of each; picks stay listed, and options that aren't cards (Panglacial Wurm) always show
   const cardOptions = options.filter((o) => o.card_id);
-  const filterable = cardOptions.length > FILTER_MIN;
+  const filterable = cardOptions.length > FILTER_MIN || search;
   let listed = options;
   if (filterable) {
     const byId = new Map(cardOptions.map((o) => [o.id, o]));
@@ -990,7 +995,8 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   return (
     <div className="decision-options" {...sentences}>
       {filterable && <CardFilterBar value={cardFilter} onChange={setCardFilter} text orderLabel="Library order" />}
-      {listed.map((o) => (
+      {search && <SearchGrid options={listed} all={cardOptions} picked={picked} toggle={toggle} view={view} cardData={cardData} />}
+      {!search && listed.map((o) => (
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{o.card_id ? optionLabel(o, view) : <ManaText text={o.label} />}</button>
       ))}
@@ -1000,6 +1006,37 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
       {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
       {toggles && answers > 1 && answers <= 10 && <span className="decision-keys hint" data-testid="decision-keys">Keys 1–{answers === 10 ? "9, 0" : answers} choose in order</span>}
     </div>
+  );
+}
+
+/** -- library search -- the finds as large cards (each its own button, picked ones marked), with how many are lands. */
+function SearchGrid({ options, all, picked, toggle, view, cardData }: {
+  options: DecisionOptionView[]; all: DecisionOptionView[]; picked: string[]; toggle: (id: string) => void; view: GameView;
+  cardData: Record<string, { type_line?: string | null } | undefined>;
+}) {
+  const hover = useHoverCard();
+  const typeOf = (o: DecisionOptionView) => { const c = view.cards[o.card_id!]; return c && isVisible(c) && c.card_id ? cardData[c.card_id]?.type_line ?? "" : ""; };
+  const lands = all.filter((o) => /\bLand\b/.test(typeOf(o))).length;
+  return (
+    <>
+      <p className="search-count hint" data-testid="search-count">
+        {all.length} card{all.length === 1 ? "" : "s"} found · {lands} land{lands === 1 ? "" : "s"}{options.length < all.length ? ` · ${options.filter((o) => o.card_id).length} shown` : ""}
+      </p>
+      <div className="search-grid" role="group" aria-label="Cards found">
+        {options.map((o) => {
+          const c = o.card_id ? view.cards[o.card_id] : undefined;
+          if (!c) return <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`} onClick={() => toggle(o.id)}><ManaText text={o.label} /></button>;
+          const at = picked.indexOf(o.id);
+          return (
+            <button key={o.id} type="button" className="search-card" data-testid={`option-${o.id}`} aria-pressed={at >= 0} aria-label={optionLabel(o, view)}
+              onClick={() => toggle(o.id)} {...hover(c.id)}>
+              <GameCardFace card={c} size="normal" />
+              {at >= 0 && <span className="search-pick" aria-hidden>{at + 1}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
