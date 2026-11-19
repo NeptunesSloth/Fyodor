@@ -116,6 +116,19 @@ export function PlayPage({ route }: { route: Route }) {
     }
   }, [invite, games]);
 
+  // -- clear the shelf -- close every open table, then delete every save (closing autosaves a table: listed after)
+  const clearAll = async () => {
+    if (!window.confirm("Remove all tables and saved games?\n\nEvery open table closes (players are sent back) and every saved game is deleted. Your decks are kept. This can't be undone.")) return;
+    try {
+      for (const g of games ?? []) await closeGame(g.id);
+      for (const s of await listSaves()) await deleteSave(s.id);
+      toast("All tables and saved games removed");
+    } catch (e) {
+      toastError(e);
+    }
+    refresh();
+  };
+
   // "Resume a game" on the launcher opens the shelf
   const shelf = useRef<HTMLDetailsElement>(null);
   const wantsShelf = route.query.get("tab") === "saves";
@@ -180,6 +193,12 @@ export function PlayPage({ route }: { route: Route }) {
                 )}
             </details>
           )}
+          {host && (games?.length || saves.length) ? (
+            <button className="tt-btn ghost pg-clear-all" data-testid="clear-all-tables"
+              title="Close every open table and delete every saved game (decks are kept)" onClick={() => void clearAll()}>
+              Remove all tables and saved games…
+            </button>
+          ) : null}
           {host && <LanHint />}
         </aside>
       </div>

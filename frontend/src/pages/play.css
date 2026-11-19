@@ -588,3 +588,6 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 @media (max-width: 700px) {
   .pg-seats.pg-solo > :is(.pg-seat, .pg-add-dummy) { flex-basis: 100%; max-width: none; }
 }
+/* -- clear the shelf -- quiet until hovered: it removes every table and save */
+.pg-clear-all { align-self: flex-start; margin: 4px 0 2px; font-size: 12.5px; color: var(--text-dim); }
+.pg-clear-all:hover:not(:disabled) { color: var(--danger); }
