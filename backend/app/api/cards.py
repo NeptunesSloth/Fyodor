@@ -4,7 +4,7 @@ import contextlib
 from typing import Annotated, Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -42,6 +42,17 @@ def search_cards(
 @router.get("/cards/autocomplete")
 def autocomplete(services: ServicesDep, q: Annotated[str, Query(max_length=100)] = "") -> list[str]:
     return services.cards.autocomplete(q)
+
+
+@router.get("/cards/glossary")
+def card_glossary(services: ServicesDep, response: Response) -> dict[str, Any]:
+    """-- keyword help -- every keyword and ability word with a short reminder (the card text tooltips)."""
+    try:
+        terms = services.cards.glossary()
+    except CardDatabaseUnavailable:
+        terms = {}
+    response.headers["Cache-Control"] = "max-age=3600"
+    return {"terms": terms}
 
 
 class BatchRequest(BaseModel):

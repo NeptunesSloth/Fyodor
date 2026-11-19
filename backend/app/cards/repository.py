@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from app.cards import glossary
 from app.cards.art_fallback import ArtFallback, Sibling
 from app.cards.images import ImageStore
 from app.cards.names import normalize_name
@@ -44,6 +45,7 @@ class CardRepository:
         self._names_for: sqlite3.Connection | None = None
         self._word_names: frozenset[str] = frozenset()
         self._word_names_for: sqlite3.Connection | None = None
+        self._glossary: tuple[sqlite3.Connection, dict[str, str]] | None = None  # -- keyword help -- per open database
         # the rules engine's reads (rules_card): one per printing per open database
         self._rules: dict[str, dict[str, Any] | None] = {}
         self._rules_for: sqlite3.Connection | None = None
@@ -340,6 +342,14 @@ class CardRepository:
                 self._names = {normalize_name(r["name"]): r["name"] for r in rows}
                 self._names_for = conn
             return self._names
+
+    def glossary(self) -> dict[str, str]:
+        """-- keyword help -- {keyword or ability word: a short reminder} (app/cards/glossary.py), built once per open database."""
+        with self._lock:
+            conn = self._connection()
+            if self._glossary is None or self._glossary[0] is not conn:
+                self._glossary = (conn, glossary.from_connection(conn))
+            return self._glossary[1]
 
     def planar_cards(self) -> list[dict[str, Any]]:
         """-- planechase -- every plane and phenomenon (one printing each, the default): the pool a planar deck is dealt from
