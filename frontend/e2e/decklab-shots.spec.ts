@@ -86,10 +86,11 @@ test("deck lab and friends' decks", async ({ browser }) => {
     await page.keyboard.press("Enter");
     await page.getByTestId("ds-100").click();
     await expect(page.getByTestId("ds-keep-rate")).toContainText("of 100 hands");
-    await page.getByTestId("ds-draw").scrollIntoViewIfNeeded();
+    await page.locator(".ds-hand").scrollIntoViewIfNeeded();
     await page.waitForTimeout(800);
     await shot(page, `decklab-hand-${size.tag}`);
     await page.getByTestId("ds-mulligan").click();
+    await page.locator(".ds-hand").scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     await shot(page, `decklab-mulligan-${size.tag}`);
     await page.keyboard.press("Escape");

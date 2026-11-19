@@ -95,7 +95,7 @@ export function DeckStats({ entries, cards, onClose }: { entries: DeckEntry[]; c
             <button className="tt-btn" disabled={hand === null} onClick={() => setHand((h) => (h ?? 0) + 1)} data-testid="ds-mulligan">Mulligan</button>
             <button className="tt-btn" disabled={!pool.length} onClick={() => setRate(keepRate(pool, seed))} data-testid="ds-100">Draw 100 hands</button>
             <label className="ds-seed">Seed
-              <input type="number" min={0} value={seed} onChange={(e) => { setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0))); setHand((h) => (h === null ? null : 0)); setRate(null); }} />
+              <input type="number" min={0} value={seed} onChange={(e) => { setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0))); setHand(0); setRate(null); }} />
             </label>
           </div>
           <p className="ds-lead" role="status" aria-live="polite">
