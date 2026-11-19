@@ -50,13 +50,20 @@ def test_coffers_with_the_pool_full_needs_no_prompt_and_cancel_leaves_it_untappe
     assert s.state.rules.decision is None and mana_pool(s) == {"B": 3}
 
 
-def cast_drone(cards, pool):
-    """-- sweep B2 -- Incubator Drone ({3}{U}) cast with ``pool`` floating: the "tap your mana" prompt is open for it."""
+def cast_drone(cards, pool, tap_islands=0):
+    """-- sweep B2 -- Incubator Drone ({3}{U}) cast with ``pool`` floating, then ``tap_islands`` Islands tapped in its "tap your mana"
+    prompt (tapped mana sits in remembered units, not the plain pool: the live bug)."""
     s, coffers, swamps = table(cards)
     drone = next(c for c in s.state.cards.values() if c.name == "Incubator Drone")
+    islands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p1"][:tap_islands]
     act(s, "p1", type="move", card_ids=[drone.id], to={"zone": "hand"})
-    act(s, "p1", type="add_mana", player="p1", mana=pool)
+    if islands:
+        act(s, "p1", type="move", card_ids=islands, to={"zone": "battlefield"})
+    if pool:
+        act(s, "p1", type="add_mana", player="p1", mana=pool)
     act(s, "p1", type="cast_spell", card_id=drone.id)
+    for island in islands:
+        act(s, "p1", type="activate_ability", card_id=island, ability=0)
     assert s.state.rules.decision is not None and s.state.rules.decision.display["kind"] == "tap_mana"
     return s, coffers, drone
 
@@ -73,10 +80,10 @@ def test_coffers_while_paying_refuses_to_take_the_spells_colours(cards):
 
     from app.game.errors import ActionError
 
-    s, coffers, drone = cast_drone(cards, {"U": 2})  # only {U}{U}: one is the spell's {U}
+    s, coffers, drone = cast_drone(cards, {}, tap_islands=2)  # only {U}{U}, tapped from Islands: one is the spell's {U}
     with pytest.raises(ActionError, match="tap other mana for Cabal Coffers first"):
         act(s, "p1", type="activate_ability", card_id=coffers.id, ability=0)
-    assert not s.state.cards[coffers.id].tapped and mana_pool(s) == {"U": 2}
+    assert not s.state.cards[coffers.id].tapped
 
 
 def test_x_estimate_counts_what_the_coffers_makes(cards):

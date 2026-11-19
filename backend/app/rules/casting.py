@@ -6398,7 +6398,9 @@ def _spare_pool_cost(plan: Plan, player: str, cost: M.ManaCost, outer: Any, name
     owed = (outer.resume or {}).get("cost")
     if not owed or not cost.generic or cost.colored or cost.hybrid or cost.phyrexian or cost.x or cost.unsupported:
         return cost
-    pool = Counter({k: v for k, v in plan.state.players[player].mana.items() if v > 0})
+    from app.rules import mana_units
+
+    pool = Counter({k: v for k, v in mana_units.visible_pool(plan.state, player).items() if v > 0})  # (tapped mana sits in remembered units)
     spare = pool - Counter(M.parse_cost(owed).colored)
     if spare.total() < cost.generic:
         if pool.total() >= cost.generic:
