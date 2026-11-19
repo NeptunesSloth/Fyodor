@@ -18,7 +18,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([t
 export function Modal({ title, onClose, children, wide, footer }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null)); // before autofocus moves it
+  const [opener] = useState(() => (typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null)); // before autofocus moves it
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
