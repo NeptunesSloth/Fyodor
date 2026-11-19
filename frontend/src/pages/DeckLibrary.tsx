@@ -6,7 +6,7 @@ import { Icon } from "../components/Icon";
 import { toast, toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { askText } from "../components/Prompt";
-import { createDeck, deleteDeck, duplicateDeck, listDecks, moveDeckToFolder, renameDeckFolder } from "../services/decks";
+import { createDeck, deleteDeck, duplicateDeck, listDecks, moveDeckToFolder, renameDeckFolder, setDeckShared } from "../services/decks";
 import { podResults } from "../services/pod";
 import type { DeckSummary } from "../types/decks";
 import type { LobbySeat } from "../types/game";
@@ -14,6 +14,7 @@ import { BulkImportDialog } from "./BulkImportDialog";
 import { useCommanderPrinting } from "./CommanderArt";
 import { deckFolders, deckMatches, deckRecords, playedWhen, recordText, type DeckRecord } from "./deckBits";
 import { DeckArt, DeckMenu } from "./DeckParts";
+import { FriendDecks } from "./FriendDecks";
 import { ImportDialog } from "./ImportDialog";
 import { PreconsDialog } from "./PreconsDialog";
 import "./decks.css";
@@ -134,8 +135,13 @@ export function DeckLibrary() {
   const shown = useMemo(() => (q || open === null ? matching : matching?.filter((d) => (d.folder ?? "") === open) ?? null), [matching, open, q]);
   const grouped = !q && open === null && folders.length > 0;
   const empty = decks?.length === 0;
+  const onShare = async (d: DeckSummary) => {
+    await setDeckShared(d.id, !d.shared).then(() => toast(d.shared ? `${d.name} is no longer shared` : `${d.name} is shared while sharing is on (Settings)`), toastError);
+    refresh();
+  };
   const tile = (d: DeckSummary) => (
     <DeckTile key={d.id} deck={d} record={records.get(d.id)} onDelete={() => void onDelete(d)} onDuplicate={() => void onDuplicate(d)}
+      onShare={() => void onShare(d)}
       folders={folders.map((f) => f.name)} onMove={(f) => void moveTo(d, f)} onNewFolder={() => void newFolder(d)} />
   );
   const unfiled = decks?.filter((d) => !d.folder).length ?? 0;
@@ -218,6 +224,7 @@ export function DeckLibrary() {
         <p className="dk-none">{open ? <>“{open}” is empty. Drag a deck onto its name above, or use a deck's <b>···</b> menu → <i>Move to {open}</i>.</> : "Every deck is in a folder."}</p>
       )}
       {q && shown?.length === 0 && <p className="dk-none">No deck or commander matches “{q.trim()}”.</p>}
+      <FriendDecks onCopied={() => void refresh()} />
 
       {precons && <PreconsDialog onClose={() => setPrecons(false)} onAdded={() => void refresh()} />}
       {bulkImporting && <BulkImportDialog onClose={() => setBulkImporting(false)} onSaved={() => void refresh()} />}
@@ -234,8 +241,8 @@ export function DeckLibrary() {
   );
 }
 
-function DeckTile({ deck, record, onDelete, onDuplicate, folders, onMove, onNewFolder }: {
-  deck: DeckSummary; record: DeckRecord | undefined; onDelete: () => void; onDuplicate: () => void;
+function DeckTile({ deck, record, onDelete, onDuplicate, onShare, folders, onMove, onNewFolder }: {
+  deck: DeckSummary; record: DeckRecord | undefined; onDelete: () => void; onDuplicate: () => void; onShare: () => void;
   folders: string[]; onMove: (folder: string) => void; onNewFolder: () => void;
 }) {
   const [menu, setMenu] = useState(false);
@@ -258,6 +265,7 @@ function DeckTile({ deck, record, onDelete, onDuplicate, folders, onMove, onNewF
           <ColorPips colors={deck.color_identity} />
           <span>{total} cards</span>
           {deck.unresolved > 0 && <span className="dk-warn">{deck.unresolved} not found</span>}
+          {deck.shared && <span className="dk-shared" title="Friends on your network can copy this deck while sharing is on (Settings)"><Icon name="cards" size={13} />Shared</span>}
         </p>
         {record && (
           <p className="dk-record">
@@ -271,6 +279,7 @@ function DeckTile({ deck, record, onDelete, onDuplicate, folders, onMove, onNewF
         <a className="tt-btn ghost dk-edit" href={href} aria-label={`Edit ${deck.name}`}><Icon name="pen" size={14} />Edit</a>
         <DeckMenu label={`More for ${deck.name}`} open={menu} onOpenChange={setMenu} className="dk-more" items={[
           { label: "Duplicate", icon: "cards", onClick: onDuplicate },
+          { label: deck.shared ? "Stop sharing" : "Share with friends", onClick: onShare },
           "separator",
           ...folders.filter((f) => f !== deck.folder).slice(0, 8).map((f) => ({ label: `Move to ${f}`, icon: "folder" as const, onClick: () => onMove(f) })),
           { label: "Move to a new folder…", icon: "plus", onClick: onNewFolder },

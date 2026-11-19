@@ -98,6 +98,8 @@ export interface DeckSummary {
   unresolved: number;
   /** The shelf folder it sits in ("" = none). */
   folder?: string;
+  /** -- deck sharing -- shown to friends on the network while sharing is on (Settings). */
+  shared?: boolean;
 }
 
 export interface UnresolvedLine {

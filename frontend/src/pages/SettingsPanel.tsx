@@ -6,6 +6,7 @@ import { play } from "../game/sound";
 import { DICE_LOOKS } from "../game/dice";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
+import { deckSharing, setDeckSharing, type Sharing } from "../services/decks";
 import { myDecks } from "../services/games";
 import { CardDataSection } from "./CardDataPanel";
 import { HAND_SORTS, HAND_SORT_LABEL } from "../game/handSort";
@@ -289,6 +290,7 @@ export function SettingsPanel() {
               <ToggleRow title="Show other players' cursors" hint="Their pointers over the 3D table, in their seat colour, with their name." checked={p.cursors} onChange={(v) => set({ cursors: v })} testId="pref-cursors" />
               <ToggleRow title="Flash this tab and chime" hint="When the table waits on you while Fyodor is in a background tab." checked={p.turnAlert} onChange={(v) => set({ turnAlert: v })} testId="pref-turn-alert" />
               <ToggleRow title="Hot-seat hand-off" hint="Players sharing this computer: when it's another player's turn to act, cover the table with “Pass to …” and switch to their view on a click." checked={p.hotseatHandoff} onChange={(v) => set({ hotseatHandoff: v })} testId="pref-hotseat-handoff" />
+              <ToggleRow title="Turn recap" hint="After other players' turns, a short summary beside the turn dial of what they did since your turn (from the public log)." checked={p.turnRecap} onChange={(v) => set({ turnRecap: v })} testId="pref-turn-recap" />
               <ToggleRow title="Show spectators' reactions" hint="Reactions from people watching the table and players who are out." checked={p.reactions} onChange={(v) => set({ reactions: v })} />
             </div>
           </SettingsSection>
@@ -417,11 +419,38 @@ export function SettingsPanel() {
           <KeysSection />
           <CardDataSection />
           <BackupSection />
+          {host && <ShareDecksSection />}
           {host && <UpdateSection />}
           {host && <DiagnosticsSection />}
         </div>
       </div>
     </div>
+  );
+}
+
+/** -- deck sharing -- friends on this network may browse and copy your decks (Decks → Friends' decks). Off by default. */
+function ShareDecksSection() {
+  const [s, setS] = useState<Sharing | null>(null);
+  useEffect(() => void deckSharing().then(setS, () => undefined), []);
+  if (!s) return null;
+  const save = (next: Sharing) => {
+    setS(next); // (the switch moves at once; a refusal puts it back)
+    setDeckSharing(next).then(setS, (e) => { setS(s); toastError(e); });
+  };
+  return (
+    <SettingsSection id="st-share" testId="share-decks">
+      <div className="st-plate">
+        <ToggleRow title="Share my decks on the network" testId="share-decks-toggle" checked={s.enabled} onChange={(on) => void save({ ...s, enabled: on })}
+          hint="Friends running Fyodor on this network can see your shared decks' names, commanders and card lists, and copy them. Never your notes." />
+        {s.enabled && (
+          <Row title="Which decks" hint="Mark a deck on the Decks page: its ··· menu → Share with friends." control={(id, hintId) => (
+            <select id={id} aria-describedby={hintId} value={s.all ? "all" : "marked"} data-testid="share-which" onChange={(e) => void save({ ...s, all: e.target.value === "all" })}>
+              <option value="marked">Only the decks I mark Shared</option><option value="all">All my decks</option>
+            </select>
+          )} />
+        )}
+      </div>
+    </SettingsSection>
   );
 }
 

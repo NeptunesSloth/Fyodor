@@ -177,3 +177,24 @@ export function ownDecks(brought: BroughtLibrary | null, mine: MyDeck[]): OwnDec
     })),
   };
 }
+
+/**
+ * -- friends' decks -- an address typed by hand ("192.168.1.20:8000", "http://192.168.1.20:8000/") as the friend's Fyodor URL,
+ * else null. The server checks it again (this network only).
+ */
+export function friendAddress(input: string): string | null {
+  const raw = input.trim().replace(/\/+$/, "");
+  const m = /^(?:http:\/\/)?(\d{1,3}(?:\.\d{1,3}){3}|localhost)(?::(\d{1,5}))?$/i.exec(raw);
+  if (!m) return null;
+  return `http://${m[1]!.toLowerCase() === "localhost" ? "127.0.0.1" : m[1]}:${m[2] ?? "8000"}`;
+}
+
+/** How many cards a shared deck list holds ("12 Mountain" lines). */
+export function listCount(text: string): number {
+  let n = 0;
+  for (const line of text.split("\n")) n += Number(/^\s*(\d+)x?\s/.exec(line)?.[1] ?? 0);
+  return n;
+}
+
+/** The folder a copied deck goes into, so the shelf shows whose it was. */
+export const friendFolder = (from: string) => `From ${from.trim() || "a friend"}`.slice(0, 60);

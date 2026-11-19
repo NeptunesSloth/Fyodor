@@ -53,6 +53,15 @@ export interface ArtKeeperStatus {
 export const artKeeper = () => api.get<ArtKeeperStatus>("/decks/art-keeper");
 export const setArtKeeper = (enabled: boolean) => api.put<ArtKeeperStatus>("/decks/art-keeper", { enabled });
 
+/** -- deck sharing -- friends on the network see this computer's decks only while `enabled` (all, or the ones marked shared). */
+export interface Sharing { enabled: boolean; all: boolean }
+export const deckSharing = () => api.get<Sharing>("/decks/sharing");
+export const setDeckSharing = (body: Sharing) => api.put<Sharing>("/decks/sharing", body);
+export const setDeckShared = (id: string, shared: boolean) => api.put<{ id: string; shared: boolean }>(`/decks/${id}/shared`, { shared });
+/** A friend's shared decks (their Fyodor at `url`, asked by this computer's server). */
+export interface FriendDeck { name: string; commanders: string[]; text: string }
+export const friendDecks = (url: string) => api.get<{ from: string; url: string; decks: FriendDeck[] }>(`/lan/friend-decks?url=${encodeURIComponent(url)}`);
+
 /** Poll a background job until it finishes. */
 export async function waitForJob(id: string, onProgress: (job: Job) => void): Promise<Job> {
   for (;;) {
