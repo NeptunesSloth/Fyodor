@@ -26,7 +26,7 @@ export function MulliganOverlay() {
   const view = useGame((s) => s.view);
   const actingAs = useGame((s) => s.actingAs);
   const [collapsed, setCollapsed] = useState(false);
-  if (!view?.pregame || view.pregame.finished) return null;
+  if (!view?.pregame || view.pregame.finished || view.game.result_id) return null; // (a game ended during opening hands: nothing to keep)
   const policy = view.game.settings.mulligan;
   if (!policy) return null;
   const me = perspective(view, actingAs);

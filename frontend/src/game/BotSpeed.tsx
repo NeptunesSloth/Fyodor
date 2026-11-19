@@ -54,7 +54,13 @@ export function BotSpeed() {
               <Icon name="bot" size={13} label={p.name} /><b>{i + 1}</b>
             </span>
           )}
-          {BOT_LEVELS.map((l) => (
+          {/* (two or more bots: a chooser each, so the bar keeps End game on screen at 1600 px) */}
+          {all.length > 1 ? (
+            <select className="bot-level-pick" value={botLevel(p)} aria-label={`${p.name}: level`} title={`How well ${p.name} plays`}
+              data-testid={`bot-level-${p.id}-pick`} onChange={(e) => void send({ type: "set_bot_level", player: p.id, level: e.target.value })}>
+              {BOT_LEVELS.map((l) => <option key={l.id} value={l.id} title={l.hint}>{LEVEL_SHORT[l.id]}</option>)}
+            </select>
+          ) : BOT_LEVELS.map((l) => (
             <button key={l.id} className="tt-btn ghost" aria-pressed={botLevel(p) === l.id} title={`${p.name} plays at ${l.label}: ${l.hint}`}
               data-testid={`bot-level-${p.id}-${l.id}`} onClick={() => { if (botLevel(p) !== l.id) void send({ type: "set_bot_level", player: p.id, level: l.id }); }}>
               {LEVEL_SHORT[l.id]}

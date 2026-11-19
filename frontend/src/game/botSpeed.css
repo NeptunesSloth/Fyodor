@@ -11,3 +11,4 @@
 /* -- playtest (nov 17) -- which bot a level chooser is for: the robot glyph and its number (the name on hover) */
 .bot-level-who { display: inline-flex; align-items: center; gap: 1px; padding: 0 4px 0 2px; color: var(--text-faint); font-size: 12px; }
 .bot-level-who b { font-weight: 600; font-variant-numeric: lining-nums; }
+.bot-level-pick { height: 26px; padding: 0 4px; font-size: 12px; background: transparent; color: var(--text); border: 1px solid var(--line, rgba(255,255,255,0.14)); border-radius: 4px; }
