@@ -1192,6 +1192,22 @@ def _outcome(m: Seen, foes: list[Seen], n: int = 0, k: int = 0, ind: bool = Fals
     return dies, kills
 
 
+def _trick_fight(m: Seen, foes: list[Seen], n: int = 0, k: int = 0, ind: bool = False) -> tuple[bool, bool, int]:
+    """-- sweep B (nov 18) -- a pump's fight read with the combat maths (:func:`_clash`, first strike and trample counted): (does ``m`` die,
+    does it kill one of them, the damage it tramples through) with +n/+k (and indestructible) on it. A blocker fights each attacker it blocks
+    (several: their damage on it added up, :func:`_outcome`)."""
+    if m.extra.get("attacking"):
+        dies, killed, through = _clash(m, foes, (n, k, ind))
+        return dies, bool(killed), through
+    dies = kills = False
+    for f in foes:
+        f_dies, killed, _ = _clash(f, [m], guard=(m.id, n, k, ind))
+        kills, dies = kills or f_dies, dies or bool(killed)
+    if len(foes) > 1:
+        dies = dies or _outcome(m, foes, n, k, ind)[0]
+    return dies, kills, 0
+
+
 def _pump_of(eff: str) -> tuple[int, int, bool] | None:
     """+N/+N and indestructible from a pump's text (a -N anywhere in it: not a pump it reads)."""
     m = _PUMP.search(eff)
@@ -1228,19 +1244,26 @@ def _tricks(b: Board, castable: list[Seen], memory: dict[str, Any]) -> list[dict
         elif "target" not in eff and not (card.creature and "{t}" in (ab.cost or "").lower()):
             options.append(((card, ab), *pump, card.id))  # (it pumps itself: only for its own fight)
     life = {p: b.life(p) for p in b.opponents}
-    unblocked = [m for m, foes in fights if not foes and m.extra.get("attacking")]
+    target = lambda m: (m.extra.get("attacking") or {}).get("id")  # noqa: E731
+    # -- sweep B (nov 18) -- the damage each player takes as things stand: the unblocked attackers', and what blocked tramplers get through
+    # (the combat maths, :func:`_clash`: first strike, double strike, trample, deathtouch)
+    coming: dict[str, int] = {}
+    for m, foes in fights:
+        if m.extra.get("attacking"):
+            coming[target(m)] = coming.get(target(m), 0) + (_clash(m, foes)[2] if foes else _hits(m))
     out: list[dict[str, Any]] = []
     for what, n, k, ind, only in options:
         for m, foes in fights:
             if only is not None and m.id != only:
                 continue
+            at = target(m)
             if foes:
-                before, after = _outcome(m, foes), _outcome(m, foes, n, k, ind)
+                before, after = _trick_fight(m, foes), _trick_fight(m, foes, n, k, ind)
                 worth = before[0] and not after[0] or not before[1] and after[1] and not after[0]
+                # a blocked trampler: the pump's extra damage through its blockers is lethal
+                worth = worth or at in life and after[2] > before[2] and coming.get(at, 0) < life[at] <= coming.get(at, 0) - before[2] + after[2]
             elif m.extra.get("attacking"):
-                at = (m.extra.get("attacking") or {}).get("id")
-                hits = sum(u.power * (2 if u.has("double strike") else 1) for u in unblocked if (u.extra.get("attacking") or {}).get("id") == at)
-                worth = n > 0 and at in life and hits < life[at] <= hits + n * (2 if m.has("double strike") else 1)
+                worth = n > 0 and at in life and coming.get(at, 0) < life[at] <= coming.get(at, 0) + _hits(m, n) - _hits(m)
             else:
                 worth = False
             if not worth:
