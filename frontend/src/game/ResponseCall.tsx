@@ -102,7 +102,7 @@ export function ResponseShout() {
       {shouts.map((s) => (
         <p key={s.id} className="resp-shout" data-testid="response-shout" style={{ ["--player-color" as string]: color(s.from) }}>
           <span className="resp-shout-seat" aria-hidden />
-          <b>{s.from === me ? "You" : s.name}</b> {s.from === me ? "have" : "has"} a response!
+          {s.from === me ? <><b>You</b> called a response</> : <><b>{s.name}</b> has a response!</>}{/* (-- sweep B2 -- not "You have a response!" on the caller's own screen) */}
         </p>
       ))}
       {waiting.map((pid) => (

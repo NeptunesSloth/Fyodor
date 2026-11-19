@@ -172,7 +172,7 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
             ))}
             <span className="spacer" />
             {bottomFirst && <span className={`mull-count ${picked.length === hand.length - keepNow ? "ok" : ""}`}>Bottom {picked.length} / {hand.length - keepNow}</span>}
-            <button className="tt-btn brass" data-testid="mull-keep" disabled={busy || (bottomFirst ? picked.length !== hand.length - keepNow : picked.length > 0)}
+            <button className="tt-btn brass" data-testid="mull-keep" autoFocus /* (-- sweep B2 -- the keyboard starts here, not ~25 Tab stops away) */ disabled={busy || (bottomFirst ? picked.length !== hand.length - keepNow : picked.length > 0)}
               onClick={() => void (async () => {
                 const chosen = picked;
                 await act({ type: "mulligan_keep" });

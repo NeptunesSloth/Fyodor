@@ -250,3 +250,13 @@ def test_over_the_api_an_out_seat_cannot_undo_and_the_host_can(client):
     res = client.post(f"/api/games/{gid}/undo", json={}, headers=h(host))  # the host takes the concession back
     assert res.status_code == 200, res.text
     assert res.json()["rules"]["conceded"] == []
+
+
+def test_a_departed_players_skipped_turn_has_no_turn_line(cards):
+    # -- sweep B2 -- 800.4k: Ben conceded, so his turn doesn't begin: the log goes from Ann's turn to Cat's, no "Turn 2: Ben"
+    s = three(cards)
+    act(s, "p2", type="concede")
+    act(s, "p1", type="pass_priority", until="next_turn")
+    turns = ["".join(p.t or "" for p in e.parts) for e in s.state.log if e.kind == "turn"]
+    assert s.state.turn.active_player == "p3" and turns and turns[-1].startswith(f"Turn {s.state.turn.number}: Cat")
+    assert not any(": Ben" in t for t in turns)

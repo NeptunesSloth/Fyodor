@@ -240,10 +240,10 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               data-testid="ready"
               aria-pressed={me.ready}
               disabled={busy || !me.deck}
-              title={!me.deck ? "Choose a deck first" : me.ready ? "You're ready. Press again if you need more time." : undefined}
+              title={!me.deck ? "Choose a deck first" : me.ready ? "You're ready. Press again if you need more time." : me.deck.warning_count ? "Your deck has warnings: ready to play it as it is" : undefined}
               onClick={() => void run(() => setLobbyReady(gameId, !me.ready))}
             >
-              {me.ready ? <><Icon name="check" size={17} />Ready</> : me.deck?.warning_count ? "Play anyway" : "Ready"}
+              {me.ready ? <><Icon name="check" size={17} />Ready</> : me.deck?.warning_count ? "Ready anyway" : "Ready"}
             </button>
           )}
           {lobby.is_host && (

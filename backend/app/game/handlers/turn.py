@@ -90,6 +90,9 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
         n = untap_permanents(state, nxt, set(a.keep_tapped))
         if n:
             parts.append(text(f" untapped {n} permanent{'s' if n != 1 else ''}"))
+    r = state.rules
+    if r is not None and (nxt in r.conceded or nxt in r.lost):
+        return  # -- sweep B2 -- 800.4k: a departed player's turn doesn't begin (the engine goes on to the next): no "Turn 5: Bob" line
     log(state, a.actor, a.ts, parts, kind="turn")
 
 
@@ -188,7 +191,7 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     ops.move_card(state, top, dest, x=x, y=y, face_down=keep_down)
     if a.tapped and dest.endswith(":battlefield"):
         top.tapped = True
-    log(state, a.actor, a.ts, [text("Resolved "), part, text(f" → {ops.zone_label(state, dest, top.owner)}")])
+    log(state, a.actor, a.ts, [text("Resolved "), part, text(f" → {ops.zone_label(state, dest)}")])  # (-- sweep B2 -- "→ Alice's battlefield": "their" read oddly for your own card)
 
 
 def roll(state: GameState, a: A.Roll) -> None:

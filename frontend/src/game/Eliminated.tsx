@@ -90,7 +90,7 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
         </div>
       )}
       {stage === "hub" && (
-        <div className="night-result plaque-wrap" data-testid="eliminated-hub">
+        <div className="night-result plaque-wrap elim-hub" data-testid="eliminated-hub">
           <div className="plaque night-result-body">
             <div className="night-result-head">
               <span className="night-result-word defeat">Eliminated</span>
