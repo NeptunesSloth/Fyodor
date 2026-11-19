@@ -172,6 +172,13 @@ test("end turn, hot-seat cover and leftovers", async ({ browser }) => {
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/10-hotseat-pass-to-bob.png` });
   await page.keyboard.press("Enter");
+  // the cover stays until Bob's view is the one shown (never Alice's table in between)
+  for (let i = 0; i < 100; i++) {
+    const covered = await page.getByTestId("hotseat-cover").count();
+    const seat = await page.locator(".seat-switch select").first().inputValue().catch(() => "");
+    if (!covered) { expect(seat).toBe("p2"); break; }
+    await page.waitForTimeout(20);
+  }
   await expect(page.getByTestId("hotseat-cover")).toHaveCount(0);
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/11-hotseat-bobs-view.png` });

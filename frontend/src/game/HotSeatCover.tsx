@@ -5,7 +5,7 @@
  * the last player is looking. Never for a bot or a target dummy (the server plays them) and never at a LAN table (one screen each).
  * Settings → Hot-seat hand-off.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import type { GameView } from "../types/game";
@@ -26,17 +26,13 @@ export function HotSeatCover() {
   const target = useGame((s) => (s.view && !s.interim ? handoffTarget(s.view) : null));
   const view = useGame((s) => s.view);
   const enabled = usePrefs((s) => s.hotseatHandoff);
-  const [switching, setSwitching] = useState<string | null>(null); // (the switch is on its way: the old view is still shown meanwhile)
   const button = useRef<HTMLButtonElement>(null);
-  const show = enabled && !!target && target !== switching;
+  // (it stays up until Bob's own view has arrived: the last player's table is what the store holds until then)
+  const show = enabled && !!target;
   useEffect(() => { if (show) button.current?.focus(); }, [show]);
-  useEffect(() => { if (switching && view?.viewer === switching) setSwitching(null); }, [switching, view?.viewer]);
   if (!show || !view || !target) return null;
   const p = view.players.find((x) => x.id === target)!;
-  const go = () => {
-    setSwitching(target);
-    useGame.getState().setViewer(target);
-  };
+  const go = () => useGame.getState().setViewer(target);
   return (
     <div className="modal-backdrop hotseat-cover" role="dialog" aria-modal="true" aria-labelledby="hotseat-title" data-testid="hotseat-cover"
       style={{ ["--seat" as string]: p.color }} onClick={go}>
