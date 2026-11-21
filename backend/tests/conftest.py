@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import functools
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -44,6 +46,32 @@ def _fresh_printed_cache() -> None:
 
     characteristics._printed_cache.clear()
     characteristics._fused_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _testserver_is_a_known_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    # the test client's Host is "testserver", a name the Host guard (app/netguard.py) refuses unless told (FYODOR_EXTRA_HOSTS). Every
+    # test builds its settings through ``load_settings``, so tell it there, below the environment a test passes (which may say otherwise).
+    from app import config
+
+    real = config._load_dotenv
+    monkeypatch.setattr(config, "_load_dotenv", lambda path: {"FYODOR_EXTRA_HOSTS": "testserver", **real(path)})
+
+
+@pytest.fixture(autouse=True)
+def _sockets_send_the_page_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    # a browser always sends an Origin when it opens a socket, and the server refuses a socket without an allowed one (app/netguard.py):
+    # the test client sends the page's own unless the test names another. ``TestClient.websocket_connect.__wrapped__`` sends none.
+    real = TestClient.websocket_connect
+
+    @functools.wraps(real)
+    def connect(self: TestClient, url: str, subprotocols: Any = None, **kwargs: Any) -> Any:
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not any(k.lower() == "origin" for k in headers):
+            headers["Origin"] = "http://testserver"
+        return real(self, url, subprotocols, headers=headers, **kwargs)
+
+    monkeypatch.setattr(TestClient, "websocket_connect", connect)
 
 
 @pytest.fixture(autouse=True)

@@ -80,6 +80,9 @@ class Settings:
     # reverse proxies / tunnels whose X-Forwarded-For is believed (IPs or CIDRs, FYODOR_TRUSTED_PROXIES); none by default, so the
     # header is ignored (app/api/deps.py client_address)
     trusted_proxies: tuple[str, ...] = ()
+    # host names (besides IP addresses, localhost and this computer's name) this server answers to, lower-case, no ports
+    # (FYODOR_EXTRA_HOSTS); see app/netguard.py
+    extra_hosts: tuple[str, ...] = ()
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -149,6 +152,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         discovery=_bool(get("DISCOVERY"), True),
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
         trusted_proxies=_proxies(get("TRUSTED_PROXIES")),
+        extra_hosts=tuple(h.strip().lower() for h in (get("EXTRA_HOSTS") or "").split(",") if h.strip()),
         art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )
 

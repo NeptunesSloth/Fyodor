@@ -90,6 +90,7 @@ class Services:
         settings.ensure_dirs()
         self.host_secret = HostSecret(settings.data_dir / SECRET_FILE)  # new on every start; see app/hostauth.py
         self.recovery: RecoveryInfo | None = None
+        self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)

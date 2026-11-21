@@ -20,6 +20,7 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
+from app.api.deps import host_ok, origin_ok
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
@@ -38,6 +39,20 @@ CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
     "connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 )
+
+
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _same_site_request(request: Request) -> bool:
+    """May this state-changing request go on? Not when the browser says it is cross-site. No Origin and no Sec-Fetch-Site is not a
+    browser (the LAN handoff, scripts): let through. Otherwise a same-origin request or a typed navigation, or an allowed Origin."""
+    site = request.headers.get("sec-fetch-site")
+    if site == "cross-site":
+        return False
+    if site is None and "origin" not in request.headers:
+        return True
+    return site in {"same-origin", "none"} or origin_ok(request)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -74,6 +89,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # added last, so it runs first: the Host (DNS rebinding) before anything else, then the Origin of a state-changing request
+    @app.middleware("http")
+    async def net_guard(request: Request, call_next: Any) -> Response:
+        if not host_ok(request):
+            return JSONResponse({"detail": "Unknown host"}, status_code=400)
+        if request.method in UNSAFE_METHODS and not _same_site_request(request):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+        response: Response = await call_next(request)
+        return response
+
     app.include_router(health.router, prefix="/api")
     app.include_router(cards.router, prefix="/api")
     app.include_router(decks.router, prefix="/api")

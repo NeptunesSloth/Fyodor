@@ -33,7 +33,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.deps import client_address, get_services, is_local_request, require_local
+from app.api.deps import client_address, get_services, host_ok, is_local_request, origin_ok, require_local
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.cards.repository import CardDatabaseUnavailable
@@ -1862,6 +1862,13 @@ class _RateLimiter:
 
 async def game_socket(websocket: WebSocket, game_id: str) -> None:
     services: Services = websocket.app.state.services
+    # before anything else, and before accept(): the Host (DNS rebinding), then the Origin (another site's page opening this socket)
+    if not host_ok(websocket):
+        await websocket.close(code=4400, reason="Unknown host")
+        return
+    if not origin_ok(websocket):
+        await websocket.close(code=4403, reason="Cross-site connection refused")
+        return
     room = services.hub.get(game_id)
     if room is None:
         await websocket.close(code=4404, reason="Game not found")

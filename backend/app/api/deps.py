@@ -5,6 +5,7 @@ import ipaddress
 from fastapi import HTTPException, Request, WebSocket
 
 from app.hostauth import HOST_COOKIE
+from app.netguard import host_allowed, origin_allowed
 from app.services import Services
 
 
@@ -48,6 +49,19 @@ def client_address(request: Request | WebSocket) -> str:
     peer = request.client.host if request.client else None
     services: Services = request.app.state.services
     return _resolve(peer, request.headers.get("x-forwarded-for"), services.settings.trusted_proxies)
+
+
+def host_ok(request: Request | WebSocket) -> bool:
+    """Does the request name a host this server answers to (DNS rebinding guard, app/netguard.py)?"""
+    services: Services = request.app.state.services
+    return host_allowed(request.headers.get("host"), services.settings.extra_hosts)
+
+
+def origin_ok(request: Request | WebSocket) -> bool:
+    """Is the request's Origin this server's own, a configured dev origin (settings.cors_origins) or one in services.extra_origins?"""
+    services: Services = request.app.state.services
+    extra = (*services.settings.cors_origins, *services.extra_origins)
+    return origin_allowed(request.headers.get("origin"), request.headers.get("host"), extra)
 
 
 def is_host_request(request: Request | WebSocket) -> bool:
