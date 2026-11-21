@@ -38,7 +38,7 @@ from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules, rematch_missing
 from app.multiplayer.spectate import Predictions
-from app.storage.journal import RoomJournal
+from app.storage.journal import MAX_CLIENT_ACTIONS, RoomJournal
 
 if TYPE_CHECKING:
     from app.decks.repository import DeckRepository
@@ -161,8 +161,9 @@ class Room:
     created_at: float = field(default_factory=time.time)
     revision: int = 0  # bumped on every authoritative update sent to clients
     result_id: str | None = None  # the recorded pod result for this game, if any
-    # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
-    client_actions: dict[str, str] = field(default_factory=dict)
+    # actor (the seat an action is performed as) -> client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies
+    # once. Scoped to the seat: one seat's ids never match, evict or reveal another's.
+    client_actions: dict[str, dict[str, str]] = field(default_factory=dict)
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
@@ -502,7 +503,7 @@ class GameHub:
         room.game.history.listener = record
         self.persist(room)
 
-    def restore(self, meta: dict[str, Any], session: GameSession, client_actions: dict[str, str]) -> Room:
+    def restore(self, meta: dict[str, Any], session: GameSession, client_actions: dict[str, dict[str, str]]) -> Room:
         """Put a recovered table back: same id, room code, seats and tokens."""
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
@@ -522,7 +523,7 @@ class GameHub:
         if meta.get("lobby"):
             room.lobby = LobbySettings.model_validate(meta["lobby"])
         room.created_at = float(meta.get("created_at") or time.time())
-        room.client_actions = dict(client_actions)
+        room.client_actions = {actor: dict(ids) for actor, ids in client_actions.items()}
         if any(r.code == room.code for r in self.rooms.values()):
             room.code = self._new_code()
         self.rooms[room.id] = room
@@ -530,14 +531,15 @@ class GameHub:
         follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
         return room
 
-    def remember_action(self, room: Room, client_action_id: str, outcome: str) -> None:
-        room.client_actions[client_action_id] = outcome
-        if len(room.client_actions) > 512:
-            for key in list(room.client_actions)[: len(room.client_actions) - 512]:
-                del room.client_actions[key]
+    def remember_action(self, room: Room, actor: str, client_action_id: str, outcome: str) -> None:
+        """Remember what became of ``actor``'s action; at most ``MAX_CLIENT_ACTIONS`` per seat, the seat's own oldest go first."""
+        mine = room.client_actions.setdefault(actor, {})
+        mine[client_action_id] = outcome
+        for key in list(mine)[: max(0, len(mine) - MAX_CLIENT_ACTIONS)]:
+            del mine[key]
         if self.journal is not None and room.started:
             try:
-                self.journal.remember_action(room.id, client_action_id, outcome)
+                self.journal.remember_action(room.id, actor, client_action_id, outcome)
             except Exception:  # noqa: BLE001 - see persist()
                 log.exception("Could not store client action id for %s", room.id)
 

@@ -23,7 +23,7 @@ from typing import Any
 
 from app.storage.db import transaction
 
-MAX_CLIENT_ACTIONS = 512  # remembered per table
+MAX_CLIENT_ACTIONS = 512  # remembered per seat
 
 
 @dataclass
@@ -32,7 +32,7 @@ class LiveRoom:
     meta: dict[str, Any]
     checkpoint: str | None
     entries: list[dict[str, Any]]
-    client_actions: dict[str, str]
+    client_actions: dict[str, dict[str, str]]  # seat -> client_action_id -> outcome
 
 
 class RoomJournal:
@@ -72,19 +72,21 @@ class RoomJournal:
             for r in rooms:
                 entries = [json.loads(e["entry"]) for e in self.conn.execute(
                     "SELECT entry FROM room_journal WHERE game_id = ? ORDER BY seq", (r["game_id"],))]
-                acts = {a["client_action_id"]: a["outcome"] for a in self.conn.execute(
-                    "SELECT client_action_id, outcome FROM client_actions WHERE game_id = ? ORDER BY created_at", (r["game_id"],))}
+                acts: dict[str, dict[str, str]] = {}
+                for a in self.conn.execute("SELECT actor, client_action_id, outcome FROM client_actions WHERE game_id = ? "
+                                           "ORDER BY created_at, rowid", (r["game_id"],)):
+                    acts.setdefault(a["actor"], {})[a["client_action_id"]] = a["outcome"]
                 out.append(LiveRoom(r["game_id"], json.loads(r["meta"]), r["checkpoint"], entries, acts))
             return out
 
-    def remember_action(self, game_id: str, client_action_id: str, outcome: str) -> None:
+    def remember_action(self, game_id: str, actor: str, client_action_id: str, outcome: str) -> None:
         with self.lock, transaction(self.conn):
             self.conn.execute(
-                "INSERT OR REPLACE INTO client_actions (game_id, client_action_id, outcome, created_at) VALUES (?, ?, ?, ?)",
-                (game_id, client_action_id, outcome[:300], time.time()),
+                "INSERT OR REPLACE INTO client_actions (game_id, actor, client_action_id, outcome, created_at) VALUES (?, ?, ?, ?, ?)",
+                (game_id, actor, client_action_id, outcome[:300], time.time()),
             )
             self.conn.execute(
-                "DELETE FROM client_actions WHERE game_id = ? AND client_action_id NOT IN "
-                "(SELECT client_action_id FROM client_actions WHERE game_id = ? ORDER BY created_at DESC LIMIT ?)",
-                (game_id, game_id, MAX_CLIENT_ACTIONS),
+                "DELETE FROM client_actions WHERE game_id = ? AND actor = ? AND rowid NOT IN "
+                "(SELECT rowid FROM client_actions WHERE game_id = ? AND actor = ? ORDER BY created_at DESC, rowid DESC LIMIT ?)",
+                (game_id, actor, game_id, actor, MAX_CLIENT_ACTIONS),
             )

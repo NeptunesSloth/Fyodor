@@ -430,8 +430,7 @@ async def post_action(
     cid = body.client_action_id
     response_call.early(services.hub, room, actor, body.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
-        if cid is not None and cid in room.client_actions:
-            previous = room.client_actions[cid]
+        if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
         _check_table_open(room, body.action.get("type"))
         try:
@@ -439,14 +438,14 @@ async def post_action(
             await services.hub.perform(room, actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
         except ValidationError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {_validation_message(exc)}")
             raise HTTPException(422, _validation_message(exc)) from exc
         except ActionError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {exc}")
             raise HTTPException(409, str(exc)) from exc
         if cid is not None:
-            services.hub.remember_action(room, cid, "ACCEPTED")
+            services.hub.remember_action(room, actor, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
     return {**await _broadcast_view(services, room, viewer), "status": "ACCEPTED"}
@@ -2099,8 +2098,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
     if isinstance(msg, WsAction):
         response_call.early(services.hub, room, actor, msg.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
-        if cid is not None and cid in room.client_actions:
-            previous = room.client_actions[cid]
+        if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             if previous.startswith("REJECTED"):
                 await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})
             else:
@@ -2118,16 +2116,16 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
                 room.session.redo(actor, host=room.mode == "local" or conn.host)
         except ValidationError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {_validation_message(exc)}")
             await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": _validation_message(exc)})
             return
         except ActionError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {exc}")
             await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": str(exc)})
             return
         if cid is not None:
-            services.hub.remember_action(room, cid, "ACCEPTED")
+            services.hub.remember_action(room, actor, cid, "ACCEPTED")
         services.hub.after_change(room)
     if isinstance(msg, WsAction):
         await _after_action(services, room, msg.action)
