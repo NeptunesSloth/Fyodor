@@ -20,7 +20,7 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
-from app.api.deps import host_ok, origin_ok
+from app.api.deps import host_ok, is_https, origin_ok
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
@@ -70,18 +70,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.discovery.stop()
         app.state.services.close()
 
-    app = FastAPI(title="Fyodor MTG Tabletop", version=__version__, lifespan=lifespan)
+    # the API documents itself only for development (FYODOR_DEV_TOOLS=1): the routes do not exist otherwise
+    app = FastAPI(
+        title="Fyodor MTG Tabletop", version=__version__, lifespan=lifespan,
+        docs_url="/docs" if settings.dev_tools else None,
+        redoc_url="/redoc" if settings.dev_tools else None,
+        openapi_url="/openapi.json" if settings.dev_tools else None,
+    )
     app.state.services = Services(settings)
     app.state.discovery = Discovery(settings, lambda: app.state.services.hub.rooms.values())
-
-    @app.middleware("http")
-    async def security_headers(request: Request, call_next: Any) -> Response:
-        response: Response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("Content-Security-Policy", CSP)
-        return response
 
     app.add_middleware(
         CORSMiddleware,
@@ -97,6 +94,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if request.method in UNSAFE_METHODS and not _same_site_request(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
         response: Response = await call_next(request)
+        return response
+
+    # added after net_guard, so it is the outermost: its own refusals carry the headers too
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next: Any) -> Response:
+        response: Response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Content-Security-Policy", CSP)
+        if is_https(request):  # never over plain http (a browser would hold the host to https): no includeSubDomains, no preload
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
 
     app.include_router(health.router, prefix="/api")

@@ -22,6 +22,10 @@ def _addr(text: str | None) -> ipaddress.IPv4Address | ipaddress.IPv6Address | N
     return ip.ipv4_mapped or ip if isinstance(ip, ipaddress.IPv6Address) else ip  # ::ffff:1.2.3.4 is 1.2.3.4
 
 
+def _is_proxy(ip: ipaddress.IPv4Address | ipaddress.IPv6Address, trusted: tuple[str, ...]) -> bool:
+    return any(ip in ipaddress.ip_network(t, strict=False) for t in trusted)
+
+
 def _resolve(peer: str | None, xff: str | None, trusted: tuple[str, ...]) -> str:
     """The client behind `peer`: X-Forwarded-For is believed only when the peer is a configured proxy, and then the rightmost entry that
     is not itself a proxy is the client (what the nearest proxy saw; anything left of it can be forged). An unparseable entry, or a
@@ -31,14 +35,13 @@ def _resolve(peer: str | None, xff: str | None, trusted: tuple[str, ...]) -> str
     ip = _addr(peer)
     if ip is None:
         return peer
-    nets = [ipaddress.ip_network(t, strict=False) for t in trusted]
-    if not xff or not any(ip in n for n in nets):
+    if not xff or not _is_proxy(ip, trusted):
         return str(ip)
     for entry in reversed(xff.split(",")):
         hop = _addr(entry)
         if hop is None:
             return str(ip)
-        if not any(hop in n for n in nets):
+        if not _is_proxy(hop, trusted):
             return str(hop)
     return str(ip)
 
@@ -49,6 +52,17 @@ def client_address(request: Request | WebSocket) -> str:
     peer = request.client.host if request.client else None
     services: Services = request.app.state.services
     return _resolve(peer, request.headers.get("x-forwarded-for"), services.settings.trusted_proxies)
+
+
+def is_https(request: Request) -> bool:
+    """Did the client reach us over https: directly, or (like X-Forwarded-For) as said by a configured proxy (FYODOR_TRUSTED_PROXIES);
+    from any other peer the header is ignored."""
+    if request.url.scheme == "https":
+        return True
+    peer = _addr(request.client.host if request.client else None)
+    services: Services = request.app.state.services
+    forwarded = request.headers.get("x-forwarded-proto", "").split(",")[-1].strip().lower()  # the nearest proxy's word
+    return forwarded == "https" and peer is not None and _is_proxy(peer, services.settings.trusted_proxies)
 
 
 def too_many_attempts(retry_after: int) -> HTTPException:
