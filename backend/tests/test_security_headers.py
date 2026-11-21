@@ -148,3 +148,31 @@ def test_lobby_name_is_clean_before_it_is_logged(settings: Settings, caplog: pyt
 
 def test_deck_name_is_clean_before_the_art_keeper_logs_it():
     assert not any(ord(ch) < 32 for ch in DeckIn(name=FORGED, entries=[]).name)
+
+
+# ------------------------------------------------------------------------------------- the host cookie follows the same rule
+
+
+def _claim(c: TestClient, **headers: str):
+    return c.post("/api/host/session", json={"secret": c.app.state.services.host_secret.value}, headers=headers)
+
+
+def _secure(res) -> bool:
+    return "secure" in res.headers["set-cookie"].lower().split("; ")
+
+
+def test_host_cookie_is_secure_behind_a_trusted_proxy_saying_https(settings: Settings):
+    with _client(settings, peer="127.0.0.1", trusted_proxies=PROXY) as c:
+        assert _secure(_claim(c, **{"X-Forwarded-Proto": "https"}))
+
+
+def test_host_cookie_ignores_a_strangers_https_claim(settings: Settings):
+    with _client(settings, peer="203.0.113.9", trusted_proxies=PROXY) as c:
+        assert not _secure(_claim(c, **{"X-Forwarded-Proto": "https"}))
+    with _client(settings, peer="127.0.0.1") as c:  # nothing trusted
+        assert not _secure(_claim(c, **{"X-Forwarded-Proto": "https"}))
+
+
+def test_host_cookie_is_not_secure_on_plain_http(settings: Settings):
+    with _client(settings) as c:
+        assert not _secure(_claim(c))

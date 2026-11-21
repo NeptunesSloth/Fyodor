@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from app.api.deps import client_address, get_services, is_host_request, too_many_attempts
+from app.api.deps import client_address, get_services, is_host_request, is_https, too_many_attempts
 from app.hostauth import HOST_COOKIE
 from app.services import Services
 
@@ -32,7 +32,7 @@ def claim_host_session(body: SessionBody, request: Request, services: ServicesDe
     response = Response(status_code=204)
     # (no max-age: it ends with the browser session, and the secret itself ends with the server)
     response.set_cookie(HOST_COOKIE, services.host_secret.value, httponly=True, samesite="strict", path="/",
-                        secure=request.url.scheme == "https")
+                        secure=is_https(request))
     return response
 
 

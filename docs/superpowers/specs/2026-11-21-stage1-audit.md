@@ -6,7 +6,7 @@ through a tunnel (the tunnel itself is Stage 2). On a LAN nothing new is asked o
 
 ## What Stage 1 changed
 
-Source: `git log --oneline 6f1f23c..HEAD` (12 commits before this one; 98 files changed overall, `git diff --stat 6f1f23c..HEAD`).
+Source: `git log --oneline 6f1f23c..HEAD` (12 commits before this one; `git diff --stat 6f1f23c..ae4c21d~1` ends "98 files changed, 3142 insertions(+), 284 deletions(-)").
 
 1. **Host secret cookie** (`e4ea325`, `a605d2f`; `backend/app/hostauth.py`). Host-only actions (creating tables, host tools) used
    to be allowed to whoever connected from the loopback address. Behind a tunnel every remote player arrives from loopback, so
@@ -52,7 +52,8 @@ Source: `git log --oneline 6f1f23c..HEAD` (12 commits before this one; 98 files 
    domain. The header middleware now wraps the Host/Origin guard, so a 400 or 403 refusal carries the headers too. `/docs`,
    `/redoc` and `/openapi.json` are not registered unless `FYODOR_DEV_TOOLS=1`. This is the existing `Settings.dev_tools` flag
    (it already guarded EXPORT RULES SCENARIO; the launcher does not set it). With it off, a request for those paths gets the
-   same 404 (`{"detail":"Not Found"}`) as any unknown path.
+   same 404 (`{"detail":"Not Found"}`) as any unknown path. The host cookie's `Secure` flag (`api/host.py`, the only `set_cookie` in `backend/app`: `git grep -n "set_cookie" -- backend/app`) uses the same
+   `is_https` decision, so it is set behind a TLS-terminating trusted proxy too.
 
 ## Rendering audit
 
@@ -72,20 +73,26 @@ $ git grep -n "eval(\|new Function\|srcdoc\|outerHTML\|javascript:\|createContex
 (no output; exit status 1 = no matches)
 ```
 
-User-influenced `href` values (`git grep -n "href=\|\.href *=\|window.open\|location.href" -- frontend/src`), one judgement each:
+User-influenced `href` values: `git grep -n "href=\|\.href *=\|window.open\|location.href" -- frontend/src` finds 49 lines (the test files
+included; 44 without them with `':!*.test.*'`). Reading each: every one is a fixed string, a fragment (`#/...`) built from a
+server-made id, or a same-origin download, except the last bullet.
 
-- Fixed fragments (`#/play`, `#/stats`, `#/teach`, ...) in App, Eliminated, EndGameDialog, GameNight, GameScreen, TopBar, TestEnding,
-  CardBrowser, FriendDecks, Home, DeckPicker, `window.open("#/stats")`: constants. Safe.
-- `#/decks/${deckId}` (BulkImportDialog, DeckLibrary, Eliminated with `encodeURIComponent`) and `#/play?deck=${deck.id}`: ids made
-  by the server, in a fragment. Safe.
-- `PracticeBar`, `WatchPip` `back`/`href`: built by the app from game ids. Safe.
-- `PhaseDial` `<textPath href="#pd-label-N">`: constant. Safe.
-- `RulesHud` `href=/api/games/<id>/rules/scenario download`: game id, same origin. Safe.
+- Fixed fragments or constants: `App.tsx:81,83` (the app's own menu table), `Eliminated.tsx:131-133`, `EndGameDialog.tsx:41`,
+  `GameNight.tsx:377`, `GameScreen.tsx:102`, `TestEnding.tsx:193`, `TopBar.tsx:50,199` (`window.open("#/stats")`),
+  `CardBrowser.tsx:55`, `FriendDecks.tsx:76`, `DeckPicker.tsx:44`, `Home.tsx:94,102,114,136,152`, `PlayPage.tsx:595`,
+  `PodStatsPage.tsx:116`, `SessionRecap.tsx:26`, `SettingsPanel.tsx:314,366,621`, `TeachPage.tsx:276`, `Welcome.tsx:69,83`,
+  `PersonalDeckImports.tsx:70`, `PhaseDial.tsx:94` (`<textPath href="#pd-label-N">`). Safe.
+- Fragments made from server ids: `Eliminated.tsx:332` (`#/decks/` + `encodeURIComponent(deck_id)`), `BulkImportDialog.tsx:127`,
+  `DeckLibrary.tsx:257,261,278,279`, `Home.tsx:114,159` (`#/game/<game_id>`). Safe.
+- `PracticeBar.tsx:84` and `WatchPip.tsx:56,72`: `back` is `liveHash({of, seat, local})` (`PracticeBar.tsx:33`), a `#/game/<id>`
+  fragment (`eliminationHub.test.ts:52`). Safe.
+- Same-origin downloads: `RulesHud.tsx:1175` (`/api/games/<id>/rules/scenario`), `PlayPage.tsx:912`, `PodStatsPage.tsx:108`,
+  `SettingsPanel.tsx:471,655` (`encodeURIComponent(b.name)`), `TeachPage.tsx:418,436`. Safe.
 - `DeckEditor.tsx:369` `href={deck.source.url}`: the one value a client can set to anything (`DeckSource.url` in
-  `backend/app/decks/models.py` is a free string of up to 300 characters; the server sets it for Archidekt imports, but the
+  `backend/app/decks/models.py:79` is a free string of up to 300 characters; the server sets it for Archidekt imports, but the
   deck-save API accepts whatever it is sent). A `javascript:` URL here would be clickable. React 19 (`"react": "^19.3.0"`
   in `frontend/package.json`) refuses to run `javascript:` URLs in `href`, and saving a deck is a host action, so this is
-  rated low and left unchanged; a server-side check that the URL is http(s) would close it for good. Not done in this task.
+  rated low and left unchanged here; see risk 9.
 
 Third-party hosts in the Content-Security-Policy: none. The exact policy (from `backend/app/main.py`):
 `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:;
@@ -98,8 +105,8 @@ every source in the policy is one of those keywords or schemes, with no `unsafe-
 ## Log audit
 
 Where player-supplied text reaches a log or the console. Command:
-`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` (126 call sites outside `app/rules`), read for lines
-that interpolate request or player data.
+`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` gives 110 lines (92 with `':!backend/app/rules'`;
+a few are false matches such as `fingerprint(`), all read for lines that interpolate request or player data.
 
 | Site | Player text | Result |
 |---|---|---|
@@ -119,20 +126,27 @@ containing `\n` and `\x1b` writes one log line with no control character, the sa
 name is clean. Not tested directly: the art-keeper log line (it needs a deck, a card database and an offline fetch; the value it logs
 is the `DeckIn` name above).
 
-Secrets in logs: `git grep -n -i "log\.[a-z]*(.*\(token\|secret\|password\|passwd\|invite\|code\|cookie\)" -- backend/app` gives two
+Secrets in logs (single-line calls): `git grep -n -i "log\.[a-z]*(.*\(token\|secret\|password\|passwd\|invite\|code\|cookie\)" -- backend/app` gives two
 lines, both false matches (`res.status_code` in `cards/downloader.py`; `card_id` in `cards/token_art.py`).
-`git grep -n "print(.*\(token\|secret\|password\|cookie\)" -- backend/app` gives no match. The host secret reaches the launcher
+`git grep -n "print(.*\(token\|secret\|password\|cookie\)" -- backend/app` gives no match. Both greps see only the line a call starts on, so wrapped calls were checked too with
+`git grep -n -A4 "log\.\(info\|warning\|error\|debug\|exception\)(\|print(" -- backend/app | grep -i "token\|secret\|password\|passwd\|invite\|code\|cookie"`:
+every hit was a false match (`fingerprint(` in `app/rules`, `secrets.token_urlsafe` and docstrings in `hub.py`, `host_url(` in
+`launcher.py`, the word "invite link" inside a console message at `launcher.py:307`, a `self._lock` line in `token_art.py`); no logged value was a
+token, secret, password, cookie or code. The host secret reaches the launcher
 only to build the address of the window it opens (`launcher.py`), not a print or log call. Seat tokens travel in the
 `X-Seat-Token` header and the socket's first message (`games.py` `AUTH_DEADLINE` handler says it "never logs what it was sent").
 The join code a player tries is not logged (the guess limiter counts, it does not record). Room ids are logged when a room is
 created ("Created lobby <id>"); these are the ids of the host's own tables, written to the host's own console and diagnostics, not
-the code of a table somebody else is guessing at. The uvicorn access log, on at INFO, records request paths, which contain game ids
+the code of a table somebody else is guessing at. The uvicorn access log is uvicorn's default (`uvicorn.config.Config(app='x').access_log` is `True`; `launcher.py` `server_options` passes `log_level` but not `access_log`), so at the default INFO level it records request paths, which contain game ids
 but no token (the seat token is a header); only the legacy switch (risk 7) would put a token in a logged address.
 
 ## Headers
 
-Produced with a test client (`TestClient`, `GET /api/health`, `extra_hosts=("testserver",)`), script
-`hdrs.py` kept in the session scratchpad. Same output in all three cases except the last line.
+Evidence: the tests in `backend/tests/test_security_headers.py` (`test_always_sent_headers`, `test_csp_pins`, `test_no_hsts_on_plain_http`,
+`test_hsts_on_direct_https`, `test_hsts_when_a_trusted_proxy_says_https`, `test_no_hsts_when_a_stranger_says_https`,
+`test_hsts_is_exactly_max_age`, `test_refusals_carry_the_headers_too`). Run with
+`.venv/Scripts/python -m pytest -q -rfE -p no:cacheprovider tests/test_security_headers.py`. The values they assert, on a `GET /api/health`
+that returns 200:
 
 Over plain http (peer 203.0.113.9, no proxy), status 200:
 
@@ -145,7 +159,7 @@ referrer-policy: no-referrer
 content-security-policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
 ```
 
-Over https (direct `https://` request, or `X-Forwarded-Proto: https` from a trusted proxy), status 200: the same lines plus
+Over https (direct `https://` request, or `X-Forwarded-Proto: https` from a trusted proxy), status 200: the same lines (the test asserts `x-content-type-options`, `x-frame-options`, `referrer-policy` and the CSP equal to `app.main.CSP`) plus
 
 ```
 strict-transport-security: max-age=31536000
@@ -164,10 +178,10 @@ no-referrer` were already sent before this task (and `frame-ancestors 'none'` is
 5. Migration 14 drops remembered action ids written before the upgrade; a retry that spans the upgrade restart could apply twice.
 6. An upgraded room-password hash is written to disk only for started tables (lobby rooms are not saved at all).
 7. The legacy socket switch `FYODOR_LEGACY_WS_TOKEN=1` puts the seat token back in the URL; it is off by default and should stay off.
-8. `mypy` in this environment is version 2.4.1 and reports about 303 errors on `master` as well; the gate used was "no new errors in touched files", not a clean run.
+8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); the controller saw the same count on a master-based checkout. The gate used was "no new errors in touched files", not a clean run.
 
-Found while writing this audit (not part of the decided list): `DeckEditor.tsx:369` renders a deck's stored `source.url` as a link
-without checking the scheme (see the rendering audit; React 19 blocks `javascript:` hrefs, so low).
+9. `DeckSource.url` is an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx:369`). React blocks `javascript:` links and saving a deck is host-only, but decks can arrive from other players through LAN deck sharing. A server-side http(s) check is queued to be fixed before merge (not done yet).
+10. The art-keeper logs a stored deck's name (`backend/app/cards/art_keeper.py:149-158`). Names are cleaned when a deck is saved or imported, so a deck stored before that cleaning existed is the only uncovered case.
 
 ## Open items for Task 10
 
