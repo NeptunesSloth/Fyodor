@@ -7,7 +7,7 @@ through a tunnel (the tunnel itself is Stage 2). On a LAN nothing new is asked o
 ## What Stage 1 changed
 
 Source: `git log --oneline 6f1f23c..ae4c21d~1` (12 commits, tasks 1-8; `git diff --stat 6f1f23c..ae4c21d~1` ends "98 files changed, 3142 insertions(+), 284 deletions(-)"). Task 9 is `ae4c21d` and `87ec8a0`.
-All counts below are as of `87ec8a0`; `backend/` and `frontend/` are unchanged by the commit that adds this note, so the commands give the same counts there.
+Counts in this file were re-run at `1acd3fc` (the gate's first commit); they gave the figures stated, the same as at `87ec8a0`. The gate's second commit changes documents only.
 
 1. **Host secret cookie** (`e4ea325`, `a605d2f`; `backend/app/hostauth.py`). Host-only actions (creating tables, host tools) used
    to be allowed to whoever connected from the loopback address. Behind a tunnel every remote player arrives from loopback, so
@@ -39,7 +39,7 @@ All counts below are as of `87ec8a0`; `backend/` and `frontend/` are unchanged b
    next time the right password is used.
 
 7. **Socket caps and heartbeat** (`df7424e`, `6df0dbd`). Open game sockets are capped per seat and per client address (24 per
-   address, authenticated or not); a seat that connects again replaces and disconnects its older socket. The server pings every
+   address, authenticated or not); a seat whose token is replaced (a reclaim, a kick, leaving the lobby) has its older sockets closed (4403); a fifth socket for the same seat is refused (4429), the four older ones stay. (The wording here earlier, that a seat which connects again replaces its older socket, was wrong: `test_a_fifth_socket_for_one_seat_closes_4429_and_the_first_four_stay` pins the refusal.) The server pings every
    25 seconds and closes a socket silent for 90 seconds (4408). A frame larger than a message may be is refused as it arrives,
    the limit is in bytes, and pongs are rate-budgeted.
 
@@ -71,8 +71,12 @@ Further sinks, run for completeness:
 
 ```
 $ git grep -n "eval(\|new Function\|srcdoc\|outerHTML\|javascript:\|createContextualFragment\|DOMParser\|v-html\|\.html(" -- frontend/src
-(no output; exit status 1 = no matches)
+frontend/src/pages/deckBits.test.ts:130:    for (const bad of ["javascript:alert(1)", ...
+frontend/src/pages/deckBits.ts:138:/** A deck source's address is a link only when it is an http(s) address; anything else (javascript:, ...
 ```
+
+At `87ec8a0` this printed nothing. At `1acd3fc` the two lines above are the only matches, both added by the deck-link fix: a comment and a test string naming the
+scheme that is refused. Neither is a sink.
 
 User-influenced `href` values: `git grep -n "href=\|\.href *=\|window.open\|location.href" -- frontend/src` finds 50 lines (no test file matches:
 the same command with `':!*.test.*'` also gives 50). Reading each: every one is a fixed string, a fragment (`#/...`) built from a
@@ -90,10 +94,10 @@ server-made id, or a same-origin download, except the last bullet.
 - Same-origin downloads: `RulesHud.tsx:1175` (`/api/games/<id>/rules/scenario`), `PlayPage.tsx:912`, `PodStatsPage.tsx:108`,
   `SettingsPanel.tsx:471,655` (`encodeURIComponent(b.name)`), `TeachPage.tsx:418,436`. Safe.
 - `DeckEditor.tsx:369` `href={deck.source.url}`: the one value a client can set to anything (`DeckSource.url` in
-  `backend/app/decks/models.py:79` is a free string of up to 300 characters; the server sets it for Archidekt imports, but the
-  deck-save API accepts whatever it is sent). A `javascript:` URL here would be clickable (closed: see risk 9). React 19 (`"react": "^19.3.0"`
-  in `frontend/package.json`) refuses to run `javascript:` URLs in `href`, and saving a deck is a host action, so this is
-  rated low and left unchanged here; see risk 9.
+  `backend/app/decks/models.py` was a free string of up to 300 characters at `87ec8a0`, line 79; the server sets it for Archidekt imports, but the
+  deck-save API accepts whatever it is sent). A `javascript:` URL here would have been clickable. React 19 (`"react": "^19.3.0"`
+  in `frontend/package.json`) refuses to run `javascript:` URLs in `href`, and saving a deck is a host action, so it was rated
+  low; it is now closed in both places (risk 9: the model refuses anything but http(s), and the editor links only `http://` or `https://`).
 
 Third-party hosts in the Content-Security-Policy: none. The exact policy (from `backend/app/main.py`):
 `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:;
@@ -106,7 +110,7 @@ every source in the policy is one of those keywords or schemes, with no `unsafe-
 ## Log audit
 
 Where player-supplied text reaches a log or the console. Command:
-`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` gives 110 lines (92 with `':!backend/app/rules'`), as of `87ec8a0`;
+`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` gives 110 lines (92 with `':!backend/app/rules'`), as of `1acd3fc`;
 a few are false matches such as `fingerprint(`; all read for lines that interpolate request or player data.
 
 | Site | Player text | Result |
@@ -131,7 +135,7 @@ Secrets in logs (single-line calls): `git grep -n -i "log\.[a-z]*(.*\(token\|sec
 lines, both false matches (`res.status_code` in `cards/downloader.py`; `card_id` in `cards/token_art.py`).
 `git grep -n "print(.*\(token\|secret\|password\|cookie\)" -- backend/app` gives no match. Both greps see only the line a call starts on, so wrapped calls were checked too with
 `git grep -n -A4 "log\.\(info\|warning\|error\|debug\|exception\)(\|print(" -- backend/app | grep -i "token\|secret\|password\|passwd\|invite\|code\|cookie"`:
-it prints 53 lines (as of `87ec8a0`: each log or print call and the four lines after it), all read, all false matches: `status_code=204` (`games.py:543`) and `res.status_code` (`downloader.py:172`); the word "Token" in a message and the lines after it (`token_art.py:88-92`); `host_url(`/`read_host_secret(` building the window address (`launcher.py:217,277`, never printed); the words "invite link" in a console message (`launcher.py:307`); `encode_query` (`discovery.py:323`); `secrets.token_urlsafe`, `code=` and docstrings in `hub.py:395-415,585` (creating rooms, not logging them); and `fingerprint(`/`_fingerprint(`/`sha1` in `app/rules` (`replace.py:297`, `token_creation_replacements.py`, `token_stacks.py`). The word-matches are not values being logged; no logged value was a
+it prints 53 lines (as of `1acd3fc`: each log or print call and the four lines after it), all read, all false matches: `status_code=204` (`games.py:543`) and `res.status_code` (`downloader.py:172`); the word "Token" in a message and the lines after it (`token_art.py:88-92`); `host_url(`/`read_host_secret(` building the window address (`launcher.py:217,277`, never printed); the words "invite link" in a console message (`launcher.py:307`); `encode_query` (`discovery.py:323`); `secrets.token_urlsafe`, `code=` and docstrings in `hub.py:395-415,585` (creating rooms, not logging them); and `fingerprint(`/`_fingerprint(`/`sha1` in `app/rules` (`replace.py:297`, `token_creation_replacements.py`, `token_stacks.py`). The word-matches are not values being logged; no logged value was a
 token, secret, password, cookie or code. The host secret reaches the launcher
 only to build the address of the window it opens (`launcher.py`), not a print or log call. Seat tokens travel in the
 `X-Seat-Token` header and the socket's first message (`games.py` `AUTH_DEADLINE` handler says it "never logs what it was sent").
@@ -169,6 +173,155 @@ Not sent: HSTS on plain http, including when a peer that is not a trusted proxy 
 `test_no_hsts_when_a_stranger_says_https` pins it. `X-Content-Type-Options`, `X-Frame-Options: DENY` and `Referrer-Policy:
 no-referrer` were already sent before this task (and `frame-ancestors 'none'` is in the CSP); they are now pinned by tests.
 
+## Gate results
+
+Everything in this section and the next two was run at `1acd3fc` (Commit A of the gate, the last commit that changes `backend/` or
+`frontend/`; the commit that adds these sections changes documents only). Commands run from `backend/` unless a path says otherwise.
+
+**Commit A, four fixes queued by earlier reviewers (`1acd3fc`).** The `Origin` header must equal its own serialisation
+(`scheme://host[:port]`; `http://127.0.0.1:8000#`, `...?`, an empty port, a leading zero, whitespace and tabs are refused, as is `[::1]:` in a
+`Host`); `FYODOR_EXTRA_HOSTS` entries are validated at start; the per-seat journal prune is asserted and its test confirmed red when the
+`actor = ?` clause is removed (the break was local and not committed); `DeckSource.url` is limited to http(s) (risk 9). One thing
+found on the way: `npm run typecheck` failed on the branch before this commit, with 3 errors in `frontend/src/services/gameSocket.test.ts`
+(lines 227-229, `number | undefined` passed to `toBeGreaterThan`, added by `df7424e`); fixed in the same commit with non-null assertions
+in the test. A case kept on purpose: the old tests expect `HTTP://Play.Example.org` to match `play.example.ORG`, so the strict form is
+matched case-insensitively (a browser always sends lower case).
+
+**ruff.** `.venv/Scripts/ruff check . --output-format concise` ends `Found 11 errors.` and is **not clean**:
+
+| Rule | Count | Where |
+|---|---|---|
+| I001 import block not sorted | 6 | `app\api\games.py:3`, `app\game\engine.py:3`, `app\game\handlers\dummy.py:98`, `app\game\views.py:9`, `tests\conftest.py:1`, `tests\test_rules_layer_whole_conditions.py:8` |
+| SIM102 nested `if` | 3 | `app\rules\costs.py:287`, `app\rules\random_choice_receipts.py:261`, `app\rules\taught.py:266` |
+| F841 unused variable | 1 | `tests\test_rules_round5_additional_costs.py:189` |
+| SIM300 Yoda condition | 1 | `tests\test_rules_token_batch_one_pile.py:49` |
+
+The same command in a checkout of `master` (`3fde593`, the commit this branch starts from, run with this environment's ruff) also gives
+`Found 11 errors.`, but the lists are **not identical**: master has an I001 in `app\services.py:3` that the branch's edit to that file
+fixed, and the branch has one in `app\api\games.py:3` that master lacks. That one is this branch's: `6df0dbd` added
+`from starlette.websockets import WebSocketDisconnected` out of order (`ruff check app/api/games.py --diff` moves it below the `pydantic` import
+and wraps one long import). It is not fixed here, so that the total stays at the 11 the gate was told to expect; the other 10 are the same on both sides.
+
+**mypy.** `.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files (checked 1183 source files)`
+with mypy 2.4.1 (`.venv/Scripts/python -m mypy --version`; the project notes name 2.3.1). The same command in the `master` checkout gives
+`Found 303 errors in 15 files (checked 1180 source files)`, and the error messages with their line numbers removed are identical (compared as sorted
+lists). Per file (`.venv/Scripts/python -m mypy app tools | grep -o "^[^:]*" | sort | uniq -c`, the last line it prints being the total):
+
+```
+ 1 app\api\games.py        4 app\api\night.py       3 app\api\teach.py       3 app\game\bot.py
+12 app\game\factory.py     1 app\game\resolve.py    3 app\multiplayer\hub.py 1 app\rules\casting.py
+ 1 app\rules\designations.py   265 app\rules\replace.py   4 app\rules\taught.py   1 app\rules\triggers.py
+ 1 app\rules\view.py       1 app\storage\taught.py  2 tools\soak.py
+```
+
+The files this branch touched under `app` and `tools` are listed by `git diff --name-only 6f1f23c..1acd3fc -- backend/app backend/tools` (17 files). Two of
+the 15 are among them: `app/api/games.py` and `app/multiplayer/hub.py`. Their errors are `games.py:1257` (an assignment of `str | None` to a `str`) and
+`hub.py:736-738` (a `Future` assigned to a variable typed `bool`); `git blame` puts those lines in `8263ed7` and `d695cde`, both ancestors of `6f1f23c`, so
+none is on a line this branch added or changed. No file this branch added has a mypy error.
+
+**Frontend.** In `frontend/`: `npm run typecheck && npm test` exits 0, `Test Files  157 passed (157)`, `Tests  1612 passed (1612)`.
+
+**Backend tests.** The full suite takes about an hour and was not run by the author of this section.
+
+- Full suite: run by the controller on <hash>: result recorded below.
+- FULL SUITE: pending controller run
+- What was run at `1acd3fc`: `.venv/Scripts/python -m pytest -q -rfE -p no:cacheprovider -n 6 tests --ignore-glob="tests/test_rules_*"` (about one minute; this
+  environment prints no final count line, so the result is judged by the exit code and the absence of `FAILED`/`ERROR` lines). The first run exited 1 with one
+  failure, `tests/test_interim_views.py::test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action` (`assert 2 >= 3`, a count of interim
+  views). It is intermittent: run alone with `.venv/Scripts/python -m pytest -q -p no:cacheprovider tests/test_interim_views.py` it passed on 19 of 20 runs on this branch
+  (the one failure showed `assert 1 >= 3`), and a second full run of the command above exited 0 with no `FAILED`. The same file passed 8 of 8 runs in a `master` checkout
+  (`3fde593`; confirmed to import that checkout's `app`), so whether this branch made it flakier is not established (`hub.py`, which the test drives, changed in this branch).
+  The file itself was not touched by the branch. Risk 16.
+
+## Security tools
+
+Dev tools installed in the environment only (`.venv/Scripts/python -m pip install bandit pip-audit`: bandit 1.9.4; pip-audit; nothing added to
+`pyproject.toml` or any requirements file; `git status` shows no change to them).
+
+**bandit** (`PYTHONUTF8=1 .venv/Scripts/python -m bandit -r app -q`, 201,850 lines scanned, exit 1 because it found issues): 790 findings, **8 High, 27 Medium,
+755 Low**. Without `PYTHONUTF8=1` the text report crashes on this Windows console (`UnicodeEncodeError: 'charmap' codec can't encode character '★'`);
+that is the tool's report writer, not a finding. To tell which findings are on lines this branch added, each finding's lines were checked with `git blame`
+against `git rev-list 6f1f23c..1acd3fc` (a throwaway script, not kept): **one** of the 790 is on such a line (B105 at `app/hostauth.py:16`, below); every other
+finding is in code that was there before this branch. Nothing is fixed in a commit by this task; each one is accepted for the reason given.
+
+High (8), each read:
+
+| Id | Where | Answer |
+|---|---|---|
+| B324 sha1 (7) | `app/rules/effects.py:4206`, `replace.py:297`, `replace.py:505`, `replacements.py:1578`, `taught.py:558`, `taught.py:602`, `unless_pays.py:137` | Accepted: a short digest used as a key or fingerprint of rules data (de-duplication, receipts, a cache key), never to authenticate anything or to resist an attacker; none is on a line this branch added. `usedforsecurity=False` would silence the tool and is left for a rules-engine change. |
+| B613 trojansource (1) | `app/textutil.py:8` | Accepted: the line is the regular expression that lists the bidirectional-override characters `clean_text` strips, so the file has to contain them. It is the defence, not the problem. |
+
+Medium (27), each read:
+
+| Id | Where | Answer |
+|---|---|---|
+| B608 SQL built from strings (19) | `app/api/tools.py:60`, `app/services.py:216`, `app/storage/journal.py:66` | Accepted: the table name comes from a literal tuple in the same file (marked `# noqa: S608 - fixed names`); `journal.py:66` is the `forget` loop over `live_rooms`, `room_journal`, `client_actions`, and the game id is bound as a parameter. |
+| | `app/cards/repository.py:137,150,160,166,196,240,290,403,533`, `app/cards/share.py:159,170` | Accepted: the interpolated parts are the module constant `SUMMARY_COLUMNS`, a run of `?` marks sized from a list's length, an `int()`-cast constant, or `WHERE` fragments produced by `compile_query` whose values travel as bound parameters. No request text is placed in the SQL string. |
+| | `app/stats/repository.py:218,226,233` | Accepted: the interpolated `_COUNTS` is a class-level constant; ids are bound. |
+| | `app/storage/db.py:87`, `app/storage/taught.py:77` | Accepted: `db.py:87` runs the migration scripts that are in the code plus an integer version; `taught.py:77` appends the fixed fragment `, enabled = ?` and binds every value. |
+| B610 Django `extra` (4) | `app/decks/service.py:421`, `app/rules/casting.py:4103`, `app/rules/combat.py:223`, `app/rules/trigger_multipliers.py:290` | False positive: `.extra(...)` is a method of this project's own objects (for example `allow.extra(card)`), not Django's query method; Django is not used. |
+| B310 `urlopen` (2) | `app/launcher.py:122,243` | Accepted: the address is `http://127.0.0.1:<port>/api/health` built by the launcher for its own server (marked `# noqa: S310`); no outside input. |
+| B104 bind all interfaces (1) | `app/launcher.py:268` | Accepted: `FYODOR_HOST=0.0.0.0` only when the host chooses LAN play (the default `--lan`); the default setting is `127.0.0.1`, and Stage 1 added the Host and Origin guards for exactly this exposure. |
+| B301 pickle (1) | `app/rules/plan.py:73` | Accepted: `pickle.loads(pickle.dumps(state))` is a deep copy of the game state in memory; it never reads a file or a message. |
+
+Low (755), grouped by rule (not read one by one): B101 `assert` used 706 (in 286 files; no line this branch added to `app` is an `assert`; authority is checked with explicit `HTTPException`s); B105 hard-coded password string 34 (names such as `token` or `password` in rules and parser code; the one on a branch line is `app/hostauth.py:16`,
+`SECRET_FILE = "host.secret"`, the name of a file, not a secret); B112 `try/except/continue` 4 (`app/api/games.py:1854`, `app/api/rules.py:60`, `app/multiplayer/hub.py:999`,
+`app/rules/view.py:113`, all before this branch); B311 `random` 2 (`app/decks/bot_decks.py:45`, `app/rules/scenario.py:111`: picking a bot deck and a scenario, not tokens); B404 `subprocess` import 3,
+B603 `subprocess` call 4, B607 partial executable path 1 (`app/api/shortcut.py`, `app/api/updates.py`, `app/launcher.py`: launching the app and the updater, fixed arguments);
+B403 `pickle` import 1 (`app/rules/plan.py:6`, see B301).
+
+**pip-audit** (`PYTHONUTF8=1 .venv/Scripts/pip-audit`, which audits the installed environment, 69 packages, against the public advisory database; exit 1): `Found 12 known
+vulnerabilities in 1 package`, all in **`pip 25.0.1`** (six advisories, each listed twice because of an alias: PYSEC-2026-1795 fixed in pip 25.3, PYSEC-2026-1796 in 26.0,
+PYSEC-2026-2875 and PYSEC-2026-2876 in 26.1, PYSEC-2026-196 in 26.1.2, PYSEC-2026-3721 in 26.2). No other package, FastAPI, Starlette, uvicorn, pydantic and httpx
+included, has a known advisory. It also skipped `fyodor-backend 0.1.0` ("not found on PyPI": it is this project). Answer: **open item**, not fixed by this task. `pip` is
+the installer inside the development environment, is not imported by Fyodor and is not part of what a player runs; upgrading it (`python -m pip install --upgrade pip`, to 26.2 or
+later) is a one-line change for whoever maintains the environment.
+
+**npm audit** (in `frontend/`, `npm audit`, exit 1): `4 vulnerabilities (2 moderate, 2 high)`, all in development tooling; `npm audit --omit=dev` says `found 0 vulnerabilities`.
+
+| Package | Installed | Severity | Advisory | Answer |
+|---|---|---|---|---|
+| `vite` | 8.3.1 | high | affected 8.3.0 - 8.3.2: launch-editor flaws (GHSA-698v-4r3x-3vcv, -r825-w8mm-5pxw, -587h-7wmj-h5pm), cross-origin script execution through custom middleware (GHSA-9jrq-w75r-8gcw), reading files outside `server.fs` (GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg) | **Open item.** These apply to the Vite development server (`npm run dev`), which is not part of what the host runs: the launcher serves the built `frontend/dist` files. A newer release in the same range exists (8.3.8 at the time of writing); `npm audit fix` would take it. Not upgraded here, as instructed. |
+| `source-map-js` | 1.2.1 | high | GHSA-68fv-2mgg-jv7q, event-loop denial of service from crafted source-map offsets (affected up to 1.2.1) | **Open item.** A build-time dependency of the CSS tooling; it runs on the developer's machine when building, on files from this repository. A newer release exists (1.2.4). |
+| `vitest` | 5.0.2 | moderate | via `@vitest/mocker` | **Open item.** Test runner only. A newer release exists (5.1.1). |
+| `@vitest/mocker` | 5.0.2 | moderate | GHSA-qxg6-89mg-rqv8 (code injection through unauthenticated manual mock registration), GHSA-xp26-3454-mjgp (Windows path traversal in its redirect allowlist) | **Open item.** Test runner only, and it is reachable only while a test run has its browser-side mock server open. |
+
+Nothing from the three tools is in code this branch added, other than the B105 line, which is a file name. No finding needs a code change in Stage 1; the five open
+items above are all dependency upgrades, which the gate does not do.
+
+## The 13-point review gate
+
+The spec's "Review gate (every stage)" (`docs/superpowers/specs/2026-11-21-internet-play-design.md`), one entry per point. "Suite" means the tests are part of the
+full backend run, which the controller has yet to record.
+
+1. **Met.** On a LAN table the seat comes from the token alone: `authorize` (`backend/app/api/games.py:88`) looks it up with `room.seat_for_token` and ignores the `viewer` and `as` fields; with no seat it refuses (403), except for the host's own room token, which gets the spectator view. Tests: `test_games_api.py::test_lan_join_and_private_views` (a seat token sent with `"as": "p2"` still acts as its own seat; no token gets 403 on the view), `test_games_api.py::test_local_games_refuse_remote_clients`, `test_socket_auth.py::test_a_guest_without_a_seat_token_closes_4403`, `::test_wrong_token_closes_4403`, `::test_an_unknown_game_closes_exactly_like_a_bad_token`.
+2. **Met, nothing new to filter.** Stage 1 added no new way to read a table: the socket's first message only changes where the token is read, and the view builders are the ones that were there. Tests: `test_socket_auth.py::test_auth_message_with_a_seat_token_receives_the_table`, `::test_nothing_is_sent_and_nobody_is_attached_before_auth`; the existing `test_protocol_privacy.py::test_websocket_frames_never_contain_hidden_identities` and `::test_hidden_hands_libraries_and_searches_do_not_leak`; `test_reconnect.py::test_reconnect_restores_same_seat_hand_and_presence`; `test_socket_caps.py::test_a_spectator_takes_only_the_address_cap`. In the full suite.
+3. **Met.** The token-in-URL search `git grep -n "[?&]token=\|[?&]seat_token=" -- backend/app frontend/src ':!*.test.*'` finds three lines: `backend/app/api/games.py:1759`, which builds the seat link `/#/game/<id>?seat_token=<token>` (the token is after the `#`, so it never reaches a server) and two comment lines in `frontend/src/services/seatLink.ts:2,4`. The socket takes no token in its address unless `FYODOR_LEGACY_WS_TOKEN=1` (risk 7). The log searches in "Log audit" were re-run at `1acd3fc` and give the same counts (110 and 92 call sites, two false matches, no `print` match, 53 lines of the multi-line search, all read). Tests: `test_socket_auth.py::test_token_in_the_query_alone_is_refused_by_default`, `::test_no_token_reaches_a_log_line`, `::test_the_seat_link_keeps_the_token_out_of_the_query_string`, `::test_the_legacy_switch_is_on_only_for_the_exact_value_1`; `frontend/src/services/seatLink.test.ts`.
+4. **Met, one note.** Tokens: seat tokens `secrets.token_urlsafe(24)` (`multiplayer/hub.py:565,664`), the room's host token (`hub.py:415`), the host secret `secrets.token_urlsafe(32)` (`hostauth.py:22`), room codes `secrets.choice` (`hub.py:424`). Compared with `hmac.compare_digest` at `hub.py:203,221,223,231` and `hostauth.py:32`. Revocable: `test_reconnect.py::test_seat_link_reassigns_a_seat_and_revokes_the_old_token`, `test_socket_caps.py::test_after_a_reclaim_the_old_tokens_sockets_close_4403_and_only_those`, `::test_a_kicked_player_s_sockets_close_4403`, `::test_a_player_who_leaves_the_lobby_has_their_sockets_closed_4403`. The note: `hub.py:304` (`seat.token == key`, from the baseline, not this branch) compares a seat token with the stored winner key with `==`; it picks which lobby seat goes last and decides no access, so it is not an authority check, but it is the one plain comparison of a token that a search finds.
+5. **Met, with a different reading of "required secret".** There is no operator-supplied secret to be missing: the host secret is generated at every start, and if its file cannot be written the server does not start (`Services.__init__` creates it, `services.py:92`, with no handler around it; `test_host_auth.py::test_secret_changes_each_start_and_file_is_private`, `::test_an_older_secret_file_is_replaced_not_reused`). No default secret: bandit's only hard-coded-secret finding on a line of this branch is a file name (`hostauth.py:16`).
+6. **Not met in one place.** The first socket message is strictly bounded (`MAX_AUTH_FIELD`, type checks; `test_socket_auth.py::test_wrongly_typed_auth_fields_close_4403`, `::test_first_message_that_is_not_a_json_object_closes_4403`, `::test_a_deeply_nested_frame_after_auth_is_answered_as_malformed`, `::test_oversize_first_message_closes_4403`); `FYODOR_TRUSTED_PROXIES` and `FYODOR_EXTRA_HOSTS` are validated at start (`test_client_address.py`); `DeckSource.url` is validated (risk 9). **Missing:** `SessionBody.secret` (`backend/app/api/host.py:18`), the body of `POST /api/host/session`, is a plain `str` with no maximum length, so a wrong secret of any size is read and compared (the request size is the only bound, and a wrong one counts against the address's five-per-15-minutes budget). It is a one-line fix (`secret: str = Field(max_length=...)`) and is not made here because this commit changes documents only; it is queued as risk 12.
+7. **Met.** "Rendering audit" and "Log audit" above, with `test_security_headers.py::test_lobby_name_cannot_forge_a_log_line`, `::test_lobby_name_is_clean_before_it_is_logged`, `::test_deck_name_is_clean_before_the_art_keeper_logs_it`. The `innerHTML`-family search has no match; `javascript:` is now matched twice, both in this gate's new deck-link helper (a comment and a test string), neither a sink.
+8. **Met.** `git diff 6f1f23c..1acd3fc -- backend/app | grep -n "^+.*except"` gives 12 added `except` lines (none is `except Exception`, a bare `except`, or `suppress`): `games.py` `_is_pong` (`json.loads` failing means "not a pong", then the message goes the normal route), the first-message deadline (`TimeoutError` closes the socket 4403), the first-message parse (`ValueError`/`RecursionError` gives no auth, which closes 4403), the first-message `HTTPException` (closes 4403), the heartbeat loop's `TimeoutError` (the idle check), `(WebSocketDisconnect, WebSocketDisconnected)` (the peer went; the connection ends); `config.py` `_proxies` (re-raised as a start-up error naming the variable); `models.py` `is_http_url` (a malformed port means "not an http address": refused); `hostauth.py` (`FileNotFoundError` means "no secret": nobody is the host); `netguard.py` three times (a malformed Origin or Host is refused; "not an IP address" falls through to the name check, which fails closed). Every one refuses or ends the connection; none grants.
+9. **Met, nothing new.** `git diff 6f1f23c..1acd3fc -- backend/pyproject.toml frontend/package.json frontend/package-lock.json | wc -l` gives 0: no new dependency, and no new file other than `.py`, `.md`, `.ts`, `.tsx` or `.css` (`git diff --diff-filter=A --name-only 6f1f23c..1acd3fc` filtered for other types is empty), so no binary was added. For the record, the backend dependencies in `pyproject.toml` are version ranges (`fastapi>=0.115`), not hash-pinned; that is how they were before this branch. bandit and pip-audit were installed in the environment only.
+10. **Met except one part.** Tests were written first for the last task (red then green, evidence in the task report); for the earlier tasks each commit holds tests and code together, so the order is the task reports' word and could not be re-checked here. Negative cases: wrong seat, see point 1; replaced token, see point 4 and `test_socket_caps.py::test_a_sweep_spares_a_connection_already_on_the_new_token`; foreign Origin: `test_origin_guard.py::test_a_foreign_origin_post_is_refused_and_changes_nothing`, `::test_socket_with_a_foreign_origin_closes_4403`, `::test_origin_allowed` (parametrised, including the sloppy forms), `::test_a_foreign_host_is_refused_even_for_a_get`; forged `X-Forwarded-For`: `test_client_address.py::test_forged_forwarded_for_does_not_pass_the_lan_gate`, `::test_forged_forwarded_for_from_loopback_does_not_pass_either`, `::test_forged_header_does_not_change_the_join_throttle_key`, `test_host_auth.py::test_forged_forwarded_for_gives_nothing`; repeated action id: `test_action_ids.py::test_rest_one_id_twice_draws_once_and_two_ids_draw_twice`, `::test_socket_one_id_twice_draws_once_and_two_ids_draw_twice`, `::test_a_rejected_action_retried_returns_the_same_rejection_and_logs_once`. **Oversized message:** the first message is tested (`test_socket_auth.py::test_oversize_first_message_closes_4403`) and so is the transport limit (`test_launcher.py::test_the_server_is_built_with_a_frame_limit_just_above_the_message_limit`), but the branch after authentication that answers "Message too large" (`games.py:2004`) has **no test of its own**; queued as risk 13. "Timeout racing an action": not applicable to Stage 1, it belongs to Stage 3's clock.
+11. **Pending, and not met as written.** The frontend typecheck and tests pass (above). `ruff` and `mypy` are not clean (11 and 303 errors, none in files this branch added, details above). The full `pytest` run is the controller's, its result goes on the marked line in "Gate results". `bandit`, `pip-audit` and `npm audit` findings are read and answered above, with five dependency upgrades left open.
+12. **Pending.** The independent review (the `security-review` skill and a fresh reviewer) is done by the controller after this commit.
+13. **Met, with two notes.** Stage 1 added no second system: it replaced the loopback test with one function, `is_host_request` (`api/deps.py:84`, kept under the old names `is_local_request` and `require_local`), uses one `client_address` for the limits and the logs, and one `AttemptLimiter` class (three instances in `services.py:94-96`) and one `ConnectionCaps` (two instances); a search for `request.client` finds it read only in `deps.py`. Notes: (a) there are two host notions, both older than this branch's check and both compared in constant time: the browser's host cookie decides what only the host computer may do to the server (backups, cards, assets, creating tables), and `Room.is_host` (`hub.py:226`, the room's host token or the host's seat) decides what the host may do inside a table. They answer different questions and were not merged. (b) `_RateLimiter` in `games.py:1858` is the per-connection message-rate budget from before this branch, not a guess limiter.
+
+## Two-device manual check
+
+**NOT DONE — owner's to do.** This needs a host computer, a phone on the same network and a second browser, which the author of this section did not have. Run it before merging; each
+line is an action and what you should see.
+
+- [ ] Start Fyodor from its launcher on the host computer. The window the launcher opens shows the Host tools (under the menu in a game) and the *Host a LAN night* page. The address bar does not keep `#host=...` after the page loads.
+- [ ] On a phone on the same Wi-Fi, open the host's address (or press **Join** under *Play*), join with the room code and a name, take a seat. It joins without being refused.
+- [ ] On the phone, play a land. It appears on the host's screen at once.
+- [ ] Lock the phone for a minute (or switch it to another app for a minute), wake it. The table comes back on the same seat with the same hand, with no "Too many connections" and no refusal.
+- [ ] On the host computer, open a second browser (or a new private window) and type `http://127.0.0.1:8000` by hand. It can open the Play page and join as a player, but has no Host tools, and where they would be it says to open Fyodor from its launcher (*Open Fyodor from its launcher on the host computer to use host tools.*).
+- [ ] In the host's window, open a game's Host tools, **Reclaim / assign seat** for the phone's player, and open the link it gives in another browser. That browser now holds the seat with the same hand; the phone's old tab shows *Your seat is no longer valid here. Join again.*
+- [ ] In the host's window open **Settings → Restart**. A new host window opens and still has Host tools; the old window is now a guest (no Host tools).
+- [ ] From one device that is not the host, enter a wrong room password five times. The sixth try says *Too many attempts. Try again in a few minutes.* Then, from a different device, join the same table with the right password: it joins.
+
 ## Remaining risks
 
 1. Behind any proxy or tunnel without `FYODOR_TRUSTED_PROXIES`, every remote client shares one address, so the join limit (5 failures per 15 minutes) and the connection cap (24 per address) are shared by all of them; a stranger's wrong guesses can block remote joins for 15 minutes. Stage 2's tunnel port fixes this by reading the provider's client-address header. Until then, do not front Stage 1 with a tunnel without setting trusted proxies.
@@ -178,15 +331,22 @@ no-referrer` were already sent before this task (and `frame-ancestors 'none'` is
 5. Migration 14 drops remembered action ids written before the upgrade; a retry that spans the upgrade restart could apply twice.
 6. An upgraded room-password hash is written to disk only for started tables (lobby rooms are not saved at all).
 7. The legacy socket switch `FYODOR_LEGACY_WS_TOKEN=1` puts the seat token back in the URL; it is off by default and should stay off.
-8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch as of `87ec8a0` (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); the controller saw the same count on a master-based checkout. The gate used was "no new errors in touched files", not a clean run.
+8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch as of `1acd3fc` (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); a `master` checkout gives the same 303 in 15 files with the same messages, and none is on a line this branch added (see "Gate results"). `ruff check .` reports 11 errors, also not clean; one of them (`app\api\games.py:3`, import order) was introduced by `6df0dbd`. The gate used was "no new errors in touched files", not a clean run.
 
-9. `DeckSource.url` was an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx`). Fixed in the commit "Strict Origin serialisation, validated extra hosts, deck source links limited to http(s), journal prune asserted": the model (`backend/app/decks/models.py`, `is_http_url`) now accepts only empty or an absolute http or https address with a host and no whitespace or control character, and the editor (`isHttpUrl` in `frontend/src/pages/deckBits.ts`) links only such an address and otherwise shows the label as plain text. A deck already stored with a bad url still loads: `DeckSource.from_stored` drops the url (sets it to none) and keeps the rest of the source. How a source can get in: only the server builds one (an Archidekt import, from a numeric deck id), the deck-save API (`DeckIn`) has no source field, and LAN deck sharing and "bring my decks" send names and card lists only (`backend/app/decks/sharing.py` says so, `BroughtDeckIn` has no source); so the one way a bad url could exist is a stored row (an old save, or a restored backup), which is the case `from_stored` covers. The earlier statement here that decks could arrive through LAN sharing with a url was wrong.
+9. `DeckSource.url` was an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx`). Fixed in `1acd3fc` ("Strict Origin serialisation, validated extra hosts, deck source links limited to http(s), journal prune asserted"): the model (`backend/app/decks/models.py`, `is_http_url`) now accepts only empty or an absolute http or https address with a host and no whitespace or control character, and the editor (`isHttpUrl` in `frontend/src/pages/deckBits.ts`) links only such an address and otherwise shows the label as plain text. A deck already stored with a bad url still loads: `DeckSource.from_stored` drops the url (sets it to none) and keeps the rest of the source. How a source can get in: only the server builds one (an Archidekt import, from a numeric deck id), the deck-save API (`DeckIn`) has no source field, and LAN deck sharing and "bring my decks" send names and card lists only (`backend/app/decks/sharing.py` says so, `BroughtDeckIn` has no source); so the one way a bad url could exist is a stored row (an old save, or a restored backup), which is the case `from_stored` covers. The earlier statement here that decks could arrive through LAN sharing with a url was wrong.
 10. The art-keeper logs a stored deck's name (`backend/app/cards/art_keeper.py:149-158`). Names are cleaned when a deck is saved or imported, so a deck stored before that cleaning existed is the only uncovered case.
 
-## Open items for Task 10
+11. Five dependency upgrades are open and not done by this task (they are the gate's findings, see "Security tools"): `pip` 25.0.1 in the development environment (six advisories, fixed in 26.2 or later), and in `frontend/` `vite` 8.3.1, `source-map-js` 1.2.1, `vitest` 5.0.2 and `@vitest/mocker` 5.0.2 (`npm audit fix`). All are development tools; `npm audit --omit=dev` finds nothing.
+12. `POST /api/host/session` takes `secret: str` with no maximum length (`backend/app/api/host.py:18`); a wrong secret of any size is read and compared, bounded only by the request size, and counts toward the address's five failures. Review-gate point 6. A one-line fix (`Field(max_length=...)`) is not made in this gate.
+13. The branch of the game socket that answers "Message too large" to an over-limit message after authentication (`backend/app/api/games.py:2004`) has no test of its own (review-gate point 10); the first-message limit and the transport limit are tested.
+14. `hub.py:304` compares a seat token with the stored last-winner key using `==` (code from before this branch). It decides which lobby seat goes last, not who may do anything.
+15. The bandit findings are accepted individually in "Security tools" (sha1 used as a fingerprint, SQL assembled from constants, a deep copy by `pickle`); `hashlib.sha1(..., usedforsecurity=False)` would make the first group explicit and is left for a rules-engine change.
 
-- Full test-suite summaries.
-- `bandit`, `pip-audit`, `npm audit` results.
-- The 13-point review gate walk.
-- The two-device manual check.
-- The security review.
+16. `tests/test_interim_views.py::test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action` failed intermittently at `1acd3fc` (see "Gate results": 2 failures in the full-suite and lone runs on this branch, none in 8 runs on `master`). Unexplained; it counts interim views, which depend on timing.
+
+## Before merging
+
+1. **Full backend test suite:** run by the controller; its result goes on the marked line in "Gate results", which still reads pending.
+2. **Independent review** (`security-review` skill and a fresh reviewer): pending.
+3. **Two-device manual check** (checklist above): NOT DONE — owner's to do.
+4. Decide on the open items: risk 12 (one line), risk 13 (one test), risk 11 (five upgrades), risk 16 (is the interim-views test flaky on `master` too), and the `ruff` import-order error in `games.py` (`ruff check --fix app/api/games.py`).

@@ -1,3 +1,27 @@
+## INTERNET-PLAY STAGE 1: HARDENING BEFORE ANYTHING IS EXPOSED (2026-11-21)
+
+Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/specs/2026-11-21-stage1-audit.md` first). The design is `docs/superpowers/specs/2026-11-21-internet-play-design.md`; this is its Stage 1, the security work that has to exist before the tunnel of Stage 2 does. On a LAN night nothing new is asked of the host or the players. Card coverage and the rules engine are unchanged.
+
+**Who is the host (`backend/app/hostauth.py`, `api/host.py`, `api/deps.py`)**
+- Host-only actions no longer follow the peer address (behind a tunnel every remote player arrives from loopback). The host is the browser holding a random secret, new on every server start, compared with `hmac.compare_digest`.
+- The launcher opens its window with `#host=...`; the page stores it in a cookie and removes it from the address. A browser pointed at the address by hand, on the host computer too, is a guest. A refusal says "Open Fyodor from its launcher on the host computer to use host tools."
+- `client_address` is the one place that decides who is connecting: `X-Forwarded-For` counts only from `FYODOR_TRUSTED_PROXIES` (none by default).
+
+**What a request or socket must pass (`netguard.py`, `main.py`, `api/games.py`)**
+- A `Host` the server does not answer to is refused (400, DNS rebinding); a state-changing request that is cross-site, or whose `Origin` is not this server's own, is refused (403). The Origin must equal its own `scheme://host[:port]` form, nothing looser. `FYODOR_EXTRA_HOSTS` is validated at start.
+- The game socket takes no token in its address: the first message carries it, within 5 seconds, and every failure closes 4403. Seat links keep the token after the `#`. `FYODOR_LEGACY_WS_TOKEN=1` brings the old form back (off by default).
+- Guess limits: five wrong codes or passwords per address per 15 minutes, 30 wrong passwords per room; a right secret is never refused. Passwords use PBKDF2 at 600,000 rounds, upgraded on next use.
+- Sockets: four per seat, 24 per address, a ping every 25 seconds and a close after 90 silent ones, frames limited in bytes, a reclaimed seat's old sockets closed. Remembered action ids are per seat (migration 14).
+- Responses: HSTS only over https (directly, or from a trusted proxy), `/docs`, `/redoc` and `/openapi.json` only with `FYODOR_DEV_TOOLS=1`, the host cookie `Secure` over https.
+- Deck sources: `DeckSource.url` is empty or an http(s) address; a deck stored with another kind of url loads with the url dropped; the deck editor links only http(s) addresses.
+
+**The gate (audit file)**
+- Rendering and log audits (no player text reaches the page as HTML or a log line unclean), the 13-point review gate walked, `bandit`, `pip-audit` and `npm audit` results with every finding answered or listed as open, and the remaining risks.
+- Not done by the author and listed as such: the full backend test run (the controller's), the independent review, and the two-device manual check (the owner's).
+- Known and unchanged by this batch: `ruff` reports 11 errors and `mypy` 303 errors in 15 files, none in code this stage added (details in the audit file).
+
+**Docs:** `docs/LAN_PLAY.md` explains the host's window, seat links, the limits a player can meet, a private network such as Tailscale for friends outside the LAN (port-forwarding is not recommended), and the four environment variables above.
+
 ## GAME-NIGHT GAP BATCH, THE POD'S DECKS AUDITED, BIG BOARDS, REPEAT, DICE (2026-11-02)
 
 What the app still lacked for a real game night, built without taking anything away, then a deliberate audit of the pod's seven decks. Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35), sections 19–29. Card coverage is unchanged: **32,068 FULL / 0 PARTIAL**.
