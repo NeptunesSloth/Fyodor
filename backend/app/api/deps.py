@@ -51,6 +51,11 @@ def client_address(request: Request | WebSocket) -> str:
     return _resolve(peer, request.headers.get("x-forwarded-for"), services.settings.trusted_proxies)
 
 
+def too_many_attempts(retry_after: int) -> HTTPException:
+    """The answer to a guess while the address (or the room) is over its limit (AttemptLimiter in app/netguard.py)."""
+    return HTTPException(429, "Too many attempts. Try again in a few minutes.", headers={"Retry-After": str(retry_after)})
+
+
 def host_ok(request: Request | WebSocket) -> bool:
     """Does the request name a host this server answers to (DNS rebinding guard, app/netguard.py)?"""
     services: Services = request.app.state.services

@@ -8,11 +8,15 @@ the browser send a request or open a socket here; only this server's own origin,
 from __future__ import annotations
 
 import ipaddress
+import math
 import socket
-from collections.abc import Iterable
+import time
+from collections import OrderedDict, deque
+from collections.abc import Callable, Iterable
 from urllib.parse import urlsplit
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
+MAX_KEYS = 10_000  # a limiter never remembers more keys than this; the one longest without a failure is dropped first
 
 
 def _split_host(host_header: str | None) -> tuple[str, int | None] | None:
@@ -79,3 +83,52 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
     if own is not None and own[0] == host and (own[1] or DEFAULT_PORTS[scheme]) == port:
         return True
     return any(key == _origin_key(e) for e in extra)
+
+
+class AttemptLimiter:
+    """Guesses allowed per key (an address, a room code): ``max_failures`` failures within ``window`` seconds block the key until the
+    oldest of them is ``window`` old. Only failures count, a success clears the key. In memory, pure; ``clock`` is injected."""
+
+    def __init__(self, max_failures: int, window: float, clock: Callable[[], float] = time.monotonic) -> None:
+        self.max_failures = max_failures
+        self.window = window
+        self._clock = clock
+        self._failures: OrderedDict[str, deque[float]] = OrderedDict()  # key -> failure times, oldest first; keys by last failure
+
+    def _recent(self, key: str) -> deque[float] | None:
+        """The failures of ``key`` still inside the window (expired ones dropped; the key too when none is left), None if no key."""
+        failures = self._failures.get(key)
+        if failures is None:
+            return None
+        cutoff = self._clock() - self.window
+        while failures and failures[0] <= cutoff:
+            failures.popleft()
+        if not failures:
+            del self._failures[key]
+            return None
+        return failures
+
+    def blocked(self, key: str) -> bool:
+        failures = self._recent(key)
+        return failures is not None and len(failures) >= self.max_failures
+
+    def fail(self, key: str) -> None:
+        failures = self._recent(key)
+        if failures is None:
+            failures = self._failures[key] = deque()
+        failures.append(self._clock())
+        while len(failures) > self.max_failures:  # (more are never needed to stay blocked)
+            failures.popleft()
+        self._failures.move_to_end(key)
+        while len(self._failures) > MAX_KEYS:
+            self._failures.popitem(last=False)
+
+    def succeed(self, key: str) -> None:
+        self._failures.pop(key, None)
+
+    def retry_after(self, key: str) -> int:
+        """Whole seconds until the oldest counted failure of ``key`` expires; at least 1."""
+        failures = self._recent(key)
+        if failures is None:
+            return 1
+        return max(1, math.ceil(failures[0] + self.window - self._clock()))

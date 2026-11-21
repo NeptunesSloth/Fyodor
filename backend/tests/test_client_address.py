@@ -67,6 +67,6 @@ def test_trusted_proxy_hands_over_the_real_client(settings: Settings):
 
 def test_forged_header_does_not_change_the_join_throttle_key(settings: Settings):
     with TestClient(create_app(settings), client=("203.0.113.9", 5000)) as c:
-        for i in range(10):
+        for i in range(5):
             assert c.post("/api/join", json={"code": "NOPE", "name": "x"}, headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code == 403
         assert c.post("/api/join", json={"code": "NOPE", "name": "x"}, headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 429

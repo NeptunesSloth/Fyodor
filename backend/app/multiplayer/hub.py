@@ -54,6 +54,14 @@ def _hash_password(password: str, salt: bytes) -> bytes:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
 
 
+_NO_ROOM_SALT = bytes(16)
+
+
+def spend_password_check(password: str | None) -> None:
+    """The cost of checking a password against a room, for a room code that has none, so a wrong code answers as slowly as a wrong password."""
+    _hash_password(password or "", _NO_ROOM_SALT)
+
+
 RECONNECT_GRACE = 60.0  # seconds a dropped player shows as "Reconnecting…" before "Disconnected"
 Presence = Literal["open", "connected", "reconnecting", "disconnected"]
 
@@ -330,7 +338,6 @@ class GameHub:
         self.journal = journal
         self.decks = decks  # -- saved rows -- where rows learned at the table are stored
         self.asset_info = asset_info  # asset id -> {url, width, height} for sleeves / playmats in views
-        self.join_failures: dict[str, list[float]] = {}  # client ip -> recent failed join times
         self._autosave = autosave
         self.autosave_every = max(1, autosave_every)
 

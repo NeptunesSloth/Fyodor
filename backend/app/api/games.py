@@ -33,7 +33,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.deps import client_address, get_services, host_ok, is_local_request, origin_ok, require_local
+from app.api.deps import client_address, get_services, host_ok, is_local_request, origin_ok, require_local, too_many_attempts
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.cards.repository import CardDatabaseUnavailable
@@ -54,7 +54,7 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarC
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art, response_call
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, undo_voters
+from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, spend_password_check, undo_voters
 from app.multiplayer.lobby import (
     CardPermissions,
     DeckTooLarge,
@@ -543,24 +543,24 @@ async def close_game(game_id: str, request: Request, services: ServicesDep) -> R
     return Response(status_code=204)
 
 
-def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in failures.get(ip, []) if now - t < 60]
-    failures[ip] = recent
-    if len(recent) >= 10:
-        raise HTTPException(429, "Too many failed join attempts; wait a minute")
-
-
 @router.post("/join")
 def join_game(body: JoinIn, request: Request, services: ServicesDep,
               x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     ip = client_address(request)
-    failures = services.hub.join_failures
-    _throttle_join(failures, ip)
+    by_address, by_room = services.join_limiter_addr, services.join_limiter_room
+    if by_address.blocked(ip):  # (before the room is looked up or anything hashed)
+        raise too_many_attempts(by_address.retry_after(ip))
     room = services.hub.by_code(body.code)
     if room is None or not room.check_password(body.password):
-        failures.setdefault(ip, []).append(time.monotonic())
+        by_address.fail(ip)
+        if room is None:
+            spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)
+        else:
+            by_room.fail(room.code)
+            if by_room.blocked(room.code):  # (only a wrong guess meets this: a right password is never refused for it)
+                raise too_many_attempts(by_room.retry_after(room.code))
         raise HTTPException(403, "Unknown room code or wrong password")
+    by_address.succeed(ip)
     name = clean_text(body.name or "", 40) or None
     try:
         viewer, token = services.hub.claim_seat(room, name=name, seat=body.seat, spectate=body.spectate)

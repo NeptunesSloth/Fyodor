@@ -229,8 +229,8 @@ def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
 def test_join_brute_force_throttled(client, decks):
     create(client, decks, mode="lan", password="pw")
     headers = guest()
-    codes = [client.post("/api/join", json={"code": "ZZZZZZ"}, headers=headers).status_code for _ in range(12)]
-    assert codes[-1] == 429
+    codes = [client.post("/api/join", json={"code": "ZZZZZZ"}, headers=headers).status_code for _ in range(7)]
+    assert codes == [403] * 5 + [429] * 2
 
 
 def test_websocket_sync_and_hidden_info(client, decks):
