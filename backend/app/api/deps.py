@@ -13,21 +13,41 @@ def get_services(request: Request) -> Services:
     return services
 
 
-def _peer_is_loopback(host: str | None, forwarded_for: str | None) -> bool:
-    if host == "testclient":  # starlette TestClient
-        host = "127.0.0.1"
+def _addr(text: str | None) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
     try:
-        loopback = host is not None and ipaddress.ip_address(host).is_loopback
+        ip = ipaddress.ip_address((text or "").strip())
     except ValueError:
-        loopback = host == "localhost"
-    if loopback and forwarded_for:
-        # Requests relayed by the local dev proxy carry the real client address.
-        first = forwarded_for.split(",")[0].strip()
-        try:
-            return ipaddress.ip_address(first).is_loopback
-        except ValueError:
-            return False
-    return loopback
+        return None
+    return ip.ipv4_mapped or ip if isinstance(ip, ipaddress.IPv6Address) else ip  # ::ffff:1.2.3.4 is 1.2.3.4
+
+
+def _resolve(peer: str | None, xff: str | None, trusted: tuple[str, ...]) -> str:
+    """The client behind `peer`: X-Forwarded-For is believed only when the peer is a configured proxy, and then the rightmost entry that
+    is not itself a proxy is the client (what the nearest proxy saw; anything left of it can be forged). An unparseable entry, or a
+    peer that is not an IP, gives the peer back. No peer at all gives "", one shared bucket for limits."""
+    if not peer:
+        return ""
+    ip = _addr(peer)
+    if ip is None:
+        return peer
+    nets = [ipaddress.ip_network(t, strict=False) for t in trusted]
+    if not xff or not any(ip in n for n in nets):
+        return str(ip)
+    for entry in reversed(xff.split(",")):
+        hop = _addr(entry)
+        if hop is None:
+            return str(ip)
+        if not any(hop in n for n in nets):
+            return str(hop)
+    return str(ip)
+
+
+def client_address(request: Request | WebSocket) -> str:
+    """Where this request really came from, for rate limits and logs only (never authority: that is the host secret, is_host_request).
+    The peer address, or behind a configured proxy (FYODOR_TRUSTED_PROXIES) the client it reports; "" when the framework gives no peer."""
+    peer = request.client.host if request.client else None
+    services: Services = request.app.state.services
+    return _resolve(peer, request.headers.get("x-forwarded-for"), services.settings.trusted_proxies)
 
 
 def is_host_request(request: Request | WebSocket) -> bool:

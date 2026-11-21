@@ -33,7 +33,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
+from app.api.deps import client_address, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.cards.repository import CardDatabaseUnavailable
@@ -543,14 +543,6 @@ async def close_game(game_id: str, request: Request, services: ServicesDep) -> R
     return Response(status_code=204)
 
 
-def client_ip(request: Request) -> str:
-    host = request.client.host if request.client else "?"
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and _peer_is_loopback(host, None):
-        return forwarded.split(",")[0].strip()
-    return host
-
-
 def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
     now = time.monotonic()
     recent = [t for t in failures.get(ip, []) if now - t < 60]
@@ -562,7 +554,7 @@ def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
 @router.post("/join")
 def join_game(body: JoinIn, request: Request, services: ServicesDep,
               x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
-    ip = client_ip(request)
+    ip = client_address(request)
     failures = services.hub.join_failures
     _throttle_join(failures, ip)
     room = services.hub.by_code(body.code)

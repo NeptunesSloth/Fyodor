@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, ValidationError
 
-from app.api.deps import get_services, require_local
+from app.api.deps import client_address, get_services, require_local
 from app.cards import share
 from app.cards.images import UUID_RE
 from app.decks import sharing
@@ -84,7 +84,7 @@ def _origin(sender: str, port: int | None) -> str | None:
 @router.post("/lan/handoff/missing")
 async def missing_cards(body: MissingIn, request: Request, services: ServicesDep) -> dict[str, Any]:
     """Which of these printings this computer's card database lacks: a player's Fyodor sends just those along with its decks."""
-    sender = _sender(request)
+    sender = client_address(request)
     if not on_local_network(sender):
         raise HTTPException(403, "Only computers on this network can bring decks")
     if not services.cards.available:
@@ -92,16 +92,10 @@ async def missing_cards(body: MissingIn, request: Request, services: ServicesDep
     return {"missing": await run_in_threadpool(share.unknown_ids, services.cards, body.ids)}
 
 
-def _sender(request: Request) -> str:
-    from app.api.games import client_ip
-
-    return client_ip(request)
-
-
 @router.post("/lan/handoff")
 async def receive_handoff(request: Request, services: ServicesDep) -> dict[str, Any]:
     """A player's own Fyodor sends their deck library ahead of their join; it waits here, in memory, for one join."""
-    sender = _sender(request)
+    sender = client_address(request)
     if not on_local_network(sender):
         raise HTTPException(403, "Only computers on this network can bring decks")
     length = request.headers.get("content-length")
@@ -280,7 +274,7 @@ async def send_decks(body: SendIn, request: Request, services: ServicesDep) -> d
 async def shared_decks(request: Request, services: ServicesDep) -> dict[str, Any]:
     """The decks this computer shares with friends on the network: names, commanders and card lists, nothing else. Read only;
     nothing at all while sharing is off (the owner's opt-in, Settings)."""
-    if not on_local_network(_sender(request)):
+    if not on_local_network(client_address(request)):
         raise HTTPException(403, "Only computers on this network can browse shared decks")
     prefs = sharing.load(services.settings.data_dir)
     if not prefs["enabled"]:

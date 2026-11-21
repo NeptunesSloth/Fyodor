@@ -7,6 +7,7 @@ the configured data directory, so no machine-specific path is hard-coded.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import sys
 from dataclasses import dataclass, field
@@ -76,6 +77,9 @@ class Settings:
     user_agent: str = "Fyodor-MTG-Tabletop/0.1"
     # -- art folders -- more folders of card pictures, read in place after the cache (app/cards/art_folders.py)
     art_dirs: tuple[Path, ...] = ()
+    # reverse proxies / tunnels whose X-Forwarded-For is believed (IPs or CIDRs, FYODOR_TRUSTED_PROXIES); none by default, so the
+    # header is ignored (app/api/deps.py client_address)
+    trusted_proxies: tuple[str, ...] = ()
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -101,6 +105,16 @@ class Settings:
     def ensure_dirs(self) -> None:
         for path in (self.data_dir, self.images_dir / "cards", self.images_dir / "tokens", self.downloads_dir, self.assets_dir):
             path.mkdir(parents=True, exist_ok=True)
+
+
+def _proxies(value: str | None) -> tuple[str, ...]:
+    entries = tuple(e.strip() for e in (value or "").split(",") if e.strip())
+    for entry in entries:
+        try:
+            ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            raise ValueError(f"FYODOR_TRUSTED_PROXIES: {entry!r} is not an IP address or CIDR range") from None
+    return entries
 
 
 def load_settings(env: dict[str, str] | None = None) -> Settings:
@@ -134,6 +148,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         dev_tools=_bool(get("DEV_TOOLS"), False),
         discovery=_bool(get("DISCOVERY"), True),
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
+        trusted_proxies=_proxies(get("TRUSTED_PROXIES")),
         art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )
 
