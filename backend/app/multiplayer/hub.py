@@ -567,7 +567,9 @@ class GameHub:
 
     async def drop_connections(self, room: Room, pid: str, *, code: int, reason: str) -> int:
         """Close every socket of a seat. Code 4000 makes clients reconnect; 4403 stops them."""
-        conns = [c for c in room.connections.values() if c.viewer == pid]
+        return await self._close_all(room, [c for c in room.connections.values() if c.viewer == pid], code, reason)
+
+    async def _close_all(self, room: Room, conns: list[Connection], code: int, reason: str) -> int:
         for conn in conns:
             self.disconnect(room, conn)
             if conn.close is not None:
@@ -578,9 +580,13 @@ class GameHub:
         return len(conns)
 
     async def close_seat_connections(self, room: Room, player_id: str, reason: str) -> None:
-        """A seat's token was replaced or the seat was taken away: close that seat's sockets at once with 4403 (clients stop, they do not
-        reconnect). Only this seat's: never another seat's, nor a connection that is not on it."""
-        await self.drop_connections(room, player_id, code=4403, reason=reason)
+        """A seat's token was replaced or the seat was taken away: close that seat's sockets that do not hold the seat's current token at
+        once with 4403 (clients stop, they do not reconnect). A seat with no token any more loses all of them; a socket with no token
+        on a seat (none exists in a LAN game) counts as not holding it. Only this seat's: never another seat's."""
+        current = room.seats[player_id].token if player_id in room.seats else None
+        stale = [c for c in room.connections.values()
+                 if c.viewer == player_id and (current is None or c.token is None or not hmac.compare_digest(c.token, current))]
+        await self._close_all(room, stale, 4403, reason)
 
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""

@@ -23,6 +23,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.concurrency import run_in_threadpool
+from starlette.websockets import WebSocketDisconnected
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -1967,6 +1968,7 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
                       deltas=deltas)  # -- view deltas -- (app/multiplayer/view_delta.py)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
+    pong_limiter = _RateLimiter(rate=0.5, burst=10.0)  # a healthy client answers one ping in 25 s
     cursor_shown = False
     # a seat's sockets are capped (a hot-seat table is one browser, one seat per view: only the address cap there); this is the key that
     # was acquired, whatever seat the connection is later moved to, and the finally below gives it back
@@ -1996,8 +1998,10 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
                     await send({"type": "ping"})  # (nothing but the word: no game state, no revision)
                 continue
             last_heard = time.monotonic()
-            if _is_pong(raw):
-                continue  # the answer to the server's ping: activity, nothing more (it never meets the limiter)
+            if _is_pong(raw):  # the answer to the server's ping: activity, nothing more; a flood of them is slowed like any other message
+                if not pong_limiter.allow():
+                    await send({"type": "error", "message": "Slow down"})
+                continue
             if len(raw) > MAX_WS_MESSAGE:
                 await send({"type": "error", "message": "Message too large"})
                 continue
@@ -2013,7 +2017,7 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
                 continue
             await _handle_ws_message(services, room, conn, raw, send)
             last_heard = time.monotonic()
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, WebSocketDisconnected):  # (the peer went, or another task closed this socket and a send came after)
         pass
     finally:
         if seat_key is not None:

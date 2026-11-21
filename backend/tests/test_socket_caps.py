@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import time
 from collections.abc import Callable
 
@@ -211,8 +212,8 @@ def test_the_caps_are_released_when_serving_the_socket_raises(client: TestClient
     wait_until(lambda: (s.caps_seat.total(), s.caps_addr.total()) == (0, 0), "released after the error")
 
 
-def test_a_dropped_socket_frees_its_slot(client: TestClient, table, monkeypatch):
-    """The phone that slept: no close frame ever comes, only silence; the idle close frees the slot."""
+def test_the_idle_close_of_a_silent_connection_frees_its_slots(client: TestClient, table, monkeypatch):
+    """The phone that slept: no close frame ever comes, only silence; the 4408 idle close frees both slots and the seat's presence."""
     gid, _, host = table
     s = services(client)
     monkeypatch.setattr(games, "PING_EVERY", 0.05)
@@ -273,18 +274,25 @@ def test_any_message_counts_as_activity(client: TestClient, table, monkeypatch):
         assert alive(ws)
 
 
-def test_pongs_are_not_errors_and_never_count_against_the_rate_limit(client: TestClient, table, monkeypatch):
+def test_pongs_are_not_errors_and_a_flood_of_them_is_slowed_down_like_any_message(client: TestClient, table, monkeypatch):
     gid, _, host = table
     monkeypatch.setattr(games, "PING_EVERY", 60.0)
     with connect_game(client, gid, host) as ws:
         ws.receive_json()
-        for _ in range(200):  # far more than the limiter's burst
+        for _ in range(5):  # a healthy client: well inside the pongs' own budget
             ws.send_json({"type": "pong"})
         ws.send_json({"type": "ping", "id": 9})
         seen = []
         while (msg := ws.receive_json())["type"] != "pong":
             seen.append(msg)
         assert not [m for m in seen if m["type"] == "error"]  # no "Malformed message", no "Slow down"
+        for _ in range(200):  # far past the budget
+            ws.send_json({"type": "pong"})
+        ws.send_json({"type": "ping", "id": 10})
+        errors = []
+        while (msg := ws.receive_json())["type"] != "pong" or msg.get("id") != 10:
+            errors.append(msg)
+        assert {"type": "error", "message": "Slow down"} in errors  # what any over-rate message gets
 
 
 # --------------------------------------------------------------------------- a replaced seat
@@ -330,17 +338,40 @@ def test_a_player_who_leaves_the_lobby_has_their_sockets_closed_4403(client: Tes
         ws.receive_json()
         assert client.post(f"/api/games/{gid}/lobby/leave", headers=h(bob)).status_code == 204
         assert closed_with(ws).code == 4403
+    with connect_game(client, gid, bob) as again:
+        assert closed_with(again).code == 4403
 
 
-def test_close_seat_connections_closes_only_that_seat(client: TestClient, table):
+def test_a_sweep_spares_a_connection_already_on_the_new_token(client: TestClient, table):
     gid, code, host = table
     bob = join(client, code, "Bob")
     seat = seat_of(client, gid, bob)
     room = room_of(client, gid)
-    with connect_game(client, gid, bob) as mine, connect_game(client, gid, host) as hosts:
-        mine.receive_json()
+    with connect_game(client, gid, bob) as old, connect_game(client, gid, host) as hosts:
+        old.receive_json()
         hosts.receive_json()
-        client.portal.call(services(client).hub.close_seat_connections, room, seat, "test")  # type: ignore[attr-defined]
-        assert closed_with(mine).code == 4403
-        assert alive(hosts)
+        new_token = services(client).hub.reissue_seat(room, seat)  # (the token changes first, as in host_seat_link)
+        with connect_game(client, gid, new_token) as fresh:
+            fresh.receive_json()
+            client.portal.call(services(client).hub.close_seat_connections, room, seat, "test")  # type: ignore[attr-defined]
+            assert closed_with(old).code == 4403
+            assert alive(fresh) and alive(hosts)
+
+
+def test_a_socket_closed_by_a_sweep_ends_cleanly_when_its_own_ping_comes_due(client: TestClient, table, monkeypatch, caplog):
+    """The server closes the socket from another task; the socket's own loop then sends its ping to a peer that is gone: no traceback."""
+    gid, code, _ = table
+    bob = join(client, code, "Bob")
+    seat = seat_of(client, gid, bob)
+    s = services(client)
+    room = room_of(client, gid)
+    monkeypatch.setattr(games, "PING_EVERY", 0.05)
+    monkeypatch.setattr(games, "IDLE_CLOSE", 5.0)
+    caplog.set_level(logging.ERROR)
+    with connect_game(client, gid, bob) as ws:
+        ws.receive_json()
+        client.portal.call(s.hub.close_seat_connections, room, seat, "test")  # type: ignore[attr-defined]
+        time.sleep(0.4)  # the ping deadline passes before this side has read the close frame
+    wait_until(lambda: (s.caps_seat.total(), s.caps_addr.total()) == (0, 0), "released after the sweep")
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR] == []
 

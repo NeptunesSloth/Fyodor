@@ -321,15 +321,15 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-FRAME_MARGIN = 1024  # what the transport allows above a message's own limit (the app's check still decides)
+FRAME_MARGIN = 1024  # what the transport allows above a message's own limit in bytes (the app's check still decides)
 
 
 def server_options(settings: Settings) -> dict[str, Any]:
-    """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE) is refused as it arrives,
+    """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE characters, up to 4 bytes each in UTF-8) is refused as it arrives,
     not after uvicorn has buffered up to 16 MiB of it (its default)."""
     from app.api.games import MAX_WS_MESSAGE
 
-    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE + FRAME_MARGIN}
+    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN}
 
 
 def serve(settings: Settings, browser: bool = False) -> None:
