@@ -140,7 +140,8 @@ def test_unknown_code_and_wrong_password_are_identical(app, table) -> None:
         unknown = join(a, "ZZZZZZ", "pw")
         wrong = join(b, code, "bad")
     assert (unknown.status_code, unknown.json()) == (wrong.status_code, wrong.json()) == (403, UNIFORM)
-    assert dict(unknown.headers).keys() == dict(wrong.headers).keys()
+    keep = lambda r: {k: v for k, v in r.headers.items() if k != "date"}  # noqa: E731
+    assert keep(unknown) == keep(wrong)
 
 
 def test_unknown_codes_count_against_the_address_but_create_no_room_key(app, table) -> None:
@@ -163,16 +164,17 @@ def test_room_blocked_by_many_addresses_still_admits_the_right_password(app, tab
         assert join(friend, code, "pw").status_code == 200  # the real pod is not locked out
 
 
-def test_a_right_join_clears_the_address_only(app, table) -> None:
+def test_a_right_join_does_not_clear_failures_other_people_may_share(app, table) -> None:
     code = table["game"]["code"]
     services = app.state.services
     with peer(app, ("203.0.113.1", 1)) as c:
         for _ in range(4):
-            join(c, code, "bad")
-        assert join(c, code, "pw", spectate=True).status_code == 200
-        for _ in range(4):  # four more are allowed: the success cleared the first four
             assert join(c, code, "bad").status_code == 403
-    assert services.join_limiter_room._failures[code]  # the room key was not cleared
+        assert join(c, code, "pw", spectate=True).status_code == 200  # not blocked yet: a right join still works
+        assert join(c, code, "bad").status_code == 403  # the 5th failure: the right join did not wipe the four
+        assert join(c, code, "pw", spectate=True).status_code == 429
+        assert join(c, code, "bad").status_code == 429
+    assert services.join_limiter_room._failures[code]
 
 
 def test_no_peer_is_one_shared_bucket_not_exempt(app, table) -> None:
@@ -197,15 +199,38 @@ def test_reconnecting_with_a_seat_token_never_touches_the_limiter(app, table) ->
     assert len(services.join_limiter_addr._failures) == 1
 
 
-def test_host_session_limits_wrong_secrets_per_address(app) -> None:
+def test_blocked_host_session_address_still_takes_the_right_secret(app) -> None:
     secret = app.state.services.host_secret.value
     with peer(app, ("203.0.113.1", 1)) as c:
         for _ in range(5):
             assert c.post("/api/host/session", json={"secret": "x" * 43}).status_code == 403
-        r = c.post("/api/host/session", json={"secret": secret})
+        r = c.post("/api/host/session", json={"secret": "y" * 43})
         assert r.status_code == 429 and r.json() == TOO_MANY and "set-cookie" not in r.headers
+        assert c.post("/api/host/session", json={"secret": secret}).status_code == 204  # the host is never locked out
     with peer(app, ("203.0.113.2", 1)) as other:
-        assert other.post("/api/host/session", json={"secret": secret}).status_code == 204
+        assert other.post("/api/host/session", json={"secret": "z" * 43}).status_code == 403  # other addresses are not blocked
+
+
+def test_joins_and_host_session_have_separate_budgets(app, table) -> None:
+    code, secret = table["game"]["code"], app.state.services.host_secret.value
+    with peer(app, ("203.0.113.1", 1)) as c:
+        for _ in range(5):
+            join(c, code, "bad")
+        assert join(c, code, "pw").status_code == 429
+        assert c.post("/api/host/session", json={"secret": secret}).status_code == 204
+    with peer(app, ("203.0.113.2", 1)) as d:
+        for _ in range(5):
+            d.post("/api/host/session", json={"secret": "x" * 43})
+        assert join(d, code, "pw").status_code == 200
+
+
+def test_blocked_room_key_still_admits_the_right_password_from_a_fresh_address(app, table) -> None:
+    code = table["game"]["code"]
+    for _ in range(30):
+        app.state.services.join_limiter_room.fail(code)
+    assert app.state.services.join_limiter_room.blocked(code)
+    with peer(app, ("203.0.113.77", 1)) as c:
+        assert join(c, code, "pw").status_code == 200
 
 
 def test_host_opening_the_launcher_many_times_is_never_locked_out(app) -> None:

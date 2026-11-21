@@ -41,6 +41,7 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
+import { joinWithPreferredSeat } from "./joinSeat";
 import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
@@ -62,9 +63,7 @@ const handledInvites = new Set<string>();
 /** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. */
 async function joinTable(body: { code: string; name?: string; password?: string; spectate: boolean; handoff?: string | null }): Promise<void> {
   const preferred = usePrefs.getState().preferredSeat;
-  const res = preferred && !body.spectate
-    ? await joinGame({ ...body, seat: preferred }).catch(() => joinGame(body))
-    : await joinGame(body);
+  const res = await joinWithPreferredSeat((b) => joinGame(b), body, preferred);
   rememberSeat(res.game_id, res.token);
   navigate(`/game/${res.game_id}`);
 }

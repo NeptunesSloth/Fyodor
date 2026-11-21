@@ -560,7 +560,6 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
             if by_room.blocked(room.code):  # (only a wrong guess meets this: a right password is never refused for it)
                 raise too_many_attempts(by_room.retry_after(room.code))
         raise HTTPException(403, "Unknown room code or wrong password")
-    by_address.succeed(ip)
     name = clean_text(body.name or "", 40) or None
     try:
         viewer, token = services.hub.claim_seat(room, name=name, seat=body.seat, spectate=body.spectate)

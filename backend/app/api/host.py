@@ -21,14 +21,14 @@ class SessionBody(BaseModel):
 
 @router.post("/host/session", status_code=204)
 def claim_host_session(body: SessionBody, request: Request, services: ServicesDep) -> Response:
-    ip = client_address(request)
-    guesses = services.join_limiter_addr  # (one budget with joins: it is the same address guessing at something)
-    if guesses.blocked(ip):  # (before the secret is compared)
-        raise too_many_attempts(guesses.retry_after(ip))
+    # (the right secret is full authority and is never refused, however many wrong ones came from this address: behind a tunnel
+    # every client, the host's browser too, can share one address)
     if not services.host_secret.matches(body.secret):
-        guesses.fail(ip)
+        ip = client_address(request)
+        if services.host_limiter_addr.blocked(ip):
+            raise too_many_attempts(services.host_limiter_addr.retry_after(ip))
+        services.host_limiter_addr.fail(ip)
         raise HTTPException(403, "That is not this server's host secret")
-    guesses.succeed(ip)
     response = Response(status_code=204)
     # (no max-age: it ends with the browser session, and the secret itself ends with the server)
     response.set_cookie(HOST_COOKIE, services.host_secret.value, httponly=True, samesite="strict", path="/",

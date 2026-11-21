@@ -91,7 +91,8 @@ class Services:
         settings.ensure_dirs()
         self.host_secret = HostSecret(settings.data_dir / SECRET_FILE)  # new on every start; see app/hostauth.py
         self.recovery: RecoveryInfo | None = None
-        self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes, passwords and host secrets, by client address
+        self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes and passwords, by client address
+        self.host_limiter_addr = AttemptLimiter(5, 900.0)  # wrong host secrets, by client address (the right one is never refused)
         self.join_limiter_room = AttemptLimiter(30, 900.0)  # wrong passwords, by room code (a room that exists)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()

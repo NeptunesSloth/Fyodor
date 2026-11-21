@@ -124,6 +124,7 @@ class AttemptLimiter:
             self._failures.popitem(last=False)
 
     def succeed(self, key: str) -> None:
+        # (nothing in app calls this: a key may be shared by people behind one address, so failures only expire with the window)
         self._failures.pop(key, None)
 
     def retry_after(self, key: str) -> int:
