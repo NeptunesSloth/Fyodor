@@ -21,6 +21,7 @@ from tests.test_rules_qualified_attached_tutors import cold
 from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 DATA=Path(__file__).parent/'fixtures/qualified_selection_packet_cards.json'
 NAMES=[c['name'] for c in json.loads(DATA.read_text())][:25]
@@ -495,6 +496,7 @@ def test_bamboozle_public_reveal_then_private_order_http_ws(cards,settings):
     top=stack_library(s,['Forest','Island','Sol Ring','Memnite'],pid='p2')
     cast(s,'Bamboozle',targets=['p2'])
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck=client.post('/api/decks',json={'text':'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck},{'name':'Bob','deck_id':deck}]}).json()
         gid=game['game']['id']

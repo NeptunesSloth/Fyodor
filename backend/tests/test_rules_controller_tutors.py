@@ -18,6 +18,7 @@ from tests.test_rules_library_look import settle
 from tests.test_rules_ordered_tutor_continuations import cast, choose_named
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 DATA=Path(__file__).parent/'fixtures/controller_tutor_cards.json'
 NAMES=[c['name'] for c in json.loads(DATA.read_text())][:10]
@@ -390,6 +391,7 @@ def test_arcum_foreign_library_search_rest_ws_privacy(cards,settings):
     hidden=[o.id for o in s.state.rules.decision.options]
     found=choose_named(s,'Sol Ring')
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck=client.post('/api/decks',json={'text':'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck},{'name':'Bob','deck_id':deck}]}).json()
         gid=game['game']['id']

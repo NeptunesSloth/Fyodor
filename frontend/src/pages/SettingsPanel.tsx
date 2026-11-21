@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { toast, toastError } from "../components/Toasts";
 import { api, ApiError } from "../services/api";
+import { HOST_ONLY_NOTE } from "../services/hostSession";
 import { effectiveHotkeys, collisions, comboOf, KEY_PRESETS, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
 import { DICE_LOOKS } from "../game/dice";
@@ -593,7 +594,7 @@ function BackupSection() {
   return (
     <SettingsSection id="backups" testId="backups">
       {denied ? (
-        <p className="st-note st-away">Backups are made on the host computer (the one running Fyodor).</p>
+        <p className="st-note st-away">Backups are made on the host computer (the one running Fyodor). {HOST_ONLY_NOTE}</p>
       ) : (
         <div className="st-plate">
           {auto && (

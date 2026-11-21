@@ -22,6 +22,7 @@ from app.game.visibility import SPECTATOR
 from app.main import create_app
 from app.multiplayer import discovery as D
 from app.multiplayer.elimination import PracticeLink
+from tests.conftest import claim_host
 
 BOB_DECK = """Commander
 1x Krenko, Mob Boss (ddn) 13
@@ -41,6 +42,7 @@ def lan_settings(tmp_path: Path, **extra: str):
 def lan_client(tmp_path, card_db):
     """A server listening on the LAN (its beacon on a free port), with the fixture card database (same data dir as ``card_db``)."""
     with TestClient(create_app(lan_settings(tmp_path))) as c:
+        claim_host(c)
         yield c
 
 
@@ -48,6 +50,7 @@ def lan_client(tmp_path, card_db):
 def bare_lan_client(tmp_path):
     """The same without a card database: enough for the beacon itself."""
     with TestClient(create_app(lan_settings(tmp_path))) as c:
+        claim_host(c)
         yield c
 
 
@@ -111,6 +114,7 @@ def test_the_beacon_runs_only_on_a_lan_server_with_discovery_on(tmp_path):
 def test_no_responder_in_local_mode_or_when_turned_off(tmp_path):
     for extra in ({"FYODOR_HOST": "127.0.0.1"}, {"FYODOR_DISCOVERY": "0"}):
         with TestClient(create_app(lan_settings(tmp_path, **extra))) as c:
+            claim_host(c)
             assert c.app.state.discovery.port is None
 
 
@@ -120,6 +124,7 @@ def test_a_port_already_taken_is_logged_once_and_never_stops_the_server(tmp_path
         port = squatter.getsockname()[1]
         caplog.set_level(logging.INFO, logger="app.multiplayer.discovery")
         with TestClient(create_app(lan_settings(tmp_path, FYODOR_DISCOVERY_PORT=str(port)))) as c:
+            claim_host(c)
             assert c.app.state.discovery.port is None
             assert c.get("/api/health").status_code == 200
     warnings = [r for r in caplog.records if r.name == "app.multiplayer.discovery" and r.levelno >= logging.WARNING]
@@ -292,6 +297,7 @@ def test_nearby_lists_other_servers_and_never_this_one(tmp_path, lan_client, car
     other_port = beacon_port(lan_client)
     me_settings = lan_settings(tmp_path / "me")
     with TestClient(create_app(me_settings)) as me:
+        claim_host(me)
         own = beacon_port(me)
         me.app.state.discovery.targets = lambda: [("127.0.0.1", other_port), ("127.0.0.1", own)]
         me.app.state.discovery.timeout = 0.3
@@ -313,15 +319,18 @@ def test_nearby_shares_one_scan_between_polling_clients(tmp_path, monkeypatch):
 
     monkeypatch.setattr(D, "query", fake_query)
     with TestClient(create_app(lan_settings(tmp_path, FYODOR_DISCOVERY="0"))) as c:
+        claim_host(c)
         assert c.get("/api/lan/nearby").json() == []  # discovery off: no scan at all
         assert scans == []
     with TestClient(create_app(lan_settings(tmp_path / "on"))) as c:
+        claim_host(c)
         assert c.get("/api/lan/nearby").json() == [] and c.get("/api/lan/nearby").json() == []
         assert len(scans) == 1
 
 
 def test_nearby_with_no_network_is_an_empty_list(tmp_path, monkeypatch):
     with TestClient(create_app(lan_settings(tmp_path))) as c:
+        claim_host(c)
         monkeypatch.setattr(D, "_udp_socket", lambda *a, **k: (_ for _ in ()).throw(OSError(101, "Network is unreachable")))
         c.app.state.discovery.timeout = 0.05
         res = c.get("/api/lan/nearby")
@@ -330,9 +339,11 @@ def test_nearby_with_no_network_is_an_empty_list(tmp_path, monkeypatch):
 
 def test_lan_info_says_whether_discovery_is_on(tmp_path):
     with TestClient(create_app(lan_settings(tmp_path))) as c:
+        claim_host(c)
         info = c.get("/api/lan-info").json()
         assert info["discovery"] is True and info["discovery_port"] == c.app.state.discovery.port
     with TestClient(create_app(lan_settings(tmp_path / "off", FYODOR_DISCOVERY="0"))) as c:
+        claim_host(c)
         assert c.get("/api/lan-info").json()["discovery"] is False
 
 
@@ -372,7 +383,7 @@ def test_the_launcher_tells_the_host_friends_will_find_the_table(tmp_path, monke
     monkeypatch.setattr(tools.update_cards, "main", lambda argv: 0)
     monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)
     # never really serve: the launcher runs its own uvicorn.Server, which would wait for Ctrl+C forever
-    monkeypatch.setattr(launcher, "serve", lambda settings: None)
+    monkeypatch.setattr(launcher, "serve", lambda settings, browser=False: None)
     monkeypatch.setattr(launcher, "lan_addresses", lambda: ["192.168.1.7"])
     launcher.main(["--port", "0", "--no-browser"])
     out = capsys.readouterr().out

@@ -17,6 +17,7 @@ from tests.test_rules_bandmate_references import mana, wait_priority
 from tests.test_rules_designations import put, roundtrip
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 
 @pytest.fixture()
@@ -228,6 +229,7 @@ def test_library_decision_rest_and_websocket_redact_other_seats(cards,settings):
     s,top=setup(cards)
     cast_spell(s,'Ransack')
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_text="Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest"
         deck_id=client.post('/api/decks',json={'text':deck_text}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck_id},{'name':'Bob','deck_id':deck_id}]}).json()

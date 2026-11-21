@@ -26,6 +26,7 @@ from app.config import load_settings
 from app.main import create_app
 from app.multiplayer import lan_art
 from tests.fixtures.cards import fixture_cards, newer_set_card
+from tests.conftest import claim_host
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
 NEW = newer_set_card()
@@ -95,6 +96,8 @@ def pod(tmp_path):
     host_s = server_settings(tmp_path / "host", fixture_cards())
     friend_s = server_settings(tmp_path / "friend", [*fixture_cards(), NEW])
     with TestClient(create_app(host_s)) as host, TestClient(create_app(friend_s)) as friend:
+        claim_host(host)
+        claim_host(friend)
         art = friend.app.state.services.images.path_for(NEW["id"])
         art.parent.mkdir(parents=True, exist_ok=True)
         art.write_bytes(JPEG)
@@ -267,6 +270,7 @@ def keeper_client(tmp_path, card_db, monkeypatch):
     monkeypatch.setattr(Services, "fetch_artwork", fake_fetch)
     settings = load_settings({"FYODOR_DATA_DIR": str(card_db.parent), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         keeper: ArtKeeper = c.app.state.services.art_keeper
         keeper.synchronous = True  # tests run the work inline
         keeper.downloads = True
@@ -332,6 +336,7 @@ def test_no_network_setting_means_no_downloads(tmp_path, card_db, monkeypatch):
     settings = load_settings({"FYODOR_DATA_DIR": str(card_db.parent), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"),
                               "FYODOR_ALLOW_NETWORK": "0"})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         c.app.state.services.art_keeper.synchronous = True
         c.app.state.services.art_keeper.downloads = True
         c.post("/api/decks", json={"name": "Goblins", "text": "1 Krenko, Mob Boss\n"})
@@ -350,5 +355,6 @@ def test_a_local_only_fyodor_still_finds_tables(tmp_path, monkeypatch):
     monkeypatch.setattr(D, "query", found)
     settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"), "FYODOR_HOST": "127.0.0.1"})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         assert c.app.state.discovery.port is None
         assert [s["name"] for s in c.get("/api/lan/nearby").json()] == ["DESKTOP-42"]

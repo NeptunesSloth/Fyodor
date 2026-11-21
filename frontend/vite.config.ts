@@ -12,8 +12,8 @@ export default defineConfig({
     host: process.env.FYODOR_FRONTEND_HOST ?? "127.0.0.1",
     port: 5173,
     proxy: {
-      // xfwd passes the real client address so the backend can tell LAN clients from
-      // loopback ones even through the dev proxy (hot-seat games are loopback-only).
+      // xfwd passes the real client address (join throttling); host authority is the fyodor_host cookie, which the page
+      // sets with a same-origin POST through this proxy, so it works on :5173 as on :8000.
       "/api": { target: backend, changeOrigin: false, xfwd: true },
       "/ws": { target: backend.replace(/^http/, "ws"), ws: true, xfwd: true },
     },

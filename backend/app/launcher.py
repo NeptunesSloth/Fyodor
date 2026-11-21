@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import FROZEN, Settings, install_dir, load_settings
+from app.hostauth import read_host_secret
 
 
 @dataclass
@@ -212,6 +213,12 @@ def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Po
         return None
 
 
+def host_url(url: str, secret: str | None) -> str:
+    """The address that makes the window the host's: the page claims the session from the secret in it (and removes it from the
+    address bar). It is only ever handed to the window, never printed or logged."""
+    return f"{url}/#host={secret}" if secret else url
+
+
 def open_table(url: str, settings: Settings, watch: bool = False) -> None:
     """The table in a window of its own (the first of windows_to_try that starts), else the default browser. With
     ``watch`` (this program is the server), a window that hasn't asked for the page after WINDOW_WAIT seconds gets a
@@ -227,14 +234,14 @@ def open_table(url: str, settings: Settings, watch: bool = False) -> None:
     webbrowser.open(url)
 
 
-def _open_when_ready(url: str, settings: Settings) -> None:
+def _open_when_ready(url: str, settings: Settings, secret: str | None = None) -> None:
     for _ in range(100):
         try:
             with urllib.request.urlopen(f"{url}/api/health", timeout=1):  # noqa: S310 - our own local server
                 break
         except OSError:
             time.sleep(0.2)
-    open_table(url, settings, watch=True)
+    open_table(host_url(url, secret), settings, watch=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -264,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.check and _running_fyodor(local):
         print("Fyodor is already running on this computer: opening the table.")
         if not args.no_browser:
-            open_table(local, settings)
+            open_table(host_url(local, read_host_secret(settings.data_dir)), settings)  # (the running server's secret, from its file)
         return 0
 
     print("Fyodor — checking this computer\n")
@@ -307,16 +314,14 @@ def main(argv: list[str] | None = None) -> int:
         print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")
 
-    if not args.no_browser:
-        threading.Thread(target=_open_when_ready, args=(local, settings), daemon=True).start()
-
-    serve(settings)
+    serve(settings, browser=not args.no_browser)
     return 0
 
 
-def serve(settings: Settings) -> None:
+def serve(settings: Settings, browser: bool = False) -> None:
     """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
-    which is when a staged restore is applied (app/storage/backup.py)."""
+    which is when a staged restore is applied (app/storage/backup.py). With ``browser``, each start opens the table in a window
+    that holds that start's host secret (a restart makes a new one, so the old window is a guest until it is replaced)."""
     import uvicorn
 
     from app.main import create_app
@@ -324,6 +329,9 @@ def serve(settings: Settings) -> None:
     while True:
         again = threading.Event()
         app = create_app(settings)
+        if browser:
+            threading.Thread(target=_open_when_ready, args=(f"http://127.0.0.1:{settings.port}", settings, app.state.services.host_secret.value),
+                             daemon=True).start()
         server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port, log_level=settings.log_level.lower()))
 
         def request_restart(server: uvicorn.Server = server, again: threading.Event = again) -> None:

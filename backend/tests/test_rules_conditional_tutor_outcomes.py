@@ -19,6 +19,7 @@ from tests.test_rules_library_look import answer, settle
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave4h_activation_costs import ability
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 
 @pytest.fixture()
@@ -605,6 +606,7 @@ def test_revealed_found_destination_rest_ws_hide_other_library_cards(cards, sett
     found = choose_named(s, "Grizzly Bears")
     other = next(o.id for o in s.state.rules.decision.options if o.id != found)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_id = client.post(
             "/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest"}
         ).json()["id"]

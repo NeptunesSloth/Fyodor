@@ -23,6 +23,7 @@ from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave4h_activation_costs import ability
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 DATA = Path(__file__).parent / "fixtures/reveal_cast_packet_cards.json"
 NAMES = [c["name"] for c in json.loads(DATA.read_text())][:16]
@@ -531,6 +532,7 @@ def test_discover_private_look_face_down_offer_then_public_spell_rest_ws(cards, 
     top = stack_library(s, ["Lightning Bolt", "Forest", "Island", "Plains", "Memnite"])
     cast(s, "Discover the Impossible")
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck = client.post(
             "/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest"}
         ).json()["id"]

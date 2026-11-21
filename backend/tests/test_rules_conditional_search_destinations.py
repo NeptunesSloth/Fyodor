@@ -17,6 +17,7 @@ from tests.test_rules_designations import put, roundtrip
 from tests.test_rules_library_look import answer, settle
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 
 @pytest.fixture()
@@ -353,6 +354,7 @@ def test_search_choice_and_result_privacy_http_and_ws(cards,settings,found,visib
     accept_search(s)
     cid=find_named(s,found)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_id=client.post('/api/decks',json={'text':'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck_id},{'name':'Bob','deck_id':deck_id}]}).json()
         gid=game['game']['id']

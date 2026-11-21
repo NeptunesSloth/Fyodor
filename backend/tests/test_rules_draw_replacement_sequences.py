@@ -23,6 +23,7 @@ from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave4h_activation_costs import ability
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 DATA = Path(__file__).parent / 'fixtures/draw_replacement_sequence_cards.json'
 RECORDS = [c['name'] for c in json.loads(DATA.read_text())[:15] if c['name'] not in ('Scion of Halaster', 'Reed Richards, Smartest Man')]
@@ -270,6 +271,7 @@ def test_shared_fate_static_play_and_retained_look_rest_ws_history(cards, settin
     for _ in range(3):
         answer(s, ['p2'])
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck = client.post('/api/decks', json={'text': 'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game = client.post('/api/games', json={'mode': 'lan', 'players': [{'name': 'Alice', 'deck_id': deck}, {'name': 'Bob', 'deck_id': deck}]}).json()
         gid = game['game']['id']
@@ -417,6 +419,7 @@ def test_face_down_foreign_land_rest_authority_type_privacy_and_land_limit(cards
     island = next(c for c in s.state.cards.values() if c.owner == 'p2' and c.name == 'Island' and c.face_down)
     assert forest.face_down and creature.face_down
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         room = client.app.state.services.hub.create_room(s, mode='lan')
         room.seats['p1'].token = 'drawer-token'
         room.seats['p3'].token = 'unauthorized-token'
@@ -490,6 +493,7 @@ def test_private_lamp_packet_and_public_weirding_top_rest_ws(cards, settings, mo
     draw(s)
     cold(s, cards)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         room = client.app.state.services.hub.create_room(s, mode='lan')
         room.seats['p2'].token = 'observer-token'
         response = client.get(f'/api/games/{room.id}/view', headers={'X-Seat-Token': 'observer-token'})

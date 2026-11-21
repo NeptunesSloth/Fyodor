@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from tests.conftest import guest
+
 
 def _wait(client: TestClient, job_id: str) -> dict[str, Any]:
     state: dict[str, Any] = {}
@@ -39,7 +41,7 @@ def test_cache_card_art_downloads_on_the_host_while_online(client: TestClient) -
 def test_cache_card_art_is_host_only_and_respects_offline_mode(client: TestClient) -> None:
     services = client.app.state.services
     services.cache_artwork = lambda ids, progress: (_ for _ in ()).throw(AssertionError("downloaded"))
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     assert client.post("/api/cards/cache-art", json={"ids": ["tok-a"]}, headers=remote).status_code == 403
     object.__setattr__(services.settings, "allow_network", False)
     try:

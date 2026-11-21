@@ -19,6 +19,7 @@ from app.config import Settings, load_settings
 from app.main import create_app
 from app.multiplayer import lan_art
 from tests.fixtures.cards import card
+from tests.conftest import claim_host
 
 
 def dfc(layout: str, set_code: str, number: str, released: str) -> dict[str, Any]:
@@ -61,6 +62,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[TestC
     build_database(CARDS, settings.cards_db_path, meta={"bulk_type": "test"})
     (install / "seed" / "images").mkdir(parents=True)  # the art pack beside Fyodor.exe
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         yield c, ImageStore(settings.images_dir), ImageStore(install / "seed" / "images")
 
 

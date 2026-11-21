@@ -18,11 +18,12 @@ from app.game.history import History
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.game.undo_requests import answer, ask, classify, request, shown
+from tests.conftest import guest
 from tests.game_helpers import act, deck, enable, make_session, zone
 from tests.test_games_api import ATRAXA, KRENKO
 from tests.test_rules_effects import build, draw_all, hand, mana, rules
 
-REMOTE = {"X-Forwarded-For": "192.168.1.50"}
+REMOTE = guest()
 
 
 def replay_matches(s: GameSession) -> None:

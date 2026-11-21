@@ -11,6 +11,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api.practice import sweep
 from app.multiplayer.elimination import Pulse
+from tests.conftest import guest
 from tests.test_protocol_privacy import P1_DECK, P2_DECK, assert_hidden, cards_in
 
 P3_DECK = """Commander
@@ -20,7 +21,7 @@ Deck
 1x Grizzly Bears (tst) M9
 10x Forest (cmm) 1002
 """
-REMOTE = {"X-Forwarded-For": "192.168.1.20"}  # a guest's computer, not the host's
+REMOTE = guest()  # a guest's computer, not the host's
 
 
 def h(token: str | None) -> dict[str, str]:

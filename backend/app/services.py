@@ -33,6 +33,7 @@ from app.decks.repository import DeckRepository
 from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
+from app.hostauth import SECRET_FILE, HostSecret
 from app.jobs import JobManager, ProgressFn
 from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
@@ -87,6 +88,7 @@ class Services:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         settings.ensure_dirs()
+        self.host_secret = HostSecret(settings.data_dir / SECRET_FILE)  # new on every start; see app/hostauth.py
         self.recovery: RecoveryInfo | None = None
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()

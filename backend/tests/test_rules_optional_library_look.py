@@ -18,6 +18,7 @@ from tests.test_rules_library_look import answer, settle
 from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 
 @pytest.fixture()
@@ -257,6 +258,7 @@ def test_thicket_private_look_public_selection_then_hidden_library_http_and_ws(c
     act(s,'p1',type='play_land',card_id=source.id)
     settle(s)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_id=client.post('/api/decks',json={'text':'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck_id},{'name':'Bob','deck_id':deck_id}]}).json()
         gid=game['game']['id']

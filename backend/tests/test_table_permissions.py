@@ -17,11 +17,12 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.history import History
 from app.game.session import GameSession
 from app.game.state import GameState
+from tests.conftest import guest
 from tests.game_helpers import act, deck, find, zone
 from tests.test_games_api import ATRAXA, KRENKO
 from tests.test_rules_effects import build, draw_all, hand, mana, pass_until_stack_empty
 
-REMOTE = {"X-Forwarded-For": "192.168.1.50"}
+REMOTE = guest()
 REFUSED = "only {0} or the host can change them at this table"
 
 

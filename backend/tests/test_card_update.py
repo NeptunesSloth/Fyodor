@@ -10,6 +10,7 @@ import httpx
 import pytest
 
 from app.cards.importer import build_database, write_jsonl_gz
+from tests.conftest import guest
 from tests.fixtures.cards import card, fixture_cards
 
 BULK_URL = "https://data.scryfall.test/default-cards.jsonl.gz"
@@ -78,7 +79,7 @@ def test_check_download_and_switch_while_the_table_keeps_reading(client, fake_sc
 
 
 def test_card_updates_are_host_only_and_respect_offline_mode(client, fake_scryfall):
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     assert client.get("/api/card-data", headers=remote).status_code == 403
     assert client.post("/api/card-data/check", headers=remote).status_code == 403
     assert client.post("/api/card-data/update", headers=remote).status_code == 403

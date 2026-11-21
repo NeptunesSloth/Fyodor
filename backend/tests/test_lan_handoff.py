@@ -16,6 +16,7 @@ from app.api import lan as lan_api
 from app.config import load_settings
 from app.main import create_app
 from app.multiplayer import handoff as H
+from tests.conftest import claim_host
 
 KRENKO = """Commander
 1 Krenko, Mob Boss
@@ -221,6 +222,7 @@ def test_a_library_from_an_empty_computer_sends_nothing(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lan_api, "post_json", boom)
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         res = c.post("/api/lan/send-decks", json={"url": "http://192.168.1.7:8000"})
         assert res.status_code == 200 and res.json() == {"token": None, "decks": 0, "cards": 0}
 

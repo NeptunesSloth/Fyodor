@@ -20,6 +20,7 @@ from tests.test_rules_qualified_attached_tutors import cold
 from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 DATA=Path(__file__).parent/'fixtures/attached_kindred_look_cards.json'
 
@@ -195,6 +196,7 @@ def test_call_optional_private_look_and_bottom_order_rest_ws(cards,settings):
     s,_,_,top=setup(cards)
     settle(s)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck=client.post('/api/decks',json={'text':'Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest'}).json()['id']
         game=client.post('/api/games',json={'mode':'lan','players':[{'name':'Alice','deck_id':deck},{'name':'Bob','deck_id':deck}]}).json()
         gid=game['game']['id']

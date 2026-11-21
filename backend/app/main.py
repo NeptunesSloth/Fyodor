@@ -20,6 +20,7 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
+from app.api.host import router as host_router
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
 from app.api.teach import router as teach_router  # -- Teach Fyodor --
@@ -90,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(shortcut.router, prefix="/api")  # -- desktop shortcut -- (app/api/shortcut.py)
     app.include_router(updates.router, prefix="/api")  # -- install update -- (app/api/updates.py)
     app.include_router(rules.router, prefix="/api")
+    app.include_router(host_router, prefix="/api")  # claiming the host session (app/api/host.py)
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 

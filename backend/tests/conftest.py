@@ -84,14 +84,28 @@ def cards(settings: Settings, card_db: Path) -> Iterator[CardRepository]:
     repo.close()
 
 
+def claim_host(c: TestClient) -> TestClient:
+    """Make ``c`` the host's browser, the way the page does: post the server's secret to /api/host/session for the cookie."""
+    secret = c.app.state.services.host_secret.value  # type: ignore[attr-defined]
+    assert c.post("/api/host/session", json={"secret": secret}).status_code == 204
+    return c
+
+
+def guest(client: TestClient | None = None) -> dict[str, str]:
+    """Headers for a request from someone who is not the host: the same client, but the host cookie is left out. Pass them as
+    ``headers=guest(client)``. (A second ``TestClient`` on the same app starts with no cookies and is a guest as well.)"""
+    return {"Cookie": ""}
+
+
 @pytest.fixture()
 def bare_client(settings: Settings) -> Iterator[TestClient]:
-    """Client with no card database imported."""
+    """Client with no card database imported. It is the host."""
     with TestClient(create_app(settings)) as c:
-        yield c
+        yield claim_host(c)
 
 
 @pytest.fixture()
 def client(settings: Settings, card_db: Path) -> Iterator[TestClient]:
+    """The host's browser (it carries the host cookie); ``guest()`` gives the headers of anyone else."""
     with TestClient(create_app(settings)) as c:
-        yield c
+        yield claim_host(c)

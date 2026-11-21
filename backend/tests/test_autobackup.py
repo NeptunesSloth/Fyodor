@@ -12,6 +12,7 @@ from app.config import load_settings
 from app.main import create_app
 from app.storage.backup import KEEP_AUTO_DAYS, KEEP_AUTO_RECENT, KEEP_BACKUPS, prune
 from tests.test_pod_stats import new_game, record
+from tests.conftest import claim_host
 
 DAY = 86400.0
 
@@ -75,6 +76,7 @@ def test_backups_are_mirrored_to_a_second_folder(tmp_path: Path, card_db):
     settings = load_settings({"FYODOR_DATA_DIR": str(card_db.parent), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"),
                               "FYODOR_BACKUP_COPY_DIR": str(mirror)})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         made = c.post("/api/backups").json()
         assert made["copied_to"] == str(mirror) and (mirror / made["name"]).is_file()
         assert c.get("/api/backups").json()["auto"]["copy_dir"] == str(mirror)
@@ -89,6 +91,7 @@ def test_a_missing_second_folder_does_not_lose_the_backup(tmp_path: Path, card_d
     settings = load_settings({"FYODOR_DATA_DIR": str(card_db.parent), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"),
                               "FYODOR_BACKUP_COPY_DIR": str(blocker)})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         services = c.app.state.services
         services.autobackups.stop()
         new_game(c, names=("Jonathan", "Mike"))
@@ -101,6 +104,7 @@ def test_automatic_backups_can_be_turned_off(tmp_path: Path, card_db):
     settings = load_settings({"FYODOR_DATA_DIR": str(card_db.parent), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"),
                               "FYODOR_AUTO_BACKUP_MINUTES": "0"})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         auto = c.app.state.services.autobackups
         assert auto.status()["enabled"] is False and auto._thread is None
         auto.soon("after a recorded game")

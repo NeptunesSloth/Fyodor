@@ -13,6 +13,7 @@ from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
+from tests.conftest import guest
 from tests.game_helpers import act, enable, find
 
 
@@ -233,7 +234,7 @@ def test_over_the_api_an_out_seat_cannot_undo_and_the_host_can(client):
     })
     assert game.status_code == 201, game.text
     gid, code, host = game.json()["game"]["id"], game.json()["game"]["code"], game.json()["seat"]["token"]
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     client.post("/api/join", json={"code": code}, headers=remote)
     carol = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
     post = lambda path, body, token: client.post(f"/api/games/{gid}/{path}", json=body, headers={**h(token), **remote})  # noqa: E731

@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.game.visibility import OMNISCIENT
+from tests.conftest import claim_host, guest
 
 KRENKO = """Commander
 1 Krenko, Mob Boss
@@ -134,12 +135,12 @@ def test_action_errors_are_reported(client, decks):
 
 def test_local_games_refuse_remote_clients(client, decks, settings):
     gid = create(client, decks)["game"]["id"]
-    remote = client.get(f"/api/games/{gid}/view", headers={"X-Forwarded-For": "192.168.1.50"})
+    remote = client.get(f"/api/games/{gid}/view", headers=guest())
     assert remote.status_code == 403
-    assert client.get("/api/games", headers={"X-Forwarded-For": "192.168.1.50"}).json() == []
-    assert client.get("/api/saves", headers={"X-Forwarded-For": "192.168.1.50"}).status_code == 403
+    assert client.get("/api/games", headers=guest()).json() == []
+    assert client.get("/api/saves", headers=guest()).status_code == 403
     body = {"players": [{"name": "Mallory"}]}
-    assert client.post("/api/games", json=body, headers={"X-Forwarded-For": "10.0.0.9"}).status_code == 403
+    assert client.post("/api/games", json=body, headers=guest()).status_code == 403
 
 
 def test_lan_join_and_private_views(client, decks):
@@ -148,7 +149,7 @@ def test_lan_join_and_private_views(client, decks):
     host_token = game["seat"]["token"]
     assert game["seat"]["player_id"] == "p1"
 
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     assert client.post("/api/join", json={"code": code, "password": "wrong"}, headers=remote).status_code == 403
     joined = client.post("/api/join", json={"code": code, "password": "hunter2", "name": "Bobby"}, headers=remote).json()
     assert joined["viewer"] == "p2"
@@ -189,7 +190,7 @@ def test_private_diagnostics_keep_a_lan_game_in_progress_out(client, decks):
     """The host computer's diagnostics export can't show other players' hands mid-game; once the result is recorded it can."""
     game = create(client, decks, mode="lan")
     gid, code = game["game"]["id"], game["game"]["code"]
-    bob = client.post("/api/join", json={"code": code}, headers={"X-Forwarded-For": "192.168.1.50"}).json()["token"]
+    bob = client.post("/api/join", json={"code": code}, headers=guest()).json()["token"]
     bob_hand = act(client, gid, {"type": "draw", "count": 7}, token=bob).json()["zones"]["p2:hand"]
 
     room = next(r for r in client.get("/api/diagnostics?include_private=true").json()["rooms"] if r["id"] == gid)
@@ -205,7 +206,7 @@ def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
     """The host's own computer sees a LAN table like a spectator: no hidden card reaches it (REST or WebSocket)."""
     game = create(client, decks, mode="lan")
     gid, code, host = game["game"]["id"], game["game"]["code"], game["host_token"]
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     bob = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
     res = act(client, gid, {"type": "draw", "count": 7}, token=bob)
     assert res.status_code == 200
@@ -226,7 +227,7 @@ def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
 
 def test_join_brute_force_throttled(client, decks):
     create(client, decks, mode="lan", password="pw")
-    headers = {"X-Forwarded-For": "192.168.1.77"}
+    headers = guest()
     codes = [client.post("/api/join", json={"code": "ZZZZZZ"}, headers=headers).status_code for _ in range(12)]
     assert codes[-1] == 429
 
@@ -297,6 +298,7 @@ def test_save_survives_restart(settings, card_db, decks, client):
     from app.main import create_app
 
     with TestClient(create_app(settings)) as fresh:
+        claim_host(fresh)
         saves = [s for s in fresh.get("/api/saves").json() if s["name"] == "persist"]
         assert saves
         gid2 = fresh.post(f"/api/saves/{saves[0]['id']}/load", json={}).json()["game"]["id"]
@@ -351,7 +353,7 @@ def test_play_page_tiles_name_each_players_commanders(client, decks):
     assert [p["commanders"][0]["name"] for p in listed["players"]] == ["Krenko, Mob Boss", "Atraxa, Praetors' Voice"]
     assert all(p["commanders"][0]["card_id"] for p in listed["players"]) and listed["players"][0]["color"]
 
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     locked = create(client, decks, mode="lan", password="hunter2")["game"]["id"]
     open_ = create(client, decks, mode="lan")["game"]["id"]
     seen = {g["id"]: g for g in client.get("/api/games", headers=remote).json()}

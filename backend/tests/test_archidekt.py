@@ -15,6 +15,7 @@ from app.cards.importer import build_database
 from app.decks import archidekt, service
 from app.decks.models import DeckImportRequest
 from tests.fixtures.cards import cid, fixture_cards
+from tests.conftest import claim_host
 
 FIXTURES = Path(__file__).parent / "fixtures" / "archidekt"
 COMMANDER_TEXT = (FIXTURES / "commander_export.txt").read_text()
@@ -327,6 +328,7 @@ def test_network_disabled_hides_url_import(settings, card_db):
 
     offline = Settings(**{**settings.__dict__, "allow_network": False})
     with TestClient(create_app(offline)) as c:
+        claim_host(c)
         opts = c.get("/api/decks/import-options").json()
         assert opts["archidekt_url"] is False and "disabled" in opts["archidekt_url_note"]
         assert c.post("/api/decks/preview", json={"archidekt": "424242"}).status_code == 502

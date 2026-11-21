@@ -10,12 +10,14 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
+from tests.conftest import claim_host
 
 ACTIONS = 400
 
 
 def test_long_session_stays_fast_and_recovers(settings, card_db):
     c = TestClient(create_app(settings))
+    claim_host(c)
     a = c.post("/api/decks", json={"text": P1_DECK}).json()["id"]
     b = c.post("/api/decks", json={"text": P2_DECK}).json()["id"]
     game = c.post("/api/games", json={"mode": "local", "players": [
@@ -66,5 +68,6 @@ def test_long_session_stays_fast_and_recovers(settings, card_db):
     before = {k: view()[k] for k in ("zones", "cards", "players", "turn")}
     # crash: the first app is simply abandoned (no graceful shutdown, no final autosave)
     with TestClient(create_app(settings)) as again:
+        claim_host(again)
         after = again.get(f"/api/games/{gid}/view?viewer=all").json()
         assert {k: after[k] for k in ("zones", "cards", "players", "turn")} == before

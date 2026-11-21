@@ -19,6 +19,7 @@ from tests.test_rules_library_look import answer, settle
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave4h_activation_costs import ability
 from tests.test_rules_wave30m_durations import to_phase
+from tests.conftest import claim_host
 
 
 @pytest.fixture()
@@ -698,6 +699,7 @@ def test_doomsday_private_selection_and_order_rest_ws(cards, settings):
     cast(s, "Doomsday")
     selected = [choose_named(s, n) for n in ["Plains", "Forest", "Island", "Grizzly Bears", "Sol Ring"]]
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_id = client.post(
             "/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest"}
         ).json()["id"]
