@@ -7,8 +7,8 @@ import json
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from tests.test_protocol_privacy import P1_DECK, P2_DECK
 from tests.conftest import claim_host
+from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
 
 def h(token):

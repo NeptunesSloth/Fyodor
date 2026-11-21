@@ -58,9 +58,6 @@ def test_restore_rejects_anything_unexpected(client):
 def test_backups_are_host_only(client):
     res = client.post("/api/backups", headers=guest())
     assert res.status_code == 403  # without the host cookie, even from loopback, a guest is refused
-    if res.status_code == 201:
-        # the forwarded header isn't trusted in this setup; at least the endpoint exists and works
-        assert res.json()["name"].startswith("fyodor-backup-")
 
 
 def test_a_damaged_database_starts_in_recovery_mode(settings, card_db):

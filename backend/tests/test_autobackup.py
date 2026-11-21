@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from app.config import load_settings
 from app.main import create_app
 from app.storage.backup import KEEP_AUTO_DAYS, KEEP_AUTO_RECENT, KEEP_BACKUPS, prune
-from tests.test_pod_stats import new_game, record
 from tests.conftest import claim_host
+from tests.test_pod_stats import new_game, record
 
 DAY = 86400.0
 

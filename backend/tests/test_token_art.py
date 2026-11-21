@@ -14,8 +14,8 @@ from fastapi.testclient import TestClient
 from app.cards.importer import build_database
 from app.config import Settings
 from app.main import create_app
-from tests.fixtures.cards import GOBLIN, card, fixture_cards
 from tests.conftest import claim_host
+from tests.fixtures.cards import GOBLIN, card, fixture_cards
 
 TEXT = "{T}, Sacrifice this token: Add one mana of any color."
 JPEG = b"\xff\xd8\xff\xe0token"

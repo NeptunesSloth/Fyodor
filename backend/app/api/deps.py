@@ -39,7 +39,7 @@ def is_host_request(request: Request | WebSocket) -> bool:
 
 def require_host(request: Request) -> None:
     if not is_host_request(request):
-        raise HTTPException(403, "Only available on the host computer")
+        raise HTTPException(403, "Open Fyodor from its launcher on the host computer to use host tools.")
 
 
 # the ~100 call sites keep their names

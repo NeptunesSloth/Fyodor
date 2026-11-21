@@ -25,8 +25,8 @@ from app.cards.importer import build_database
 from app.config import load_settings
 from app.main import create_app
 from app.multiplayer import lan_art
-from tests.fixtures.cards import fixture_cards, newer_set_card
 from tests.conftest import claim_host
+from tests.fixtures.cards import fixture_cards, newer_set_card
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
 NEW = newer_set_card()

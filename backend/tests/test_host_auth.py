@@ -76,3 +76,15 @@ def test_session_state_reports_host_false_without_the_cookie(settings: Settings)
         assert c.get("/api/host/session").json() == {"host": False}
         c.post("/api/host/session", json={"secret": c.app.state.services.host_secret.value})  # type: ignore[attr-defined]
         assert c.get("/api/host/session").json() == {"host": True}
+
+
+def test_a_refusal_says_how_to_become_the_host(settings: Settings) -> None:
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/api/saves").json()["detail"] == "Open Fyodor from its launcher on the host computer to use host tools."
+
+
+def test_an_older_secret_file_is_replaced_not_reused(settings: Settings) -> None:
+    settings.ensure_dirs()
+    (settings.data_dir / "host.secret").write_text("old-and-readable")
+    with TestClient(create_app(settings)) as c:
+        assert (settings.data_dir / "host.secret").read_text().strip() == c.app.state.services.host_secret.value  # type: ignore[attr-defined]

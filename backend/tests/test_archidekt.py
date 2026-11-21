@@ -14,8 +14,8 @@ import pytest
 from app.cards.importer import build_database
 from app.decks import archidekt, service
 from app.decks.models import DeckImportRequest
-from tests.fixtures.cards import cid, fixture_cards
 from tests.conftest import claim_host
+from tests.fixtures.cards import cid, fixture_cards
 
 FIXTURES = Path(__file__).parent / "fixtures" / "archidekt"
 COMMANDER_TEXT = (FIXTURES / "commander_export.txt").read_text()

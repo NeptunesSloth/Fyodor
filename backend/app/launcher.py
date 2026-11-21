@@ -227,9 +227,11 @@ def open_table(url: str, settings: Settings, watch: bool = False) -> None:
         if _launch(name, exe, url, settings) is None:
             continue
         if watch and not PAGE_SEEN.wait(WINDOW_WAIT):
+            # (the address handed to the window carries the host secret after "#": the note shows the address without it)
+            shown = url.partition("#")[0]
             log = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}") / "browser.log"
             print(f"\n  The table hasn't appeared in {name} yet. A first start can take a minute. If it stays empty, close"
-                  f" the window and open Fyodor again, or open {url} in any up-to-date browser. (Its log: {log})\n")
+                  f" the window and open Fyodor again, or open {shown} in any up-to-date browser. (Its log: {log})\n")
         return
     webbrowser.open(url)
 

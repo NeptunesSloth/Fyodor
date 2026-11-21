@@ -10,6 +10,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
+from tests.conftest import claim_host
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_controller_tutors import answer
@@ -20,7 +21,6 @@ from tests.test_rules_qualified_attached_tutors import cold
 from tests.test_rules_refused_look import stack_library
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
-from tests.conftest import claim_host
 
 DATA=Path(__file__).parent/'fixtures/attached_kindred_look_cards.json'
 

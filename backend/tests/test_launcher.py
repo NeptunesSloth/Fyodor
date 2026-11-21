@@ -258,3 +258,16 @@ def test_every_start_opens_the_window_with_that_starts_secret(tmp_path, monkeypa
     wait(lambda: len(opened) == 2)
     secrets_made = [m.state.services.host_secret.value for m in made]
     assert opened == [f"http://127.0.0.1:{port}/#host={v}" for v in secrets_made] and secrets_made[0] != secrets_made[1]
+
+
+def test_a_slow_window_note_never_prints_the_host_secret(tmp_path, install_dir, monkeypatch, capsys):
+    (install_dir / "browser").mkdir()
+    (install_dir / "browser" / "chrome.exe").write_bytes(b"")
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [])
+    monkeypatch.setattr(launcher, "_launch", lambda name, exe, url, settings: object())
+    monkeypatch.setattr(launcher, "WINDOW_WAIT", 0.05)
+    launcher.PAGE_SEEN.clear()
+    url = launcher.host_url("http://127.0.0.1:8000", "s3cret-value")
+    launcher.open_table(url, load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")}), watch=True)
+    out = capsys.readouterr().out
+    assert "hasn't appeared" in out and "http://127.0.0.1:8000" in out and "s3cret-value" not in out

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 
-from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of, seat
 from tests.conftest import claim_host
+from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of, seat
 
 
 def test_import_preview_is_private_normalized_and_does_not_replace_the_playing_deck(client):

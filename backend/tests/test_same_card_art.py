@@ -18,8 +18,8 @@ from app.cards.importer import build_database
 from app.config import Settings, load_settings
 from app.main import create_app
 from app.multiplayer import lan_art
-from tests.fixtures.cards import card
 from tests.conftest import claim_host
+from tests.fixtures.cards import card
 
 
 def dfc(layout: str, set_code: str, number: str, released: str) -> dict[str, Any]:
