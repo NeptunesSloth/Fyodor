@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import client_address, get_services, is_host_request, is_https, too_many_attempts
 from app.hostauth import HOST_COOKIE
@@ -16,7 +16,7 @@ ServicesDep = Annotated[Services, Depends(get_services)]
 
 
 class SessionBody(BaseModel):
-    secret: str
+    secret: str = Field(max_length=256)  # (the real one is 43 characters; a longer body is malformed, a 422 before any compare, not a guess)
 
 
 @router.post("/host/session", status_code=204)

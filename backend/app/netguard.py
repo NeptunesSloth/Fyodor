@@ -61,17 +61,17 @@ def host_allowed(host_header: str | None, extra_hosts: Iterable[str]) -> bool:
 
 
 # scheme://host[:port] and nothing else: no path, query, fragment, userinfo or whitespace; a port without a leading zero; a host that is a
-# name, an IPv4 address or a bracketed IPv6 address. (Matched case-insensitively: a browser sends lower case, a configured one may not.)
-_ORIGIN = re.compile(r"(https?)://(\[[0-9a-f:.]+\]|[a-z0-9._-]+)(?::([1-9][0-9]{0,4}))?", re.ASCII)
+# name, an IPv4 address or a bracketed IPv6 address. (Matched on the raw string, ASCII only and case-insensitively: a browser sends lower case, a configured one may not, and a look-alike such as the Kelvin sign is not an ASCII letter.)
+_ORIGIN = re.compile(r"(https?)://(\[[0-9a-f:.]+\]|[a-z0-9._-]+)(?::([1-9][0-9]{0,4}))?", re.ASCII | re.IGNORECASE)
 
 
 def _origin_key(origin: str) -> tuple[str, str, int] | None:
     """An Origin (or configured origin) as (scheme, host, port with the default filled in); None unless it is exactly the serialization
     a browser writes, ``scheme://host[:port]``."""
-    match = _ORIGIN.fullmatch(origin.lower())
+    match = _ORIGIN.fullmatch(origin)
     if match is None:
         return None
-    scheme, host, port = match.groups()
+    scheme, host, port = match.group(1).lower(), match.group(2).lower(), match.group(3)
     if host.startswith("["):
         host = host[1:-1]
         try:

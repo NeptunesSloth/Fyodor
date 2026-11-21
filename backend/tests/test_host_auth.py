@@ -88,3 +88,16 @@ def test_an_older_secret_file_is_replaced_not_reused(settings: Settings) -> None
     (settings.data_dir / "host.secret").write_text("old-and-readable")
     with TestClient(create_app(settings)) as c:
         assert (settings.data_dir / "host.secret").read_text().strip() == c.app.state.services.host_secret.value  # type: ignore[attr-defined]
+
+
+def test_an_oversized_secret_is_a_422_that_costs_the_address_nothing(settings: Settings) -> None:
+    """A malformed body is refused before any compare and is not a wrong guess: a stranger cannot use it to spend the host's budget
+    (five wrong secrets per address per 15 minutes)."""
+    with TestClient(create_app(settings)) as c:
+        for _ in range(8):
+            r = c.post("/api/host/session", json={"secret": "x" * 10_000})
+            assert r.status_code == 422 and "set-cookie" not in r.headers
+        for _ in range(5):  # the whole budget is still there
+            assert c.post("/api/host/session", json={"secret": "x" * 43}).status_code == 403
+        secret = c.app.state.services.host_secret.value  # type: ignore[attr-defined]
+        assert c.post("/api/host/session", json={"secret": secret}).status_code == 204

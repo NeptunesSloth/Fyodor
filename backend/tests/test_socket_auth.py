@@ -221,3 +221,25 @@ def test_the_seat_link_keeps_the_token_out_of_the_query_string(client: TestClien
     parts = urlsplit(link["path"])
     assert parts.query == "" and link["token"] not in parts.path
     assert parts.fragment == f"/game/{gid}?seat_token={link['token']}"  # only after the #, which a browser never sends
+
+
+def test_a_message_over_the_limit_after_auth_gets_the_too_large_error_and_changes_nothing(client: TestClient):
+    """The TestClient does not enforce the transport's frame limit (uvicorn's ws_max_size, pinned in test_launcher), so this reaches the
+    application's own check: the reply is the error, nothing is applied, and the same socket still works."""
+    from tests.test_action_ids import hand, ws_action
+    from tests.test_recovery import lan_table
+
+    gid, _, host, _ = lan_table(client)
+    before = hand(client, gid, host, "p1")
+    with connect_game(client, gid, host) as ws:
+        ws.receive_json()
+        pad = "x" * games.MAX_WS_MESSAGE
+        ws.send_text('{"type":"action","id":1,"client_action_id":"too-large-0001","action":{"type":"draw","count":1},"pad":"' + pad + '"}')
+        for _ in range(20):  # state broadcasts may arrive around the answer
+            reply = ws.receive_json()
+            if reply.get("type") == "error":
+                break
+        assert reply == {"type": "error", "message": "Message too large"}
+        assert hand(client, gid, host, "p1") == before  # nothing was applied
+        assert ws_action(ws, 2, "too-large-0002", {"type": "draw", "count": 1})["type"] == "ack"  # and the socket is still usable
+    assert hand(client, gid, host, "p1") == before + 1

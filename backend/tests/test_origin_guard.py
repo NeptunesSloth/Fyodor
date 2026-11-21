@@ -60,6 +60,8 @@ def games(client: TestClient) -> list[dict]:
     ("http://testserver/", "testserver", False),
     ("http://testserver:99999", "testserver", False),
     ("http://[::1]:", "[::1]", False),
+    ("http://Kevin", "kevin", False),                                  # the Kelvin sign is not folded into an ASCII k
+    ("http://kıvin", "kivin", False),                                  # nor is a dotless i
     ("http://[::1", "[::1]", False),
     ("null", "192.168.1.20:8000", False),
     ("ftp://192.168.1.20:8000", "192.168.1.20:8000", False),

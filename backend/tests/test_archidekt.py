@@ -380,3 +380,29 @@ def test_cache_art_job(client, remote):
     assert state["state"] == "done" and state["message"] == "3 downloaded" and state["done"] == 3
     assert set(seen["ids"]) >= {cid("Atraxa, Praetors' Voice|2x2|190")}
     assert client.get("/api/jobs/nope").status_code == 404
+
+
+def _json_deck(deck_id):
+    return json.dumps({**DECK_JSON, "id": deck_id})
+
+
+@pytest.mark.parametrize("deck_id", ["1 2", "a" + chr(10) + "b", "javascript:alert(1)", "../x", "1" * 13, "12/34"])
+def test_a_json_deck_with_a_non_numeric_id_imports_without_a_source_link(cards, deck_id):
+    result = service.import_any(DeckImportRequest(json=_json_deck(deck_id)), cards)
+    assert result.source is not None and result.source.kind == "archidekt"
+    assert result.source.url is None and result.source.id is None  # nothing to link to, nothing to re-fetch
+    assert result.entries  # the deck itself is fine
+
+
+def test_a_json_deck_with_a_numeric_id_keeps_its_source_link(cards):
+    for deck_id in ("12", 12):
+        source = service.import_any(DeckImportRequest(json=_json_deck(deck_id)), cards).source
+        assert source is not None and source.id == "12" and source.url == "https://archidekt.com/decks/12"
+
+
+@pytest.mark.parametrize("deck_id", ["1 2", "a" + chr(10) + "b"])
+def test_the_upload_route_answers_normally_for_a_non_numeric_id(client, deck_id):
+    for path in ("/api/decks/preview", "/api/decks"):
+        res = client.post(path, json={"json": _json_deck(deck_id)})
+        assert res.status_code in (200, 201), res.text
+        assert res.json()["source"]["url"] is None

@@ -23,7 +23,6 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.concurrency import run_in_threadpool
-from starlette.websockets import WebSocketDisconnected
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -33,8 +32,17 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from starlette.websockets import WebSocketDisconnected
 
-from app.api.deps import client_address, get_services, host_ok, is_local_request, origin_ok, require_local, too_many_attempts
+from app.api.deps import (
+    client_address,
+    get_services,
+    host_ok,
+    is_local_request,
+    origin_ok,
+    require_local,
+    too_many_attempts,
+)
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.cards.repository import CardDatabaseUnavailable
@@ -55,7 +63,14 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarC
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art, response_call
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, spend_password_check, undo_voters
+from app.multiplayer.hub import (
+    RECONNECT_GRACE,
+    Connection,
+    Room,
+    bot_token,
+    spend_password_check,
+    undo_voters,
+)
 from app.multiplayer.lobby import (
     CardPermissions,
     DeckTooLarge,

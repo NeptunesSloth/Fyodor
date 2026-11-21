@@ -42,6 +42,13 @@ def extract_deck_id(value: str) -> str | None:
     return None
 
 
+def valid_deck_id(value: object) -> str | None:
+    """A deck id from an uploaded file, only if it is what a real Archidekt id is (the same 1 to 12 digits the URL import accepts);
+    anything else is None, so no link is made from it and nothing is fetched with it."""
+    text = str(value) if value else ""
+    return text if re.fullmatch(r"[0-9]{1,12}", text) else None
+
+
 def fetch_deck(deck_id: str, *, user_agent: str, client: httpx.Client | None = None, timeout: float = 20.0) -> dict[str, Any]:
     """Fetch a public deck's JSON. Raises ``ArchidektError`` with a user-readable message."""
     own = client is None
