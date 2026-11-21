@@ -11,7 +11,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
-from tests.conftest import claim_host
+from tests.conftest import claim_host, connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -282,7 +282,7 @@ def test_shared_fate_static_play_and_retained_look_rest_ws_history(cards, settin
                 put(s, 'Shared Fate', 'graveyard')
             response = client.get(f'/api/games/{gid}/view', headers={'X-Seat-Token': token})
             assert response.status_code == 200
-            with client.websocket_connect(f'/ws/games/{gid}?token={token}') as ws:
+            with connect_game(client, gid, token) as ws:
                 frame = ws.receive_json()
             history = client.get(f'/api/games/{gid}/history', headers={'X-Seat-Token': token})
             for raw in (response.text, json.dumps(frame), history.text):
@@ -438,7 +438,7 @@ def test_face_down_foreign_land_rest_authority_type_privacy_and_land_limit(cards
         assert response.status_code == 200, response.text
         assert s.state.cards[forest.id].zone == 'p1:battlefield' and not s.state.cards[forest.id].face_down
         assert s.state.cards[forest.id].owner == 'p2' and s.state.cards[forest.id].controller == 'p1'
-        with client.websocket_connect(f'/ws/games/{room.id}?token=unauthorized-token') as ws:
+        with connect_game(client, room.id, 'unauthorized-token') as ws:
             raw = json.dumps(ws.receive_json())
         assert 'Grizzly Bears' not in raw and 'drawn_applied' not in raw
         response = client.post(f'/api/games/{room.id}/actions', headers={'X-Seat-Token': 'drawer-token'},
@@ -498,7 +498,7 @@ def test_private_lamp_packet_and_public_weirding_top_rest_ws(cards, settings, mo
         room.seats['p2'].token = 'observer-token'
         response = client.get(f'/api/games/{room.id}/view', headers={'X-Seat-Token': 'observer-token'})
         assert response.status_code == 200
-        with client.websocket_connect(f'/ws/games/{room.id}?token=observer-token') as ws:
+        with connect_game(client, room.id, 'observer-token') as ws:
             frame = ws.receive_json()
         for raw in (response.text, json.dumps(frame)):
             assert ('Grizzly Bears' in raw) == (mode == 'weirding')

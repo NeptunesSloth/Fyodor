@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import contextlib
 import functools
 import os
 import sys
@@ -123,6 +124,16 @@ def guest(client: TestClient | None = None) -> dict[str, str]:
     """Headers for a request from someone who is not the host: the same client, but the host cookie is left out. Pass them as
     ``headers=guest(client)``. (A second ``TestClient`` on the same app starts with no cookies and is a guest as well.)"""
     return {"Cookie": ""}
+
+
+@contextlib.contextmanager
+def connect_game(client: TestClient, game_id: str, token: str | None = None, *, viewer: str | None = None, deltas: bool = False,
+                 **kwargs: Any) -> Iterator[Any]:
+    """Open the game socket the way the page does: no token in the URL, an ``auth`` message first. ``kwargs`` go to ``websocket_connect``
+    (headers). A refused seat is closed by the server (4403) after the auth message, so it shows at the first receive."""
+    with client.websocket_connect(f"/ws/games/{game_id}", **kwargs) as ws:
+        ws.send_json({"type": "auth", "token": token, "viewer": viewer, "deltas": deltas})
+        yield ws
 
 
 @pytest.fixture()

@@ -8,6 +8,7 @@ import time
 import pytest
 
 from app.multiplayer.night import Night, roll_order, winner_last
+from tests.conftest import connect_game
 from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of
 
 # --------------------------------------------------------------------------- pure turn-order rules
@@ -272,7 +273,7 @@ def test_pings_point_at_public_cards_and_spots_never_at_hidden_ones(table):
     hand = mine["zones"][f"{me}:hand"]
     library_top = client.app.state.services.hub.get(gid).session.state.zones[f"{me}:library"][0]
     signal = f"/api/games/{gid}/night/signal"
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+    with connect_game(client, gid, bob) as ws:
         ws.receive_json()
         # hidden cards (my hand, my library) can't be pointed at: their ids would leak
         assert client.post(signal, json={"kind": "ping", "card": hand[0]}, headers=h(alice)).status_code == 404

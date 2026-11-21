@@ -1860,6 +1860,51 @@ class _RateLimiter:
         return True
 
 
+AUTH_DEADLINE = 5.0  # seconds a new socket has to send its auth message
+AUTH_REFUSED = "Not authorized"  # the one reason every failed authentication closes with
+MAX_AUTH_FIELD = 256
+
+
+async def _refuse_socket(websocket: WebSocket) -> None:
+    await websocket.close(code=4403, reason=AUTH_REFUSED)
+
+
+def _legacy_credentials(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
+    """FYODOR_LEGACY_WS_TOKEN=1 only: a client that still puts its seat token in the query string (the token is then in URLs and logs)."""
+    params = websocket.query_params
+    if "token" not in params:
+        return None
+    return params.get("token"), params.get("viewer"), params.get("deltas") == "1"
+
+
+async def _read_auth(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
+    """The first message of a socket: ``{"type":"auth","token":str|null,"viewer":str|null,"deltas":bool}``. Returns (token, viewer,
+    deltas), or None after closing the socket (anything else, or nothing within AUTH_DEADLINE). Never logs what it was sent."""
+    try:
+        message = await asyncio.wait_for(websocket.receive(), AUTH_DEADLINE)
+    except TimeoutError:
+        await _refuse_socket(websocket)
+        return None
+    raw = message.get("text")
+    if message["type"] == "websocket.disconnect":
+        return None
+    parsed: Any = None
+    if isinstance(raw, str) and len(raw) <= MAX_WS_MESSAGE:
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            parsed = None
+    if not isinstance(parsed, dict) or parsed.get("type") != "auth":
+        await _refuse_socket(websocket)
+        return None
+    token, viewer, deltas = parsed.get("token"), parsed.get("viewer"), parsed.get("deltas", False)
+    if (not all(v is None or (isinstance(v, str) and len(v) <= MAX_AUTH_FIELD) for v in (token, viewer))
+            or not isinstance(deltas, bool)):
+        await _refuse_socket(websocket)
+        return None
+    return token, viewer, deltas
+
+
 async def game_socket(websocket: WebSocket, game_id: str) -> None:
     services: Services = websocket.app.state.services
     # before anything else, and before accept(): the Host (DNS rebinding), then the Origin (another site's page opening this socket)
@@ -1869,18 +1914,23 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     if not origin_ok(websocket):
         await websocket.close(code=4403, reason="Cross-site connection refused")
         return
-    room = services.hub.get(game_id)
-    if room is None:
-        await websocket.close(code=4404, reason="Game not found")
-        return
-    params = websocket.query_params
-    try:
-        viewer, actor = authorize(room, local=is_local_request(websocket), token=params.get("token"),
-                                  viewer=params.get("viewer"), as_player=None)
-    except HTTPException as exc:
-        await websocket.close(code=4403, reason=str(exc.detail))
-        return
     await websocket.accept()
+    # nothing is attached to the room, and nothing is sent, until the first message has proved a seat (or the host's table view);
+    # every way of failing closes the same way, so the close tells a prober nothing about which check it failed or whether the game exists
+    credentials = _legacy_credentials(websocket) if services.settings.legacy_ws_token else None
+    if credentials is None:
+        credentials = await _read_auth(websocket)
+        if credentials is None:
+            return
+    token, requested_viewer, deltas = credentials
+    room = services.hub.get(game_id)
+    try:
+        if room is None:
+            raise HTTPException(404, "Game not found")
+        viewer, actor = authorize(room, local=is_local_request(websocket), token=token, viewer=requested_viewer, as_player=None)
+    except HTTPException:
+        await _refuse_socket(websocket)
+        return
 
     async def send(message: dict[str, Any]) -> None:
         await websocket.send_text(json.dumps(message, separators=(",", ":")))
@@ -1888,8 +1938,8 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     async def close(code: int, reason: str) -> None:
         await websocket.close(code=code, reason=reason)
 
-    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close,
-                      deltas=params.get("deltas") == "1")  # -- view deltas -- (app/multiplayer/view_delta.py)
+    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(token), close=close, token=token,
+                      deltas=deltas)  # -- view deltas -- (app/multiplayer/view_delta.py)
     services.hub.connect(room, conn)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second

@@ -83,6 +83,8 @@ class Settings:
     # host names (besides IP addresses, localhost and this computer's name) this server answers to, lower-case, no ports
     # (FYODOR_EXTRA_HOSTS); see app/netguard.py
     extra_hosts: tuple[str, ...] = ()
+    # the game socket's seat token in the query string (old clients; it ends up in URLs and logs): only FYODOR_LEGACY_WS_TOKEN=1
+    legacy_ws_token: bool = False
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -152,6 +154,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         discovery=_bool(get("DISCOVERY"), True),
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
         trusted_proxies=_proxies(get("TRUSTED_PROXIES")),
+        legacy_ws_token=get("LEGACY_WS_TOKEN") == "1",
         extra_hosts=tuple(h.strip().lower() for h in (get("EXTRA_HOSTS") or "").split(",") if h.strip()),
         art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )

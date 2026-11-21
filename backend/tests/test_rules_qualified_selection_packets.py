@@ -10,7 +10,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
-from tests.conftest import claim_host
+from tests.conftest import claim_host, connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -509,7 +509,7 @@ def test_bamboozle_public_reveal_then_private_order_http_ws(cards,settings):
                 order(s)
             response=client.get(f'/api/games/{gid}/view',headers={'X-Seat-Token':token})
             assert response.status_code==200
-            with client.websocket_connect(f'/ws/games/{gid}?token={token}') as ws:
+            with connect_game(client, gid, token) as ws:
                 frame=ws.receive_json()
             for raw in [response.text,json.dumps(frame)]:
                 assert all((c in raw)==(stage<2) for c in top[2:])

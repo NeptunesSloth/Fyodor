@@ -67,7 +67,9 @@ type ServerMessage =
   | ({ type: "signal" } & Signal)
   | ({ type: "cursor" } & CursorWire);
 
-const FATAL_CODES = new Set([4403, 4404]);
+const FATAL_CODES = new Set([4400, 4403, 4404]); // 4400: not this server's name; 4403: no seat here; 4404: no such game
+/** What a refused seat says, whatever reason the server gave (it gives the same one for every refusal). */
+export const SEAT_REFUSED = "Your seat is no longer valid here. Join again.";
 const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
 
 interface Queued {
@@ -106,6 +108,8 @@ export class GameConnection {
   private base: GameView | null = null;
   private vseq = 0;
   private resyncAsked = false;
+  /** The server has answered this socket (its first message follows a good `auth`): until then nothing else is sent on it. */
+  private authed = false;
 
   constructor(
     private readonly gameId: string,
@@ -115,32 +119,37 @@ export class GameConnection {
 
   connect(): void {
     this.stopped = false;
-    const q = new URLSearchParams();
-    if (this.params.token) q.set("token", this.params.token);
-    if (this.params.viewer) q.set("viewer", this.params.viewer);
-    q.set("deltas", "1"); // -- view deltas -- (a server without them sends whole views, as before)
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     this.revision = 0; // a fresh connection starts with a full snapshot
     this.base = null;
     this.vseq = 0;
     this.resyncAsked = false;
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}?${q}`);
+    this.authed = false;
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}`); // (no token in the address)
     this.ws = ws;
     this.handlers.onStatus(this.retry ? "reconnecting" : "connecting");
     ws.onopen = () => {
-      this.retry = 0;
-      this.handlers.onStatus("open");
-      this.pingTimer = setInterval(() => this.raw({ type: "ping" }), 20000);
-      this.flushOutbox(); // the server applies each queued action once (client_action_id)
+      // the seat token travels in the first message of every connection, reconnects included, never in the address
+      // (-- view deltas -- `deltas`: a server without them sends whole views, as before)
+      ws.send(JSON.stringify({ type: "auth", token: this.params.token ?? null, viewer: this.params.viewer ?? null, deltas: true }));
     };
-    ws.onmessage = (ev) => this.onMessage(ev.data as string);
+    ws.onmessage = (ev) => {
+      if (!this.authed) {
+        this.authed = true; // the server's first word: the seat is good
+        this.retry = 0;
+        this.handlers.onStatus("open");
+        this.pingTimer = setInterval(() => this.raw({ type: "ping" }), 20000);
+        this.flushOutbox(); // the server applies each queued action once (client_action_id)
+      }
+      this.onMessage(ev.data as string);
+    };
     ws.onclose = (ev) => {
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.failPending("Connection lost");
       if (this.stopped) return;
       if (FATAL_CODES.has(ev.code)) {
         this.stopped = true;
-        this.handlers.onStatus("closed", ev.reason || "Refused");
+        this.handlers.onStatus("closed", ev.code === 4403 ? SEAT_REFUSED : ev.reason || "Refused");
         return;
       }
       this.retry = ev.code === RETRY_NOW ? 0 : this.retry + 1;
@@ -193,7 +202,7 @@ export class GameConnection {
   request(message: Record<string, unknown>): Promise<void> {
     const id = this.nextId++;
     return new Promise<void>((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authed) {
         reject(new Error("Not connected — reconnecting…"));
         return;
       }
@@ -222,7 +231,7 @@ export class GameConnection {
 
   private sendQueued(cid: string): void {
     const q = this.outbox.get(cid);
-    if (!q || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!q || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authed) return;
     const id = this.nextId++;
     q.wireId = id;
     this.ws.send(JSON.stringify({ ...q.message, id }));
@@ -259,7 +268,7 @@ export class GameConnection {
   }
 
   private raw(message: Record<string, unknown>): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(message));
+    if (this.ws?.readyState === WebSocket.OPEN && this.authed) this.ws.send(JSON.stringify(message));
   }
 
   private onMessage(data: string): void {

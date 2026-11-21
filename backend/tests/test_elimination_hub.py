@@ -11,7 +11,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api.practice import sweep
 from app.multiplayer.elimination import Pulse
-from tests.conftest import guest
+from tests.conftest import connect_game, guest
 from tests.test_protocol_privacy import P1_DECK, P2_DECK, assert_hidden, cards_in
 
 P3_DECK = """Commander
@@ -158,7 +158,7 @@ def test_an_eliminated_seat_sees_only_what_a_spectator_sees(table):
         assert carol["zones"][f"{pid}:hand"] == spec["zones"][f"{pid}:hand"]
         assert carol["zones"][f"{pid}:library"] == spec["zones"][f"{pid}:library"]
     # and over the live socket, while the others keep playing
-    with client.websocket_connect(f"/ws/games/{gid}?token={t['carol']}") as ws:
+    with connect_game(client, gid, t['carol']) as ws:
         frames = [ws.receive_json()]
         act(client, gid, t["alice"], {"type": "draw", "count": 1})
         act(client, gid, t["bob"], {"type": "look_top", "count": 3})
@@ -283,7 +283,7 @@ def test_putting_the_practice_table_away(table):
     pid = opened["game_id"]
     assert client.delete(f"/api/games/{gid}/practice", headers=h(t["bob"])).status_code == 204  # Bob's, not Carol's
     assert room_of(client, pid) is not None
-    with client.websocket_connect(f"/ws/games/{pid}?token={opened['token']}") as ws:
+    with connect_game(client, pid, opened['token']) as ws:
         assert ws.receive_json()["type"] == "state"
         assert client.delete(f"/api/games/{gid}/practice", headers=h(t["carol"])).status_code == 204
         with pytest.raises(WebSocketDisconnect) as closed:

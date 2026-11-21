@@ -7,7 +7,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from tests.conftest import claim_host
+from tests.conftest import claim_host, connect_game
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
 
@@ -132,7 +132,7 @@ def test_client_action_ids_are_validated(client):
 
 def test_websocket_retries_are_idempotent(client):
     gid, _, host, _ = lan_table(client)
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as ws:
+    with connect_game(client, gid, host) as ws:
         ws.receive_json()
         msg = {"type": "action", "id": 1, "client_action_id": "ws-action-0001", "action": {"type": "draw", "count": 1}}
         def ack(i):

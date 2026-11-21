@@ -13,6 +13,7 @@ from starlette.websockets import WebSocketDisconnect
 from app import netguard
 from app.config import Settings, load_settings
 from app.main import create_app
+from tests.conftest import connect_game
 
 LOBBY = {"mode": "lan", "lobby": True, "name": "Friday", "seats": 4, "players": []}
 OWN = "http://testserver"
@@ -228,31 +229,31 @@ def refused(client: TestClient, path: str, **kwargs) -> int:
 
 def test_socket_with_the_own_origin_connects(client: TestClient, lan_game):
     gid, token = lan_game
-    with client.websocket_connect(f"/ws/games/{gid}?token={token}", headers={"Origin": OWN}) as ws:
+    with connect_game(client, gid, token, headers={"Origin": OWN}) as ws:
         assert ws.receive_json()["type"] in {"lobby", "state"}
 
 
 def test_socket_with_a_foreign_origin_closes_4403(client: TestClient, lan_game):
     gid, token = lan_game
-    assert refused(client, f"/ws/games/{gid}?token={token}", headers={"Origin": "https://evil.example"}) == 4403
-    assert refused(client, f"/ws/games/{gid}?token={token}", headers={"Origin": "null"}) == 4403
-    assert refused(client, f"/ws/games/{gid}?token={token}", headers={"Origin": "http://testserver.evil.example"}) == 4403
+    assert refused(client, f"/ws/games/{gid}", headers={"Origin": "https://evil.example"}) == 4403
+    assert refused(client, f"/ws/games/{gid}", headers={"Origin": "null"}) == 4403
+    assert refused(client, f"/ws/games/{gid}", headers={"Origin": "http://testserver.evil.example"}) == 4403
 
 
 def test_socket_with_no_origin_closes_4403(client: TestClient, lan_game, monkeypatch: pytest.MonkeyPatch):
     gid, token = lan_game
     monkeypatch.setattr(TestClient, "websocket_connect", TestClient.websocket_connect.__wrapped__)  # type: ignore[attr-defined]  # the bare one
-    assert refused(client, f"/ws/games/{gid}?token={token}") == 4403
+    assert refused(client, f"/ws/games/{gid}") == 4403
 
 
 def test_socket_with_a_dev_origin_connects(client: TestClient, lan_game):
     gid, token = lan_game
-    with client.websocket_connect(f"/ws/games/{gid}?token={token}", headers={"Origin": "http://localhost:5173"}) as ws:
+    with connect_game(client, gid, token, headers={"Origin": "http://localhost:5173"}) as ws:
         assert ws.receive_json()["type"] in {"lobby", "state"}
 
 
 def test_socket_with_a_foreign_host_closes_4400_before_the_origin_is_looked_at(client: TestClient, lan_game):
     gid, token = lan_game
     headers = {"Host": "evil.example", "Origin": "http://evil.example"}
-    assert refused(client, f"/ws/games/{gid}?token={token}", headers=headers) == 4400
-    assert refused(client, f"/ws/games/nonesuch?token={token}", headers=headers) == 4400  # not even the game lookup runs first
+    assert refused(client, f"/ws/games/{gid}", headers=headers) == 4400
+    assert refused(client, "/ws/games/nonesuch", headers=headers) == 4400  # not even the game lookup runs first

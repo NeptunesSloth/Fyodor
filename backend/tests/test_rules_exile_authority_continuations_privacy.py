@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from tests import test_rules_exile_authority_continuations_staged as gameplay
+from tests.conftest import connect_game
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
 from tests.test_rules_designations import put
@@ -49,7 +50,7 @@ def test_staged_private_library_choice_rest_ws_only_controller_inspects(cards, s
             else:
                 assert 'name' not in payload['cards'].get(cid,{}) and 'card_id' not in payload['cards'].get(cid,{})
                 assert cid not in json.dumps(payload.get('rules',{}).get('decision',{}))
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()['view']
                 assert ('name' in frame['cards'].get(cid,{})) == (viewer=='p1')
 

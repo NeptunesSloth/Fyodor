@@ -11,6 +11,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import effects, engine, scripts
 from app.rules import exile_cast_outcomes45 as leaf
+from tests.conftest import connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -445,7 +446,7 @@ def test_mindclaw_actual_public_reveal_rest_websocket_and_end_of_resolution_clea
         for viewer in ['p1','p2','p3','spectator']:
             token='mindclaw45-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()
             for view in [payload,frame['view']]:
                 assert ('name' in view['cards'].get(remaining.id,{}))==(not finished or viewer=='p2')
@@ -959,7 +960,7 @@ def test_extract_actual_private_owner_and_caster_rest_websocket_views(cards,sett
         for viewer in ['p1','p2','p3','spectator']:
             token='extract45-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()
             for view in [payload,frame['view']]:
                 assert ('name' in view['cards'].get(chosen.id,{}))==(viewer=='p2' or (stage=='view' and viewer=='p1'))
@@ -1381,7 +1382,7 @@ def test_talent_actual_public_seven_rest_and_websocket_do_not_expose_eighth_card
         for viewer in ['p1','p2','p3','spectator']:
             token='talent46-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()
             for view in [payload,frame['view']]:
                 assert all('name' in view['cards'].get(cid,{}) for cid in shown)

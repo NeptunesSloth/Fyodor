@@ -18,7 +18,7 @@ from app.game.history import History
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.game.undo_requests import answer, ask, classify, request, shown
-from tests.conftest import guest
+from tests.conftest import connect_game, guest
 from tests.game_helpers import act, deck, enable, make_session, zone
 from tests.test_games_api import ATRAXA, KRENKO
 from tests.test_rules_effects import build, draw_all, hand, mana, rules
@@ -378,7 +378,7 @@ def test_lan_decline_withdraw_and_a_new_action(client, lan):
 
 def test_lan_websocket_undo_asks_too(client, lan):
     post(client, lan, "actions", lan["host"], {"action": {"type": "coin"}}, remote=False)
-    with client.websocket_connect(f"/ws/games/{lan['gid']}?token={lan['bob']}", headers=REMOTE) as ws:
+    with connect_game(client, lan['gid'], lan['bob'], headers=REMOTE) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "undo", "id": 1})
         while (msg := ws.receive_json())["type"] == "state":

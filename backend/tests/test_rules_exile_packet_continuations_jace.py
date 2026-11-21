@@ -7,6 +7,7 @@ import pytest
 
 from app.game.visibility import SPECTATOR, can_see
 from tests import test_rules_exile_packet_continuations_staged as gameplay
+from tests.conftest import connect_game
 from tests.game_helpers import act
 from tests.test_rules_controller_tutors import answer
 from tests.test_rules_designations import put, roundtrip
@@ -160,7 +161,7 @@ def test_jace_all_library_inspection_rest_and_websocket_are_private(cards, setti
             assert 'Memnite' not in json.dumps(payload)
             for owner in tops:
                 assert 'name' not in payload['cards'].get(tops[owner][0], {})
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame = ws.receive_json()
                 assert frame['type'] == 'state'
                 assert 'options' not in frame['view']['rules']['decision']

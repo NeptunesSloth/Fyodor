@@ -99,9 +99,10 @@ class Connection:
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
     host: bool = False  # connected with host rights (lobby management)
+    token: str | None = field(default=None, repr=False)  # the seat token it authenticated with (a secret: never logged)
     close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
-    # -- view deltas (app/multiplayer/view_delta.py) -- the client applies patches (it asked: ``?deltas=1``): after a full view, each
+    # -- view deltas (app/multiplayer/view_delta.py) -- the client applies patches (its auth message asked: ``deltas``): after a full view, each
     # update is the patch from the last view sent here (``sent``, as the client parsed it), naming it by its number on this connection
     # (``vseq``: every view message sent here counts). None: no view to patch (none sent yet, or a lobby since)
     deltas: bool = False

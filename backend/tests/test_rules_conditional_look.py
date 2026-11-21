@@ -10,7 +10,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
-from tests.conftest import claim_host
+from tests.conftest import claim_host, connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -383,7 +383,7 @@ def test_private_pick_and_order_redact_hidden_library_in_rest_and_websocket(card
                 response=client.get(f'/api/games/{gid}/view',headers={'X-Seat-Token':token})
                 assert response.status_code==200
                 assert not any(cid in response.text for cid in top)
-                with client.websocket_connect(f'/ws/games/{gid}?token={token}') as ws:
+                with connect_game(client, gid, token) as ws:
                     frame=ws.receive_json()
                     assert frame['type']=='state'
                     assert not any(cid in json.dumps(frame) for cid in top)

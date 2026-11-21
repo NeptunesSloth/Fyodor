@@ -4,9 +4,10 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from app.game.visibility import OMNISCIENT
-from tests.conftest import claim_host, guest
+from tests.conftest import claim_host, connect_game, guest
 
 KRENKO = """Commander
 1 Krenko, Mob Boss
@@ -216,7 +217,7 @@ def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
     assert view["viewer"] == "__spectator__"
     assert len(view["zones"]["p2:hand"]) == 7 and all(view["cards"][c].get("hidden") for c in view["zones"]["p2:hand"])
     assert not set(bob_hand) & set(json.dumps(view).split('"'))  # not even the hidden cards' ids
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}&viewer=all") as ws:
+    with connect_game(client, gid, host, viewer='all') as ws:
         first = ws.receive_json()
         assert first["type"] == "state" and first["view"]["viewer"] == "__spectator__"
         assert all(first["view"]["cards"][c].get("hidden") for c in first["view"]["zones"]["p2:hand"])
@@ -237,9 +238,7 @@ def test_websocket_sync_and_hidden_info(client, decks):
     gid, code = game["game"]["id"], game["game"]["code"]
     alice = game["seat"]["token"]
     bob = client.post("/api/join", json={"code": code}).json()["token"]
-    with client.websocket_connect(f"/ws/games/{gid}?token={alice}") as wa, client.websocket_connect(
-        f"/ws/games/{gid}?token={bob}"
-    ) as wb:
+    with connect_game(client, gid, alice) as wa, connect_game(client, gid, bob) as wb:
         first_a = wa.receive_json()
         assert first_a["type"] == "state" and first_a["view"]["viewer"] == "p1"
         wb.receive_json()
@@ -262,8 +261,9 @@ def test_websocket_sync_and_hidden_info(client, decks):
         wb.send_json({"type": "view", "viewer": "all"})
         assert "Cannot change seats" in wb.receive_json()["message"]
 
-    with pytest.raises(Exception), client.websocket_connect(f"/ws/games/{gid}?token=forged") as ws:  # noqa: B017
+    with connect_game(client, gid, 'forged') as ws, pytest.raises(WebSocketDisconnect) as closed:
         ws.receive_json()
+    assert closed.value.code == 4403
 
 
 def test_save_load_and_autosave(client, decks, settings):

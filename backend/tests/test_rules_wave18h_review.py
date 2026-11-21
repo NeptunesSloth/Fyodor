@@ -19,6 +19,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.visibility import SPECTATOR
 from app.rules.view import rules_view
+from tests.conftest import connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_protocol_privacy import assert_hidden, cards_in
@@ -115,7 +116,7 @@ def test_over_the_wire_only_the_controller_acts_and_only_they_see(client):
     assert bobs["controlled_by"] == "p1" and bobs["hints"] == {"has_priority": False} and "acting_as" not in bobs
     assert_hidden(view(spec), hand, repo)
     assert "acting_as" not in view(spec)["rules"]
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as wb, client.websocket_connect(f"/ws/games/{gid}?token={spec}") as ws:
+    with connect_game(client, gid, bob) as wb, connect_game(client, gid, spec) as ws:
         wb.receive_json()
         assert_hidden(ws.receive_json()["view"], hand, repo)
         wb.send_json({"type": "action", "action": {"type": "pass_priority"}, "id": 7, "as": "p1"})

@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from app.game.state import CardInstance
+from tests.conftest import connect_game
 
 P1_DECK = """Commander
 1x Atraxa, Praetors' Voice (2x2) 190 [Commander{top}]
@@ -181,9 +182,7 @@ def test_websocket_frames_never_contain_hidden_identities(table):
     client, gid, alice, bob, spec = table
     repo = client.app.state.services.cards
     frames: list[dict[str, Any]] = []
-    with client.websocket_connect(f"/ws/games/{gid}?token={alice}") as wa, client.websocket_connect(
-        f"/ws/games/{gid}?token={bob}"
-    ) as wb:
+    with connect_game(client, gid, alice) as wa, connect_game(client, gid, bob) as wb:
         wa.receive_json()
         frames.append(wb.receive_json())
         wa.receive_json()
@@ -233,7 +232,7 @@ def test_rules_prompts_and_hints_do_not_leak(client):
     mine = view(client, gid, alice)["rules"]
     assert mine["hints"]["has_priority"] and mine["hints"]["playable_lands"]
     frames: list[dict[str, Any]] = []
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as wb:
+    with connect_game(client, gid, bob) as wb:
         frames.append(wb.receive_json())
         act(client, gid, alice, {"type": "pass_priority"})  # → main 2
         act(client, gid, alice, {"type": "pass_priority"})  # → cleanup: discard 2 (private options)

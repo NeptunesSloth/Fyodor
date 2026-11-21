@@ -8,6 +8,7 @@ import pytest
 from starlette.websockets import WebSocketDisconnect
 
 from app.game.errors import ActionError
+from tests.conftest import connect_game
 from tests.game_helpers import act, find, make_session, zone
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
@@ -43,7 +44,7 @@ def test_reconnect_restores_same_seat_hand_and_presence(table):
     client, gid, host, mike = table
     action(client, gid, mike, {"type": "draw", "count": 5})
     hand = view(client, gid, mike)["zones"]["p2:hand"]
-    with client.websocket_connect(f"/ws/games/{gid}?token={mike}") as ws:
+    with connect_game(client, gid, mike) as ws:
         first = ws.receive_json()
         assert first["view"]["viewer"] == "p2" and first["view"]["zones"]["p2:hand"] == hand
         assert view(client, gid, host)["game"]["seats"]["p2"]["presence"] == "connected"
@@ -52,7 +53,7 @@ def test_reconnect_restores_same_seat_hand_and_presence(table):
     assert host_view["game"]["seats"]["p2"]["presence"] == "reconnecting"
     assert all(i not in str(host_view) for i in hand)
     # comes back with the same token: same seat, same hand, same permissions
-    with client.websocket_connect(f"/ws/games/{gid}?token={mike}") as ws:
+    with connect_game(client, gid, mike) as ws:
         again = ws.receive_json()
         assert again["view"]["viewer"] == "p2" and again["view"]["zones"]["p2:hand"] == hand
     # after the grace period: disconnected
@@ -64,7 +65,7 @@ def test_reconnect_restores_same_seat_hand_and_presence(table):
 
 def test_revisions_increase_and_resync_replaces_state(table):
     client, gid, host, mike = table
-    with client.websocket_connect(f"/ws/games/{gid}?token={mike}") as ws:
+    with connect_game(client, gid, mike) as ws:
         first = ws.receive_json()
         rev = first["revision"]
         ws.receive_json()  # presence broadcast
@@ -95,7 +96,7 @@ def test_seat_link_reassigns_a_seat_and_revokes_the_old_token(table):
 
 def test_force_reconnect_closes_the_socket_with_a_retry_code(table):
     client, gid, host, mike = table
-    with client.websocket_connect(f"/ws/games/{gid}?token={mike}") as ws:
+    with connect_game(client, gid, mike) as ws:
         ws.receive_json()
         ws.receive_json()
         assert client.post(f"/api/games/{gid}/host/reconnect", json={"seat": "p2"}, headers=h(host)).json()["dropped"] == 1

@@ -16,6 +16,7 @@ from app.game.session import GameSession
 from app.game.visibility import SPECTATOR
 from app.multiplayer.hub import Connection, GameHub
 from app.multiplayer.view_delta import PatchError, apply, checked, diff, freeze
+from tests.conftest import connect_game
 from tests.game_helpers import act, deck, turn_on
 from tests.test_protocol_privacy import (
     P1_DECK,
@@ -279,7 +280,7 @@ def test_socket_deltas_rebuild_the_view_and_never_carry_hidden_cards(table):
                 return msg
         raise AssertionError("never came")
 
-    with client.websocket_connect(f"/ws/games/{gid}?token={alice}&deltas=1") as wa,             client.websocket_connect(f"/ws/games/{gid}?token={bob}&deltas=1") as wb,             client.websocket_connect(f"/ws/games/{gid}?token={spec}&deltas=1") as ws:
+    with connect_game(client, gid, alice, deltas=True) as wa,             connect_game(client, gid, bob, deltas=True) as wb,             connect_game(client, gid, spec, deltas=True) as ws:
         mine: list[dict[str, Any]] = []
 
         def action(i: int, step: dict[str, Any]) -> None:

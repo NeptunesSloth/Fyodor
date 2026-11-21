@@ -5,6 +5,7 @@ import pytest
 
 from app.rules import coverage
 from app.rules.view import decision_view
+from tests.conftest import connect_game
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana, wait_priority
 from tests.test_rules_designations import put, roundtrip
@@ -259,7 +260,7 @@ def test_private_library_order_does_not_enter_rest_websocket_or_history_payloads
         pending = client.get(f'/api/games/{room.id}/view', headers=headers)
         assert pending.status_code == 200
         assert 'options' not in pending.json()['rules']['decision']
-        with client.websocket_connect(f'/ws/games/{room.id}?token=library-observer') as ws:
+        with connect_game(client, room.id, 'library-observer') as ws:
             initial = ws.receive_json()
             assert 'library_order' not in json.dumps(initial)
             response = client.post(f'/api/games/{room.id}/actions', headers={'X-Seat-Token': 'library-owner'},
