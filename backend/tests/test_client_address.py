@@ -70,3 +70,16 @@ def test_forged_header_does_not_change_the_join_throttle_key(settings: Settings)
         for i in range(5):
             assert c.post("/api/join", json={"code": "NOPE", "name": "x"}, headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code == 403
         assert c.post("/api/join", json={"code": "NOPE", "name": "x"}, headers={"X-Forwarded-For": "10.9.9.9"}).status_code == 429
+
+
+def test_settings_extra_hosts_are_lower_cased_names_or_ip_literals(tmp_path):
+    base = {"FYODOR_DATA_DIR": str(tmp_path)}
+    assert load_settings({**base, "FYODOR_EXTRA_HOSTS": "Play.Example.org, 100.64.0.7"}).extra_hosts == ("play.example.org", "100.64.0.7")
+    assert load_settings({**base, "FYODOR_EXTRA_HOSTS": "  "}).extra_hosts == ()
+
+
+@pytest.mark.parametrize("bad", ["play.example.org:8000", "https://play.example.org", "play.example.org/", "play example.org", "a.example,,b.example",
+                                 "a.example, ", "play.example.org,\tx y", "[::1]:80", "::1"])
+def test_settings_bad_extra_host_is_a_startup_error(tmp_path, bad):
+    with pytest.raises(ValueError, match="FYODOR_EXTRA_HOSTS"):
+        load_settings({"FYODOR_DATA_DIR": str(tmp_path), "FYODOR_EXTRA_HOSTS": bad})

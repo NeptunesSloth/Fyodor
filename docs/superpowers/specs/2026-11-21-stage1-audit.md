@@ -91,7 +91,7 @@ server-made id, or a same-origin download, except the last bullet.
   `SettingsPanel.tsx:471,655` (`encodeURIComponent(b.name)`), `TeachPage.tsx:418,436`. Safe.
 - `DeckEditor.tsx:369` `href={deck.source.url}`: the one value a client can set to anything (`DeckSource.url` in
   `backend/app/decks/models.py:79` is a free string of up to 300 characters; the server sets it for Archidekt imports, but the
-  deck-save API accepts whatever it is sent). A `javascript:` URL here would be clickable. React 19 (`"react": "^19.3.0"`
+  deck-save API accepts whatever it is sent). A `javascript:` URL here would be clickable (closed: see risk 9). React 19 (`"react": "^19.3.0"`
   in `frontend/package.json`) refuses to run `javascript:` URLs in `href`, and saving a deck is a host action, so this is
   rated low and left unchanged here; see risk 9.
 
@@ -180,7 +180,7 @@ no-referrer` were already sent before this task (and `frame-ancestors 'none'` is
 7. The legacy socket switch `FYODOR_LEGACY_WS_TOKEN=1` puts the seat token back in the URL; it is off by default and should stay off.
 8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch as of `87ec8a0` (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); the controller saw the same count on a master-based checkout. The gate used was "no new errors in touched files", not a clean run.
 
-9. `DeckSource.url` is an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx:369`). React blocks `javascript:` links and saving a deck is host-only, but decks can arrive from other players through LAN deck sharing. A server-side http(s) check is queued to be fixed before merge (not done yet).
+9. `DeckSource.url` was an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx`). Fixed in the commit "Strict Origin serialisation, validated extra hosts, deck source links limited to http(s), journal prune asserted": the model (`backend/app/decks/models.py`, `is_http_url`) now accepts only empty or an absolute http or https address with a host and no whitespace or control character, and the editor (`isHttpUrl` in `frontend/src/pages/deckBits.ts`) links only such an address and otherwise shows the label as plain text. A deck already stored with a bad url still loads: `DeckSource.from_stored` drops the url (sets it to none) and keeps the rest of the source. How a source can get in: only the server builds one (an Archidekt import, from a numeric deck id), the deck-save API (`DeckIn`) has no source field, and LAN deck sharing and "bring my decks" send names and card lists only (`backend/app/decks/sharing.py` says so, `BroughtDeckIn` has no source); so the one way a bad url could exist is a stored row (an old save, or a restored backup), which is the case `from_stored` covers. The earlier statement here that decks could arrive through LAN sharing with a url was wrong.
 10. The art-keeper logs a stored deck's name (`backend/app/cards/art_keeper.py:149-158`). Names are cleaned when a deck is saved or imported, so a deck stored before that cleaning existed is the only uncovered case.
 
 ## Open items for Task 10

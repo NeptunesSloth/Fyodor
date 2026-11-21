@@ -129,7 +129,7 @@ def test_another_seat_reusing_an_id_is_answered_like_any_new_action(client):
         assert r1 == {**r2, "id": 1} and r1["status"] == "ACCEPTED"
 
 
-def test_a_host_acting_for_a_seat_is_deduplicated_in_that_seats_space(client):
+def test_a_hot_seat_table_acting_as_another_seat_is_deduplicated_in_that_seats_space(client):
     """At a hot-seat table one browser plays every seat: the id counts per seat the action is performed as."""
     a = client.post("/api/decks", json={"text": P1_DECK}).json()["id"]
     b = client.post("/api/decks", json={"text": P2_DECK}).json()["id"]
@@ -158,6 +158,20 @@ def test_one_seat_flooding_ids_cannot_evict_another_seats_ids(client):
     again = act(client, gid, mike, {"type": "draw", "count": 1}, cid="mike-pending-01")
     assert again.json()["status"] == "ALREADY_APPLIED"
     assert hand(client, gid, mike, "p2") == 1
+
+
+def test_the_journal_prunes_one_seats_ids_and_only_that_seats(client):
+    """The stored copy is bounded per seat too: after p1 floods, p1 has exactly the bound remembered and p2's pending id is still there."""
+    gid, _, host, mike = lan_table(client)
+    assert act(client, gid, mike, {"type": "draw", "count": 1}, cid="mike-pending-01").json()["status"] == "ACCEPTED"
+    services = client.app.state.services
+    room = services.hub.rooms[gid]
+    for i in range(MAX_CLIENT_ACTIONS * 2):
+        services.hub.remember_action(room, "p1", f"flood-{i:06d}", "ACCEPTED")
+    stored = {r.game_id: r.client_actions for r in services.journal.live()}[gid]
+    assert len(stored["p1"]) == MAX_CLIENT_ACTIONS
+    assert f"flood-{MAX_CLIENT_ACTIONS * 2 - 1:06d}" in stored["p1"] and "flood-000000" not in stored["p1"]  # the newest are the ones kept
+    assert "mike-pending-01" in stored["p2"]
 
 
 def test_ids_survive_a_restart_per_seat(settings, card_db):

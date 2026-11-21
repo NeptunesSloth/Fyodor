@@ -122,6 +122,17 @@ def _proxies(value: str | None) -> tuple[str, ...]:
     return entries
 
 
+def _extra_hosts(value: str | None) -> tuple[str, ...]:
+    """FYODOR_EXTRA_HOSTS: comma-separated bare host names or IP literals (no port, scheme, path or space), lower-cased."""
+    if value is None or not value.strip():
+        return ()
+    entries = tuple(e.strip().lower() for e in value.split(","))
+    for entry in entries:
+        if not entry or ":" in entry or "/" in entry or any(c.isspace() for c in entry):
+            raise ValueError(f"FYODOR_EXTRA_HOSTS: {entry!r} is not a bare host name or IP address (no port, scheme, path or space)")
+    return entries
+
+
 def load_settings(env: dict[str, str] | None = None) -> Settings:
     source: dict[str, str] = {}
     source.update(_load_dotenv(Path.cwd() / ".env"))
@@ -155,7 +166,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
         trusted_proxies=_proxies(get("TRUSTED_PROXIES")),
         legacy_ws_token=get("LEGACY_WS_TOKEN") == "1",
-        extra_hosts=tuple(h.strip().lower() for h in (get("EXTRA_HOSTS") or "").split(",") if h.strip()),
+        extra_hosts=_extra_hosts(get("EXTRA_HOSTS")),
         art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )
 

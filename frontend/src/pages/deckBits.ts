@@ -134,3 +134,8 @@ export function artFirst(printings: CardData[]): CardData[] {
 export function printingsShown(printings: CardData[], chosen: string | null | undefined, onlyArt: boolean): CardData[] {
   return onlyArt ? printings.filter((p) => (p.own_image ?? p.has_image) || p.id === chosen) : printings;
 }
+
+/** A deck source's address is a link only when it is an http(s) address; anything else (javascript:, data:, a stray string) stays text. */
+export function isHttpUrl(url: string | null | undefined): url is string {
+  return typeof url === "string" && /^https?:\/\//i.test(url);
+}

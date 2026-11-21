@@ -49,6 +49,18 @@ def games(client: TestClient) -> list[dict]:
     ("http://192.168.1.20:9000", "192.168.1.20:8000", False),             # another port is another origin
     ("http://192.168.1.20:8000/path", "192.168.1.20:8000", False),        # an Origin has no path
     ("http://user@192.168.1.20:8000", "192.168.1.20:8000", False),
+    ("http://127.0.0.1:8000#", "127.0.0.1:8000", False),                  # not a serialized origin: empty fragment, empty query,
+    ("http://127.0.0.1:8000?", "127.0.0.1:8000", False),                  # empty port, leading zeros, whitespace, control characters
+    ("http://testserver:", "testserver", False),
+    ("http://127.0.0.1:08000", "127.0.0.1:8000", False),
+    (" http://testserver", "testserver", False),
+    ("http://testserver ", "testserver", False),
+    ("http://test\tserver", "testserver", False),
+    ("http://testserver\n", "testserver", False),
+    ("http://testserver/", "testserver", False),
+    ("http://testserver:99999", "testserver", False),
+    ("http://[::1]:", "[::1]", False),
+    ("http://[::1", "[::1]", False),
     ("null", "192.168.1.20:8000", False),
     ("ftp://192.168.1.20:8000", "192.168.1.20:8000", False),
     ("", "192.168.1.20:8000", False),
@@ -84,6 +96,7 @@ def test_origin_allowed_by_the_extra_list():
     ("::1", False),                                   # an IPv6 literal in a Host header is bracketed
     ("192.168.1.20:80x", False),
     ("192.168.1.20:", False),
+    ("[::1]:", False),
     ("", False),
     (None, False),
 ])

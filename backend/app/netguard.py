@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import ipaddress
 import math
+import re
 import socket
 import time
 from collections import OrderedDict, deque
 from collections.abc import Callable, Iterable
-from urllib.parse import urlsplit
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
 MAX_KEYS = 10_000  # a limiter never remembers more keys than this; the one longest without a failure is dropped first
@@ -28,6 +28,8 @@ def _split_host(host_header: str | None) -> tuple[str, int | None] | None:
         host, _, rest = host_header[1:].partition("]")
         port = rest[1:] if rest.startswith(":") else rest
         if rest and not rest.startswith(":"):
+            return None
+        if rest == ":":
             return None
         try:
             ipaddress.IPv6Address(host)
@@ -58,16 +60,27 @@ def host_allowed(host_header: str | None, extra_hosts: Iterable[str]) -> bool:
     return host in {"localhost", me, f"{me}.local", *(h.lower() for h in extra_hosts)}
 
 
+# scheme://host[:port] and nothing else: no path, query, fragment, userinfo or whitespace; a port without a leading zero; a host that is a
+# name, an IPv4 address or a bracketed IPv6 address. (Matched case-insensitively: a browser sends lower case, a configured one may not.)
+_ORIGIN = re.compile(r"(https?)://(\[[0-9a-f:.]+\]|[a-z0-9._-]+)(?::([1-9][0-9]{0,4}))?", re.ASCII)
+
+
 def _origin_key(origin: str) -> tuple[str, str, int] | None:
-    """An Origin (or configured origin) as (scheme, host, port with the default filled in); None when it isn't one."""
-    try:
-        url = urlsplit(origin)
-        port = url.port
-    except ValueError:
+    """An Origin (or configured origin) as (scheme, host, port with the default filled in); None unless it is exactly the serialization
+    a browser writes, ``scheme://host[:port]``."""
+    match = _ORIGIN.fullmatch(origin.lower())
+    if match is None:
         return None
-    if url.scheme not in DEFAULT_PORTS or not url.hostname or url.path or url.query or url.fragment or url.username is not None:
+    scheme, host, port = match.groups()
+    if host.startswith("["):
+        host = host[1:-1]
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            return None
+    if port and int(port) > 65535:
         return None
-    return url.scheme, url.hostname, port or DEFAULT_PORTS[url.scheme]
+    return scheme, host, int(port) if port else DEFAULT_PORTS[scheme]
 
 
 def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[str]) -> bool:

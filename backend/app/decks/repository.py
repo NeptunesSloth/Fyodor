@@ -135,7 +135,7 @@ class DeckRepository:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             categories=[DeckCategory(**c) for c in json.loads(row["categories"] or "[]")],
-            source=DeckSource.model_validate_json(row["source"]) if row["source"] else None,
+            source=DeckSource.from_stored(row["source"]) if row["source"] else None,
             source_snapshot=[DeckEntry(**e) for e in json.loads(row["source_snapshot"])] if row["source_snapshot"] else None,
             entries=[_entry(c) for c in cards],
             folder=row["folder"],

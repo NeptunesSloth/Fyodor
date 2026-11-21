@@ -25,7 +25,7 @@ import {
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
 import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckWarning, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
-import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, printingsShown, savedRows } from "./deckBits";
+import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, isHttpUrl, printingsShown, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
 import { DeckStats } from "./DeckStats";
 import "./decks.css";
@@ -366,7 +366,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
               <h2 id="de-src-title">Archidekt</h2>
               <p className="de-panel-text">
                 Imported from{" "}
-                {deck.source.url ? <a href={deck.source.url} target="_blank" rel="noreferrer noopener">{deck.source.name ?? `deck ${deck.source.id}`}</a> : deck.source.name}
+                {isHttpUrl(deck.source.url) ? <a href={deck.source.url} target="_blank" rel="noreferrer noopener">{deck.source.name ?? `deck ${deck.source.id}`}</a> : deck.source.name}
                 {deck.source.imported_at && <span className="de-dim"> on {deck.source.imported_at.slice(0, 10)}</span>}
               </p>
               <div className="de-panel-acts">

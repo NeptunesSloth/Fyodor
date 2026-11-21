@@ -224,9 +224,9 @@ describe("game connection heartbeat and caps", () => {
       gaps.push(waited);
       ws = FakeSocket.last!;
     }
-    expect(gaps[1]).toBeGreaterThan(gaps[0]);
-    expect(gaps[2]).toBeGreaterThan(gaps[1]);
-    expect(gaps[3]).toBeGreaterThan(gaps[2]);
+    expect(gaps[1]!).toBeGreaterThan(gaps[0]!);
+    expect(gaps[2]!).toBeGreaterThan(gaps[1]!);
+    expect(gaps[3]!).toBeGreaterThan(gaps[2]!);
     expect(statuses.some(([s]) => s === "closed")).toBe(false);
   });
 });
