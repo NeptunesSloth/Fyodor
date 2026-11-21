@@ -208,10 +208,10 @@ These keep a stranger on the network from guessing their way in; a normal night 
 
 ## Friends outside your home network
 
-Fyodor has no built-in internet play yet. What works today, with no change to Fyodor, is a **private network** between the
-friends' computers, such as Tailscale: install it on the host's computer and on each friend's, then the friends open
+Fyodor has no built-in internet play yet. What should work, with no change to Fyodor, is a **private network** between the
+friends' computers, such as Tailscale. This project has not tested it yet. Install it on the host's computer and on each friend's, then the friends open
 `http://HOST-PRIVATE-ADDRESS:PORT` (the host's address on that private network, shown in the Tailscale app) as if it were
-the LAN. The game, the room code and the password work as on a LAN, and nothing is opened to the internet. If the address
+the LAN. The game, the room code and the password should work as on a LAN, and nothing is opened to the internet. If the address
 is a name rather than a number, the host lists it in `FYODOR_EXTRA_HOSTS` (below); numeric addresses work as they are.
 
 **Port-forwarding the host's router to the game port is not recommended.** It puts the table on the open internet,

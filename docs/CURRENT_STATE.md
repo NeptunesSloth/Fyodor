@@ -17,8 +17,13 @@ Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/spe
 
 **The gate (audit file)**
 - Rendering and log audits (no player text reaches the page as HTML or a log line unclean), the 13-point review gate walked, `bandit`, `pip-audit` and `npm audit` results with every finding answered or listed as open, and the remaining risks.
-- Not done by the author and listed as such: the full backend test run (the controller's), the independent review, and the two-device manual check (the owner's).
-- Known and unchanged by this batch: `ruff` reports 11 errors and `mypy` 303 errors in 15 files, none in code this stage added (details in the audit file).
+- Not done, one line each:
+  - the full backend test run: the controller's, result pending;
+  - the independent review (`security-review` skill and a fresh reviewer): pending;
+  - the two-device manual check, including a friend joining over a private network: the owner's, NOT DONE;
+  - an unresolved intermittent failure of `tests/test_interim_views.py::test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action` on this branch (3 of at least 34 runs; 0 of 8 on a master checkout; cause unknown, may be a regression from the `hub.py` and socket changes): under investigation, not to merge until explained;
+  - five development-tool dependency upgrades (`pip` in the environment, and `vite`, `source-map-js`, `vitest`, `@vitest/mocker` in `frontend/`) found by `pip-audit` and `npm audit`: open, not upgraded; the stale `# noqa: S104 - explicit opt-in for LAN play` comment in `launcher.py` (the launcher binds all interfaces by default): left as is.
+- Known and unchanged by this batch: `ruff` reports 10 errors, every one also in master's 11 (same rule and file; master's extra one, in `app/services.py`, was fixed on this branch); `mypy` reports 303 errors in 15 files with the same messages as master, and the two files with errors that this branch touched (`app/api/games.py`, `app/multiplayer/hub.py`) have errors only on lines that predate the branch (`git blame`). Details in the audit file.
 
 **Docs:** `docs/LAN_PLAY.md` explains the host's window, seat links, the limits a player can meet, a private network such as Tailscale for friends outside the LAN (port-forwarding is not recommended), and the four environment variables above.
 
