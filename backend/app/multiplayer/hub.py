@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import logging
 import secrets
+import threading
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import nullcontext
@@ -50,8 +51,23 @@ Phase = Literal["lobby", "playing"]
 SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-def _hash_password(password: str, salt: bytes) -> bytes:
-    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
+PASSWORD_ROUNDS = 600_000  # what a password is hashed at now (OWASP's figure for PBKDF2-HMAC-SHA256)
+MAX_STORED_ROUNDS = 10_000_000  # a saved count above this is not ours: one join must not burn minutes of CPU on a doctored file
+_hash_slots = threading.BoundedSemaphore(4)  # at most 4 hashes run at once, so a burst of guesses cannot fill the threadpool
+
+
+def _pbkdf2(password: str, salt: bytes, rounds: int) -> bytes:
+    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
+
+
+def _hash_password(password: str, salt: bytes, rounds: int) -> bytes:
+    """Every password hash passes here (room creation, checks and the unknown-code stand-in), 4 at a time."""
+    with _hash_slots:
+        return _pbkdf2(password, salt, rounds)
+
+
+def _rounds_ok(rounds: object) -> bool:
+    return type(rounds) is int and 1 <= rounds <= MAX_STORED_ROUNDS
 
 
 _NO_ROOM_SALT = bytes(16)
@@ -59,7 +75,7 @@ _NO_ROOM_SALT = bytes(16)
 
 def spend_password_check(password: str | None) -> None:
     """The cost of checking a password against a room, for a room code that has none, so a wrong code answers as slowly as a wrong password."""
-    _hash_password(password or "", _NO_ROOM_SALT)
+    _hash_password(password or "", _NO_ROOM_SALT, PASSWORD_ROUNDS)
 
 
 RECONNECT_GRACE = 60.0  # seconds a dropped player shows as "Reconnecting…" before "Disconnected"
@@ -135,6 +151,8 @@ class Room:
     host_seat: str | None = None
     password_salt: bytes | None = None
     password_hash: bytes | None = None
+    password_rounds: int = 120_000  # (the default is what metadata written before this field used)
+    _password_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)  # the three password fields change together
     seats: dict[str, Seat] = field(default_factory=dict)
     spectator_tokens: set[str] = field(default_factory=set)
     connections: dict[str, Connection] = field(default_factory=dict)
@@ -168,10 +186,31 @@ class Room:
             raise GameNotStarted("The game hasn't started yet")
         return self.game
 
-    def check_password(self, password: str | None) -> bool:
-        if self.password_hash is None or self.password_salt is None:
+    def password_state(self) -> tuple[bytes | None, bytes | None, int]:
+        with self._password_lock:
+            return self.password_salt, self.password_hash, self.password_rounds
+
+    def check_password(self, password: str | None, on_upgrade: Callable[[], None] | None = None) -> bool:
+        """Does the password match? A right one on a hash made with fewer rounds than ``PASSWORD_ROUNDS`` re-hashes it
+        (new salt) and calls ``on_upgrade`` so the caller can store the room."""
+        salt, stored, rounds = self.password_state()
+        if stored is None or salt is None:
             return True
-        return hmac.compare_digest(_hash_password(password or "", self.password_salt), self.password_hash)
+        if not _rounds_ok(rounds):  # (a damaged or doctored saved count: this room verifies nothing, at the cost of a current room's check)
+            _hash_password(password or "", salt, PASSWORD_ROUNDS)
+            return False
+        if not hmac.compare_digest(_hash_password(password or "", salt, rounds), stored):
+            return False
+        if rounds < PASSWORD_ROUNDS:
+            new_salt = secrets.token_bytes(16)
+            new_hash = _hash_password(password or "", new_salt, PASSWORD_ROUNDS)
+            with self._password_lock:
+                upgraded = self.password_hash == stored and self.password_salt == salt  # (else a join at the same moment already did)
+                if upgraded:
+                    self.password_salt, self.password_hash, self.password_rounds = new_salt, new_hash, PASSWORD_ROUNDS
+            if upgraded and on_upgrade is not None:
+                on_upgrade()
+        return True
 
     def seat_for_token(self, token: str | None) -> str | None:
         """Player id for a seat token, SPECTATOR for a spectator token, else None."""
@@ -375,7 +414,8 @@ class GameHub:
         room = Room(mode=mode, code=self._new_code(), host_token=secrets.token_urlsafe(24), game_id=game_id)
         if password:
             room.password_salt = secrets.token_bytes(16)
-            room.password_hash = _hash_password(password, room.password_salt)
+            room.password_hash = _hash_password(password, room.password_salt, PASSWORD_ROUNDS)
+            room.password_rounds = PASSWORD_ROUNDS
         return room
 
     def _new_code(self) -> str:
@@ -405,10 +445,12 @@ class GameHub:
     # -- crash recovery --------------------------------------------------------------
     def meta(self, room: Room) -> dict[str, Any]:
         """Everything about a room that isn't the game itself (for restoring it after a restart)."""
+        salt, pw_hash, rounds = room.password_state()
         return {
             "mode": room.mode, "code": room.code, "host_token": room.host_token, "host_seat": room.host_seat,
-            "password_salt": room.password_salt.hex() if room.password_salt else None,
-            "password_hash": room.password_hash.hex() if room.password_hash else None,
+            "password_salt": salt.hex() if salt else None,
+            "password_hash": pw_hash.hex() if pw_hash else None,
+            "password_rounds": rounds,
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
             "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
@@ -468,6 +510,8 @@ class GameHub:
         if meta.get("password_salt") and meta.get("password_hash"):
             room.password_salt = bytes.fromhex(meta["password_salt"])
             room.password_hash = bytes.fromhex(meta["password_hash"])
+            rounds = meta.get("password_rounds", room.password_rounds)
+            room.password_rounds = rounds if _rounds_ok(rounds) else 0  # (a bad count keeps the room locked: check_password refuses it)
         for pid in session.state.seat_order:
             info = (meta.get("seats") or {}).get(pid) or {}
             room.seats[pid] = Seat(player_id=pid, token=info.get("token"), claimed_name=info.get("claimed_name"),

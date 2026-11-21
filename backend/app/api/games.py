@@ -551,7 +551,7 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
     if by_address.blocked(ip):  # (before the room is looked up or anything hashed)
         raise too_many_attempts(by_address.retry_after(ip))
     room = services.hub.by_code(body.code)
-    if room is None or not room.check_password(body.password):
+    if room is None or not room.check_password(body.password, lambda: services.hub.persist(room)):
         by_address.fail(ip)
         if room is None:
             spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)

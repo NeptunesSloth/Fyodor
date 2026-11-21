@@ -243,9 +243,9 @@ def test_host_opening_the_launcher_many_times_is_never_locked_out(app) -> None:
 def test_unknown_code_costs_one_password_hash_like_a_real_room(app, table, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.multiplayer import hub
 
-    calls: list[bytes] = []
+    calls: list[tuple[bytes, int]] = []
     real = hub._hash_password
-    monkeypatch.setattr(hub, "_hash_password", lambda password, salt: calls.append(salt) or real(password, salt))
+    monkeypatch.setattr(hub, "_hash_password", lambda password, salt, rounds: calls.append((salt, rounds)) or real(password, salt, 1))
     with peer(app, ("203.0.113.1", 1)) as c:
         assert join(c, "ZZZZZZ", "pw").status_code == 403
         assert len(calls) == 1
