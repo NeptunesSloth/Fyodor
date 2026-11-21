@@ -6,7 +6,8 @@ through a tunnel (the tunnel itself is Stage 2). On a LAN nothing new is asked o
 
 ## What Stage 1 changed
 
-Source: `git log --oneline 6f1f23c..HEAD` (12 commits before this one; `git diff --stat 6f1f23c..ae4c21d~1` ends "98 files changed, 3142 insertions(+), 284 deletions(-)").
+Source: `git log --oneline 6f1f23c..ae4c21d~1` (12 commits, tasks 1-8; `git diff --stat 6f1f23c..ae4c21d~1` ends "98 files changed, 3142 insertions(+), 284 deletions(-)"). Task 9 is `ae4c21d` and `87ec8a0`.
+All counts below are as of `87ec8a0`; `backend/` and `frontend/` are unchanged by the commit that adds this note, so the commands give the same counts there.
 
 1. **Host secret cookie** (`e4ea325`, `a605d2f`; `backend/app/hostauth.py`). Host-only actions (creating tables, host tools) used
    to be allowed to whoever connected from the loopback address. Behind a tunnel every remote player arrives from loopback, so
@@ -46,7 +47,7 @@ Source: `git log --oneline 6f1f23c..HEAD` (12 commits before this one; `git diff
    client's action id, so one seat can neither collide with nor probe another seat's ids; the bound (512) is per seat.
    Migration 14 recreates the table with an actor column (see risk 5).
 
-9. **Response headers** (this commit). `Strict-Transport-Security: max-age=31536000` is sent only when the request came over
+9. **Response headers** (`ae4c21d`; the cookie rule in `87ec8a0`). `Strict-Transport-Security: max-age=31536000` is sent only when the request came over
    https, directly or as reported by `X-Forwarded-Proto` from a trusted proxy (same trust rule as the client address; the check
    is the shared `_is_proxy` in `deps.py`). Never `includeSubDomains` or `preload`, because the host may be a shared tunnel
    domain. The header middleware now wraps the Host/Origin guard, so a 400 or 403 refusal carries the headers too. `/docs`,
@@ -73,8 +74,8 @@ $ git grep -n "eval(\|new Function\|srcdoc\|outerHTML\|javascript:\|createContex
 (no output; exit status 1 = no matches)
 ```
 
-User-influenced `href` values: `git grep -n "href=\|\.href *=\|window.open\|location.href" -- frontend/src` finds 49 lines (the test files
-included; 44 without them with `':!*.test.*'`). Reading each: every one is a fixed string, a fragment (`#/...`) built from a
+User-influenced `href` values: `git grep -n "href=\|\.href *=\|window.open\|location.href" -- frontend/src` finds 50 lines (no test file matches:
+the same command with `':!*.test.*'` also gives 50). Reading each: every one is a fixed string, a fragment (`#/...`) built from a
 server-made id, or a same-origin download, except the last bullet.
 
 - Fixed fragments or constants: `App.tsx:81,83` (the app's own menu table), `Eliminated.tsx:131-133`, `EndGameDialog.tsx:41`,
@@ -105,8 +106,8 @@ every source in the policy is one of those keywords or schemes, with no `unsafe-
 ## Log audit
 
 Where player-supplied text reaches a log or the console. Command:
-`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` gives 110 lines (92 with `':!backend/app/rules'`;
-a few are false matches such as `fingerprint(`), all read for lines that interpolate request or player data.
+`git grep -n "log\.\(info\|warning\|error\|debug\|exception\)\|print(" -- backend/app` gives 110 lines (92 with `':!backend/app/rules'`), as of `87ec8a0`;
+a few are false matches such as `fingerprint(`; all read for lines that interpolate request or player data.
 
 | Site | Player text | Result |
 |---|---|---|
@@ -130,8 +131,7 @@ Secrets in logs (single-line calls): `git grep -n -i "log\.[a-z]*(.*\(token\|sec
 lines, both false matches (`res.status_code` in `cards/downloader.py`; `card_id` in `cards/token_art.py`).
 `git grep -n "print(.*\(token\|secret\|password\|cookie\)" -- backend/app` gives no match. Both greps see only the line a call starts on, so wrapped calls were checked too with
 `git grep -n -A4 "log\.\(info\|warning\|error\|debug\|exception\)(\|print(" -- backend/app | grep -i "token\|secret\|password\|passwd\|invite\|code\|cookie"`:
-every hit was a false match (`fingerprint(` in `app/rules`, `secrets.token_urlsafe` and docstrings in `hub.py`, `host_url(` in
-`launcher.py`, the word "invite link" inside a console message at `launcher.py:307`, a `self._lock` line in `token_art.py`); no logged value was a
+it prints 53 lines (as of `87ec8a0`: each log or print call and the four lines after it), all read, all false matches: `status_code=204` (`games.py:543`) and `res.status_code` (`downloader.py:172`); the word "Token" in a message and the lines after it (`token_art.py:88-92`); `host_url(`/`read_host_secret(` building the window address (`launcher.py:217,277`, never printed); the words "invite link" in a console message (`launcher.py:307`); `encode_query` (`discovery.py:323`); `secrets.token_urlsafe`, `code=` and docstrings in `hub.py:395-415,585` (creating rooms, not logging them); and `fingerprint(`/`_fingerprint(`/`sha1` in `app/rules` (`replace.py:297`, `token_creation_replacements.py`, `token_stacks.py`). The word-matches are not values being logged; no logged value was a
 token, secret, password, cookie or code. The host secret reaches the launcher
 only to build the address of the window it opens (`launcher.py`), not a print or log call. Seat tokens travel in the
 `X-Seat-Token` header and the socket's first message (`games.py` `AUTH_DEADLINE` handler says it "never logs what it was sent").
@@ -178,7 +178,7 @@ no-referrer` were already sent before this task (and `frame-ancestors 'none'` is
 5. Migration 14 drops remembered action ids written before the upgrade; a retry that spans the upgrade restart could apply twice.
 6. An upgraded room-password hash is written to disk only for started tables (lobby rooms are not saved at all).
 7. The legacy socket switch `FYODOR_LEGACY_WS_TOKEN=1` puts the seat token back in the URL; it is off by default and should stay off.
-8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); the controller saw the same count on a master-based checkout. The gate used was "no new errors in touched files", not a clean run.
+8. `mypy` in this environment is version 2.4.1 and reports 303 errors on this branch as of `87ec8a0` (`.venv/Scripts/python -m mypy app tools 2>&1 | tail -1` gives `Found 303 errors in 15 files`); the controller saw the same count on a master-based checkout. The gate used was "no new errors in touched files", not a clean run.
 
 9. `DeckSource.url` is an unvalidated string shown as a link in the deck editor (`frontend/src/pages/DeckEditor.tsx:369`). React blocks `javascript:` links and saving a deck is host-only, but decks can arrive from other players through LAN deck sharing. A server-side http(s) check is queued to be fixed before merge (not done yet).
 10. The art-keeper logs a stored deck's name (`backend/app/cards/art_keeper.py:149-158`). Names are cleaned when a deck is saved or imported, so a deck stored before that cleaning existed is the only uncovered case.
