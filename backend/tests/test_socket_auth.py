@@ -95,6 +95,8 @@ def test_first_message_that_is_not_auth_closes_4403(client: TestClient, table):
     "[1, 2]",
     "null",
     "\"auth\"",
+    "[" * 50000,  # nested past the interpreter's recursion limit: still the same refusal, no traceback
+    '{"a":' * 20000,
 ])
 def test_first_message_that_is_not_a_json_object_closes_4403(client: TestClient, table, payload: str):
     gid, _ = table
@@ -102,6 +104,25 @@ def test_first_message_that_is_not_a_json_object_closes_4403(client: TestClient,
         ws.send_text(payload)
         err = closed_with(ws)
     assert (err.code, err.reason) == (4403, games.AUTH_REFUSED)
+
+
+def test_a_deeply_nested_frame_after_auth_is_answered_as_malformed(client: TestClient, table, caplog: pytest.LogCaptureFixture):
+    gid, token = table
+
+    def answer(ws):  # (the table's own broadcasts may come first)
+        while (msg := ws.receive_json())["type"] not in {"error", "pong"}:
+            pass
+        return msg
+
+    with connect_game(client, gid, token) as ws:
+        ws.receive_json()
+        ws.send_text("[" * 50000)
+        assert answer(ws) == {"type": "error", "message": "Malformed message"}
+        ws.send_text('{"type":"ping","id":1,"pad":' + "[" * 20000)
+        assert answer(ws) == {"type": "error", "message": "Malformed message"}
+        ws.send_json({"type": "ping", "id": 2})
+        assert answer(ws) == {"type": "pong", "id": 2}  # the socket and the server keep working
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
 def test_oversize_first_message_closes_4403(client: TestClient, table):

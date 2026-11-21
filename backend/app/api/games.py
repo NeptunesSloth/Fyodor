@@ -1892,7 +1892,7 @@ async def _read_auth(websocket: WebSocket) -> tuple[str | None, str | None, bool
     if isinstance(raw, str) and len(raw) <= MAX_WS_MESSAGE:
         try:
             parsed = json.loads(raw)
-        except ValueError:
+        except (ValueError, RecursionError):  # (deeply nested JSON raises RecursionError, not ValueError)
             parsed = None
     if not isinstance(parsed, dict) or parsed.get("type") != "auth":
         await _refuse_socket(websocket)
