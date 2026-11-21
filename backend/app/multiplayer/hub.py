@@ -577,6 +577,11 @@ class GameHub:
                     log.debug("socket %s already closed", conn.id)
         return len(conns)
 
+    async def close_seat_connections(self, room: Room, player_id: str, reason: str) -> None:
+        """A seat's token was replaced or the seat was taken away: close that seat's sockets at once with 4403 (clients stop, they do not
+        reconnect). Only this seat's: never another seat's, nor a connection that is not on it."""
+        await self.drop_connections(room, player_id, code=4403, reason=reason)
+
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""
         seat = room.seats[pid]

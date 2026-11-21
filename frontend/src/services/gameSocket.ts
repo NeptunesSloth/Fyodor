@@ -63,11 +63,14 @@ type ServerMessage =
   | { type: "ack"; id: number | null; status?: "ACCEPTED" | "ALREADY_APPLIED" }
   | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
+  | { type: "ping" } // the server's heartbeat: answered with a pong
   | { type: "closed" }
   | ({ type: "signal" } & Signal)
   | ({ type: "cursor" } & CursorWire);
 
-const FATAL_CODES = new Set([4400, 4403, 4404]); // 4400: not this server's name; 4403: no seat here; 4404: no such game
+// 4400: not this server's name; 4403: no seat here; 4404: no such game. (Not fatal: 4408, silent too long, and 4429, too many sockets
+// open for this seat or address: both reconnect through the backoff below, which only a server message resets.)
+const FATAL_CODES = new Set([4400, 4403, 4404]);
 /** What a refused seat says, whatever reason the server gave (it gives the same one for every refusal). */
 export const SEAT_REFUSED = "Your seat is no longer valid here. Join again.";
 const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
@@ -354,6 +357,9 @@ export class GameConnection {
         this.handlers.onClosedByServer("The host closed this game.");
         break;
       case "pong":
+        break;
+      case "ping":
+        this.raw({ type: "pong" }); // (only after auth, like every send: raw)
         break;
       case "signal":
         this.handlers.onSignal?.(msg);

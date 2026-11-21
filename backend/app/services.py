@@ -37,7 +37,7 @@ from app.hostauth import SECRET_FILE, HostSecret
 from app.jobs import JobManager, ProgressFn
 from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
-from app.netguard import AttemptLimiter
+from app.netguard import AttemptLimiter, ConnectionCaps
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
 from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
@@ -94,6 +94,8 @@ class Services:
         self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes and passwords, by client address
         self.host_limiter_addr = AttemptLimiter(5, 900.0)  # wrong host secrets, by client address (the right one is never refused)
         self.join_limiter_room = AttemptLimiter(30, 900.0)  # wrong passwords, by room code (a room that exists)
+        self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
+        self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()

@@ -271,3 +271,12 @@ def test_a_slow_window_note_never_prints_the_host_secret(tmp_path, install_dir, 
     launcher.open_table(url, load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")}), watch=True)
     out = capsys.readouterr().out
     assert "hasn't appeared" in out and "http://127.0.0.1:8000" in out and "s3cret-value" not in out
+
+
+def test_the_server_is_built_with_a_frame_limit_just_above_the_message_limit(tmp_path):
+    """uvicorn would buffer a 16 MiB frame before the app's 64 KiB check ran; the transport limit is the message limit plus a margin."""
+    from app.api.games import MAX_WS_MESSAGE
+
+    options = launcher.server_options(load_settings({"FYODOR_DATA_DIR": str(tmp_path), "FYODOR_PORT": "8765"}))
+    assert MAX_WS_MESSAGE < options["ws_max_size"] <= MAX_WS_MESSAGE + 4096
+    assert (options["port"], options["log_level"]) == (8765, "info")

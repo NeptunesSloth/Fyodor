@@ -19,6 +19,7 @@ import urllib.request
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.config import FROZEN, Settings, install_dir, load_settings
 from app.hostauth import read_host_secret
@@ -320,6 +321,17 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+FRAME_MARGIN = 1024  # what the transport allows above a message's own limit (the app's check still decides)
+
+
+def server_options(settings: Settings) -> dict[str, Any]:
+    """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE) is refused as it arrives,
+    not after uvicorn has buffered up to 16 MiB of it (its default)."""
+    from app.api.games import MAX_WS_MESSAGE
+
+    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE + FRAME_MARGIN}
+
+
 def serve(settings: Settings, browser: bool = False) -> None:
     """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
     which is when a staged restore is applied (app/storage/backup.py). With ``browser``, each start opens the table in a window
@@ -334,7 +346,7 @@ def serve(settings: Settings, browser: bool = False) -> None:
         if browser:
             threading.Thread(target=_open_when_ready, args=(f"http://127.0.0.1:{settings.port}", settings, app.state.services.host_secret.value),
                              daemon=True).start()
-        server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port, log_level=settings.log_level.lower()))
+        server = uvicorn.Server(uvicorn.Config(app, **server_options(settings)))
 
         def request_restart(server: uvicorn.Server = server, again: threading.Event = again) -> None:
             again.set()

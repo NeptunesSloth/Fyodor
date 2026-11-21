@@ -133,3 +133,32 @@ class AttemptLimiter:
         if failures is None:
             return 1
         return max(1, math.ceil(failures[0] + self.window - self._clock()))
+
+
+class ConnectionCaps:
+    """How many connections one key (an address, a seat) may hold open at once: ``acquire`` takes a slot (False when ``per_key`` are
+    taken), ``release`` gives one back. The caller releases exactly what it acquired; a stray release never goes below zero. In memory."""
+
+    def __init__(self, per_key: int) -> None:
+        self.per_key = per_key
+        self._held: dict[str, int] = {}
+
+    def acquire(self, key: str) -> bool:
+        held = self._held.get(key, 0)
+        if held >= self.per_key:
+            return False
+        self._held[key] = held + 1
+        return True
+
+    def release(self, key: str) -> None:
+        held = self._held.get(key, 0)
+        if held > 1:
+            self._held[key] = held - 1
+        else:
+            self._held.pop(key, None)
+
+    def count(self, key: str) -> int:
+        return self._held.get(key, 0)
+
+    def total(self) -> int:
+        return sum(self._held.values())

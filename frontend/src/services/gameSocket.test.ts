@@ -165,3 +165,68 @@ describe("game connection authentication", () => {
     expect(statuses.at(-1)).toEqual(["closed", "Unknown host"]);
   });
 });
+
+describe("game connection heartbeat and caps", () => {
+  const handlers = (statuses: [string, string | undefined][] = []) => ({
+    onState: () => {},
+    onLobby: () => {},
+    onStatus: (status: string, detail?: string) => statuses.push([status, detail]),
+    onClosedByServer: () => {},
+  });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+    vi.stubGlobal("window", { location: { protocol: "http:", host: "table.local" } });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("answers the server's ping with a pong, and only after the server's first message", () => {
+    const conn = new GameConnection("g1", { token: "t" }, handlers());
+    conn.connect();
+    const ws = FakeSocket.last!;
+    ws.open();
+    ws.reply({ type: "ping" }); // (the first thing heard also proves the seat; here it is a ping)
+    expect(ws.sent.map((m) => m.type)).toEqual(["auth", "pong"]);
+    ws.reply({ type: "ping" });
+    expect(ws.sent.map((m) => m.type)).toEqual(["auth", "pong", "pong"]);
+    expect(ws.sent.at(-1)).toEqual({ type: "pong" });
+  });
+
+  it("reconnects after 4408 as usual", async () => {
+    const conn = new GameConnection("g1", { token: "t" }, handlers());
+    conn.connect();
+    const first = FakeSocket.last!;
+    first.open();
+    first.accept();
+    first.drop(4408, "Idle");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeSocket.last).not.toBe(first);
+  });
+
+  it("reconnects after 4429 with a delay that grows while the server keeps refusing", async () => {
+    const statuses: [string, string | undefined][] = [];
+    const conn = new GameConnection("g1", { token: "t" }, handlers(statuses));
+    conn.connect();
+    let ws = FakeSocket.last!;
+    const gaps: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      ws.open(); // opened, authenticated, and closed 4429 before the server said anything: the backoff is not reset
+      ws.drop(4429, "Too many connections");
+      let waited = 0;
+      while (FakeSocket.last === ws && waited < 20000) {
+        await vi.advanceTimersByTimeAsync(50);
+        waited += 50;
+      }
+      expect(FakeSocket.last).not.toBe(ws); // (it did reconnect: 4429 is not fatal)
+      gaps.push(waited);
+      ws = FakeSocket.last!;
+    }
+    expect(gaps[1]).toBeGreaterThan(gaps[0]);
+    expect(gaps[2]).toBeGreaterThan(gaps[1]);
+    expect(gaps[3]).toBeGreaterThan(gaps[2]);
+    expect(statuses.some(([s]) => s === "closed")).toBe(false);
+  });
+});

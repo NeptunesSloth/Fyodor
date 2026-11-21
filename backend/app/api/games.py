@@ -158,9 +158,9 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
     if action.get("type") == "remove_player":
         pid = str(action.get("player"))
         if pid in room.seats:
-            await services.hub.drop_connections(room, pid, code=4403, reason="You left the table")
-            room.seats[pid].token = None
+            room.seats[pid].token = None  # (first: a socket that reconnects in the meantime no longer has a seat)
             services.hub.persist(room)
+            await services.hub.close_seat_connections(room, pid, "You left the table")
 
 
 def _check_table_open(room: Room, action_type: str | None = None) -> None:
@@ -1135,6 +1135,7 @@ async def leave_lobby(
         raise HTTPException(409, "The host can't leave their own table (close the game instead)")
     services.handoffs.drop_seat(room.id, x_seat_token)  # -- bring my decks --
     services.hub.release_seat(room, viewer)
+    await services.hub.close_seat_connections(room, viewer, "You left the table")
     await _lobby_changed(services, room)
     return Response(status_code=204)
 
@@ -1184,10 +1185,9 @@ async def kick_player(
     if body.seat == room.host_seat:
         raise HTTPException(409, "You can't kick yourself")
     await services.hub.send_to(room, body.seat, {"type": "kicked"})
-    for conn in [c for c in room.connections.values() if c.viewer == body.seat]:
-        conn.viewer, conn.actor = SPECTATOR, None
     services.handoffs.drop_seat(room.id, room.seats[body.seat].token)  # -- bring my decks --
     services.hub.release_seat(room, body.seat)
+    await services.hub.close_seat_connections(room, body.seat, "The host removed you from this table")
     room.seats[body.seat].connections = 0
     await _lobby_changed(services, room)
     return _lobby_response(room, viewer, host)
@@ -1753,8 +1753,8 @@ async def host_seat_link(game_id: str, body: SeatRef, request: Request, services
         raise HTTPException(409, "That player has left the table")
     if room.seats[body.seat].bot:
         raise HTTPException(409, "A bot plays that seat")  # -- LAN bots -- (its token is the server's)
-    await services.hub.drop_connections(room, body.seat, code=4403, reason="The host gave this seat to someone else")
-    token = services.hub.reissue_seat(room, body.seat)
+    token = services.hub.reissue_seat(room, body.seat)  # (first: the old token fails a new connection before the old sockets are gone)
+    await services.hub.close_seat_connections(room, body.seat, "The host gave this seat to someone else")
     await services.hub.broadcast(room)
     return {"seat": body.seat, "token": token, "path": f"/#/game/{room.id}?seat_token={token}"}
 
@@ -1805,6 +1805,16 @@ class WsCursor(BaseModel):
 
 
 CURSOR_MESSAGE: TypeAdapter[WsCursor] = TypeAdapter(WsCursor)
+
+
+def _is_pong(raw: str) -> bool:
+    """The client's answer to a server ping: exactly {"type":"pong"} (always tiny, so told apart before the action limiter)."""
+    if len(raw) > 32 or '"pong"' not in raw:
+        return False
+    try:
+        return json.loads(raw) == {"type": "pong"}
+    except ValueError:
+        return False
 
 
 def _cursor_message(raw: str) -> WsCursor | None:
@@ -1860,6 +1870,9 @@ class _RateLimiter:
 
 
 AUTH_DEADLINE = 5.0  # seconds a new socket has to send its auth message
+TOO_MANY = "Too many connections"  # close 4429: this seat or this address has as many sockets open as it may
+PING_EVERY = 25.0  # seconds between the server's {"type":"ping"} (a client answers with {"type":"pong"}; the page's own ping counts too)
+IDLE_CLOSE = 90.0  # seconds without any message from the client before its socket is closed 4408 (a phone that went to sleep)
 AUTH_REFUSED = "Not authorized"  # the one reason every failed authentication closes with
 MAX_AUTH_FIELD = 256
 
@@ -1913,6 +1926,19 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     if not origin_ok(websocket):
         await websocket.close(code=4403, reason="Cross-site connection refused")
         return
+    # one slot per socket from here to the end, authenticated or not (a flood of silent sockets is bounded in number as well as in time);
+    # taken before accept(), so a refused upgrade costs nothing, and given back in this finally on every way out
+    address = client_address(websocket)
+    if not services.caps_addr.acquire(address):
+        await websocket.close(code=4429, reason=TOO_MANY)
+        return
+    try:
+        await _serve_game_socket(websocket, game_id, services)
+    finally:
+        services.caps_addr.release(address)
+
+
+async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Services) -> None:
     await websocket.accept()
     # nothing is attached to the room, and nothing is sent, until the first message has proved a seat (or the host's table view);
     # every way of failing closes the same way, so the close tells a prober nothing about which check it failed or whether the game exists
@@ -1939,16 +1965,39 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
 
     conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(token), close=close, token=token,
                       deltas=deltas)  # -- view deltas -- (app/multiplayer/view_delta.py)
-    services.hub.connect(room, conn)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
     cursor_shown = False
+    # a seat's sockets are capped (a hot-seat table is one browser, one seat per view: only the address cap there); this is the key that
+    # was acquired, whatever seat the connection is later moved to, and the finally below gives it back
+    seat_key = f"{game_id}:{viewer}" if viewer in room.seats and room.mode != "local" else None
+    if seat_key is not None and not services.caps_seat.acquire(seat_key):
+        await websocket.close(code=4429, reason=TOO_MANY)
+        return
     try:
+        services.hub.connect(room, conn)
         await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
         await send(services.hub.full(conn, services.hub.message(room, viewer, host=conn.host)))
         await services.hub.broadcast(room)  # others see the connection indicator
+        last_heard = next_ping = time.monotonic()
+        next_ping += PING_EVERY
         while True:
-            raw = await websocket.receive_text()
+            # the server pings every PING_EVERY, and a client heard from at all (any message) within IDLE_CLOSE is alive; there is no
+            # timer task: the wait for the next message is what times out
+            now = time.monotonic()
+            if now - last_heard >= IDLE_CLOSE:
+                await close(4408, "Idle")
+                break
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), max(0.0, min(next_ping, last_heard + IDLE_CLOSE) - now))
+            except TimeoutError:
+                if time.monotonic() >= next_ping:
+                    next_ping = time.monotonic() + PING_EVERY
+                    await send({"type": "ping"})  # (nothing but the word: no game state, no revision)
+                continue
+            last_heard = time.monotonic()
+            if _is_pong(raw):
+                continue  # the answer to the server's ping: activity, nothing more (it never meets the limiter)
             if len(raw) > MAX_WS_MESSAGE:
                 await send({"type": "error", "message": "Message too large"})
                 continue
@@ -1963,9 +2012,12 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
                 await send({"type": "error", "message": "Slow down"})
                 continue
             await _handle_ws_message(services, room, conn, raw, send)
+            last_heard = time.monotonic()
     except WebSocketDisconnect:
         pass
     finally:
+        if seat_key is not None:
+            services.caps_seat.release(seat_key)
         services.hub.disconnect(room, conn)
         if services.hub.get(game_id) is room:
             if cursor_shown and conn.actor is not None:  # -- live cursors -- they left the table: their pointer goes too
