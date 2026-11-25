@@ -33,7 +33,9 @@ def definition(ability: Any,ch: Any) -> dict[str,Any] | None:
         return {**native,'effects':[{**effect,'link':True} for effect in native['effects']]+token[0]}
     if text=="{1}{r}{w}, {t}, sacrifice a spirit: choose target card exiled with ~. you may cast that card this turn without paying its mana cost. if that spell would be put into a graveyard, put it on the bottom of its owner's library instead":
         native=scripts.define(replace(ability,text="{1}{R}{W}, {T}, Sacrifice a Spirit: Return target card exiled with ~ to the battlefield under your control."),ch)
-        assert native is not None
+        # -- lent abilities -- 607.2a/607.5: on an object with no exiling ability to link to (and no lending path's scope), the text is manual
+        if native is None:
+            return None
         return {**native,'effects':[{'do':'exile_outcomes44_quintorius','binding':'ref:quintorius44'}]}
     if text=="at the beginning of your upkeep, choose an opponent at random. exile the top card of that player's library. until end of turn, you may play that card and you may spend mana as though it were mana of any color to cast it. when you cast a spell this way, its owner loses life equal to its mana value":
         native=scripts.define(replace(ability,text='At the beginning of your upkeep, you gain 1 life.'),ch)
