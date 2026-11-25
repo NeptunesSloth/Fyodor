@@ -13,6 +13,7 @@ import secrets
 from pathlib import Path
 
 HOST_COOKIE = "fyodor_host"
+HOST_COOKIE_SECURE = "__Host-fyodor_host"  # over https: the browser only takes it Secure, Path=/, with no Domain (no sibling host can set it)
 SECRET_FILE = "host.secret"
 
 

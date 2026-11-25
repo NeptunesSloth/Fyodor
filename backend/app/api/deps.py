@@ -4,7 +4,7 @@ import ipaddress
 
 from fastapi import HTTPException, Request, WebSocket
 
-from app.hostauth import HOST_COOKIE
+from app.hostauth import HOST_COOKIE, HOST_COOKIE_SECURE
 from app.netguard import host_allowed, origin_allowed
 from app.services import Services
 
@@ -87,7 +87,7 @@ def is_host_request(request: Request | WebSocket) -> bool:
     """The host's browser, and only it: the one holding the host secret in its cookie (app/hostauth.py). Neither the peer address
     nor X-Forwarded-For is read: behind a tunnel every remote player connects from loopback, and a header can say anything."""
     services: Services = request.app.state.services
-    return services.host_secret.matches(request.cookies.get(HOST_COOKIE))
+    return services.host_secret.matches(request.cookies.get(HOST_COOKIE_SECURE)) or services.host_secret.matches(request.cookies.get(HOST_COOKIE))
 
 
 def require_host(request: Request) -> None:

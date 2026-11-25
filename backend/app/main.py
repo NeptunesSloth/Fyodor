@@ -42,10 +42,20 @@ from app.storage import backup, package, taught, update
 log = logging.getLogger(__name__)
 
 # Everything is served from this origin; no third-party scripts, fonts or trackers.
-CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-    "connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
-)
+_CSP_HEAD = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+_CSP_TAIL = "; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+_CSP_HOST = re.compile(r"[a-z0-9.\-\[\]:]+", re.ASCII)  # what a Host that host_ok accepted can look like; nothing else is ever echoed
+
+
+def csp(host_header: str | None) -> str:
+    """The policy, its connect-src naming this host (the game socket) rather than any ws:/wss: (older Safari and in-app WebViews do not
+    all match ws:/wss: with 'self'). `host_header` must be a Host that host_ok accepted; anything absent or odd gives 'self' only."""
+    host = (host_header or "").strip().lower()
+    sockets = f" ws://{host} wss://{host}" if _CSP_HOST.fullmatch(host) else ""
+    return f"{_CSP_HEAD}connect-src 'self'{sockets}{_CSP_TAIL}"
+
+
+CSP = csp(None)
 
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -184,7 +194,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("Content-Security-Policy", CSP)
+        response.headers.setdefault("Content-Security-Policy", csp(request.headers.get("host") if host_ok(request) else None))
         if is_https(request):  # never over plain http (a browser would hold the host to https): no includeSubDomains, no preload
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response

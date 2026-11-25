@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from app.api.deps import client_address, get_services, is_host_request, is_https, too_many_attempts
-from app.hostauth import HOST_COOKIE
+from app.hostauth import HOST_COOKIE, HOST_COOKIE_SECURE
 from app.services import Services
 
 router = APIRouter(tags=["host"])
@@ -31,8 +31,9 @@ def claim_host_session(body: SessionBody, request: Request, services: ServicesDe
         raise HTTPException(403, "That is not this server's host secret")
     response = Response(status_code=204)
     # (no max-age: it ends with the browser session, and the secret itself ends with the server)
-    response.set_cookie(HOST_COOKIE, services.host_secret.value, httponly=True, samesite="strict", path="/",
-                        secure=is_https(request))
+    https = is_https(request)  # (the __Host- name only over https: a browser refuses it on plain http, where it could not be Secure)
+    response.set_cookie(HOST_COOKIE_SECURE if https else HOST_COOKIE, services.host_secret.value, httponly=True, samesite="strict",
+                        path="/", secure=https)
     return response
 
 
