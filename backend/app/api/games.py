@@ -1898,14 +1898,6 @@ async def _refuse_socket(websocket: WebSocket) -> None:
     await websocket.close(code=4403, reason=AUTH_REFUSED)
 
 
-def _legacy_credentials(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
-    """FYODOR_LEGACY_WS_TOKEN=1 only: a client that still puts its seat token in the query string (the token is then in URLs and logs)."""
-    params = websocket.query_params
-    if "token" not in params:
-        return None
-    return params.get("token"), params.get("viewer"), params.get("deltas") == "1"
-
-
 async def _read_auth(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
     """The first message of a socket: ``{"type":"auth","token":str|null,"viewer":str|null,"deltas":bool}``. Returns (token, viewer,
     deltas), or None after closing the socket (anything else, or nothing within AUTH_DEADLINE). Never logs what it was sent."""
@@ -1959,11 +1951,9 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
     await websocket.accept()
     # nothing is attached to the room, and nothing is sent, until the first message has proved a seat (or the host's table view);
     # every way of failing closes the same way, so the close tells a prober nothing about which check it failed or whether the game exists
-    credentials = _legacy_credentials(websocket) if services.settings.legacy_ws_token else None
+    credentials = await _read_auth(websocket)  # (a ?token= in the address is not credentials, ever)
     if credentials is None:
-        credentials = await _read_auth(websocket)
-        if credentials is None:
-            return
+        return
     token, requested_viewer, deltas = credentials
     room = services.hub.get(game_id)
     try:

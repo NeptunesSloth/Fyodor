@@ -9,7 +9,7 @@ Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/spe
 
 **What a request or socket must pass (`netguard.py`, `main.py`, `api/games.py`)**
 - A `Host` the server does not answer to is refused (400, DNS rebinding); a state-changing request that is cross-site, or whose `Origin` is not this server's own, is refused (403). The Origin must equal its own `scheme://host[:port]` form, nothing looser. `FYODOR_EXTRA_HOSTS` is validated at start.
-- The game socket takes no token in its address: the first message carries it, within 5 seconds, and every failure closes 4403. Seat links keep the token after the `#`. `FYODOR_LEGACY_WS_TOKEN=1` brings the old form back (off by default).
+- The game socket takes no token in its address: the first message carries it, within 5 seconds, and every failure closes 4403. Seat links keep the token after the `#`. A `?token=` in the address is ignored (the old `FYODOR_LEGACY_WS_TOKEN` switch is gone).
 - Guess limits: five wrong codes or passwords per address per 15 minutes, 30 wrong passwords per room; a right secret is never refused. Passwords use PBKDF2 at 600,000 rounds, upgraded on next use.
 - Sockets: four per seat, 24 per address, a ping every 25 seconds and a close after 90 silent ones, frames limited in bytes, a reclaimed seat's old sockets closed. Remembered action ids are per seat (migration 14).
 - Responses: HSTS only over https (directly, or from a trusted proxy), `/docs`, `/redoc` and `/openapi.json` only with `FYODOR_DEV_TOOLS=1`, the host cookie `Secure` over https.

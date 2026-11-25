@@ -235,5 +235,5 @@ Environment variables (set them before starting the launcher; the defaults are r
 |---|---|
 | `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. |
 | `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's own names (its name, with `.local`, and its full name on the network). None by default; a bad entry stops Fyodor at start. |
-| `FYODOR_LEGACY_WS_TOKEN` | `1` lets an old client put its seat token in the socket's address. Off by default; keep it off, a token in an address can end up in logs and history. |
-| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). |
+| `FYODOR_CORS_ORIGINS` | Comma-separated origins (`https://host`) besides Fyodor's own that may post and open sockets. None by default. |
+| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). It also trusts the Vite dev server's origins (`http://localhost:5173`, `http://127.0.0.1:5173`) unless `FYODOR_CORS_ORIGINS` is set. |

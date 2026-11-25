@@ -53,13 +53,18 @@ def _bool(value: str | None, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+DEV_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+
+
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path
     host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "INFO"
-    cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+    # origins besides the server's own that may post and open sockets (FYODOR_CORS_ORIGINS); none by default. With FYODOR_DEV_TOOLS=1
+    # and no FYODOR_CORS_ORIGINS, the Vite dev server's (see load_settings)
+    cors_origins: tuple[str, ...] = ()
     frontend_dist: Path | None = None
     autosave_every: int = 10
     history_limit: int = 500
@@ -83,8 +88,6 @@ class Settings:
     # host names (besides IP addresses, localhost and this computer's name) this server answers to, lower-case, no ports
     # (FYODOR_EXTRA_HOSTS); see app/netguard.py
     extra_hosts: tuple[str, ...] = ()
-    # the game socket's seat token in the query string (old clients; it ends up in URLs and logs): only FYODOR_LEGACY_WS_TOKEN=1
-    legacy_ws_token: bool = False
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -143,15 +146,19 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     data_dir = Path(get("DATA_DIR") or (DATA_ROOT / "data")).expanduser().resolve()
     dist = get("FRONTEND_DIST")
     frontend_dist = Path(dist).expanduser().resolve() if dist else REPO_ROOT / "frontend" / "dist"
+    dev_tools = _bool(get("DEV_TOOLS"), False)
     cors = get("CORS_ORIGINS")
+    cors_origins = (
+        tuple(o.strip() for o in cors.split(",") if o.strip())
+        if cors
+        else DEV_ORIGINS if dev_tools else ()  # the Vite dev server's origins are trusted only in development
+    )
     return Settings(
         data_dir=data_dir,
         host=get("HOST") or "127.0.0.1",
         port=int(get("PORT") or 8000),
         log_level=(get("LOG_LEVEL") or "INFO").upper(),
-        cors_origins=tuple(o.strip() for o in cors.split(",") if o.strip())
-        if cors
-        else Settings.__dataclass_fields__["cors_origins"].default,  # type: ignore[arg-type]
+        cors_origins=cors_origins,
         frontend_dist=frontend_dist if frontend_dist.is_dir() else None,
         autosave_every=int(get("AUTOSAVE_EVERY") or 10),
         history_limit=int(get("HISTORY_LIMIT") or 500),
@@ -160,11 +167,10 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         allow_network=_bool(get("ALLOW_NETWORK"), True),
         auto_backup_minutes=int(get("AUTO_BACKUP_MINUTES") or 30),
         backup_copy_dir=Path(copy_dir).expanduser().resolve() if (copy_dir := get("BACKUP_COPY_DIR")) else None,
-        dev_tools=_bool(get("DEV_TOOLS"), False),
+        dev_tools=dev_tools,
         discovery=_bool(get("DISCOVERY"), True),
         discovery_port=int(get("DISCOVERY_PORT") or 47474),
         trusted_proxies=_proxies(get("TRUSTED_PROXIES")),
-        legacy_ws_token=get("LEGACY_WS_TOKEN") == "1",
         extra_hosts=_extra_hosts(get("EXTRA_HOSTS")),
         art_dirs=tuple(Path(d.strip().strip('"')).expanduser() for d in (get("ART_DIRS") or "").split(os.pathsep) if d.strip()),
     )
