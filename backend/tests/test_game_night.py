@@ -8,7 +8,7 @@ import time
 import pytest
 
 from app.multiplayer.night import Night, roll_order, winner_last
-from tests.conftest import connect_game
+from tests.conftest import connect_game, guest
 from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of
 
 # --------------------------------------------------------------------------- pure turn-order rules
@@ -209,6 +209,23 @@ def test_hot_seat_rematch_and_no_lobby(client):
     assert res.json()["decision"] == "rematch"
     state = client.app.state.services.hub.get(gid).session.state
     assert [state.players[p].name for p in state.seat_order] == ["Bob", "Alice"]
+
+
+def test_only_the_host_forces_the_vote_on_a_hot_seat_table(client):
+    # a hot-seat table is the host's own: settling its vote is a host power. The game id is not a secret (pod results list it), so a
+    # caller without the host cookie (and without an Origin, which the origin guard lets through) must still be refused.
+    decks = [client.post("/api/decks", json={"text": text}).json()["id"] for text in (ALICE_DECK, BOB_DECK)]
+    res = client.post("/api/games", json={"name": "Home", "mode": "local", "players": [
+        {"name": n, "deck_id": d} for n, d in zip(("Alice", "Bob"), decks, strict=True)]})
+    gid = res.json()["game"]["id"]
+    assert client.post(f"/api/games/{gid}/result", json={"result_type": "single", "winners": ["p1"]}).status_code == 201
+    listed = client.get("/api/pod/results", headers=guest(client)).json()
+    assert gid in str(listed)  # how a stranger learns the id
+    res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch", "force": True}, headers=guest(client))
+    assert res.status_code == 403, res.text
+    assert client.app.state.services.hub.get(gid).night.number == 1  # not re-dealt
+    res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch", "force": True})  # the host still may
+    assert res.status_code == 200 and res.json()["decision"] == "rematch"
 
 
 def test_order_permutations_cover_every_tie_shape():

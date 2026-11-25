@@ -157,7 +157,8 @@ async def vote(game_id: str, body: VoteIn, request: Request, services: ServicesD
         if room.game is None or night.result is None:
             raise HTTPException(409, "The game isn't over yet")
         if body.force:
-            if room.mode == "lan" and not room.is_host(x_seat_token):
+            # a LAN table's host holds the room's host token; a hot-seat table is the host computer's own (the host cookie)
+            if (room.mode == "lan" and not room.is_host(x_seat_token)) or (room.mode == "local" and not is_local_request(request)):
                 raise HTTPException(403, "Only the host can settle the vote")
             decision: str | None = body.choice
         else:
