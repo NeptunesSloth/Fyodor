@@ -245,6 +245,8 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return (("LANDS",),)
     if effect in ("Add one mana of any of this creature's colors", "Add one mana of any of ~'s colors", "Add one mana of any of its colors"):  # -- counters (wave 44C) -- Katilda, Dawnhart Prime (read in casting.mana_abilities)
         return (("OWN_COLORS",),)
+    if effect == "Add one mana of any of this permanent's colors":  # -- lent abilities -- the lent wording (abilities_of._lent): the bearer's colors (201.5b)
+        return (("OWN_COLORS",),)
     if effect in ("Add one mana of any of the exiled card's colors", "Add one mana of any of the exiled cards' colors"):  # -- imprint (wave 51B) -- Chrome Mox, Pit of Offerings: the colors of what the linked exile ability put there (607.2a; casting._resolve_options)
         return (("EXILED_COLORS",),)
     # -- mana (wave 19E) -- "any color that a land / basic land / Gate you control could produce", "any type that a Gate …":

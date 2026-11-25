@@ -5359,8 +5359,26 @@ def _first_time_gate(text: str) -> str:
     return f"{event} for the first time each turn{m['during'] or ''}, {m['rest']}" if ok else text
 
 
+_LENT = threading.local()  # -- lent abilities -- set while one lent ability is being read (its nested readings aren't retried)
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    if ability.borrowed_origin and not getattr(_LENT, "on", False):
+        # -- lent abilities -- read as lent, else as "this creature" (abilities_of.as_creature); the link scope (607.5) opens the whole reading once, so
+        # a reader that patches the native reading of a probe wording ("{2}{B}, {T}: Put target creature card …") sees the lender's own effects
+        from app.rules import abilities_of
+
+        if abilities_of.unsettled(ability):
+            return None
+        _LENT.on = True
+        try:
+            d = define(ability, ch)
+            if d is None and (alt := abilities_of.as_creature(ability, ch)) is not None:
+                d = define(alt, ch)
+        finally:
+            _LENT.on = False
+        return abilities_of.scope_definition(d, ability)
     if (hooked := hooks.DEFINE[0].first(ability, ch)) is not None:  # (app/rules/hooks.py)
         return hooked
     from app.rules import wave110g_spires  # -- wave 110G --
@@ -5850,7 +5868,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = copying.with_this_ability(d, ability, ch)
     if d is not None and d.get("kind") == "spell" and any(e.get("do") == "token_copy" and '"other":true' in str(e.get("who")) for e in d.get("effects") or []):
         return None  # -- token copies (wave 31C) -- "for each other …": other than the permanent whose ability it is — a spell has none on the battlefield (kept refused)
-    return abilities_of.scope_definition(d, ability)
+    return d if getattr(_LENT, "on", False) else abilities_of.scope_definition(d, ability)  # (-- lent abilities -- scoped once, by ``define``)
 
 
 # -- as long as (wave 35D) -- 604.2, 611.3a: "As long as ~ is untapped, if a creature would deal combat damage to you, prevent 1 of that damage."

@@ -49,5 +49,436 @@
   "keywords": [],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Koh, the Face Stealer",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Shapeshifter Spirit",
+  "oracle_text": "When Koh enters, exile up to one other target creature.\nWhenever another nontoken creature dies, you may exile it.\nPay 1 life: Choose a creature card exiled with Koh.\nKoh has all activated and triggered abilities of the last chosen card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Innocent Bystander",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Citizen",
+  "oracle_text": "Whenever this creature is dealt 3 or more damage, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Investigate"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Coffin Queen",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Zombie Wizard",
+  "oracle_text": "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. When this creature becomes untapped or you lose control of this creature, exile that creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ludevic, Necrogenius // Olag, Ludevic's Hubris",
+  "layout": "transform",
+  "mana_cost": null,
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard // Legendary Creature — Zombie",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Transform",
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Ludevic, Necrogenius",
+    "mana_cost": "{U}{B}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Whenever Ludevic enters or attacks, mill a card.\n{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "B",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "normal": "https://cards.scryfall.io/normal/front/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "large": "https://cards.scryfall.io/large/front/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344"
+    }
+   },
+   {
+    "name": "Olag, Ludevic's Hubris",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Zombie",
+    "oracle_text": "As this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "normal": "https://cards.scryfall.io/normal/back/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "large": "https://cards.scryfall.io/large/back/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/6/1/61a15b38-30f9-4d8e-9511-57a1c11304d0.jpg?1783924344"
+    }
+   }
+  ],
+  "image_uris": null
+ },
+ {
+  "name": "Nezumi Shortfang // Stabwhisker the Odious",
+  "layout": "flip",
+  "mana_cost": null,
+  "cmc": 2.0,
+  "type_line": "Creature — Rat Rogue // Legendary Creature — Rat Shaman",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Nezumi Shortfang",
+    "mana_cost": "{1}{B}",
+    "type_line": "Creature — Rat Rogue",
+    "oracle_text": "{1}{B}, {T}: Target opponent discards a card. Then if that player has no cards in hand, flip this creature.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Stabwhisker the Odious",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Rat Shaman",
+    "oracle_text": "At the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.",
+    "power": "3",
+    "toughness": "3"
+   }
+  ],
+  "image_uris": null
+ },
+ {
+  "name": "Evershrike",
+  "layout": "normal",
+  "mana_cost": "{3}{W/B}{W/B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elemental Spirit",
+  "oracle_text": "Flying\nThis creature gets +2/+2 for each Aura attached to it.\n{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield attached to it. If you don't, exile this creature.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Everflame Eidolon",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment Creature — Spirit",
+  "oracle_text": "Bestow {2}{R} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\n{R}: This creature gets +1/+0 until end of turn. If it's an Aura, enchanted creature gets +1/+0 until end of turn instead.\nEnchanted creature gets +1/+1.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Bestow"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Gelatinous Cube",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Ooze",
+  "oracle_text": "Engulf — When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield.\nDissolve — {X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Sunbird Standard // Sunbird Effigy",
+  "layout": "transform",
+  "mana_cost": null,
+  "cmc": 3.0,
+  "type_line": "Artifact // Artifact Creature — Bird Construct",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Craft",
+   "Vigilance",
+   "Transform",
+   "Haste"
+  ],
+  "card_faces": [
+   {
+    "name": "Sunbird Standard",
+    "mana_cost": "{3}",
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add one mana of any color.\nCraft with one or more {5} ({5}, Exile this artifact, Exile one or more other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "normal": "https://cards.scryfall.io/normal/front/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "large": "https://cards.scryfall.io/large/front/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725"
+    }
+   },
+   {
+    "name": "Sunbird Effigy",
+    "mana_cost": "",
+    "type_line": "Artifact Creature — Bird Construct",
+    "oracle_text": "Flying, vigilance, haste\nSunbird Effigy's power and toughness are each equal to the number of colors among the exiled cards used to craft it.\n{T}: For each color among the exiled cards used to craft this creature, add one mana of that color.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "normal": "https://cards.scryfall.io/normal/back/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "large": "https://cards.scryfall.io/large/back/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/e/0/e0b6d40a-fded-4625-b03c-765c88d75766.jpg?1783913725"
+    }
+   }
+  ],
+  "image_uris": null
+ },
+ {
+  "name": "Kianne, Dean of Substance // Imbraham, Dean of Theory",
+  "layout": "modal_dfc",
+  "mana_cost": null,
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Druid // Legendary Creature — Bird Wizard",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "card_faces": [
+   {
+    "name": "Kianne, Dean of Substance",
+    "mana_cost": "{2}{G}",
+    "type_line": "Legendary Creature — Elf Druid",
+    "oracle_text": "{T}: Exile the top card of your library. If it's a land card, put it into your hand. Otherwise, put a study counter on it.\n{4}{G}: Create a 0/0 green and blue Fractal creature token. Put a +1/+1 counter on it for each different mana value among nonland cards you own in exile with study counters on them.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "normal": "https://cards.scryfall.io/normal/front/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "large": "https://cards.scryfall.io/large/front/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246"
+    }
+   },
+   {
+    "name": "Imbraham, Dean of Theory",
+    "mana_cost": "{2}{U}{U}",
+    "type_line": "Legendary Creature — Bird Wizard",
+    "oracle_text": "Flying\n{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them. Then you may put a card you own in exile with a study counter on it into your hand.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "normal": "https://cards.scryfall.io/normal/back/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "large": "https://cards.scryfall.io/large/back/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/d/1d96ade2-fb2a-420e-a14f-e96c47f903ce.jpg?1783927246"
+    }
+   }
+  ],
+  "image_uris": null
+ },
+ {
+  "name": "Hylda of the Icy Crown",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "Whenever you tap an untapped creature an opponent controls, you may pay {1}. When you do, choose one —\n• Create a 4/4 white and blue Elemental creature token.\n• Put a +1/+1 counter on each creature you control.\n• Scry 2, then draw a card.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Scry"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Katilda, Dawnhart Prime",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "Protection from Werewolves\nHuman creatures you control have \"{T}: Add one mana of any of this creature's colors.\"\n{4}{G}{W}, {T}: Put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Protection"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Cosima, God of the Voyage // The Omenkeel",
+  "layout": "modal_dfc",
+  "mana_cost": null,
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — God // Legendary Artifact — Vehicle",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Crew"
+  ],
+  "card_faces": [
+   {
+    "name": "Cosima, God of the Voyage",
+    "mana_cost": "{2}{U}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "At the beginning of your upkeep, you may exile Cosima. If you do, it gains \"Whenever a land you control enters, if Cosima is exiled, you may put a voyage counter on it. If you don't, return Cosima to the battlefield with X +1/+1 counters on it and draw X cards, where X is the number of voyage counters on it.\"",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "normal": "https://cards.scryfall.io/normal/front/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "large": "https://cards.scryfall.io/large/front/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158"
+    }
+   },
+   {
+    "name": "The Omenkeel",
+    "mana_cost": "{1}{U}",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Whenever a Vehicle you control deals combat damage to a player, that player exiles that many cards from the top of their library. You may play lands from among those cards for as long as they remain exiled.\nCrew 1",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "normal": "https://cards.scryfall.io/normal/back/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "large": "https://cards.scryfall.io/large/back/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/b/9b660733-6ed4-49a6-ae4c-e9e4f9c851cf.jpg?1783928158"
+    }
+   }
+  ],
+  "image_uris": null
+ },
+ {
+  "name": "Idris, Soul of the TARDIS",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Incarnation",
+  "oracle_text": "Vanishing 3\nImprint — When Idris enters, exile another artifact you control until Idris leaves the battlefield.\nIdris has all activated and triggered abilities of the exiled card and gets +X/+X, where X is the exiled card's mana value.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Vanishing",
+   "Imprint"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Phyrexian Processor",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "As this artifact enters, pay any amount of life.\n{4}, {T}: Create an X/X black Phyrexian Minion creature token, where X is the life paid as this artifact entered.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

@@ -173,6 +173,36 @@ def manual(ability: AbilityText) -> bool:
     return bool(prior_choice and not own_choice)
 
 
+# -- lent abilities -- the lent text names its object "this permanent" (``_lent``: the lender's name, 201.5b, and its "this creature"). Many readers
+# match the lender's Oracle wording itself ("When this creature enters, …"), so a lent ability no reader knows as "this permanent" is read again as
+# "this creature" — but only on a borrower that is a creature, where both words name the same object (113.10: the borrower has the ability itself).
+# Refused there (kept manual) whatever a reader makes of it: text whose meaning on another object is unsettled — turning the object over (transform,
+# convert, flip: 701.27c, 701.28c, 710 — only a double-faced or flip card does), "this card" (an ability that works from another zone, 113.6m), a
+# branch on what the object is ("If it's an Aura, …"), craft materials (702.167c: the cards exiled to craft *this* permanent), an ability of the object
+# in exile ("if this permanent is exiled": Cosima, 113.6) and every linked or named wording (607.2, 607.5, 201.5b: ``_LINKED_TEXT``, manual by design).
+_AS_CREATURE_REFUSED = re.compile(r"\b(?:transform|convert|flip)(?:s|ed)?\b|\bthis card\b|\bif it's an? [a-z]+\b|\bcraft|\bthis permanent is exiled\b|\bnote\b|"
+                                  + _LINKED_TEXT.pattern, re.IGNORECASE)
+
+
+# -- lent abilities -- whatever reads it: a cost paid "as this permanent entered" (or was cast) is linked to the lender's own entering ability (607.2g,
+# 607.2j), which isn't lent — on the borrower the cost is undefined (607.5a's reading for a choice; unsettled for a cost): manual
+_UNSETTLED = re.compile(r"\bas this permanent (?:entered|was cast)\b", re.IGNORECASE)
+
+
+def unsettled(ability: AbilityText) -> bool:
+    """-- lent abilities -- a lent ability no reading may automate (``_UNSETTLED``)."""
+    return bool(ability.borrowed_origin) and _UNSETTLED.search(ability.text) is not None
+
+
+def as_creature(ability: AbilityText, ch: Characteristics) -> AbilityText | None:
+    """-- lent abilities -- the lent ``ability`` with "this permanent" read as "this creature" (None: not lent, not a creature, or refused)."""
+    if not ability.borrowed_origin or "Creature" not in ch.types or not re.search(r"\b[Tt]his permanent\b", ability.text) \
+            or _AS_CREATURE_REFUSED.search(ability.text):
+        return None
+    text = re.sub(r"\b([Tt])his permanent\b", lambda m: f"{m[1]}his creature", ability.text)
+    return replace(ability, text=text, cost=None if ability.cost is None else re.sub(r"\b([Tt])his permanent\b", lambda m: f"{m[1]}his creature", ability.cost))
+
+
 def link_scope(ability: AbilityText) -> str | None:
     if not ability.borrowed_origin:
         return None
@@ -246,9 +276,9 @@ def modal_definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any
     # stubs from overlapping another real inherited ability's public identity.
     virtual = replace(ch, abilities=tuple(lines))
     d = modal_abilities.definitions(lines[0], virtual).get(lines[0].index)
-    if d is None:
+    if d is None or "modal" not in d:  # -- lent abilities -- (a reflexive "When you do, choose one —" reads its modes elsewhere: lent, it stays manual)
         return None
-    return scope_definition({**d, 'modal': {**d['modal'], 'index': ability.index}}, ability)
+    return {**d, 'modal': {**d['modal'], 'index': ability.index}}  # (-- lent abilities -- scoped by scripts.define, once)
 
 
 def _lent(plan: Plan, lender: CardInstance, no_mana: bool, loyalty: bool = False, triggered: bool = False) -> list[AbilityText]:
