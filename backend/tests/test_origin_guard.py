@@ -126,6 +126,9 @@ def test_settings_extra_hosts(tmp_path):
     assert load_settings({**base, "FYODOR_EXTRA_HOSTS": ""}).extra_hosts == ()
     assert load_settings({**base, "FYODOR_EXTRA_HOSTS": " "}).extra_hosts == ()
     assert load_settings({**base, "FYODOR_EXTRA_HOSTS": "Play.Example.org, other.example"}).extra_hosts == ("play.example.org", "other.example")
+    # empty entries (a trailing comma, two in a row) are skipped, as FYODOR_TRUSTED_PROXIES skips them
+    assert load_settings({**base, "FYODOR_EXTRA_HOSTS": "play.example.org,, other.example ,"}).extra_hosts == ("play.example.org", "other.example")
+    assert load_settings({**base, "FYODOR_EXTRA_HOSTS": ","}).extra_hosts == ()
 
 
 # ----------------------------------------------------------------------------------------------- state-changing requests

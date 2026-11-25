@@ -64,6 +64,18 @@ def test_secret_changes_each_start_and_file_is_private(settings: Settings) -> No
         assert (settings.data_dir / "host.secret").read_text().strip() == second
 
 
+def test_a_host_cookie_from_a_previous_start_is_refused(settings: Settings) -> None:
+    # a restart makes a new secret: the host window from before it (still holding the old cookie) is a guest afterwards
+    with TestClient(create_app(settings)) as a:
+        assert a.post("/api/host/session", json={"secret": a.app.state.services.host_secret.value}).status_code == 204  # type: ignore[attr-defined]
+        old = a.cookies.get("fyodor_host")
+        assert old and a.get("/api/saves").status_code == 200
+    with TestClient(create_app(settings)) as b:
+        b.cookies.set("fyodor_host", old)
+        assert b.get("/api/saves").status_code == 403
+        assert b.get("/api/host/session").json() == {"host": False}
+
+
 def test_matches_is_false_for_nothing(settings: Settings) -> None:
     with TestClient(create_app(settings)) as c:
         secret = c.app.state.services.host_secret  # type: ignore[attr-defined]

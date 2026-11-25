@@ -110,7 +110,9 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
 
 class AttemptLimiter:
     """Guesses allowed per key (an address, a room code): ``max_failures`` failures within ``window`` seconds block the key until the
-    oldest of them is ``window`` old. Only failures count, a success clears the key. In memory, pure; ``clock`` is injected."""
+    oldest of them is ``window`` old. Only failures count, and they leave only by expiring: the app never calls ``succeed`` (a key may
+    be shared by people behind one address, and a guesser's success must not buy a fresh budget). In memory, pure; ``clock`` is
+    injected."""
 
     def __init__(self, max_failures: int, window: float, clock: Callable[[], float] = time.monotonic) -> None:
         self.max_failures = max_failures

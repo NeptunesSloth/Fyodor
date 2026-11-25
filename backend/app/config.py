@@ -123,12 +123,11 @@ def _proxies(value: str | None) -> tuple[str, ...]:
 
 
 def _extra_hosts(value: str | None) -> tuple[str, ...]:
-    """FYODOR_EXTRA_HOSTS: comma-separated bare host names or IP literals (no port, scheme, path or space), lower-cased."""
-    if value is None or not value.strip():
-        return ()
-    entries = tuple(e.strip().lower() for e in value.split(","))
+    """FYODOR_EXTRA_HOSTS: comma-separated bare host names or IP literals (no port, scheme, path or space), lower-cased. Empty entries
+    (a trailing comma) are skipped, as in FYODOR_TRUSTED_PROXIES."""
+    entries = tuple(e.strip().lower() for e in (value or "").split(",") if e.strip())
     for entry in entries:
-        if not entry or ":" in entry or "/" in entry or any(c.isspace() for c in entry):
+        if ":" in entry or "/" in entry or any(c.isspace() for c in entry):
             raise ValueError(f"FYODOR_EXTRA_HOSTS: {entry!r} is not a bare host name or IP address (no port, scheme, path or space)")
     return entries
 

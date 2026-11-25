@@ -265,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
     env = dict(os.environ)
     args.lan = not args.local
     if args.lan:
-        env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - explicit opt-in for LAN play
+        env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - LAN play is the default (only --local binds loopback); the Host/Origin guard, host cookie and seat tokens protect it
     if args.port is not None:  # --port 0: any free port (the tests use it so a busy 8000 never matters)
         env["FYODOR_PORT"] = str(args.port)
     settings = load_settings(env)

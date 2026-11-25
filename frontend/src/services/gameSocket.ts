@@ -68,8 +68,11 @@ type ServerMessage =
   | ({ type: "signal" } & Signal)
   | ({ type: "cursor" } & CursorWire);
 
-// 4400: not this server's name; 4403: no seat here; 4404: no such game. (Not fatal: 4408, silent too long, and 4429, too many sockets
-// open for this seat or address: both reconnect through the backoff below, which only a server message resets.)
+// The codes the page can see are the ones the server closes with after accepting the socket: 4403, no seat here (every auth failure);
+// 4429 for a fifth socket of one seat; 4408, silent too long. A refusal before accept (4400 a Host the server does not answer to, 4403
+// a cross-site Origin, 4429 too many sockets from one address) is an HTTP 403 to the browser, which reports 1006 like a dropped
+// connection: those reconnect through the backoff below (a page whose Host is refused cannot load in the first place). 4400 and 4404
+// (no such game, from older servers) stay fatal for a server that sends them after accept. Only a server message resets the backoff.
 const FATAL_CODES = new Set([4400, 4403, 4404]);
 /** What a refused seat says, whatever reason the server gave (it gives the same one for every refusal). */
 export const SEAT_REFUSED = "Your seat is no longer valid here. Join again.";
