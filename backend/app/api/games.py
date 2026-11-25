@@ -148,6 +148,8 @@ def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
     host_only = action.get("type") in HOST_ONLY_ACTIONS or (action.get("type") == "response_close" and action.get("as_host"))
     if host_only and room.mode == "lan" and not host:
         raise HTTPException(403, "Only the host can do that")
+    if room.mode == "lan" and action.get("type") == "remove_player" and room.host_seat is not None and action.get("player") == room.host_seat:
+        raise HTTPException(409, "The host's own seat can't be removed")  # (it would leave the host's seat open for anyone with the code)
 
 
 def _check_assets(services: Services, action: dict[str, Any]) -> None:

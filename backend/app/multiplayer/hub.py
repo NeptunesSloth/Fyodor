@@ -671,7 +671,8 @@ class GameHub:
             return SPECTATOR, token
         state = room.game.state if room.game is not None else None
         nobody = {pid for pid, p in state.players.items() if p.dummy or p.bot is not None} if state is not None else set()  # -- target dummy -- (and -- test opponent --) nobody sits there
-        free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody]
+        left = {pid for pid, p in state.players.items() if p.left} if state is not None else set()  # -- removed player -- their seat is gone, not free
+        free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody and s.player_id not in left]
         if seat is not None:
             chosen = room.seats.get(seat)
             if chosen is None:
@@ -679,6 +680,8 @@ class GameHub:
             if seat in nobody:
                 raise PermissionError("That seat is the target dummy's" if state is not None and state.players[seat].dummy
                                       else "That seat is the test opponent's")
+            if seat in left:
+                raise PermissionError("That player has left the table")
             if chosen.token is not None:
                 raise PermissionError("That seat is already taken")
         elif free:
