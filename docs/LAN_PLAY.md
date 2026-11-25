@@ -197,7 +197,10 @@ a key to the seat and don't post it where others read it.
 
 ## Limits you can run into
 
-These keep a stranger on the network from guessing their way in; a normal night doesn't touch them.
+A normal night doesn't touch these. They slow down someone guessing a table's **password**; they do not hide the room code:
+anyone who can open the host's address sees every LAN table's code on the Play page (that is how *Tables in progress* and
+*Games on your network* work). The room code is not a secret. Only a table password keeps a stranger on the network out, so
+give the table one when not everyone on the network is in your pod.
 
 - **Wrong room codes or passwords:** five wrong tries from one device in 15 minutes give *Too many attempts. Try again in a
   few minutes.* The message says how long to wait; other devices are not affected, and a player who already holds a seat
@@ -217,6 +220,9 @@ friends' computers, such as Tailscale. This project has not tested it yet. Insta
 `http://HOST-PRIVATE-ADDRESS:PORT` (the host's address on that private network, shown in the Tailscale app) as if it were
 the LAN. The game, the room code and the password should work as on a LAN, and nothing is opened to the internet. If the address
 is a name rather than a number, the host lists it in `FYODOR_EXTRA_HOSTS` (below); numeric addresses work as they are.
+One difference from a LAN: Tailscale's IPv4 addresses (`100.64.0.0/10`, such as `100.101.102.103`) are not private-network
+addresses to Fyodor, so a friend joining by one can play but **Join brings your decks** and *Friends' decks* are refused (the
+host only takes deck libraries from the local network). A friend can paste a list or pick from *My decks* instead.
 
 **Port-forwarding the host's router to the game port is not recommended.** It puts the table on the open internet,
 reachable by anyone who finds the address, before the protections for that exist; use a private network instead.
