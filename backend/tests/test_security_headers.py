@@ -64,7 +64,8 @@ def test_refusals_carry_the_headers_too(settings: Settings):
     with _client(settings, https=True) as c:
         bad_host = c.get("/api/health", headers={"Host": "evil.example"})
         cross = c.post("/api/games", json={}, headers={"Sec-Fetch-Site": "cross-site"})
-    for res, code in ((bad_host, 400), (cross, 403)):
+        too_large = c.post("/api/join", content=b"x" * (300 * 1024), headers={"Content-Type": "application/json"})
+    for res, code in ((bad_host, 400), (cross, 403), (too_large, 413)):
         assert res.status_code == code
         assert res.headers["strict-transport-security"] == HSTS
         assert res.headers["x-content-type-options"] == "nosniff"
