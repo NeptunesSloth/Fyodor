@@ -44,9 +44,20 @@ def _split_host(host_header: str | None) -> tuple[str, int | None] | None:
     return host, int(port) if port else None
 
 
+def own_names() -> frozenset[str]:
+    """``localhost`` and this computer's names, lower case: its bare name, that name with ``.local`` (how some devices find it) and
+    its full name on the network (``socket.getfqdn()``: ``desktop-42.lan``, ``.home``, ``.localdomain``, the name a home router hands
+    out, which a pod may have bookmarked)."""
+    me = socket.gethostname().lower()
+    return frozenset({"localhost", me, f"{me}.local", socket.getfqdn().lower()})
+
+
+OWN_NAMES = own_names()  # worked out once at start (getfqdn may ask the network's name service)
+
+
 def host_allowed(host_header: str | None, extra_hosts: Iterable[str]) -> bool:
-    """An IP literal, ``localhost``, this computer's name (also with ``.local``, how some devices find it) or one of
-    ``extra_hosts``; any port. Anything else, including a name that only ends with this computer's name, is refused."""
+    """An IP literal, one of ``OWN_NAMES`` or one of ``extra_hosts``; any port. Anything else, including a name that only ends with
+    this computer's name, is refused."""
     parts = _split_host(host_header)
     if parts is None:
         return False
@@ -56,8 +67,7 @@ def host_allowed(host_header: str | None, extra_hosts: Iterable[str]) -> bool:
         return True
     except ValueError:
         pass
-    me = socket.gethostname().lower()
-    return host in {"localhost", me, f"{me}.local", *(h.lower() for h in extra_hosts)}
+    return host in OWN_NAMES or host in {h.lower() for h in extra_hosts}
 
 
 # scheme://host[:port] and nothing else: no path, query, fragment, userinfo or whitespace; a port without a leading zero; a host that is a

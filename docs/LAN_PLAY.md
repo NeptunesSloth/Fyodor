@@ -3,6 +3,10 @@
 Fyodor is built for a trusted pod on a home network: no accounts, no matchmaking, no cloud.
 The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in a browser.
 
+The host computer's name works too: its bare name (`http://DESKTOP-42:8000`), with `.local`, and the full name the home
+router gives it (`http://desktop-42.lan:8000`, `.home`, `.localdomain`). Any other name answers *This address is not one
+Fyodor answers to*: use the IP address, or add the name to `FYODOR_EXTRA_HOSTS` ([Settings for this](#settings-for-this)).
+
 ## Setting up a table
 
 1. **Host:** *Host a LAN night* on the launcher (or *Play*): every new game is a LAN night (hot-seat tables are no longer
@@ -224,6 +228,6 @@ Environment variables (set them before starting the launcher; the defaults are r
 | Variable | What it does |
 |---|---|
 | `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. |
-| `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's name. None by default; a bad entry stops Fyodor at start. |
+| `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's own names (its name, with `.local`, and its full name on the network). None by default; a bad entry stops Fyodor at start. |
 | `FYODOR_LEGACY_WS_TOKEN` | `1` lets an old client put its seat token in the socket's address. Off by default; keep it off, a token in an address can end up in logs and history. |
 | `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). |

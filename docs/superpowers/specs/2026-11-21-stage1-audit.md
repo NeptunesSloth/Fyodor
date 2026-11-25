@@ -331,6 +331,7 @@ line is an action and what you should see.
 
 - [ ] Start Fyodor from its launcher on the host computer. The window the launcher opens shows the Host tools (under the menu in a game) and the *Host a LAN night* page. The address bar does not keep `#host=...` after the page loads.
 - [ ] On a phone on the same Wi-Fi, open the host's address (or press **Join** under *Play*), join with the room code and a name, take a seat. It joins without being refused.
+- [ ] On another device, open the table by the computer's name instead of its IP address: `http://NAME:8000` and the name the router gives it (`http://NAME.lan:8000`, `.home` or `.localdomain`; `ping -a HOST-IP` on Windows or `nslookup HOST-IP` shows it). Both open the Play page. A name the computer does not have (for example an alias you made up in the router) shows *This address is not one Fyodor answers to. Use http://<IP>:<port>, or add the name to FYODOR_EXTRA_HOSTS.*
 - [ ] On the phone, play a land. It appears on the host's screen at once.
 - [ ] Lock the phone for a minute (or switch it to another app for a minute), wake it. The table comes back on the same seat with the same hand, with no "Too many connections" and no refusal.
 - [ ] On the host computer, open a second browser (or a new private window) and type `http://127.0.0.1:8000` by hand. It can open the Play page and join as a player, but has no Host tools, and where they would be it says to open Fyodor from its launcher (*Open Fyodor from its launcher on the host computer to use host tools.*).

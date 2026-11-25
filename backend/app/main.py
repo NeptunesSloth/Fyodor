@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
@@ -42,6 +42,7 @@ CSP = (
 
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+UNKNOWN_HOST = "This address is not one Fyodor answers to. Use http://<IP>:<port>, or add the name to FYODOR_EXTRA_HOSTS."
 
 
 def _same_site_request(request: Request) -> bool:
@@ -89,8 +90,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # added last, so it runs first: the Host (DNS rebinding) before anything else, then the Origin of a state-changing request
     @app.middleware("http")
     async def net_guard(request: Request, call_next: Any) -> Response:
-        if not host_ok(request):
-            return JSONResponse({"detail": "Unknown host"}, status_code=400)
+        if not host_ok(request):  # (most often a person who typed a name into the address bar: say what to do, in plain words)
+            return PlainTextResponse(UNKNOWN_HOST, status_code=400)
         if request.method in UNSAFE_METHODS and not _same_site_request(request):
             return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
         response: Response = await call_next(request)

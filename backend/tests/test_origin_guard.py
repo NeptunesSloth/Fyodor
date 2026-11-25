@@ -199,15 +199,33 @@ def test_an_invite_origin_in_services_extra_origins_passes(client: TestClient):
 # ------------------------------------------------------------------------------------------------------- the Host header
 
 
+FQDN = "desktop-42.lan"  # the name a home router hands out (socket.getfqdn), stood in for this computer's
+
+
+@pytest.fixture()
+def router_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(socket, "getfqdn", lambda name="": FQDN.upper())
+    monkeypatch.setattr(netguard, "OWN_NAMES", netguard.own_names())  # (worked out once at start)
+
+
 @pytest.mark.parametrize("host", ["192.168.1.20:8000", "localhost:8000", "127.0.0.1:8000", "[::1]:8000", socket.gethostname(),
-                                  socket.gethostname().upper() + ":8000", socket.gethostname() + ".local"])
-def test_these_hosts_are_served(client: TestClient, host: str):
+                                  socket.gethostname().upper() + ":8000", socket.gethostname() + ".local", FQDN + ":8000", FQDN])
+def test_these_hosts_are_served(client: TestClient, host: str, router_named: None):
     assert client.get("/api/health", headers={"Host": host}).status_code == 200
+
+
+def test_the_router_assigned_name_is_this_computers(router_named: None):
+    assert netguard.host_allowed("Desktop-42.LAN:8000", ())
+    assert not netguard.host_allowed(f"x.{FQDN}", ()) and not netguard.host_allowed(f"{FQDN}.evil.example", ())
 
 
 def test_a_foreign_host_is_refused_even_for_a_get(client: TestClient):
     res = client.get("/api/health", headers={"Host": "evil.example"})
     assert res.status_code == 400
+    # a person who typed a name into the address bar reads why, and what to do
+    assert res.headers["content-type"].startswith("text/plain")
+    assert res.text == ("This address is not one Fyodor answers to. Use http://<IP>:<port>, or add the name to "
+                        "FYODOR_EXTRA_HOSTS.")
     assert client.get("/", headers={"Host": "evil.example:8000"}).status_code == 400
     assert client.get("/assets/x.js", headers={"Host": "evil.example"}).status_code == 400
     assert client.get("/api/health", headers={"Host": f"{socket.gethostname()}.evil.example"}).status_code == 400
