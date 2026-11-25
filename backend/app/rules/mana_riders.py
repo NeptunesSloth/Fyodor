@@ -170,7 +170,7 @@ def first_sentence(first: str) -> tuple[str | None, tuple[tuple[str, ...], ...]]
         count = _value(m["what"])
         return (count, ((m["a"],), (m["b"],))) if count else None
     if m := _X_COMBO.fullmatch(first):
-        own = re.fullmatch(r"(?:this creature|[A-Z][^.]{0,60}?)'s (power|toughness)", m["what"])  # (the source's own: its current stat)
+        own = re.fullmatch(r"(?:this creature|this permanent|[A-Z][^.]{0,60}?)'s (power|toughness)", m["what"])  # (the source's own: its current stat; "this permanent": lent, 201.5b)
         count = "value:" + json.dumps({own[1]: "self"}) if own else _value(m["what"])
         colors = COLORS if m["colors"] else (m["a"], m["b"])
         return (count, (("@combo", *colors),)) if count else None
