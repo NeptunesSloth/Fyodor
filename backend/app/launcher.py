@@ -326,10 +326,12 @@ FRAME_MARGIN = 1024  # what the transport allows above a message's own limit in 
 
 def server_options(settings: Settings) -> dict[str, Any]:
     """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE characters, up to 4 bytes each in UTF-8) is refused as it arrives,
-    not after uvicorn has buffered up to 16 MiB of it (its default)."""
+    not after uvicorn has buffered up to 16 MiB of it (its default). ``proxy_headers`` is off: uvicorn would trust X-Forwarded-For/-Proto from any loopback peer
+    (every peer behind a tunnel) and rewrite the client before Fyodor looks; ``client_address`` (app/api/deps.py) is the only reader of forwarded headers."""
     from app.api.games import MAX_WS_MESSAGE
 
-    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN}
+    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN,
+            "proxy_headers": False}
 
 
 def serve(settings: Settings, browser: bool = False) -> None:
