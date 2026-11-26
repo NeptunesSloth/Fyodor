@@ -82,7 +82,8 @@ TOO_LARGE = "That request is too large."
 _DECK_TEXT = 200_000  # a pasted deck list: DeckImportRequest.text and LobbyDeckIn.text, in characters
 # Each allowance names who may use it, because FastAPI parses a body before a route's own host or seat check runs: "any" (the route
 # streams the body and stops at its own bound, so nobody gets more than that held in memory), "host" (the host's browser, is_host_request)
-# or "seat" (the host, or a seat or spectator of the room named in the path). Anyone else, and everyone on the tunnel port, gets BODY_LIMIT.
+# or "seat" (the host, or a seat or spectator of the room named in the path). Anyone else gets BODY_LIMIT; on the tunnel port only a seat
+# or spectator of the shared room keeps its "seat" allowance (a remote player bringing a deck with their "My decks" collection).
 # A streaming route's allowance is its bound + BODY_LIMIT, so a body just over the bound reaches the route, which says so in its own words.
 Who = Literal["any", "host", "seat"]
 _ALLOWANCES: tuple[tuple[str, int, Who], ...] = (
@@ -117,11 +118,12 @@ _ROOM_PATH = re.compile(r"/api/games/([^/]+)/")
 
 def body_limit(path: str, *, host: bool, seat_ok: Callable[[str], bool], tunnel: bool) -> int:
     """The most bytes a request to ``path`` may send: its allowance if this sender may use it (``host``: the host's browser;
-    ``seat_ok(path)``: a seat or spectator of the room the path names), else BODY_LIMIT. On the tunnel port always BODY_LIMIT."""
-    if tunnel:
-        return BODY_LIMIT
+    ``seat_ok(path)``: a seat or spectator of the room the path names), else BODY_LIMIT. On the tunnel port only a "seat" allowance,
+    for a seat or spectator of the (shared) room the path names: nobody there is the host, and "any" routes are the LAN's."""
     for pattern, n, who in BODY_ALLOWANCES:
         if pattern.fullmatch(path):
+            if tunnel:
+                return n if who == "seat" and seat_ok(path) else BODY_LIMIT
             return n if who == "any" or host or (who == "seat" and seat_ok(path)) else BODY_LIMIT
     return BODY_LIMIT
 
@@ -141,13 +143,19 @@ class BodyLimit:
         conn = HTTPConnection(scope)
         headers = Headers(scope=scope)
 
-        def seat_ok(path: str) -> bool:
-            # the X-Seat-Token header holds a seat or spectator token of the room the path names
-            found = _ROOM_PATH.match(path)
-            room = conn.app.state.services.hub.get(found.group(1)) if found else None
-            return room is not None and room.seat_for_token(headers.get("x-seat-token")) is not None
+        tunnel = is_tunnel_request(conn)
 
-        limit = body_limit(scope["path"], host=is_host_request(conn), seat_ok=seat_ok, tunnel=is_tunnel_request(conn))
+        def seat_ok(path: str) -> bool:
+            # the X-Seat-Token header holds a seat or spectator token of the room the path names (on the tunnel port, a room it serves:
+            # net_guard has refused any other already; checked again here so the allowance never depends on the middleware order)
+            found = _ROOM_PATH.match(path)
+            services = conn.app.state.services
+            room = services.hub.get(found.group(1)) if found else None
+            if room is None or (tunnel and not tunnel_serves(services, room.id)):
+                return False
+            return room.seat_for_token(headers.get("x-seat-token")) is not None
+
+        limit = body_limit(scope["path"], host=is_host_request(conn), seat_ok=seat_ok, tunnel=tunnel)
         declared = headers.get("content-length")
         if declared is not None and declared.isascii() and declared.strip().isdigit() and int(declared) > limit:
             await JSONResponse({"detail": TOO_LARGE}, status_code=413)(scope, receive, send)

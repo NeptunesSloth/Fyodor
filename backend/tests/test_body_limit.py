@@ -97,8 +97,11 @@ def test_who_may_use_an_allowance():
     assert body_limit("/api/games/abc/lobby/deck", host=False, seat_ok=_no_seat, tunnel=False) == BODY_LIMIT  # "seat"
     assert body_limit("/api/games/abc/lobby/deck", host=True, seat_ok=_no_seat, tunnel=False) > BODY_LIMIT
     assert body_limit("/api/games/abc/lobby/deck", host=False, seat_ok=_any_seat, tunnel=False) > BODY_LIMIT
-    for path in ("/api/assets", "/api/lan/handoff", "/api/lan/handoff/missing", "/api/backups/restore", "/api/games/abc/lobby/deck"):
+    # on the tunnel port: never an "any" or "host" allowance (whatever the caller says about host); a seat keeps the lobby's
+    for path in ("/api/assets", "/api/lan/handoff", "/api/lan/handoff/missing", "/api/backups/restore", "/api/browser-decks"):
         assert body_limit(path, host=True, seat_ok=_any_seat, tunnel=True) == BODY_LIMIT
+    assert body_limit("/api/games/abc/lobby/deck", host=True, seat_ok=_no_seat, tunnel=True) == BODY_LIMIT
+    assert body_limit("/api/games/abc/lobby/deck", host=False, seat_ok=_any_seat, tunnel=True) > BODY_LIMIT
 
 
 BIG = {"json": "x" * 300_000}
@@ -134,12 +137,31 @@ def test_a_seat_keeps_the_lobby_allowance(client: TestClient):
     assert client.post(f"/api/games/{gid}/lobby/deck", json=BIG).json()["detail"] != TOO_LARGE
 
 
-def test_no_allowance_on_the_tunnel_port(client: TestClient, tunnel_client: TestClient):
+# a "My decks" collection of 1,800 distinct cards (about 15-20 saved Commander decks): over 256 KB as JSON
+COLLECTION = {"collection": [{"name": "Some Card Name", "quantity": 1, "section": "main",
+                              "printing_id": "00000000-0000-0000-0000-000000000000",
+                              "oracle_id": "00000000-0000-0000-0000-000000000000"}] * 1800}
+
+
+def test_on_the_tunnel_port_a_seat_keeps_the_lobby_allowance(client: TestClient, tunnel_client: TestClient):
+    assert len(json.dumps(COLLECTION)) > BODY_LIMIT
     gid, code, _alice = create_lobby(client)
     bob = client.post("/api/join", json={"code": code, "name": "Bob"}).json()["token"]
+    _gid2, _code2, other_token = create_lobby(client)
     client.app.state.services.hub.get(gid).shared = True  # type: ignore[attr-defined]
-    res = tunnel_client.post(f"/api/games/{gid}/lobby/deck", json=BIG, headers=h(bob))
-    assert res.status_code == 413 and res.json()["detail"] == TOO_LARGE, res.text
+    # a seat of the shared table, through the invite link: the body reaches the route (which answers for the cards it can't find)
+    res = tunnel_client.post(f"/api/games/{gid}/lobby/collection", json=COLLECTION, headers=h(bob))
+    assert res.status_code != 413 and res.json()["detail"] != TOO_LARGE, res.text
+    # a stranger, a made-up token or another table's seat: 256 KB
+    for headers in ({}, h("not-a-token"), h(other_token)):
+        res = tunnel_client.post(f"/api/games/{gid}/lobby/collection", json=COLLECTION, headers=headers)
+        assert res.status_code == 413 and res.json()["detail"] == TOO_LARGE, (headers, res.text)
+
+
+def test_no_host_or_any_allowance_on_the_tunnel_port():
+    # whatever the caller says about the host, and whoever holds a seat: those allowances are the LAN's
+    for path in ("/api/browser-decks", "/api/decks/preview", "/api/teach/import", "/api/assets", "/api/lan/handoff"):
+        assert body_limit(path, host=True, seat_ok=_any_seat, tunnel=True) == BODY_LIMIT, path
 
 
 def test_the_route_speaks_first_for_streamed_uploads(client: TestClient):
