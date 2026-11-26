@@ -6,7 +6,7 @@ import { Modal } from "../components/Modal";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import { toast, toastError } from "../components/Toasts";
 import { InternetInvite, SharedChip } from "../game/InternetInvite";
-import { useTunnel } from "../services/share";
+import { useTunnelState } from "../services/share";
 import { showInvitePopover } from "./lanBits";
 import { navigate } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -95,7 +95,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const tunnel = useTunnel(); // (the LAN room code means nothing to a friend on the invite link)
+  const tunnel = useTunnelState(); // (the LAN room code means nothing to a friend on the invite link)
   const invite = useInviteLink(lobby.is_host ? lobby.game.code : null);
   const setLobby = (l: LobbyView) => useGame.getState().applyLobby(l);
   // -- bring my decks -- the decks this seat brought: from the player's own Fyodor (sent with the join), or this browser's My decks
@@ -163,7 +163,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         </div>
         <div className="lobby-door">
           {lobby.game.shared && <SharedChip />}
-          {lobby.game.code && !tunnel && <RoomCode code={lobby.game.code} />}
+          {lobby.game.code && tunnel === false && <RoomCode code={lobby.game.code} />}
           {showInvitePopover(lobby.is_host, invite) && <InviteControl gameId={gameId} link={invite} code={lobby.game.code} />}
         </div>
       </header>

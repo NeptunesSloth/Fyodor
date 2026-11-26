@@ -19,12 +19,14 @@ export const startShare = (gameId: string, password?: string) =>
 export const stopShare = (gameId: string) => api.del<ShareStatus>(`/games/${gameId}/share`);
 
 let tunnelAsked: Promise<boolean> | null = null;
+let tunnelKnown: boolean | null = null;
 /** Whether this page was reached through the invite link (GET /api/health, asked once). */
-export const isTunnel = (): Promise<boolean> => (tunnelAsked ??= getHealth().then((h) => h.tunnel === true, () => false));
+export const isTunnel = (): Promise<boolean> =>
+  (tunnelAsked ??= getHealth().then((h) => h.tunnel === true, () => false).then((v) => (tunnelKnown = v)));
 
-/** True on the invite link; false until known and anywhere else. */
-export function useTunnel(): boolean {
-  const [t, setT] = useState(false);
+/** null until the health answer is in, then whether this is the invite link. */
+export function useTunnelState(): boolean | null {
+  const [t, setT] = useState<boolean | null>(tunnelKnown);
   useEffect(() => {
     let live = true;
     void isTunnel().then((v) => live && setT(v));
@@ -32,3 +34,6 @@ export function useTunnel(): boolean {
   }, []);
   return t;
 }
+
+/** True on the invite link; false until known and anywhere else. */
+export const useTunnel = (): boolean => useTunnelState() === true;

@@ -18,6 +18,8 @@ describe("inviteStep", () => {
     expect(inviteStep(st({ state: "starting" }), false)).toBe("starting");
     expect(inviteStep(st({ shared: true, state: "running", link: "https://x.trycloudflare.com/#/play?code=AB" }), true)).toBe("link");
     expect(inviteStep(st({ state: "failed", reason: "no" }), false)).toBe("failed");
+    expect(inviteStep(st({ state: "failed", reason: "no" }), true)).toBe("password");
+    expect(inviteStep(st({ state: "failed", reason: "no", has_password: true }), true)).toBe("failed");
   });
 });
 
@@ -38,6 +40,16 @@ describe("InternetInvite", () => {
     expect(html).toContain("Table password (friends need it to join)");
     expect(html).toContain('minLength="8"');
     expect(html).toContain('maxLength="100"');
+  });
+  it("offers Show password on the field, and shows the text when revealed", () => {
+    expect(render(st(), true)).toContain("Show password");
+    const shown = renderToStaticMarkup(createElement(InternetInviteView, { status: st(), pressed: true, password: "", busy: false, reveal: true, onPress: () => undefined, onPassword: () => undefined, onStart: () => undefined, onStop: () => undefined }));
+    expect(shown).toContain("Hide password");
+    expect(shown).toContain('type="text"');
+  });
+  it("says a status read kept failing while starting", () => {
+    const html = renderToStaticMarkup(createElement(InternetInviteView, { status: st({ state: "starting" }), pressed: false, password: "", busy: false, error: "Can't read the link's status: offline", onPress: () => undefined, onPassword: () => undefined, onStart: () => undefined, onStop: () => undefined }));
+    expect(html).toContain("Can&#x27;t read the link&#x27;s status: offline");
   });
   it("says the tunnel program may download while starting", () => {
     expect(render(st({ state: "starting" }))).toContain("Starting the link… the first time downloads the tunnel program (about 40 MB).");

@@ -1,18 +1,30 @@
 import { describe, expect, it, vi } from "vitest";
-import { retryAfter429 } from "./imageRetry";
+import { imageErrorPlan, retryDelay, scheduleRetry } from "./imageRetry";
 
-const reply = (status: number) => vi.fn(async () => new Response(null, { status }));
-
-describe("retryAfter429", () => {
-  it("waits a second and says retry when the server answered 429", async () => {
-    const wait = vi.fn(async () => undefined);
-    await expect(retryAfter429("/api/cards/x/image", reply(429), wait)).resolves.toBe(true);
-    expect(wait).toHaveBeenCalledWith(1000);
+describe("the image retry", () => {
+  it("retries once per src on the tunnel, then falls back", () => {
+    expect(imageErrorPlan(true, null, "a")).toBe("retry");
+    expect(imageErrorPlan(true, "a", "a")).toBe("fail");
+    expect(imageErrorPlan(true, "a", "b")).toBe("retry");
   });
-  it("does not retry any other answer, or an unreachable server", async () => {
-    const wait = vi.fn(async () => undefined);
-    await expect(retryAfter429("/x", reply(404), wait)).resolves.toBe(false);
-    await expect(retryAfter429("/x", vi.fn(async () => { throw new Error("offline"); }), wait)).resolves.toBe(false);
-    expect(wait).not.toHaveBeenCalled();
+  it("never retries off the tunnel", () => {
+    expect(imageErrorPlan(false, null, "a")).toBe("fail");
+  });
+  it("waits 800 to 2000 ms", () => {
+    expect(retryDelay(() => 0)).toBe(800);
+    expect(retryDelay(() => 0.5)).toBe(1400);
+    expect(retryDelay(() => 0.999999)).toBeLessThan(2000);
+  });
+  it("fires once after the delay, and not at all once cancelled (unmount)", () => {
+    const set = vi.fn((fn: () => void, _ms: number) => { fired.push(fn); return 7; });
+    const clear = vi.fn((id: unknown) => { if (id === 7) fired.length = 0; });
+    const fired: (() => void)[] = [];
+    const again = vi.fn();
+    const cancel = scheduleRetry(again, () => 0.5, { set, clear });
+    expect(set).toHaveBeenCalledWith(again, 1400);
+    cancel();
+    fired.forEach((f) => f());
+    expect(clear).toHaveBeenCalledWith(7);
+    expect(again).not.toHaveBeenCalled();
   });
 });

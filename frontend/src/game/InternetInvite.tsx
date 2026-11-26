@@ -10,9 +10,9 @@ export type InviteStep = "unavailable" | "button" | "password" | "starting" | "l
 export function inviteStep(status: ShareStatus, pressed: boolean): InviteStep {
   if (!status.available) return "unavailable";
   if (status.state === "starting") return "starting";
-  if (status.state === "failed") return "failed";
   if (status.state === "running" && status.shared && status.link) return "link";
-  return pressed && !status.has_password ? "password" : "button";
+  if (pressed && !status.has_password) return "password"; // (also after a failure: "Invite again" asks for the password)
+  return status.state === "failed" ? "failed" : "button";
 }
 
 /** Every viewer's note that the table can be reached from outside the network (icon and text, focusable for its title). */
@@ -33,10 +33,15 @@ interface ViewProps {
   onPassword: (p: string) => void;
   onStart: () => void;
   onStop: () => void;
+  /** show the typed password (default hidden) */
+  reveal?: boolean;
+  onReveal?: () => void;
+  /** a status read that kept failing while the link starts */
+  error?: string | null;
 }
 
 /** The section's looks (no state of its own: rendered directly in the tests). */
-export function InternetInviteView({ status, pressed, password, busy, onPress, onPassword, onStart, onStop }: ViewProps) {
+export function InternetInviteView({ status, pressed, password, busy, onPress, onPassword, onStart, onStop, reveal = false, onReveal, error = null }: ViewProps) {
   const step = inviteStep(status, pressed);
   return (
     <section className="net-invite" data-testid="internet-invite" aria-labelledby="net-invite-title">
@@ -49,13 +54,17 @@ export function InternetInviteView({ status, pressed, password, busy, onPress, o
         <form className="net-form" onSubmit={(e) => { e.preventDefault(); onStart(); }}>
           <label className="field">
             Table password (friends need it to join)
-            <input type="password" value={password} minLength={8} maxLength={100} required autoFocus autoComplete="new-password"
+            <input type={reveal ? "text" : "password"} value={password} minLength={8} maxLength={100} required autoFocus autoComplete="new-password"
               onChange={(e) => onPassword(e.target.value)} />
           </label>
+          <button type="button" className="tt-btn ghost" aria-pressed={reveal} onClick={onReveal}>
+            <Icon name={reveal ? "lock" : "hand"} size={14} />{reveal ? "Hide password" : "Show password"}
+          </button>
           <button type="submit" className="tt-btn brass" disabled={busy || password.length < 8}>Share with this password</button>
         </form>
       )}
       {step === "starting" && <p className="net-note" role="status">Starting the link… the first time downloads the tunnel program (about 40 MB).</p>}
+      {step === "starting" && error && <p className="net-note net-failed" role="alert">{error}</p>}
       {step === "link" && (
         <>
           <div className="invite-row">
@@ -82,13 +91,25 @@ export function InternetInvite({ gameId }: { gameId: string }) {
   const [pressed, setPressed] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
   const reread = () => getShare(gameId).then(setStatus, () => undefined);
   useEffect(() => { void getShare(gameId).then(setStatus, () => undefined); }, [gameId]);
   // the link takes a moment (and the first time downloads the tunnel program): ask again every 2 s while it starts
   const starting = status?.state === "starting";
   useEffect(() => {
     if (!starting) return;
-    const t = window.setInterval(() => void reread(), 2000);
+    let misses = 0;
+    const t = window.setInterval(() => {
+      getShare(gameId).then(
+        (s) => { misses = 0; setPollError(null); setStatus(s); },
+        (e) => {
+          if (++misses < 3) return;
+          window.clearInterval(t); // (stop asking; say why)
+          setPollError("Can't read the link's status: " + (e instanceof Error ? e.message : "no answer"));
+        },
+      );
+    }, 2000);
     return () => window.clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [starting, gameId]);
@@ -105,11 +126,13 @@ export function InternetInvite({ gameId }: { gameId: string }) {
       setBusy(false);
     }
   };
+  // (a failed start keeps the typed password in state so "Invite again" can send it again)
   const start = () => run(async () => { const s = await startShare(gameId, password || undefined); setPassword(""); setPressed(false); return s; });
   return (
     <InternetInviteView status={status} pressed={pressed} password={password} busy={busy}
       onPress={() => { if (status.has_password) void start(); else setPressed(true); }}
       onPassword={setPassword} onStart={() => void start()}
-      onStop={() => void run(() => stopShare(gameId))} />
+      onStop={() => void run(() => stopShare(gameId))}
+      reveal={reveal} onReveal={() => setReveal((r) => !r)} error={pollError} />
   );
 }
