@@ -8,7 +8,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { CardFace } from "../cards/CardFace";
 import { toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
-import { getHealth, type Health } from "../services/api";
+import { cardDbState, getHealth, type Health } from "../services/api";
 import { listDecks } from "../services/decks";
 import { listGames, listSaves, loadSave, rememberSeat, seatToken } from "../services/games";
 import { useCard } from "../state/cardCache";
@@ -132,9 +132,9 @@ export function Home() {
               <span className="home-db" title={`${db.printings.toLocaleString()} printings, ${db.images.toLocaleString()} card pictures downloaded`}>
                 <i aria-hidden />{db.oracle_cards.toLocaleString()} cards ready to play offline
               </span>
-            ) : (
+            ) : cardDbState(health) === "missing" ? (
               <span className="home-db warn"><i aria-hidden />No card database yet. <a href="#/settings">Download it in Settings</a> while online.</span>
-            )
+            ) : null /* (a guest isn't told: the card database is the host's matter) */
           ) : (
             <span className="home-db idle"><i aria-hidden />Checking the card database…</span>
           )}

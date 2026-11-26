@@ -62,6 +62,16 @@ export interface Health {
   recovery?: { reason: string; moved_to: string | null; backups: string[] };
   /** Tables brought back after a crash or restart. */
   recovered_tables?: { game_id: string; name: string }[];
+  /** Answered through the invite link (the tunnel port). */
+  tunnel?: boolean;
+}
+
+/** What /health says about the card database. Only the host's browser is told (card_database, like the recovery notices, is a host
+ *  matter): a guest's answer has no card_database, and its page says nothing about one. */
+export function cardDbState(health: Health | null): "unknown" | "ready" | "missing" | "not-told" {
+  if (!health) return "unknown";
+  if (health.card_database === undefined) return "not-told";
+  return health.card_database.available ? "ready" : "missing";
 }
 
 export interface CardDbStats {

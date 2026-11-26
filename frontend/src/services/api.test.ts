@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError } from "./api";
+import { api, ApiError, cardDbState } from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -15,5 +15,19 @@ describe("api", () => {
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ detail: "nope" }), { status: 404 }));
     await expect(api.get("/x")).rejects.toMatchObject({ status: 404, message: "nope" });
     await expect(api.get("/x")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("cardDbState", () => {
+  const db = { available: true, printings: 2, oracle_cards: 1, tokens: 0, images: 0, bulk_type: null, bulk_updated_at: null, imported_at: null };
+  it("tells the host's browser about its card database", () => {
+    expect(cardDbState(null)).toBe("unknown");
+    expect(cardDbState({ status: "ok", version: "1", card_database: db })).toBe("ready");
+    expect(cardDbState({ status: "ok", version: "1", card_database: { ...db, available: false } })).toBe("missing");
+  });
+
+  it("says nothing to a guest, whose health has no card_database (a host matter)", () => {
+    expect(cardDbState({ status: "ok", version: "1" })).toBe("not-told");
+    expect(cardDbState({ status: "ok", version: "1", tunnel: true })).toBe("not-told");
   });
 });

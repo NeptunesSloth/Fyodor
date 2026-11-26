@@ -59,6 +59,20 @@ def is_tunnel_request(conn: HTTPConnection) -> bool:
     return services.tunnel.port is not None and isinstance(server, (tuple, list)) and len(server) == 2 and server[1] == services.tunnel.port
 
 
+GAME_NOT_FOUND = "Game not found (it may have been closed; load it from Saves)"
+
+
+def tunnel_serves(services: Services, game_id: str) -> bool:
+    """Is this table served on the tunnel port: it exists and is shared, or it is a practice table of a shared one?"""
+    room = services.hub.get(game_id)
+    if room is None:
+        return False
+    if room.shared:
+        return True
+    live = services.hub.get(room.practice.live) if room.practice is not None else None
+    return live is not None and live.shared
+
+
 def room_host(room: Room, conn: HTTPConnection, token: str | None) -> bool:
     """Does ``token`` hold the room's host rights (its host token, or the host's own seat), on a request that may have them? Never
     through the tunnel: a leaked host token or a host's seat token used from outside is a player, not the host."""
@@ -106,8 +120,12 @@ def host_ok(request: HTTPConnection) -> bool:
 
 
 def origin_ok(request: HTTPConnection) -> bool:
-    """Is the request's Origin this server's own, a configured dev origin (settings.cors_origins) or one in services.extra_origins?"""
+    """Is the request's Origin this server's own, a configured dev origin (settings.cors_origins) or one in services.extra_origins?
+    On the tunnel port only ``https://<invite hostname>``, exactly: no configured origin, and no Origin is no."""
     services: Services = request.app.state.services
+    if is_tunnel_request(request):
+        hostname = services.tunnel.hostname
+        return hostname is not None and request.headers.get("origin") == f"https://{hostname.lower()}"
     extra = (*services.settings.cors_origins, *services.extra_origins)
     return origin_allowed(request.headers.get("origin"), request.headers.get("host"), extra)
 

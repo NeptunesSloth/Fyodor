@@ -35,6 +35,7 @@ from starlette.requests import HTTPConnection
 from starlette.websockets import WebSocketDisconnected
 
 from app.api.deps import (
+    GAME_NOT_FOUND,
     client_address,
     get_services,
     host_ok,
@@ -44,6 +45,7 @@ from app.api.deps import (
     require_local,
     room_host,
     too_many_attempts,
+    tunnel_serves,
 )
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
@@ -193,7 +195,7 @@ def _check_table_open(room: Room, action_type: str | None = None) -> None:
 def _room(services: Services, game_id: str) -> Room:
     room = services.hub.get(game_id)
     if room is None:
-        raise HTTPException(404, "Game not found (it may have been closed; load it from Saves)")
+        raise HTTPException(404, GAME_NOT_FOUND)
     return room
 
 
@@ -359,6 +361,8 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
 @router.get("/games")
 async def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
     # (-- sync endpoints (wave 30B) -- on the event loop, see game_summary)
+    if is_tunnel_request(request):  # -- invite over the internet -- a remote player is sent to the table; nothing to browse
+        return []
     local = is_local_request(request)
     # a practice table (elimination hub) is its owner's alone: never listed. Commanders (for the Play page's tiles) show on the
     # host's own screen only: another device sees no more than the players' names until it sits at the table.
@@ -411,11 +415,14 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
 
 
 @router.get("/games/{game_id}")
-async def game_summary(game_id: str, services: ServicesDep) -> dict[str, Any]:
+async def game_summary(game_id: str, request: Request, services: ServicesDep) -> dict[str, Any]:
     # -- sync endpoints (wave 30B) -- on the event loop like GET /view (review 29A): actions change the table there with no await in
     # between, so a read on the loop sees whole tables; on the threadpool it iterates the room's connections while a socket joins or leaves
     room = _room(services, game_id)
-    return room.summary()
+    summary = room.summary()
+    if is_tunnel_request(request):  # (the room code is for the LAN: through the tunnel the invite link is the way in)
+        summary["code"] = None
+    return summary
 
 
 @router.get("/games/{game_id}/view")
@@ -1933,11 +1940,14 @@ async def _read_auth(websocket: WebSocket) -> tuple[str | None, str | None, bool
 
 async def game_socket(websocket: WebSocket, game_id: str) -> None:
     services: Services = websocket.app.state.services
+    # -- invite over the internet -- on the tunnel port the Host, the Origin and a shared table are checked with the credentials, after
+    # the first message, and fail exactly as a wrong token does: the close says nothing about the server (_serve_game_socket)
+    tunnel = is_tunnel_request(websocket)
     # before anything else, and before accept(): the Host (DNS rebinding), then the Origin (another site's page opening this socket)
-    if not host_ok(websocket):
+    if not tunnel and not host_ok(websocket):
         await websocket.close(code=4400, reason="Unknown host")
         return
-    if not origin_ok(websocket):
+    if not tunnel and not origin_ok(websocket):
         await websocket.close(code=4403, reason="Cross-site connection refused")
         return
     # one slot per socket from here to the end, authenticated or not (a flood of silent sockets is bounded in number as well as in time);
@@ -1947,12 +1957,12 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
         await websocket.close(code=4429, reason=TOO_MANY)
         return
     try:
-        await _serve_game_socket(websocket, game_id, services)
+        await _serve_game_socket(websocket, game_id, services, tunnel)
     finally:
         services.caps_addr.release(address)
 
 
-async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Services) -> None:
+async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Services, tunnel: bool) -> None:
     await websocket.accept()
     # nothing is attached to the room, and nothing is sent, until the first message has proved a seat (or the host's table view);
     # every way of failing closes the same way, so the close tells a prober nothing about which check it failed or whether the game exists
@@ -1963,6 +1973,8 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
     room = services.hub.get(game_id)
     try:
         if room is None:
+            raise HTTPException(404, "Game not found")
+        if tunnel and not (host_ok(websocket) and origin_ok(websocket) and tunnel_serves(services, game_id)):
             raise HTTPException(404, "Game not found")
         viewer, actor = authorize(room, conn=websocket, token=token, viewer=requested_viewer, as_player=None)
     except HTTPException:
@@ -1976,7 +1988,7 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
         await websocket.close(code=code, reason=reason)
 
     conn = Connection(viewer=viewer, send=send, actor=actor, host=room_host(room, websocket, token), close=close, token=token,
-                      deltas=deltas, tunnel=is_tunnel_request(websocket))  # -- view deltas -- (app/multiplayer/view_delta.py)
+                      deltas=deltas, tunnel=tunnel)  # -- view deltas -- (app/multiplayer/view_delta.py)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
     pong_limiter = _RateLimiter(rate=0.5, burst=10.0)  # a healthy client answers one ping in 25 s

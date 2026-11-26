@@ -23,7 +23,7 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
-from app.api.deps import host_ok, is_https, origin_ok
+from app.api.deps import GAME_NOT_FOUND, host_ok, is_https, is_tunnel_request, origin_ok, tunnel_serves
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
@@ -36,6 +36,7 @@ from app.logging_setup import configure_logging
 from app.multiplayer import handoff
 from app.multiplayer.discovery import Discovery
 from app.multiplayer.hub import GameNotStarted
+from app.netguard import tunnel_route
 from app.services import Services
 from app.storage import backup, package, taught, update
 
@@ -44,7 +45,9 @@ log = logging.getLogger(__name__)
 # Everything is served from this origin; no third-party scripts, fonts or trackers.
 _CSP_HEAD = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
 _CSP_TAIL = "; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
-_CSP_HOST = re.compile(r"[a-z0-9.\-\[\]:]+", re.ASCII)  # what a Host that host_ok accepted can look like; nothing else is ever echoed
+# what a Host that host_ok accepted can look like (a bracketed zone id, "[fe80::1%eth0]", is refused there, in netguard._split_host);
+# checked again here so nothing else is ever echoed
+_CSP_HOST = re.compile(r"[a-z0-9.\-\[\]:]+", re.ASCII)
 
 
 def csp(host_header: str | None) -> str:
@@ -135,13 +138,34 @@ UNKNOWN_HOST = "This address is not one Fyodor answers to. Use http://<IP>:<port
 
 def _same_site_request(request: Request) -> bool:
     """May this state-changing request go on? Not when the browser says it is cross-site. No Origin and no Sec-Fetch-Site is not a
-    browser (the LAN handoff, scripts): let through. Otherwise a same-origin request or a typed navigation, or an allowed Origin."""
+    browser (the LAN handoff, scripts): let through. Otherwise a same-origin request or a typed navigation, or an allowed Origin.
+    On the tunnel port only the invite's own Origin (origin_ok): the exemptions above are the LAN's."""
+    if is_tunnel_request(request):
+        return origin_ok(request)
     site = request.headers.get("sec-fetch-site")
     if site == "cross-site":
         return False
     if site is None and "origin" not in request.headers:
         return True
     return site in {"same-origin", "none"} or origin_ok(request)
+
+
+NOT_FOUND = {"detail": "Not Found"}  # what the tunnel port answers for anything it doesn't serve: the same as a route that doesn't exist
+
+
+def _tunnel_refusal(request: Request) -> Response | None:
+    """-- invite over the internet -- on the tunnel port, in this order: the invite hostname while the tunnel runs (host_ok), a route in
+    TUNNEL_ROUTES, a table it names that is shared (tunnel_serves), and the invite's Origin on a state-changing request. None: go on."""
+    if not host_ok(request):
+        return JSONResponse(NOT_FOUND, status_code=404)
+    allowed, game_id = tunnel_route(request.method, request.scope["path"])
+    if not allowed:
+        return JSONResponse(NOT_FOUND, status_code=404)
+    if game_id is not None and not tunnel_serves(request.app.state.services, game_id):
+        return JSONResponse({"detail": GAME_NOT_FOUND}, status_code=404)
+    if request.method in UNSAFE_METHODS and not _same_site_request(request):
+        return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    return None
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -180,6 +204,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # added last, so it runs first: the Host (DNS rebinding) before anything else, then the Origin of a state-changing request
     @app.middleware("http")
     async def net_guard(request: Request, call_next: Any) -> Response:
+        if is_tunnel_request(request):
+            refusal = _tunnel_refusal(request)
+            if refusal is not None:
+                return refusal
+            tunnelled: Response = await call_next(request)
+            return tunnelled
         if not host_ok(request):  # (most often a person who typed a name into the address bar: say what to do, in plain words)
             return PlainTextResponse(UNKNOWN_HOST, status_code=400)
         if request.method in UNSAFE_METHODS and not _same_site_request(request):

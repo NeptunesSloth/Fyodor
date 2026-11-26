@@ -174,6 +174,7 @@ class Room:
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
+    shared: bool = False  # -- invite over the internet -- served on the tunnel port (app/api/deps.py tunnel_serves)
     predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
     saved_rows: dict[str, dict[str, str]] = field(default_factory=dict)  # -- saved rows -- deck id -> the rows last stored for it
     # -- resolving progress -- a rules intent being worked out off the event loop (``GameHub.perform``): done once it is applied.

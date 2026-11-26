@@ -101,6 +101,10 @@ def test_origin_allowed_by_the_extra_list():
     ("192.168.1.20:80x", False),
     ("192.168.1.20:", False),
     ("[::1]:", False),
+    ("[fe80::1%a;b]:8000", False),                    # a zone id ('%') is never part of a Host: ipaddress takes any text after it
+    ("[fe80::1%a b]", False),
+    ("[fe80::1%eth0]", False),
+    ("[fe80::1%25eth0]:8000", False),
     ("", False),
     (None, False),
 ])

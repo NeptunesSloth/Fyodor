@@ -29,7 +29,7 @@ def _split_host(host_header: str | None) -> tuple[str, int | None] | None:
         port = rest[1:] if rest.startswith(":") else rest
         if rest and not rest.startswith(":"):
             return None
-        if rest == ":":
+        if rest == ":" or "%" in host:  # (a zone id never belongs in a Host, and ipaddress takes any text after the '%')
             return None
         try:
             ipaddress.IPv6Address(host)
@@ -106,6 +106,40 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
     if own is not None and own[0] == host and (own[1] or DEFAULT_PORTS[scheme]) == port:
         return True
     return any(key == _origin_key(e) for e in extra)
+
+
+# -- invite over the internet -- what the tunnel port serves (app/main.py net_guard): the page, and what a remote player at a shared
+# table needs; anything else there is a 404. (methods or None for any, the path matched whole). A route added later is outside this
+# list until it is named here (tests/test_tunnel_routes.py walks every route).
+_GAME = r"/api/games/(?P<game_id>[^/]+)"
+TUNNEL_ROUTES: tuple[tuple[frozenset[str] | None, re.Pattern[str]], ...] = tuple(
+    (frozenset(methods.split()) if methods else None, re.compile(pattern)) for methods, pattern in (
+        ("GET", r"/"),  # the built page (_mount_frontend serves only these two)
+        ("GET", r"/assets/.+"),
+        ("GET", r"/api/health"),
+        ("GET", r"/api/host/session"),  # (always {"host": false} here; the page asks)
+        ("POST", r"/api/join"),
+        ("GET", r"/api/games"),  # (always [] here)
+        ("GET", r"/api/cards/(search|autocomplete|glossary|(?!stats\Z)[^/]+|[^/]+/printings)"),  # (not the database's stats)
+        ("POST", r"/api/cards/batch"),
+        ("GET", r"/api/images/.+"),
+        ("GET", r"/api/symbols(/[^/]+\.svg)?"),
+        ("GET", r"/api/assets/[^/]+/file"),
+        ("GET", r"/api/rules/(support|coverage)"),
+        ("GET", r"/api/macros"),  # the pod's card macros: the game screen loads them for every seat (app/api/macros.py)
+        # a table and everything under it, but its host's tools, saving, the assistant, the rules lab, sharing and the test opponent
+        (None, _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|lobby/bot|bot(/.*)?)\Z).+)?"),
+    ))
+
+
+def tunnel_route(method: str, path: str) -> tuple[bool, str | None]:
+    """May ``method`` ``path`` be asked for on the tunnel port, and which table does it name (None: none)? (The game socket is
+    checked in game_socket: middleware never sees it.)"""
+    for methods, pattern in TUNNEL_ROUTES:
+        match = pattern.fullmatch(path)
+        if match is not None and (methods is None or method.upper() in methods):
+            return True, match.groupdict().get("game_id")
+    return False, None
 
 
 UNKNOWN_TUNNEL_CLIENT = "tunnel:unknown"

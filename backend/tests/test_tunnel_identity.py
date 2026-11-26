@@ -32,6 +32,11 @@ def _wrong_secret(c: TestClient, **headers: str) -> int:
     return c.post("/api/host/session", json={"secret": "not-it"}, headers=headers).status_code
 
 
+def _wrong_code(c: TestClient, **headers: str) -> int:
+    """A wrong room code: counted by address (``join_limiter_addr``), and served on the tunnel port (POST /api/host/session isn't)."""
+    return c.post("/api/join", json={"code": "ZZZZZZ"}, headers=headers).status_code
+
+
 def test_lan_requests_are_not_tunnel_requests(client, tunnel_client) -> None:
     app = client.app
     assert not deps.is_tunnel_request(_conn(app, ("0.0.0.0", 8000)))  # noqa: S104 - the LAN socket
@@ -60,6 +65,7 @@ def test_host_cookie_is_not_host_on_the_tunnel_port(client, tunnel_client) -> No
 
 def test_room_host_token_is_not_host_on_the_tunnel_port(client, tunnel_client) -> None:
     gid, code, alice = create_lobby(client)  # Alice is the host's own seat
+    client.app.state.services.hub.get(gid).shared = True  # (served on the tunnel port: tests/test_tunnel_routes.py)
     client.post("/api/join", json={"code": code, "name": "Bob"}, headers={"Cookie": ""})
     assert client.get(f"/api/games/{gid}/lobby", headers={"X-Seat-Token": alice}).json()["is_host"]  # on the LAN port: the host's
     with connect_game(tunnel_client, gid, alice) as ws:
@@ -67,9 +73,10 @@ def test_room_host_token_is_not_host_on_the_tunnel_port(client, tunnel_client) -
         assert first["type"] == "lobby" and first["lobby"]["viewer"] == "p1" and first["lobby"]["is_host"] is False
     assert tunnel_client.get(f"/api/games/{gid}/lobby", headers={"X-Seat-Token": alice}).json()["is_host"] is False
     body = {"seat": "p2"}
-    for path in ("host/seat-link", "lobby/kick"):  # refused by the route's host check, not by the cross-site guard
-        res = tunnel_client.post(f"/api/games/{gid}/{path}", json=body, headers={"X-Seat-Token": alice})
-        assert res.status_code == 403 and res.json()["detail"] == "Only the host can do that"
+    # refused by the route's host check, not by the cross-site guard (host/seat-link isn't served on the tunnel port at all)
+    res = tunnel_client.post(f"/api/games/{gid}/lobby/kick", json=body, headers={"X-Seat-Token": alice})
+    assert res.status_code == 403 and res.json()["detail"] == "Only the host can do that"
+    assert tunnel_client.post(f"/api/games/{gid}/host/seat-link", json=body, headers={"X-Seat-Token": alice}).status_code == 404
     assert client.post(f"/api/games/{gid}/host/seat-link", json=body, headers={"X-Seat-Token": alice}).status_code == 200
 
 
@@ -81,8 +88,9 @@ def test_tunnel_client_address_is_cf_connecting_ip(client, tunnel_client) -> Non
     assert deps.client_address(_conn(client.app, tun, {"CF-Connecting-IP": "198.51.100.7", **forged})) == "198.51.100.7"
     assert deps.client_address(_conn(client.app, tun, forged)) == "tunnel:unknown"  # no header: the one shared bucket, never the XFF
     assert deps.client_address(_conn(client.app, ("127.0.0.1", 8000), forged)) == "203.0.113.9"  # (the LAN port as before)
-    assert _wrong_secret(tunnel_client, **forged) == 403
-    assert list(services.host_limiter_addr._failures) == ["198.51.100.7"]
+    assert _wrong_code(tunnel_client, **forged) == 403
+    assert list(services.join_limiter_addr._failures) == ["198.51.100.7"]
+    assert _wrong_secret(tunnel_client, **forged) == 404  # (no guessing the host secret through the tunnel at all)
 
 
 @pytest.mark.parametrize("value,expected", [
@@ -108,10 +116,10 @@ def test_lan_port_never_reads_cf_connecting_ip(client, tunnel_client) -> None:
 
 def test_two_phones_in_one_ipv6_64_share_a_bucket_but_other_64s_do_not(client, tunnel_client) -> None:
     for _ in range(5):
-        assert _wrong_secret(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:2::aaaa"}) == 403
-    assert _wrong_secret(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:2:ffff::1"}) == 429  # the other phone on that /64
-    assert _wrong_secret(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:3::aaaa"}) == 403  # the next /64 is someone else
-    assert _wrong_secret(tunnel_client) == 403  # and so is the IPv4 default
+        assert _wrong_code(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:2::aaaa"}) == 403
+    assert _wrong_code(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:2:ffff::1"}) == 429  # the other phone on that /64
+    assert _wrong_code(tunnel_client, **{"CF-Connecting-IP": "2001:db8:1:3::aaaa"}) == 403  # the next /64 is someone else
+    assert _wrong_code(tunnel_client) == 403  # and so is the IPv4 default
 
 
 def test_a_seat_reconnects_from_a_new_address(client, tunnel_client) -> None:
@@ -124,6 +132,7 @@ def test_a_seat_reconnects_from_a_new_address(client, tunnel_client) -> None:
         "mode": "lan", "players": [{"name": "Jonathan", "deck_id": a}, {"name": "Mike", "deck_id": b}],
     }).json()
     gid, code = game["game"]["id"], game["game"]["code"]
+    client.app.state.services.hub.get(gid).shared = True
     mike = client.post("/api/join", json={"code": code, "name": "Mike"}, headers={"Cookie": ""}).json()["token"]
     services = client.app.state.services
     for address in ("198.51.100.7", "203.0.113.40"):

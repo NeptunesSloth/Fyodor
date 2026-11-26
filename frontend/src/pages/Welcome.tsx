@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Health } from "../services/api";
+import { cardDbState, type Health } from "../services/api";
 import { lanInfo } from "../services/games";
 import { usePrefs } from "../state/prefs";
 import { CardUpdateProgress, useCardData } from "./CardDataPanel";
@@ -64,7 +64,8 @@ export function Welcome({ health, onClose }: { health: Health | null; onClose: (
             onKeyDown={(e) => { if (e.key === "Enter") { finish(); window.location.hash = "#/play"; } }} />
           <span className="hint">Saved in this browser only — there are no accounts.</span>
         </li>
-        <CardDatabaseStep available={!!db?.available} cards={db?.oracle_cards ?? 0} />
+        {/* (a guest isn't told about the host's card database: no step, rather than a "not downloaded yet") */}
+        {cardDbState(health) !== "not-told" && <CardDatabaseStep available={!!db?.available} cards={db?.oracle_cards ?? 0} />}
         <li>
           <b>Bring a deck</b> <a href="#/decks">Import a list or an Archidekt link</a>, or let each player bring their own in the LAN lobby.
         </li>
