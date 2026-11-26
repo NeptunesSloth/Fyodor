@@ -72,6 +72,8 @@ class _Wait:
 
 
 class TurnClock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     settings: ClockSettings = Field(default_factory=lambda: ClockSettings.model_validate({}))
     banks: dict[str, float] = Field(default_factory=dict)
 
@@ -118,8 +120,9 @@ class TurnClock(BaseModel):
             return []
         out = []
         for pid, w in self._waits.items():
-            buf, bank = self._project(pid, w, now)
-            if buf <= 0.0 and bank <= 0.0 and not self._exempt(pid, now) and (pid, w.key) not in self._gave_up:
+            # the same deadline next_event reports (so the two never disagree at the exact boundary), or already empty at the last settle
+            at_zero = (w.run and now >= w.last + w.buffer + self._bank0(pid)) or (w.buffer <= 0.0 and self._bank0(pid) <= 0.0)
+            if at_zero and not self._exempt(pid, now) and (pid, w.key) not in self._gave_up:
                 out.append(pid)
         return out
 
@@ -200,6 +203,8 @@ class TurnClock(BaseModel):
         self._held = True
 
     def add_time(self, pid: str, seconds: float, now: float) -> float:
+        if not seconds >= 0:  # (also NaN)
+            raise ValueError("seconds must not be negative")
         w = self._waits.get(pid)
         cur = self._project(pid, w, now)[1] if w is not None else self._bank0(pid)
         if w is not None:
@@ -208,6 +213,8 @@ class TurnClock(BaseModel):
         return self.banks[pid]
 
     def extend_grace(self, pid: str, seconds: float) -> None:
+        if not seconds >= 0:
+            raise ValueError("seconds must not be negative")
         self._grace_extra[pid] = min(MAX_GRACE_EXTRA, self._grace_extra.get(pid, 0.0) + seconds)
 
     def give_up(self, pid: str) -> None:

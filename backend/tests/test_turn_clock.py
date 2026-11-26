@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from app.game.errors import ActionError
 from app.game.rules_state import Decision
 from app.game.state import Pregame, PregameSeat
 from app.game.turn_clock import MAX_BANK, MAX_GRACE_EXTRA, ClockSettings, TurnClock, waiting_on
+from tests.game_helpers import act
 from tests.test_rules_effects import build
 
 
@@ -149,3 +153,47 @@ def test_waiting_on_pregame_charges_every_undecided_seat(cards):
     assert waiting_on(s.state) == {"p1": "m:deciding:1"}
     s.state.pregame.seats["p2"] = PregameSeat(status="bottoming")
     assert waiting_on(s.state) == {"p1": "m:deciding:1", "p2": "m:bottoming:0"}
+
+
+def test_top_level_extra_key_and_too_many_banks_are_rejected():
+    assert TurnClock.load({"settings": {"on": True}, "banks": {}, "evil": 1}) is None
+    assert TurnClock.load({"settings": {"on": True}, "banks": {f"p{i}": 1.0 for i in range(13)}}) is None
+    assert TurnClock.load({"settings": {"on": True}, "banks": {f"p{i}": 1.0 for i in range(12)}}) is not None
+
+
+def test_negative_time_is_refused():
+    c = on()
+    with pytest.raises(ValueError):
+        c.add_time("p1", -5, 0.0)
+    with pytest.raises(ValueError):
+        c.extend_grace("p1", -5)
+    assert c.banks == {} and TurnClock.load(c.dump(0.0)) is not None
+
+
+def test_due_and_next_event_agree_at_the_exact_boundary():
+    c = on(buffer_seconds=5)
+    c.banks["p1"] = 0.1
+    c.sync({"p1": "k"}, {"p1"}, 0.3)
+    t = c.next_event(0.3)
+    assert t is not None and c.due(t) == ["p1"]
+    assert c.due(t - 0.001) == []
+
+
+def test_mark_acted_round_trip():
+    c = on()
+    assert c.acted_revision("p1") is None
+    c.mark_acted("p1", 7)
+    assert c.acted_revision("p1") == 7 and c.acted_revision("p2") is None
+
+
+def test_priority_key_follows_real_priority_changes(cards):
+    s = build(cards)
+    key = waiting_on(s.state)["p1"]
+    with pytest.raises(ActionError):
+        act(s, "p2", type="pass_priority")                 # a refused action (not their priority) changes nothing
+    assert waiting_on(s.state) == {"p1": key}
+    act(s, "p2", type="add_mana", player="p2", mana={"R": 1})  # another player acting does not renew it
+    assert waiting_on(s.state) == {"p1": key}
+    act(s, "p1", type="pass_priority")                      # passing gives a new priority (117.3d)
+    after = waiting_on(s.state)
+    assert after != {"p1": key}
