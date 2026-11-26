@@ -57,6 +57,16 @@ def test_a_save_then_a_load_keeps_the_settings_and_the_banks(client) -> None:
         assert abs(loaded.bank(pid, driver.now()) - bank) <= 0.5
 
 
+def test_a_save_then_a_load_keeps_what_is_left_of_each_reconnect_grace(client) -> None:  # final fix I1: a budget per game
+    gid, alice, _ = started(client, clock={"on": True, "grace_seconds": 120})
+    clock = room_of(client, gid).game.clock
+    clock.grace_left.update({"p2": 35.0})
+    loaded = save_and_load(client, gid, alice).game.clock
+    assert loaded is not None and loaded.grace_left == {"p2": 35.0}  # (Alice's, never spent, is the full 120 s: not listed)
+    loaded.sync({"p2": "x"}, {"p1"}, 50.0)                             # Bob away and waited on: only what was left
+    assert loaded.next_event(50.0) == 85.0
+
+
 def test_a_save_without_a_clock_loads_without_one(client) -> None:
     gid, alice, _ = started(client)
     assert room_of(client, gid).game.clock is None

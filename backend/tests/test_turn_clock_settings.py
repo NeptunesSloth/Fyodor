@@ -143,14 +143,33 @@ def test_settings_turn_the_clock_on_off_and_change_it(client) -> None:
     assert room.game.clock.banks == banks  # nothing is charged once it is off
 
 
-def test_more_time_to_reconnect_moves_the_end_of_the_grace(client) -> None:
+def test_a_settings_change_charges_the_time_before_it(client, monkeypatch) -> None:  # review M3
+    from app.multiplayer import turn_clock_driver as driver
+
+    at = [1000.0]
+    monkeypatch.setattr(driver, "now", lambda: at[0])
+    gid, alice, _ = started(client, clock={"on": True})
+    c = room_of(client, gid).game.clock
+    c.sync({"p1": "x"}, {"p1"}, 1000.0)  # Alice is waited on
+    at[0] = 1100.0                       # 100 s: the 30 s buffer, then 70 s of bank
+    assert clock(client, gid, alice, op="settings", settings={"on": False}).status_code == 200
+    assert c.banks["p1"] == 1430.0       # charged by the settings it ran under, not dropped
+
+
+def test_more_time_to_reconnect_adds_to_the_budget_and_is_saved(client, monkeypatch) -> None:
+    from app.multiplayer import turn_clock_driver as driver
+
+    monkeypatch.setattr(driver, "now", lambda: 1000.0)
     gid, alice, _ = started(client, clock={"on": True, "grace_seconds": 30})
     room = room_of(client, gid)
     c = room.game.clock
-    c.sync({"p2": "x"}, {"p1"}, 1000.0)  # p2 is waited on and away
-    before = c.next_event(1000.0)
+    c.sync({"p2": "x"}, {"p1"}, 990.0)  # p2 is waited on and away: 10 of the 30 s spent by the request's instant
+    assert c.next_event(990.0) == 1020.0
     res = clock(client, gid, alice, op="grace", player="p2", seconds=120)
     assert res.status_code == 200, res.text
-    assert c._grace_extra["p2"] == 120.0
+    assert c.grace_left["p2"] == 140.0                  # 20 s left + exactly the 120 s given
     assert "The host gave Bob 2:00 more to reconnect." in notices(room)
-    assert before is not None
+    saves = []
+    monkeypatch.setattr(client.app.state.services.hub, "persist", lambda r: saves.append(r.game.clock.dump(1000.0)))
+    clock(client, gid, alice, op="grace", player="p2", seconds=60)
+    assert saves and saves[-1]["grace_left"]["p2"] == 200.0  # (the budget is saved with the clock: persisted now)

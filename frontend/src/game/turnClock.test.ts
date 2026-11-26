@@ -25,9 +25,15 @@ describe("turn clock countdown", () => {
     expect(remainingNow(running, 0, 0, 30_000)).toEqual({ buffer: 0, bank: 90 });
     expect(remainingNow(running, 0, 0, 9_999_000)).toEqual({ buffer: 0, bank: 0 });
   });
-  it("frozen when not running or away", () => {
+  it("frozen when not running (the server stops it while an away player still has reconnect time)", () => {
     expect(remainingNow({ ...running, running: false }, 0, 0, 50_000)).toEqual({ buffer: 20, bank: 100 });
-    expect(remainingNow({ ...running, away: true }, 0, 0, 50_000)).toEqual({ buffer: 20, bank: 100 });
+    expect(remainingNow({ ...running, running: false, away: true }, 0, 0, 50_000)).toEqual({ buffer: 20, bank: 100 });
+  });
+  it("an away player whose reconnect time is spent is charged: it counts down", () => {
+    expect(remainingNow({ ...running, away: true }, 0, 0, 50_000)).toEqual({ buffer: 0, bank: 70 });
+  });
+  it("a player not waited on has no buffer (null)", () => {
+    expect(remainingNow({ bank: 100, buffer: null, running: false, away: false }, 0, 0, 50_000)).toEqual({ buffer: 0, bank: 100 });
   });
   it("formatClock", () => {
     expect(formatClock(1500)).toBe("25:00");

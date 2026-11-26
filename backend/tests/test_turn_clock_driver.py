@@ -23,8 +23,8 @@ from tests.game_helpers import act, zone
 from tests.test_rules_effects import build, hand, mana, replay_matches
 
 ACTED_ALICE = "Alice ran out of time: Fyodor acted for them."
-CANT_ALICE = ("Alice ran out of time, but Fyodor can't make this choice for them. The table decides it; the host can add time or turn the "
-              "clock off.")
+CANT_ALICE = ("Alice ran out of time, but Fyodor can't make this choice for them, so the table waits for them to make it. The host can "
+              "add time, or remove a player who has left.")
 
 
 @pytest.fixture()
@@ -260,6 +260,35 @@ def test_after_grace_the_absent_player_is_acted_for(cards, t):
     t[0] += 30 + bank
     assert asyncio.run(driver.tick(hub, room)) == ["p1"]
     assert s.history.actions[-1].actor == "p1" and s.history.actions[-1].type == "pass_priority"
+    replay_matches(s)
+
+
+def test_a_vanished_player_gets_one_reconnect_grace_per_game_not_per_decision(cards, t):  # final fix I1, through the hub
+    from app.game.turn_clock import waiting_on
+
+    s = clocked(build(cards), bank_seconds=60)
+    act(s, "p2", type="set_stops", own=[], others=["main1", "main2"], smart_pass=False)  # (Bob holds priority: the wait moves to him)
+    hub, room, inbox, conns = seated(s)
+    hub.disconnect(room, conns["p1"])
+    t[0] += 120
+    assert asyncio.run(driver.tick(hub, room)) == []            # the budget runs out: the timer syncs, charging starts
+    shown = inbox["p2"][-1]["view"]["game"]["clock"]["players"]["p1"]
+    assert shown["away"] is True and shown["running"] is True   # … and every screen is told at once (it counts down)
+    t[0] += 30 + 60
+    assert asyncio.run(driver.tick(hub, room)) == ["p1"]        # passed for them
+    assert list(waiting_on(s.state)) == ["p2"]                  # Bob's priority now
+    for _ in range(10):                                         # Bob passes until Alice (still away) is waited on again
+        t[0] += 5
+        asyncio.run(hub.perform(room, "p2", {"type": "pass_priority"}))
+        driver.poke(hub, room)
+        if "p1" in waiting_on(s.state):
+            break
+    assert "p1" in waiting_on(s.state)
+    assert s.clock.next_event(driver.now()) == driver.now() + 30  # only the buffer: no fresh grace for the new decision
+    assert block(room, "p1")["away"] is True and block(room, "p1")["running"] is True
+    hub.connect(room, Connection(viewer="p1", send=conns["p1"].send, actor="p1"))
+    hub.disconnect(room, conns["p1"])                           # a reconnect refills nothing
+    assert s.clock.next_event(driver.now()) == driver.now() + 30
     replay_matches(s)
 
 

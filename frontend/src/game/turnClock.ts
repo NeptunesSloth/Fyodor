@@ -4,7 +4,11 @@
  * `skew` is the smallest (receive time - sent_at) seen, which is the offset plus the least network delay, and elapsed time is
  * measured against that.
  */
-export interface ClockEntry { bank: number; buffer: number; running: boolean; away: boolean }
+/**
+ * `buffer`: null for a player not being waited on. `running`: being charged now (false while an away player still has reconnect
+ * time: the server spends that, not their clock). `away`: waited on and disconnected (with or without reconnect time left).
+ */
+export interface ClockEntry { bank: number; buffer: number | null; running: boolean; away: boolean }
 
 /** The least-delayed message wins: a later, slower one never makes the clock jump back. */
 export function noteSkew(prev: number | null, sentAt: number, receivedAtMs: number): number {
@@ -26,12 +30,14 @@ export function noteSkewWindow(samples: SkewSamples, sentAt: number, receivedAtM
   return { samples: kept, skew: kept.reduce((m, [, s]) => Math.min(m, s), Infinity) };
 }
 
-/** What is left now: the buffer is spent first, then the bank; frozen unless running and not away. */
+/** What is left now: the buffer is spent first, then the bank; frozen unless running (an away player is charged once their
+ * reconnect time is spent: the server then says running). */
 export function remainingNow(e: ClockEntry, sentAt: number, skew: number, nowMs: number): { buffer: number; bank: number } {
-  const elapsed = e.running && !e.away ? Math.max(0, nowMs / 1000 - skew - sentAt) : 0;
-  const fromBuffer = Math.min(e.buffer, elapsed);
+  const elapsed = e.running ? Math.max(0, nowMs / 1000 - skew - sentAt) : 0;
+  const buffer = e.buffer ?? 0;
+  const fromBuffer = Math.min(buffer, elapsed);
   return {
-    buffer: Math.max(0, Math.min(e.buffer, e.buffer - fromBuffer)),
+    buffer: Math.max(0, Math.min(buffer, buffer - fromBuffer)),
     bank: Math.max(0, Math.min(e.bank, e.bank - (elapsed - fromBuffer))),
   };
 }

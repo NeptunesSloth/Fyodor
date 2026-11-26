@@ -67,11 +67,11 @@ export function TurnClockHostSection() {
           </select>
         </label>
         <label className="field inline">Grace per decision
-          <CommitNumber min={5} max={300} value={s.buffer_seconds} label="Grace per decision, in seconds"
+          <CommitNumber min={5} max={300} value={s.buffer_seconds} label="Grace per decision, in seconds" disabled={busy}
             onCommit={(n) => change({ buffer_seconds: n })} /> seconds
         </label>
         <label className="field inline">Reconnect grace
-          <CommitNumber min={1} max={30} value={Math.round(s.grace_seconds / 60)} label="Reconnect grace, in minutes"
+          <CommitNumber min={1} max={30} value={Math.round(s.grace_seconds / 60)} label="Reconnect grace, in minutes" disabled={busy}
             onCommit={(n) => change({ grace_seconds: n * 60 })} onInvalid={() => toast("Enter a reconnect grace of 1 to 30 minutes")} /> minutes
         </label>
       </div>

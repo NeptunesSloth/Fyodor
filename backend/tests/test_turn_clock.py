@@ -76,8 +76,8 @@ def test_show_only_never_due_and_floor_is_zero():
 def test_add_time_and_grace_are_capped():
     c = on()
     assert c.add_time("p1", 99999, 0.0) == MAX_BANK
-    c.sync({"p1": "k"}, set(), 0.0)
-    c.extend_grace("p1", 99999)  # away from t=0
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    c.extend_grace("p1", 99999, 0.0)  # away from t=0
     assert c.next_event(0.0) == 120 + MAX_GRACE_EXTRA                      # its grace end (act mode, bank untouched)
 
 
@@ -166,7 +166,7 @@ def test_negative_time_is_refused():
     with pytest.raises(ValueError):
         c.add_time("p1", -5, 0.0)
     with pytest.raises(ValueError):
-        c.extend_grace("p1", -5)
+        c.extend_grace("p1", -5, 0.0)
     assert c.banks == {} and TurnClock.load(c.dump(0.0)) is not None
 
 
@@ -184,6 +184,101 @@ def test_mark_acted_round_trip():
     assert c.acted_revision("p1") is None
     c.mark_acted("p1", 7)
     assert c.acted_revision("p1") == 7 and c.acted_revision("p2") is None
+
+
+# -- the reconnect grace is a budget per player per game (final fix I1 + security Medium) -------------------------------------------
+
+
+def test_drop_reconnect_drop_spends_one_budget_and_the_clock_comes_due():  # the security review's reproduction
+    c = on(bank_seconds=60, buffer_seconds=5, grace_seconds=30)
+    t, due_at = 0.0, None
+    for _ in range(200):
+        c.sync({"p1": "d:x"}, {"p2"}, t)          # p1 drops
+        ev = c.next_event(t)
+        if ev is not None and ev < t + 29:
+            c.sync({"p1": "d:x"}, {"p2"}, ev)     # (the timer's wake at the end of the budget, as the driver does)
+            if c.due(ev):
+                due_at = ev
+                break
+        t += 29
+        c.sync({"p1": "d:x"}, {"p1", "p2"}, t)    # â€¦ and is back for a moment
+        if c.due(t) or c.due(t + 0.05):
+            due_at = t
+            break
+        t += 0.05
+    # 30 s of reconnect grace in all, then the 5 s buffer and the 60 s bank: due on the fourth return, not never
+    assert due_at is not None and due_at <= 30 + 5 + 60 + 29
+    assert c.bank("p1", t) == 0.0
+
+
+def test_an_absent_players_next_decision_gets_no_fresh_grace():  # the final review's I1 reproduction
+    c = on(bank_seconds=60)
+    c.sync({"p1": "k1"}, {"p2"}, 0.0)                       # away from t=0, waited on
+    assert c.next_event(0.0) == 120.0                        # the end of the reconnect grace
+    c.sync({"p1": "k1"}, {"p2"}, 120.0)                      # (the timer's wake at the grace end)
+    assert c.due(209.9) == [] and c.due(210.0) == ["p1"]     # 120 s grace, 30 s buffer, 60 s bank
+    c.sync({"p2": "k2"}, {"p2"}, 210.0)                      # the clock acted: the wait moves on
+    c.sync({"p1": "k3"}, {"p2"}, 212.0)                      # p1, still away, is waited on again
+    assert c.next_event(212.0) == 242.0                      # only the buffer: no new grace
+    assert c.public(212.0, 0)["players"]["p1"]["running"] is True
+
+
+def test_a_host_extension_adds_exactly_its_seconds():
+    c = on()
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    c.sync({"p1": "k"}, {"p2"}, 100.0)                       # 100 of the 120 s spent
+    c.extend_grace("p1", 60, 100.0)
+    assert c.next_event(100.0) == 180.0                      # 20 s left + 60
+    assert c.dump(100.0)["grace_left"] == {"p1": 80.0}
+
+
+def test_reconnecting_does_not_refill_the_budget():
+    c = on()
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    c.sync({"p1": "k"}, {"p1", "p2"}, 100.0)                 # back after 100 s
+    c.sync({"p1": "k2"}, {"p1", "p2"}, 150.0)                # a new decision, connected: charged, no grace touched
+    c.sync({"p1": "k2"}, {"p2"}, 160.0)                      # drops again
+    assert c.next_event(160.0) == 180.0                      # 20 s left of the budget, not 120
+    assert c.public(160.0, 0)["players"]["p1"]["away"] is True
+
+
+def test_the_budget_is_not_spent_while_held_nobody_is_here_or_not_waited_on():
+    c = on()
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    c.hold(10.0)                                             # 10 s spent; an action being worked out spends nothing
+    c.sync({"p2": "k2"}, {"p2"}, 50.0)                       # not waited on: nothing spent
+    c.sync({"p2": "k2"}, set(), 60.0)
+    c.sync({"p1": "k3"}, set(), 100.0)                       # nobody connected: nothing spent
+    c.sync({"p1": "k3"}, {"p2"}, 400.0)
+    assert c.next_event(400.0) == 510.0                      # 110 s left
+
+
+def test_save_and_load_keep_the_remaining_budget():
+    c = on()
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    saved = json.loads(json.dumps(c.dump(50.0)))             # 50 s spent, still away (projected into the save)
+    assert saved["grace_left"] == {"p1": 70.0}
+    back = TurnClock.load(saved)
+    assert back is not None
+    back.sync({"p1": "k"}, {"p2"}, 1000.0)
+    assert back.next_event(1000.0) == 1070.0
+    old = TurnClock.load({"settings": {"on": True}, "banks": {"p1": 12.0}})  # a save from before the budget: full
+    assert old is not None and old.grace_left == {}
+    old.sync({"p1": "k"}, {"p2"}, 0.0)
+    assert old.next_event(0.0) == 120.0
+    for bad in ({"p1": -1.0}, {"p1": float("nan")}, {"p1": 1e9}, {f"p{i}": 1.0 for i in range(13)}):
+        assert TurnClock.load({"settings": {"on": True}, "banks": {}, "grace_left": bad}) is None
+
+
+def test_turning_the_clock_off_keeps_the_budget():
+    c = on()
+    c.sync({"p1": "k"}, {"p2"}, 0.0)
+    c.sync({"p1": "k"}, {"p2"}, 100.0)
+    c.settings = ClockSettings(on=False)
+    c.sync({"p1": "k"}, {"p2"}, 500.0)                       # off: nothing waited on, nothing spent
+    c.settings = ClockSettings(on=True)
+    c.sync({"p1": "k"}, {"p2"}, 600.0)
+    assert c.next_event(600.0) == 620.0
 
 
 def test_priority_key_follows_real_priority_changes(cards):

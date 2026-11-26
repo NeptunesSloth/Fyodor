@@ -288,7 +288,8 @@ export interface ClockSettings {
 export interface GameClock {
   settings: ClockSettings;
   sent_at: number;
-  players?: Record<string, { bank: number; buffer: number; running: boolean; away: boolean }>;
+  // (buffer: null for a player not being waited on; the same shape as game/turnClock.ts's ClockEntry)
+  players?: Record<string, { bank: number; buffer: number | null; running: boolean; away: boolean }>;
 }
 
 export interface GameMeta {

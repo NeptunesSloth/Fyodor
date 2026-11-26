@@ -66,7 +66,8 @@ async def change_clock(
             if old is None:
                 session.clock = TurnClock(settings=body.settings)
             else:
-                old.settings = body.settings  # (banks untouched)
+                old.settle(driver.now())  # the time so far is charged by the old settings (review M3); the poke below syncs
+                old.settings = body.settings  # (banks and reconnect budgets untouched)
             now_on = body.settings.on
             session.notice("The host turned the turn clock on." if now_on and not was_on
                            else "The host turned the turn clock off." if was_on and not now_on
@@ -81,10 +82,9 @@ async def change_clock(
                 clock.add_time(body.player, body.seconds, driver.now())
                 session.notice(f"The host added {_mss(body.seconds)} to {name}'s clock.")
             else:
-                clock.extend_grace(body.player, body.seconds)
+                clock.extend_grace(body.player, body.seconds, driver.now())  # (added to their reconnect budget for the game)
                 session.notice(f"The host gave {name} {_mss(body.seconds)} more to reconnect.")
         driver.poke(services.hub, room)
-        if body.op != "grace":  # (the crash record keeps the settings and banks; a grace is in memory only)
-            services.hub.persist(room)
+        services.hub.persist(room)  # (the crash record keeps the settings, banks and reconnect budgets)
     await services.hub.broadcast(room)
     return {"view": services.hub.view(room, viewer)}

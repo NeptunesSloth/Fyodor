@@ -46,8 +46,9 @@ wall: Callable[[], float] = time.time  # when a view was built, for the browser'
 
 # Neither names the choice: the action's own log entry already follows the visibility rules
 ACTED = "{name} ran out of time: Fyodor acted for them."
-CANT = ("{name} ran out of time, but Fyodor can't make this choice for them. The table decides it; the host can add time or turn the "
-        "clock off.")
+# (true whether they are here or gone: only they can answer their own choice, review M2)
+CANT = ("{name} ran out of time, but Fyodor can't make this choice for them, so the table waits for them to make it. The host can add "
+        "time, or remove a player who has left.")
 
 
 HOLD_RECHECK = 0.5  # seconds: while a player's "I have a response" hold is pending, how often the timer looks again (its landing wakes it)
@@ -135,7 +136,10 @@ async def tick(hub: GameHub, room: Room) -> list[str]:
         if clock is None:
             return []
         session = room.game
+        was = clock.charging()
         _sync(room, clock)
+        # an away player's reconnect budget ran out (the timer woke at its end): every screen now counts their clock down
+        changed = clock.charging() != was
         for _ in range(len(session.state.seat_order) * 2):
             due = clock.due(now())
             if not due or response_call.waiting(room):

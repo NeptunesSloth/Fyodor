@@ -109,15 +109,16 @@ def answers(state: GameState, pid: str, info: CardInfo | None) -> list[dict[str,
         out.append(choose([]))  # an optional ("up to") choice: nothing chosen
     # -- never at themself (final fix C1) -- a choice offering players (115.1 / 601.2c / 603.3d: "any target", "target player")
     ranks = _target_ranks(d, state, pid)
+    tried = d
     if ranks is not None:
         if d.kind == "divide":
             # 601.2d: the division among targets already chosen: when the timed-out player is one of them (their own earlier choice),
             # how much they deal themself is left to the table
             return [] if pid in ranks else _tidy(out + dummy.answers(d, state=state, info=info))
         # the least drastic options first (ruling: a permanent over a player), the dummy's first legal options over that order
-        d = d.model_copy(update={"options": sorted(d.options, key=lambda o: ranks.get(o.id, 0))})
+        tried = d.model_copy(update={"options": sorted(d.options, key=lambda o: ranks.get(o.id, 0))})
     # 608.2d, 700.2: otherwise the first legal options (``order``: as offered; ``divide``: as evenly as allowed, 601.2d; typed names)
-    out += dummy.answers(d, state=state, info=info)
+    out += dummy.answers(tried, state=state, info=info)
     if ranks is not None:
         out.sort(key=lambda a: max((ranks.get(i, 0) for i in a.get("option_ids") or []), default=0))  # (stable)
         if all(pid in (a.get("option_ids") or []) for a in out):

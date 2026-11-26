@@ -13,7 +13,8 @@ describe("TurnClockChip label", () => {
   it("says the state in words", () => {
     expect(chipLabel("Alice", 751, 0, true, false)).toBe("Alice's clock: 12:31 left, running");
     expect(chipLabel("Alice", 751, 0, false, false)).toBe("Alice's clock: 12:31 left");
-    expect(chipLabel("Alice", 751, 0, true, true)).toBe("Alice's clock: 12:31 left, paused, reconnecting");
+    expect(chipLabel("Alice", 751, 0, false, true)).toBe("Alice's clock: 12:31 left, paused, reconnecting");
+    expect(chipLabel("Alice", 751, 0, true, true)).toBe("Alice's clock: 12:31 left, running, away");
   });
 });
 
@@ -28,8 +29,16 @@ describe("TurnClockChip render", () => {
     expect(html).toContain("12:31");
     expect(html).not.toContain("·");
   });
-  it("away: says Paused — reconnecting", () => {
-    expect(show({ settings, players: { p1: { bank: 751, buffer: 30, running: true, away: true } } })).toContain("Paused — reconnecting");
+  it("away with reconnect time left (the server holds it): says Paused — reconnecting", () => {
+    const html = show({ settings, players: { p1: { bank: 751, buffer: 30, running: false, away: true } } });
+    expect(html).toContain("Paused — reconnecting");
+    expect(html).not.toContain("running");
+  });
+  it("away with the reconnect time spent: charged, so it runs and says so", () => {
+    const html = show({ settings, players: { p1: { bank: 751, buffer: 30, running: true, away: true } } });
+    expect(html).toContain("0:30 · 12:31");
+    expect(html).toContain("Away — clock running");
+    expect(html).not.toContain("Paused");
   });
   it("nothing when the clock is off, absent or the player has no entry", () => {
     expect(show({ settings: { ...settings, on: false } })).toBe("");

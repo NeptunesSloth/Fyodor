@@ -231,7 +231,8 @@ export class GameConnection {
   requestAction(message: Record<string, unknown>): Promise<void> {
     const cid = newClientActionId();
     return new Promise<void>((resolve, reject) => {
-      const queued = { ...message, client_action_id: cid, seen_revision: this.revision };
+      // (before this connection's first snapshot the revision is 0, which names no view: sent as none, unchecked)
+      const queued = { ...message, client_action_id: cid, seen_revision: this.revision || undefined };
       this.outbox.set(cid, { message: queued, resolve, reject, deadline: Date.now() + OUTBOX_TTL, wireId: null });
       this.handlers.onOutbox?.(this.outbox.size);
       this.sendQueued(cid);

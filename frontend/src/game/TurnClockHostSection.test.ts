@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ClockRow, clockRowButtons } from "./TurnClockHostSection";
-import { commitNumber } from "../components/CommitNumber";
+import { CommitNumber, commitNumber } from "../components/CommitNumber";
 
 describe("host turn clock requests", () => {
   it("+1:00 sends 60, +5:00 sends 300, the reconnect grace sends 120 (seconds)", () => {
@@ -22,6 +22,14 @@ describe("host turn clock requests", () => {
     const html = renderToStaticMarkup(createElement(ClockRow, { pid: "p2", name: "Bob", away: true, busy: true, go: () => undefined }));
     expect(html.match(/<button/g)?.length).toBe(3);
     expect(html.match(/disabled=""/g)?.length).toBe(3);
+  });
+});
+
+describe("CommitNumber", () => {
+  it("can be disabled (the host's settings while a request is out)", () => {
+    const field = (disabled?: boolean) => renderToStaticMarkup(createElement(CommitNumber, { value: 30, min: 5, max: 300, label: "Grace", onCommit: () => undefined, disabled }));
+    expect(field(true)).toContain('disabled=""');
+    expect(field(false)).not.toContain("disabled");
   });
 });
 

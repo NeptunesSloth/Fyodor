@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 AtZero = Literal["act", "show"]
 MAX_BANK = 14400.0
 MAX_GRACE_EXTRA = 3600.0
+MAX_GRACE = 1800.0 + MAX_GRACE_EXTRA  # the most a reconnect budget can hold (the largest grace_seconds, plus the host's extensions)
 MAX_BANKS = 12
 
 
@@ -79,12 +80,15 @@ class TurnClock(BaseModel):
 
     settings: ClockSettings = Field(default_factory=lambda: ClockSettings.model_validate({}))
     banks: dict[str, float] = Field(default_factory=dict)
+    # -- reconnect grace budget (final fix I1) -- what is left of each player's reconnect grace for the whole game: grace_seconds plus
+    # every host extension, spent only while they are away AND waited on (and somebody is here, nothing held, the clock on). Neither
+    # reconnecting nor a new decision refills it. A player missing here (and every player of an older save) has the full grace_seconds.
+    grace_left: dict[str, float] = Field(default_factory=dict)
 
     _waits: dict[str, _Wait] = PrivateAttr(default_factory=dict)
     _held: bool = PrivateAttr(default=False)
     _anyone: bool = PrivateAttr(default=False)  # somebody connected at the last sync
-    _away_since: dict[str, float] = PrivateAttr(default_factory=dict)
-    _grace_extra: dict[str, float] = PrivateAttr(default_factory=dict)
+    _away_since: dict[str, float] = PrivateAttr(default_factory=dict)  # waited on and away: since when, not yet spent from the budget
     _gave_up: set[tuple[str, str]] = PrivateAttr(default_factory=set)
     _acted: dict[str, int] = PrivateAttr(default_factory=dict)
 
@@ -95,14 +99,32 @@ class TurnClock(BaseModel):
             raise ValueError("bank out of range")
         return v
 
+    @field_validator("grace_left")
+    @classmethod
+    def _grace_ok(cls, v: dict[str, float]) -> dict[str, float]:
+        if len(v) > MAX_BANKS or any(not 0.0 <= g <= MAX_GRACE for g in v.values()):  # (NaN fails too)
+            raise ValueError("reconnect grace out of range")
+        return v
+
     # -- reading (never changes anything) --
 
     def _bank0(self, pid: str) -> float:
         return self.banks.get(pid, float(self.settings.bank_seconds))
 
+    def _grace0(self, pid: str) -> float:
+        """The reconnect budget left as of the last settle."""
+        return self.grace_left.get(pid, float(self.settings.grace_seconds))
+
+    def _spending(self) -> bool:
+        return self.settings.on and self._anyone and not self._held
+
+    def _grace_now(self, pid: str, now: float) -> float:
+        g, since = self._grace0(pid), self._away_since.get(pid)
+        return max(0.0, g - max(0.0, now - since)) if since is not None and self._spending() else g
+
     def _exempt(self, pid: str, now: float) -> bool:
         since = self._away_since.get(pid)
-        return since is not None and now - since < self.settings.grace_seconds + self._grace_extra.get(pid, 0.0)
+        return since is not None and now - since < self._grace0(pid)
 
     def _project(self, pid: str, w: _Wait, now: float) -> tuple[float, float]:
         """(buffer, bank) of a wait as of ``now``, from its last settle."""
@@ -113,6 +135,10 @@ class TurnClock(BaseModel):
             buf -= used
             bank = max(0.0, bank - (e - used))
         return buf, bank
+
+    def charging(self) -> frozenset[str]:
+        """Who is being charged (or spending their buffer) as of the last sync: what the views' ``running`` shows."""
+        return frozenset(pid for pid, w in self._waits.items() if w.run and not self._held)
 
     def bank(self, pid: str, now: float) -> float:
         w = self._waits.get(pid)
@@ -136,7 +162,8 @@ class TurnClock(BaseModel):
         for pid, w in self._waits.items():
             since = self._away_since.get(pid)
             if since is not None and self._exempt(pid, now):
-                times.append(since + self.settings.grace_seconds + self._grace_extra.get(pid, 0.0))
+                if self._anyone:  # (nobody here: nothing is spent, and the first one back syncs)
+                    times.append(since + self._grace0(pid))  # the budget runs out here: the timer syncs, and charging starts
             elif self.settings.at_zero == "act" and w.run and self._anyone and (pid, w.key) not in self._gave_up:
                 times.append(w.last + w.buffer + self._bank0(pid))
         return min(times) if times else None
@@ -155,7 +182,9 @@ class TurnClock(BaseModel):
         return out
 
     def dump(self, now: float) -> dict[str, Any]:
-        return {"settings": self.settings.model_dump(), "banks": {pid: self.bank(pid, now) for pid in self.banks}}
+        return {"settings": self.settings.model_dump(), "banks": {pid: self.bank(pid, now) for pid in self.banks},
+                "grace_left": {pid: self._grace_now(pid, now) for pid in sorted(set(self.grace_left) | set(self._away_since))
+                               if pid in self.grace_left or self._grace_now(pid, now) < self._grace0(pid)}}
 
     @classmethod
     def load(cls, data: object) -> TurnClock | None:
@@ -176,6 +205,14 @@ class TurnClock(BaseModel):
                 buf, bank = self._project(pid, w, now)
                 w.buffer, self.banks[pid] = buf, bank
             w.last = now
+        for pid in self._away_since:  # the reconnect budget spent since the last settle (only while away and waited on)
+            if self._spending():
+                self.grace_left[pid] = self._grace_now(pid, now)
+            self._away_since[pid] = now
+
+    def settle(self, now: float) -> None:
+        """Charge and spend everything up to ``now`` (before a change of settings, so the time before it is judged by the old ones)."""
+        self._settle(now)
 
     def sync(self, waiting: dict[str, str], connected: set[str], now: float) -> None:
         self._settle(now)
@@ -183,22 +220,21 @@ class TurnClock(BaseModel):
         if not self.settings.on:
             self._waits.clear()
             self._gave_up.clear()
+            self._away_since.clear()  # (the budget itself is kept: it is the game's)
             return
         self._anyone = bool(connected)
         old, self._waits = self._waits, {}
         for pid, key in waiting.items():
             self.banks.setdefault(pid, float(self.settings.bank_seconds))
             if pid in connected:
-                self._away_since.pop(pid, None)
-                self._grace_extra.pop(pid, None)
+                self._away_since.pop(pid, None)  # back: what was spent stays spent (never refilled)
             else:
-                self._away_since.setdefault(pid, now)
+                self._away_since.setdefault(pid, now)  # away and waited on: the budget is spent from here (a new decision too)
             w = old.get(pid)
             buf = w.buffer if w is not None and w.key == key else float(self.settings.buffer_seconds)
             self._waits[pid] = _Wait(key, now, buf, self._anyone and not self._exempt(pid, now))
-        for pid in [p for p in self._away_since if p not in waiting]:  # (only the waited-on are away)
+        for pid in [p for p in self._away_since if p not in waiting]:  # (only the waited-on spend it)
             del self._away_since[pid]
-            self._grace_extra.pop(pid, None)
         self._gave_up = {(p, k) for p, k in self._gave_up if waiting.get(p) == k}
 
     def hold(self, now: float) -> None:
@@ -215,10 +251,13 @@ class TurnClock(BaseModel):
         self.banks[pid] = min(MAX_BANK, cur + seconds)
         return self.banks[pid]
 
-    def extend_grace(self, pid: str, seconds: float) -> None:
+    def extend_grace(self, pid: str, seconds: float, now: float) -> float:
+        """The host's "more time to reconnect": adds to the player's reconnect budget for the game; returns what is left."""
         if not seconds >= 0:
             raise ValueError("seconds must not be negative")
-        self._grace_extra[pid] = min(MAX_GRACE_EXTRA, self._grace_extra.get(pid, 0.0) + seconds)
+        self._settle(now)
+        self.grace_left[pid] = min(float(self.settings.grace_seconds) + MAX_GRACE_EXTRA, MAX_GRACE, self._grace0(pid) + seconds)
+        return self.grace_left[pid]
 
     def give_up(self, pid: str) -> None:
         w = self._waits.get(pid)
