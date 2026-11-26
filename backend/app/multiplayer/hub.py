@@ -175,6 +175,7 @@ class Room:
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
     shared: bool = False  # -- invite over the internet -- served on the tunnel port (app/api/deps.py tunnel_serves)
+    invite_code: str | None = None  # -- invite over the internet -- what the tunnel port takes in place of ``code`` (never in a view)
     predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
     saved_rows: dict[str, dict[str, str]] = field(default_factory=dict)  # -- saved rows -- deck id -> the rows last stored for it
     # -- resolving progress -- a rules intent being worked out off the event loop (``GameHub.perform``): done once it is applied.
@@ -223,7 +224,7 @@ class Room:
 
     def seat_for_token(self, token: str | None) -> str | None:
         """Player id for a seat token, SPECTATOR for a spectator token, else None."""
-        if not token or token.startswith(BOT_TOKEN):
+        if not token or not token.isascii() or token.startswith(BOT_TOKEN):  # (compare_digest raises on a non-ASCII str)
             return None  # (-- LAN bots -- nobody acts as a bot: the server plays it directly)
         for seat in self.seats.values():
             if seat.token and hmac.compare_digest(seat.token, token):
@@ -234,7 +235,7 @@ class Room:
 
     def is_host(self, token: str | None) -> bool:
         """The host token, or the seat token of the host's own seat."""
-        if not token:
+        if not token or not token.isascii():
             return False
         if hmac.compare_digest(self.host_token, token):
             return True
@@ -259,6 +260,7 @@ class Room:
             "mode": self.mode,
             "phase": self.phase,
             "code": self.code if self.mode == "lan" else None,
+            "shared": self.shared,
             "has_password": self.password_hash is not None,
             "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
         }
@@ -338,6 +340,7 @@ class Room:
                 "id": self.game_id,
                 "mode": self.mode,
                 "code": self.code if self.mode == "lan" else None,
+                "shared": self.shared,
                 "has_password": self.password_hash is not None,
             },
             "phase": self.phase,
@@ -433,12 +436,39 @@ class GameHub:
             if all(r.code != code for r in self.rooms.values()):
                 return code
 
+    def new_invite_code(self, room: Room) -> str:
+        """The room's invite code (10 characters, unique against every room's codes), made once and kept: sharing again reuses it."""
+        if room.invite_code is None:
+            taken = {c for r in self.rooms.values() for c in (r.code, r.invite_code)}
+            while True:
+                code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(10))
+                if code not in taken:
+                    room.invite_code = code
+                    break
+        return room.invite_code
+
+    def set_password(self, room: Room, password: str) -> None:
+        """Give the room a new password (new salt, current rounds) and store the room."""
+        salt = secrets.token_bytes(16)
+        new_hash = _hash_password(password, salt, PASSWORD_ROUNDS)
+        with room._password_lock:
+            room.password_salt, room.password_hash, room.password_rounds = salt, new_hash, PASSWORD_ROUNDS
+        self.persist(room)
+
     def get(self, game_id: str) -> Room | None:
         return self.rooms.get(game_id)
 
     def by_code(self, code: str) -> Room | None:
         code = code.strip().upper()
         return next((r for r in self.rooms.values() if r.mode == "lan" and r.practice is None and hmac.compare_digest(r.code, code)), None)
+
+    def by_invite_code(self, code: str) -> Room | None:
+        """The shared LAN room this invite code opens (the tunnel port's way in; ``by_code`` never matches one)."""
+        code = code.strip().upper()
+        if not code.isascii():  # (compare_digest raises on a non-ASCII str)
+            return None
+        return next((r for r in self.rooms.values() if r.shared and r.invite_code is not None and r.mode == "lan" and r.practice is None
+                     and hmac.compare_digest(r.invite_code, code)), None)
 
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
@@ -456,7 +486,7 @@ class GameHub:
         """Everything about a room that isn't the game itself (for restoring it after a restart)."""
         salt, pw_hash, rounds = room.password_state()
         return {
-            "mode": room.mode, "code": room.code, "host_token": room.host_token, "host_seat": room.host_seat,
+            "mode": room.mode, "code": room.code, "invite_code": room.invite_code, "host_token": room.host_token, "host_seat": room.host_seat,
             "password_salt": salt.hex() if salt else None,
             "password_hash": pw_hash.hex() if pw_hash else None,
             "password_rounds": rounds,
@@ -516,6 +546,7 @@ class GameHub:
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
         room.host_seat = meta.get("host_seat")
+        room.invite_code = meta.get("invite_code")  # (shared stays False: closing Fyodor ends the link)
         if meta.get("password_salt") and meta.get("password_hash"):
             room.password_salt = bytes.fromhex(meta["password_salt"])
             room.password_hash = bytes.fromhex(meta["password_hash"])
@@ -535,6 +566,8 @@ class GameHub:
         room.client_actions = {actor: dict(ids) for actor, ids in client_actions.items()}
         if any(r.code == room.code for r in self.rooms.values()):
             room.code = self._new_code()
+        if room.invite_code is not None and any(room.invite_code in (r.code, r.invite_code) for r in self.rooms.values()):
+            room.invite_code = None
         self.rooms[room.id] = room
         self.track(room)
         follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
@@ -877,6 +910,7 @@ class GameHub:
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
+            "shared": room.shared,
             "seats": {pid: s.public() for pid, s in room.seats.items()},
             "host_seat": room.host_seat,
             "revision": room.revision,

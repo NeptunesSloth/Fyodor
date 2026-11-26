@@ -346,8 +346,10 @@ def test_an_unshared_room_cannot_be_joined_by_its_code_through_the_tunnel(client
     assert {pid: s.token for pid, s in room.seats.items()} == seats and not room.spectator_tokens  # no seat was claimed
     assert len(services.join_limiter_addr._failures["198.51.100.7"]) == 2  # both kept as failures
     assert code not in services.join_limiter_room._failures  # (a room key would say the code exists)
-    room.shared = True  # once shared, the code joins (Task 11 moves tunnel joins to the invite code), and the answer has no code
-    joined = tunnel_client.post("/api/join", json={"code": code, "name": "Eve"})
+    room.shared = True  # once shared, the invite code joins (never the LAN code), and the answer has no code
+    assert tunnel_client.post("/api/join", json={"code": code, "name": "Eve"}).status_code == 403
+    invite = services.hub.new_invite_code(room)
+    joined = tunnel_client.post("/api/join", json={"code": invite, "name": "Eve"})
     assert joined.status_code == 200 and joined.json()["game"]["code"] is None
 
 

@@ -590,10 +590,9 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
     def check() -> tuple[Room | None, bool]:
         """The room of the code, and whether the password is right for it. Runs on ``services.hash_pool``: a join waiting for its
         hash waits there, never on the threads the other sync routes share. (The limiters are only touched on the event loop.)
-        Through the tunnel a room that isn't shared is no room at all: the same answer, the same time, as an unknown code."""
-        room = services.hub.by_code(body.code)
-        if room is not None and tunnel and not tunnel_serves(services, room.id):
-            room = None
+        Through the tunnel only a shared room's invite code names a room (the LAN code never does): any other code is an unknown
+        one, the same answer, the same time."""
+        room = services.hub.by_invite_code(body.code) if tunnel else services.hub.by_code(body.code)
         if room is None:
             spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)
             return None, False
