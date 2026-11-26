@@ -100,10 +100,28 @@ def test_sharing_needs_a_password(client: TestClient, fake: FakeTunnel) -> None:
     # the LAN join needs it too
     assert client.post("/api/join", json={"code": code, "name": "Eve"}, headers=guest()).status_code == 403
     assert client.post("/api/join", json={"code": code, "name": "Eve", "password": PASSWORD}, headers=guest()).status_code == 200
-    # already has one: none is needed, and a new one is refused
+    # already has one: sharing with it keeps it ("Share with it")
     assert _share(client, gid, None).status_code == 200
-    res = _share(client, gid, "another password")
-    assert res.status_code == 409 and res.json()["detail"] == "This table already has a password."
+    assert client.post("/api/join", json={"code": code, "name": "Fay", "password": PASSWORD}, headers=guest()).status_code == 200
+
+
+def test_sharing_with_a_new_password_replaces_the_tables(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    """Final review I3 / security F1: a LAN password (any length) is replaced by the 8-100 character one the host types when sharing,
+    for new joiners on the LAN too; seated players keep their tokens."""
+    gid, code, alice = create_lobby(client, password="1")
+    res = _share(client, gid, "a new password")
+    assert res.status_code == 200 and res.json()["has_password"] is True, res.text
+    invite = _room(client, gid).invite_code
+    for password in ("1", None):
+        assert client.post("/api/join", json={"code": code, "name": "Eve", "password": password}, headers=guest()).status_code == 403
+        assert tunnel_client.post("/api/join", json={"code": invite, "name": "Eve", "password": password}).status_code == 403
+    assert client.post("/api/join", json={"code": code, "name": "Eve", "password": "a new password"}, headers=guest()).status_code == 200
+    assert tunnel_client.post("/api/join", json={"code": invite, "name": "Bob", "password": "a new password"}).status_code == 200
+    assert client.get(f"/api/games/{gid}/lobby", headers={**guest(), "X-Seat-Token": alice}).status_code == 200  # (still seated)
+    # sharing again with another one replaces it again (rotation), and the rule still holds for what is typed
+    assert _share(client, gid, "a third password").status_code == 200
+    assert tunnel_client.post("/api/join", json={"code": invite, "name": "Cy", "password": "a new password"}).status_code == 403
+    assert _share(client, gid, "short").status_code == 422
 
 
 def test_a_short_password_is_422(client: TestClient, fake: FakeTunnel) -> None:

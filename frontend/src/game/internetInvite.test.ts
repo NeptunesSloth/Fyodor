@@ -14,12 +14,16 @@ describe("inviteStep", () => {
     expect(inviteStep(st({ available: false, reason: "Network play is off." }), false)).toBe("unavailable");
     expect(inviteStep(st(), false)).toBe("button");
     expect(inviteStep(st(), true)).toBe("password");
-    expect(inviteStep(st({ has_password: true }), true)).toBe("button");
+    expect(inviteStep(st({ has_password: true }), false)).toBe("button");
+    expect(inviteStep(st({ has_password: true }), true)).toBe("existing");
+    expect(inviteStep(st({ has_password: true }), true, true)).toBe("password");
     expect(inviteStep(st({ state: "starting" }), false)).toBe("starting");
     expect(inviteStep(st({ shared: true, state: "running", link: "https://x.trycloudflare.com/#/play?code=AB" }), true)).toBe("link");
     expect(inviteStep(st({ state: "failed", reason: "no" }), false)).toBe("failed");
     expect(inviteStep(st({ state: "failed", reason: "no" }), true)).toBe("password");
-    expect(inviteStep(st({ state: "failed", reason: "no", has_password: true }), true)).toBe("failed");
+    // (a failed share at a table with a password: "Invite again" asks again which password, as it asks for one at a table without)
+    expect(inviteStep(st({ state: "failed", reason: "no", has_password: true }), false)).toBe("failed");
+    expect(inviteStep(st({ state: "failed", reason: "no", has_password: true }), true)).toBe("existing");
   });
 });
 
@@ -52,7 +56,7 @@ describe("InternetInvite", () => {
     expect(html).toContain("Can&#x27;t read the link&#x27;s status: offline");
   });
   it("says the tunnel program may download while starting", () => {
-    expect(render(st({ state: "starting" }))).toContain("Starting the link… the first time downloads the tunnel program (about 40 MB).");
+    expect(render(st({ state: "starting" }))).toContain("Starting the link… the first time downloads the tunnel program (about 55 MB).");
   });
   it("shows the link, Copy link, the password line and Stop sharing when running", () => {
     const html = render(st({ shared: true, state: "running", link: "https://x.trycloudflare.com/#/play?code=AB", has_password: true }));
@@ -61,6 +65,20 @@ describe("InternetInvite", () => {
     expect(html).toContain("Copy link");
     expect(html).toContain("Send the password separately.");
     expect(html).toContain("Stop sharing");
+  });
+  it("asks whether to share with the table's password or set a new one", () => {
+    const html = render(st({ has_password: true }), true);
+    expect(html).toContain("This table already has a password.");
+    expect(html).toContain(">Share with it</button>");
+    expect(html).toContain(">Set a new password</button>");
+    expect(html).toContain("A new password is needed by everyone who joins from now on, on this network too. Players already seated keep their seats.");
+    expect(html).not.toContain("<input");
+  });
+  it("asks for the new password when replacing the table's", () => {
+    const html = renderToStaticMarkup(createElement(InternetInviteView, { status: st({ has_password: true }), pressed: true, replacing: true, password: "", busy: false, onPress: () => undefined, onPassword: () => undefined, onStart: () => undefined, onStop: () => undefined }));
+    expect(html).toContain("New table password (friends need it to join)");
+    expect(html).toContain('minLength="8"');
+    expect(html).toContain("A new password is needed by everyone who joins from now on, on this network too. Players already seated keep their seats.");
   });
   it("shows the reason and Invite again when it failed", () => {
     const html = render(st({ state: "failed", reason: "The tunnel did not start." }));

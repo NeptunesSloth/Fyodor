@@ -13,7 +13,7 @@ export interface ShareStatus {
 }
 
 export const getShare = (gameId: string) => api.get<ShareStatus>(`/games/${gameId}/share`);
-/** The password is sent only when given (a table that already has one keeps it). */
+/** The password is sent only when given: it replaces the table's, if it has one (none sent: the table keeps its own). */
 export const startShare = (gameId: string, password?: string) =>
   api.post<ShareStatus>(`/games/${gameId}/share`, password ? { password } : {});
 export const stopShare = (gameId: string) => api.del<ShareStatus>(`/games/${gameId}/share`);

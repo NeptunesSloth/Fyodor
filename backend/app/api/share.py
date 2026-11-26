@@ -33,7 +33,9 @@ class ShareStatus(BaseModel):
 
 
 class ShareIn(BaseModel):
-    password: str | None = Field(None, min_length=8, max_length=100)  # (needed unless the table has one; never replaces one)
+    # needed unless the table has one; one sent replaces the table's (the server can't measure an existing password from its hash, so
+    # the host chooses: share with it, or set a new one). New joiners, on the LAN too, need the new one; seated players keep their seats.
+    password: str | None = Field(None, min_length=8, max_length=100)
 
 
 def _unavailable(services: Services) -> str | None:
@@ -63,11 +65,8 @@ def _lan_room(services: Services, game_id: str) -> Room:
 
 
 def _check_password(room: Room, password: str | None) -> None:
-    has_password = room.password_state()[1] is not None
-    if password is None and not has_password:
+    if password is None and room.password_state()[1] is None:
         raise HTTPException(422, "A table shared over the internet needs a password.")
-    if password is not None and has_password:
-        raise HTTPException(409, "This table already has a password.")
 
 
 @router.get("/games/{game_id}/share")
