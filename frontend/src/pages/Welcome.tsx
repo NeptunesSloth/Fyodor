@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Health } from "../services/api";
 import { lanInfo } from "../services/games";
 import { usePrefs } from "../state/prefs";
@@ -41,14 +41,27 @@ export function Welcome({ health, onClose }: { health: Health | null; onClose: (
     markDone(true);
     onClose();
   };
+  // (a dialog over the launcher: the keyboard starts in it, at the name, and Esc closes it as Close does)
+  const nameField = useRef<HTMLInputElement>(null);
+  useEffect(() => nameField.current?.focus({ preventScroll: true }), []);
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finishRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <section className="welcome panel" data-testid="welcome">
-      <h2>Welcome to the table</h2>
+    <section className="welcome panel" data-testid="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <h2 id="welcome-title">Welcome to the table</h2>
       <ol className="welcome-steps">
         <li className="done">
           <b>Who's sitting here?</b>
-          <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} data-testid="welcome-name" aria-label="Your name" />
+          <input ref={nameField} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} data-testid="welcome-name" aria-label="Your name"
+            onKeyDown={(e) => { if (e.key === "Enter") { finish(); window.location.hash = "#/play"; } }} />
           <span className="hint">Saved in this browser only — there are no accounts.</span>
         </li>
         <CardDatabaseStep available={!!db?.available} cards={db?.oracle_cards ?? 0} />

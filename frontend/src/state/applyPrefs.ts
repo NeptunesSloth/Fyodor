@@ -36,7 +36,7 @@ export function useApplyPrefs(): void {
 
 /** What each graphics preset changes (shown in Settings). */
 export const GRAPHICS_NOTES: Record<string, string> = {
-  low: "No shadows or animations, small card images, identical tokens collapse above 5.",
+  low: "No shadows, reflections or animations, small card images, identical tokens collapse above 5. Chosen once for computers without a graphics card.",
   medium: "Light shadows, shorter animations.",
   high: "Full shadows and animations, full-size card images.",
 };

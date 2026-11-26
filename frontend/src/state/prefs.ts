@@ -40,12 +40,20 @@ export interface Prefs {
   cursors: boolean;
   /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
   turnAlert: boolean;
+  /** -- hot-seat hand-off -- several players on this computer: cover the table with "Pass to Bob" before showing Bob's view (HotSeatCover.tsx). */
+  hotseatHandoff: boolean;
+  /** -- turn recap -- after other players' turns, what they did since my last turn, beside the turn dial (game/TurnRecap.tsx). */
+  turnRecap: boolean;
   /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
   choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
   handSort: HandSort;
+  /** -- draw notice -- show me the cards I draw (game/DrawNotice.tsx): every draw, only draws from effects (not the draw step's card), or never. */
+  drawNotice: "all" | "effects" | "off";
   /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
   boardLayout: "arranged" | "free";
+  /** -- combat filter -- dim what doesn't matter to combat, on this screen (game/combatFilter.ts): off, creatures only, can attack / block. */
+  combatFilter: "off" | "creatures" | "combat";
   /** The turn dial (bottom right): full, or folded to its step, status and pass button so it covers less of the table. */
   turnDial: "full" | "folded";
   /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
@@ -93,9 +101,13 @@ export const DEFAULT_PREFS: Prefs = {
   pings: true,
   cursors: true,
   turnAlert: true,
+  hotseatHandoff: true,
+  turnRecap: true,
   choiceWheel: true,
   handSort: "drawn",
+  drawNotice: "effects",
   boardLayout: "arranged",
+  combatFilter: "off",
   turnDial: "full",
   autoCenter: "off",
   showTokenSources: false,

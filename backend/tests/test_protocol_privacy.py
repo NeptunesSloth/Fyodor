@@ -228,7 +228,7 @@ def test_rules_prompts_and_hints_do_not_leak(client):
     bob = client.post("/api/join", json={"code": code, "name": "Bob"}).json()["token"]
     spec = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
     repo = client.app.state.services.cards
-    act(client, gid, alice, {"type": "pass_priority"})  # → Alice's main phase
+    # (S7: a new rules table is in Alice's main phase already: nobody gets priority in the untap step, 502.4)
     act(client, gid, alice, {"type": "draw", "count": 9})
     mine = view(client, gid, alice)["rules"]
     assert mine["hints"]["has_priority"] and mine["hints"]["playable_lands"]

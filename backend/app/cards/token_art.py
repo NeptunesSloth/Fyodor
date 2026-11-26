@@ -5,6 +5,9 @@ kept ahead of time (app/cards/art_keeper.py); a token picture nobody downloaded 
 (``GET /api/images/{id}``): only for a token printing of the card database, only from Scryfall's image hosts, never with
 FYODOR_ALLOW_NETWORK=0, a few at a time, and a picture that couldn't be fetched isn't asked for again for ``RETRY_SECONDS``.
 Offline, the request is a 404 as before and the client draws its own token card.
+
+-- planechase -- a plane's or phenomenon's picture is fetched the same way when a table first shows it face up (no deck brings
+it). Only the card asked for is fetched, never a whole planar deck: which pictures are cached says nothing about the deck's order.
 """
 
 from __future__ import annotations
@@ -90,10 +93,15 @@ class TokenArt:
             return None
         return path
 
+    def _planar(self, card_id: str) -> bool:
+        """-- planechase -- a plane or phenomenon (the table's planar deck): fetched like a token, when it is shown."""
+        card = self.cards.get(card_id)
+        return bool(card and card.get("layout") == "planar")
+
     def _url(self, card_id: str, face: int) -> str | None:
         rows = self.cards.image_rows([card_id])
-        if not rows or not rows[0]["is_token"]:
-            return None  # only tokens: a deck's own cards come with the deck (the art keeper)
+        if not rows or not (rows[0]["is_token"] or self._planar(card_id)):
+            return None  # only tokens (and planes): a deck's own cards come with the deck (the art keeper)
         row = rows[0]
         if row["image_uris"]:
             faces = [json.loads(row["image_uris"])] if face == 0 else []

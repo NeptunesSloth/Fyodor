@@ -53,6 +53,8 @@ DEFAULT_RESOURCES = ("poison", "energy", "experience")
 
 BATTLEFIELD_W = 1000.0
 BATTLEFIELD_H = 600.0
+BattlefieldRow = Literal["land", "creature", "other"]  # -- saved rows -- (app/game/placement.py ROWS)
+DummyBlocks = Literal["never", "chump", "all"]  # -- target dummy -- how it blocks with automation on (app/game/dummy.py)
 
 
 def zone_key(player_id: str | None, zone: str) -> str:
@@ -84,6 +86,10 @@ class TokenDef(BaseModel):
     # -- keyword actions & face-down (wave 3F) -- a double-faced token's back face (111.10i: the Incubator's
     # "Phyrexian Token"); ``CardInstance.face`` 1 means it's transformed (701.27)
     back: TokenDef | None = None
+    # -- engine token art -- a token the engine described (no ``card_id``): the token printing that pictures it, picture only (its
+    # characteristics stay the ones above), and that printing's picture face (app/cards/token_match.py)
+    art_id: str | None = None
+    art_face: int = 0
 
 
 class Effect(BaseModel):
@@ -314,6 +320,9 @@ class PlayerState(BaseModel):
     mulligans: int = 0
     deck_id: str | None = None
     deck_name: str | None = None
+    # -- saved rows -- card name -> the battlefield row ("land" / "creature" / "other") its owner moved it to by hand, so it enters
+    # there next time (app/game/placement.py); seeded from the saved deck, learned from set_position. Names the deck's cards: owner only
+    row_overrides: dict[str, BattlefieldRow] = Field(default_factory=dict, max_length=1000)
     sticker_pool101: list[dict[str, str]] = Field(default_factory=list)  # All revealed pregame sheet references (123.2a).
     sticker_sheets101: list[StickerSheet101] = Field(default_factory=list)  # The three public accessible sheets (123.2c).
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
@@ -321,6 +330,17 @@ class PlayerState(BaseModel):
     mana_units: list[ManaUnit] = Field(default_factory=list)  # -- mana provenance (wave 18B) -- restricted / remembered mana
     mana_seq: int = 0  # -- mana provenance (wave 18B) -- the next unit id
     left: bool = False  # removed from the table by the host (kept for names in the log)
+    # -- target dummy -- a seat nobody sits in (Sandbox: "Add a target dummy"): no deck, never takes a turn, and the server answers
+    # its priority and decisions at once (app/game/dummy.py)
+    dummy: bool = False
+    dummy_blocks: DummyBlocks = "never"  # (the dummy's only: never / chump the biggest attacker / block with everything it can)
+    dummy_life: int | None = None  # (the dummy's only: the life it starts with and Reset dummy restores; None: the table's)
+    # -- test opponent -- a seat nobody sits in that plays a deck (Sandbox: "Add an opponent"): it takes turns like anyone, and the server
+    # plays for it through the same intents a player sends (app/game/bot.py); "simple" is its only policy
+    bot: Literal["simple"] | None = None
+    # -- bot levels -- how well it plays (app/game/bot.py): Simple, Intermediate or Advanced; chosen when it is seated and changeable at the
+    # table (set_bot_level, recorded like any action). A save from before the levels reads as Intermediate.
+    bot_level: Literal["simple", "intermediate", "advanced"] = "intermediate"
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
     playmat: Playmat | None = None
@@ -440,6 +460,11 @@ class GameSettings(BaseModel):
     automation: AutomationLevel = "off"
     automation_options: AutomationOptions = Field(default_factory=AutomationOptions)
     mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
+    # -- planechase -- (901, one shared planar deck; app/game/handlers/planechase.py): off unless the host turns it on. The deck is
+    # dealt when the game is created (or by the host's ``planar_start``); the planes' effects are applied by the players.
+    planechase: bool = False
+    planar_deck_size: int = Field(default=10, ge=2, le=60)
+    planar_phenomena: bool = True  # False: planes only
 
 
 class LogPart(BaseModel):
@@ -501,6 +526,43 @@ class DrawBag(BaseModel):
     drawn: list[DrawnChit] = Field(default_factory=list)  # what came out, oldest first (a hidden one only to its drawer)
 
 
+class PlanarCard(BaseModel):
+    """-- planechase -- a plane or phenomenon of the planar deck: its printing (art and text come from the card database)."""
+
+    printing_id: str
+    name: str
+    phenomenon: bool = False
+
+
+class PlanarRoll(BaseModel):
+    player: str
+    face: Literal["planeswalker", "chaos", "blank"]
+    cost: int = 0  # generic mana it cost (901.9b: {0}, then one more for each further roll this turn)
+    seq: int = 0
+
+
+class Planechase(BaseModel):
+    """-- planechase -- the table's single planar deck (901.15): ``deck[0]`` is the face-up plane (or phenomenon), the rest in order,
+    kept on the server only. A view holds the face-up card, how many are in the deck and the planes already visited (public: they
+    went to the bottom face up), never the order of the rest (``views.planechase_view``)."""
+
+    deck: list[PlanarCard] = Field(default_factory=list)
+    visited: list[PlanarCard] = Field(default_factory=list)  # planes planeswalked away from, oldest first
+    walks: int = 0  # planeswalks so far (the tables animate a change)
+    roll_turn: int = 0  # the turn ``rolls`` counts for
+    rolls: int = 0  # planar die rolls the active player made this turn
+    last_roll: PlanarRoll | None = None
+    # -- planechase automation -- the face-up card as a rules object (311.4, 312.4, 901.7): the id of its instance in ``cards``
+    # (``handlers.planechase.sync``; only while a rules engine exists). Not in any zone list, so no view shows it as a card.
+    face_id: str | None = None
+    # -- planechase deck (wave D) -- several face-up cards at once (901.11c; Spatial Merging, Norn's Seedcore): ``deck[:face_count]``
+    # are face up (none is part of the planar deck proper: its top is ``deck[face_count]``), the first one's object ``face_id``, the
+    # others' ``face_ids`` (in order). ``revealed``: the planar deck's cards an effect revealed and hasn't put back yet (public).
+    face_count: int = 1
+    face_ids: list[str] = Field(default_factory=list)
+    revealed: list[PlanarCard] = Field(default_factory=list)
+
+
 class DigLog(BaseModel):
     """Cards turned over from the top of a library (reveal until, cascade): public, so their owner's table can offer
     where to put them."""
@@ -509,6 +571,17 @@ class DigLog(BaseModel):
     player: str
     cards: list[str]
     hit: str | None = None
+
+
+class RevealLog(BaseModel):
+    """-- public reveals -- a log line that turned cards face up for the table (701.20a: reveal_top, reveal): every viewer's table shows
+    the cards its rendered ``parts`` name to that viewer (printing ids only, never the cards' instance ids, so the library positions they
+    go back to stay unreadable). ``found``: the last card named is the one a "reveal … until" was looking for."""
+
+    player: str  # whose cards (the library's owner)
+    source: str | None = None
+    until: bool = False
+    found: bool = False
 
 
 class LogEntry(BaseModel):
@@ -523,6 +596,7 @@ class LogEntry(BaseModel):
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
     roll: DiceRollLog | None = None
     dig: DigLog | None = None
+    reveal: RevealLog | None = None  # -- public reveals --
     bag: BagLog | None = None  # -- table toys --
 
 
@@ -578,6 +652,9 @@ class GameState(BaseModel):
     rules: RulesState | None = None  # rules bookkeeping; kept (dormant) when automation is turned off
     eliminations: list[Elimination] = Field(default_factory=list)  # -- pod history -- who went out, in order (public)
     bag: DrawBag = Field(default_factory=DrawBag)  # -- table toys -- the hidden draw bag (never in a view: views.py bag_view)
+    planechase: Planechase | None = None  # -- planechase -- the planar deck (its order never in a view: views.py planechase_view)
+    # -- Teach Fyodor -- the taught mechanics and card lines this game started with (app/rules/taught.py; None: from before it existed)
+    taught: list[dict[str, Any]] | None = None
     # Where cards that ceased to exist during the step being applied were headed (a token "dies":
     # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
     _departed: dict[str, str] = PrivateAttr(default_factory=dict)

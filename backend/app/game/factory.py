@@ -8,12 +8,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.game import placement
+from app.game.ops import log, text
 from app.game.resolve import new_id
 from app.game.state import (
     CardInstance,
     CollectionCard,
     GameSettings,
     GameState,
+    PlanarCard,
+    Planechase,
     PlayerState,
     TurnState,
     zone_key,
@@ -43,6 +47,7 @@ class PlayerSetup:
     cards: list[DeckCard] = field(default_factory=list)
     color: str | None = None
     collection: list[CollectionCard] = field(default_factory=list)
+    bot_level: str | None = None  # -- LAN bots -- a seat the server plays for, at this level (app/game/bot.py); None: a person
 
 
 def deck_tokens(cards: list[DeckCard], related_tokens: Callable[[str], list[str]] | None = None) -> list[str]:
@@ -66,7 +71,11 @@ def new_game(
     first_player: int | None = None,
     rng: Any = _rng,
     related_tokens: Callable[[str], list[str]] | None = None,
+    deck_rows: Callable[[str], dict[str, str]] | None = None,
+    planar_pool: Callable[[], list[PlanarCard]] | None = None,
 ) -> GameState:
+    """``deck_rows``: a saved deck's remembered battlefield rows by deck id (-- saved rows --, app/game/placement.py).
+    ``planar_pool``: every plane and phenomenon (-- planechase --), when ``settings.planechase`` deals the table a planar deck."""
     if not 1 <= len(players) <= 6:
         raise ValueError("A game needs 1–6 players")
     settings = settings or GameSettings(starting_life=STARTING_LIFE.get(format, 40))
@@ -88,6 +97,8 @@ def new_game(
             deck_id=setup.deck_id,
             deck_name=setup.deck_name,
             token_shortcuts=deck_tokens(setup.cards, related_tokens),
+            row_overrides=placement.saved_rows(deck_rows(setup.deck_id)) if deck_rows is not None and setup.deck_id else {},
+            **({"bot": "simple", "bot_level": setup.bot_level} if setup.bot_level else {}),
         )
         from app.game.state import StickerSheet101
         from app.rules import sticker_sheets101
@@ -150,6 +161,14 @@ def new_game(
         turn=TurnState(active_player=first, starting_life={pid: p.life for pid, p in state_players.items()}),
         hidden_salt=secrets.token_hex(16),
     )
+    if settings.planechase:  # -- planechase -- the planar deck is dealt with the libraries: part of the game's base state
+        from app.game.handlers import planechase
+
+        deck = planechase.deal(planar_pool() if planar_pool is not None else [], settings.planar_deck_size, settings.planar_phenomena, rng)
+        state.planechase = Planechase(deck=deck)
+        settings.planar_deck_size = len(deck)
+        log(state, None, time.time(), [text(f"Planechase: a planar deck of {len(deck)} cards. The table starts on "),
+                                       planechase.card_part(deck[0])], kind="planar")
     if settings.mulligan is not None:
         from app.game.handlers import mulligan
 

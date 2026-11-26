@@ -7,6 +7,7 @@ import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView } from "../types/game";
 import { play } from "./sound";
+import { FlipButton, FlipLayer, TABLE_GLYPH } from "./TableFlip";
 
 /*
  * Soft social signals (TABLETOP_QOL_MILESTONE #13-14): a nudge to the player the table is waiting
@@ -67,6 +68,12 @@ export function SignalLayer() {
   useEffect(() => {
     const on = (e: Event) => {
       const sig = (e as CustomEvent<Signal>).detail;
+      // -- install update -- the host is installing an update: Fyodor closes and comes back (app/api/updates.py), the table returns with it
+      const notice = sig as unknown as { kind: string; message?: string };
+      if (notice.kind === "update") {
+        toast(notice.message || "Updating — Fyodor will restart.", undefined, undefined, { sticky: true });
+        return;
+      }
       if (sig.kind === "nudge" && nudges) {
         toast(`${sig.from_name} nudged you: the table is waiting on your action.`);
         play("response");
@@ -94,6 +101,9 @@ export function SignalLayer() {
       )}
       {out && view.game.mode === "lan" && !tableOff && <ReactionBar gameId={view.game.id} />}
       {!out && view.game.mode === "lan" && !tableOff && <EmoteButton gameId={view.game.id} />}
+      {/* -- flip the table -- (any table: a Sandbox test too), and everyone's view of a flip */}
+      <FlipButton />
+      <FlipLayer />
     </>
   );
 }
@@ -103,7 +113,8 @@ function EmoteButton({ gameId }: { gameId: string }) {
   const send = (text: string) => void sendSignal(gameId, "react", text).catch(toastError);
   return (
     <button className="signal-bar signal-emote tt-btn ghost" data-testid="emote" title="Say something to the table"
-      onClick={(e) => openMenu(e, EMOTES.map((t) => ({ label: t, onClick: () => send(t) })), "Say to the table")}>
+      onClick={(e) => openMenu(e, [...EMOTES.map((t) => ({ label: t, onClick: () => send(t) })),
+        { label: `${TABLE_GLYPH} Flip the table…`, onClick: () => window.dispatchEvent(new Event("fyodor:flip-open")) }], "Say to the table")}>
       Emote
     </button>
   );

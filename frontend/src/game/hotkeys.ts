@@ -18,6 +18,7 @@ export type HotkeyId =
   | "help"
   | "respond"
   | "pass"
+  | "resolve_all"
   | "auto_pass"
   | "hud"
   | "cam_seat"
@@ -31,14 +32,23 @@ export type HotkeyId =
   | "cam_pan"
   | "ping"
   | "hand_sort"
+  | "hand_browse"
   | "dice"
-  | "token_math";
+  | "token_math"
+  | "combat_filter"
+  | "attack_all";
 
 export interface Hotkey {
   id: HotkeyId;
   keys: string[];
   label: string;
 }
+
+/** Shift+P at a table with rules automation: what the dial's End turn does (manual tables: the response checks' auto-pass, above). */
+export const AUTO_PASS_RULES = "End turn: pass to the next turn (in your turn you attack with nothing); another player's spell or ability, or a choice you must make, still stops you";
+
+/** A shortcut's description for this table: Shift+P does something else once the rules engine runs priority. */
+export const hotkeyLabel = (h: Hotkey, automated: boolean): string => (h.id === "auto_pass" && automated ? AUTO_PASS_RULES : h.label);
 
 export const HOTKEYS: Hotkey[] = [
   { id: "undo", keys: ["ctrl+z"], label: "Undo" },
@@ -52,9 +62,10 @@ export const HOTKEYS: Hotkey[] = [
   { id: "to_graveyard", keys: ["delete", "backspace"], label: "Put selected into their owner's graveyard" },
   { id: "cancel", keys: ["escape"], label: "Clear selection / close views" },
   { id: "help", keys: ["shift+?", "?"], label: "Show shortcuts" },
-  { id: "respond", keys: ["r"], label: "Respond (keep priority)" },
+  { id: "respond", keys: ["r"], label: "I have a response! Hold the game for your answer while someone else has priority (again: cancel); in a response check: Respond" },
   { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
-  { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
+  { id: "resolve_all", keys: ["shift+ "], label: "Resolve all: keep passing until the stack is empty (stops for a decision or a card you could cast)" },
+  { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass the response checks for the rest of this turn" },
   { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
   { id: "cam_seat", keys: ["1"], label: "Look from your seat (2D: the whole table)" },
   { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "Look at the next players' boards, in seat order" },
@@ -70,8 +81,11 @@ export const HOTKEYS: Hotkey[] = [
   },
   { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
   { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
+  { id: "hand_browse", keys: ["shift+h"], label: "Your whole hand as a grid: filter, sort, drag or double-click to play (open / close)" },
   { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
   { id: "token_math", keys: ["shift+t"], label: "Token math: Scute Swarm, landfall, copies and token doublers worked out (open / close)" },
+  { id: "combat_filter", keys: ["b"], label: "Combat filter: all permanents → creatures only → can attack / block (dims the rest)" },
+  { id: "attack_all", keys: ["a"], label: "Declaring attackers: attack with everything that can (again: at the next defender, then none)" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

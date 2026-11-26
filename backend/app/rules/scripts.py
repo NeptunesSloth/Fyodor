@@ -372,6 +372,8 @@ def self_text(text: str, name: str) -> str:
     # (608.2c: the condition is read as that part is carried out, after the explore's counter); "you may put a creature card and/or a land card from your hand onto the
     # battlefield" (Michelangelo) is up to one of each, two optional puts
     out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
+    out = _dive.rewrite(out)  # -- dive (wave DV) -- "it dives" is "it can't be blocked until it deals combat damage while attacking" (app/rules/dive.py)
+    out = _restriction_and_grant(out)  # -- dive (wave DV) -- "it dives and gains haste …" / "it gets +1/+0 … and dives": two instructions on one object
     out = re.sub(r"(?<=combat damage to a player, )you may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
                  r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
     # -- trigger other (wave 44B) -- 102.2: with no teams every other player is an opponent, so "you and another target player each draw a card" (Splinter) is "you and
@@ -429,6 +431,29 @@ def self_text(text: str, name: str) -> str:
     out = out.replace("choose target face-up exiled card. Its owner shuffles it into their library.",
                       "shuffle target face-up card in exile into its owner's library.")
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
+
+
+# -- dive (wave DV) -- one creature, a can't-be-blocked restriction and a grant joined by "and", restriction first ("it can't be blocked this turn and
+# gains flying until end of turn", "it dives and gains haste until end of turn") or a grant first with the dive's duration ("it gets +1/+0 until end of turn
+# and dives"): two instructions on the same object in the order written (608.2c), each with its own duration (611.2a) — the second sentence's "It" is
+# the object the first named, so in a trigger about another creature it stays the event's creature. (A grant first with "this turn" is already read as a
+# pump's rider, language.py.) Singular subjects only: a group's restriction and grant are left to their own readers.
+_ONE = r"(?P<o>(?i:it|that creature|(?:up to one )?(?:another )?target creature(?: you control| an opponent controls)?)|~)"
+_UNBLOCKED_DUR = r"can't be blocked (?:this turn|until it deals combat damage(?: while attacking)?)"
+_RESTRICTION_THEN_GRANT = re.compile(rf"(?<![A-Za-z']){_ONE} (?P<r>{_UNBLOCKED_DUR}) and (?P<g>(?:gains|gets|has|loses) [^.\n\"]+?)\.")
+_GRANT_THEN_DIVE = re.compile(rf"(?<![A-Za-z']){_ONE} (?P<g>(?:gains|gets) [^.\n\"]+? until end of turn) and "
+                              r"(?P<r>can't be blocked until it deals combat damage(?: while attacking)?|dives)\.")
+
+
+def _restriction_and_grant(text: str) -> str:
+    if "can't be blocked" not in text and " and dives." not in text:  # ("… and dives": the action with no subject of its own, the grant's object)
+        return text
+
+    def again(o: str) -> str:
+        return "~" if o == "~" else "It"
+
+    text = _RESTRICTION_THEN_GRANT.sub(lambda m: f"{m['o']} {m['r']}. {again(m['o'])} {m['g']}.", text)
+    return _GRANT_THEN_DIVE.sub(lambda m: f"{m['o']} {m['g']}. {again(m['o'])} {_dive.MEANING if m['r'] == 'dives' else m['r']}.", text)
 
 
 # -- counters sweep (wave 19D) -- "Put a ribbon counter on ~. Then if it has three or more ribbon counters on it, remove those counters
@@ -593,7 +618,7 @@ STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", 
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
-    trigger = str(d.get("trigger") or "")
+    trigger = str(d.get("trigger") or "").removeprefix("multi:").split("+")[-1]  # (wave E1: a "multi:" ability's step half, We Hope You Like Squirrels)
     return d.get("kind") == "triggered" and trigger.startswith("step:") and trigger.rsplit(":", 1)[-1] in STEP_PLAYER_WHOSE
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -5229,6 +5254,11 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab
         if set(ab.keywords) <= SUPPORTED_KEYWORDS:
             return ab
+        if ab.keywords == ("devour",):  # -- planechase events (wave E2) -- Jund: a creature spell gains "Devour 5" (400.7a, 702.82a)
+            from app.rules import devour
+
+            if devour.supported(ab.text) and len(devour.pieces(ab.text)) == 1:
+                return ab
         if ab.keywords == ('sunburst',) and ab.text.rstrip('.').lower() == 'sunburst':
             return ab  # Native prospective entry counters use the spell's actual payment.
         if ab.keywords == ('bloodthirst',):
@@ -5237,6 +5267,10 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab if _keyword_supported('bloodthirst', ab.text) else None
         if ab.keywords == ('vanishing',) and ab.text.rstrip('.').lower() == 'vanishing':
             return ab  # CR702.63b: bare vanishing is its two native triggered abilities, with no entry counter number.
+        if ab.keywords in (('living weapon',), ('saddle',)):  # -- Mystery Booster Commander (wave MBC-B) -- Ekthi, Jandor: 702.92a (an enters trigger, read on the battlefield, 603.6a), 702.171a
+            from app.rules.coverage import _keyword_supported
+
+            return ab if _keyword_supported(ab.keywords[0], ab.text) else None
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
         from app.rules import statics
 
@@ -6287,6 +6321,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     nm = re.match(r"^if it isn't a mana ability, ", body)
                     if nm:
                         body = body[nm.end():]
+                        cond["nonmana"] = True  # (603.4: the intervening if — mana abilities fire "activate" too, with mana_ability set)
                     elif not cond["nonmana"] and not cond.get("ability_targets"):  # (wave 23B: an ability with a target is no mana ability, 605.1a)
                         from app.rules import mana_activation_watchers50
 
@@ -6777,6 +6812,11 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    trigger = str(d.get("trigger") or "")
+    if d.get("kind") == "triggered" and trigger.startswith("multi:event+step:") and trigger.count("+") == 1:
+        # -- planechase more (wave E1) -- one ability with an event half and a step half (603.2: We Hope You Like Squirrels): each half names it
+        step = {k: v for k, v in d.items() if k != "cond"}
+        return _event_refs_ok({**d, "trigger": "event"}) and _event_refs_ok({**step, "trigger": trigger.split("+", 1)[1]})
     from app.rules import first_event_receipts78
 
     if not first_event_receipts78.recipes_ok(d):
@@ -8291,6 +8331,7 @@ _CHOSEN.update({"exile_top": "n", "look_top": "n", "reveal_hand_cards": "n"})
 # earlier instructions of the same ability: 603.7c). "… until your next turn" / "for as long as ~
 # remains on the battlefield" become an ``until`` effect over a pump / grant / restriction (611.2).
 from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rules_state)
+from app.rules import dive as _dive  # noqa: E402  -- dive (wave DV) -- (a leaf module)
 
 # A deferred move of "it" after "When ~ dies" / "Whenever a creature dies" still means the new
 # object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a

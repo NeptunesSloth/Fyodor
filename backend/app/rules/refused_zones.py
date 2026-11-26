@@ -173,7 +173,8 @@ def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
     if e.get("chooser") == "random_distinct_three":
         import secrets
 
-        picked = (plan.rng or secrets.SystemRandom()).sample(found, 1) if len(found) == 3 and unique else []
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        picked = randomness.sample(plan, plan.rng or secrets.SystemRandom(), found, 1, kind='card', player=ctx['controller']) if len(found) == 3 and unique else []
         _gifts_finish(plan, ctx, e, found, picked)
         return
     if len(found) <= e["k"]:

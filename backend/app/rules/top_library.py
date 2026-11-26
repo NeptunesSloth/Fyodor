@@ -162,6 +162,9 @@ def static_ok(state: Any, player: str, card: Any, ch: Any, info: Any, d: Definit
 
 
 # -- "If it's a …, you may reveal it and put it into your hand" (701.20e) ------------------------------------------
+GATE_PROMPT = "You may choose the card you looked at (only a card that qualifies can be chosen)"  # (the parsed fallback: ``gate_prompt`` words it)
+
+
 def private_gate(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """"Look at the top card of your library. If it's a creature card [of the chosen type], you may reveal it and put
     it into your hand.": the same as "you may reveal a creature card from among it and put it into your hand" — asked
@@ -182,8 +185,7 @@ def private_gate(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
                 and isinstance(e.get("cond"), dict) and set(e["cond"]) == {"object", "is"}
                 and e["cond"]["object"] == f"ref:{look.get('as')}"):
             pick = {k: v for k, v in nxt.items() if k != "which"}
-            out.append({**pick, "n": 1, "sel": e["cond"]["is"], "optional": True,
-                        "prompt": "You may choose the card you looked at (only a card that qualifies can be chosen)"})
+            out.append({**pick, "n": 1, "sel": e["cond"]["is"], "optional": True, "gate": True, "prompt": GATE_PROMPT})
             i += 2
             continue
         out.append(e)
@@ -191,3 +193,66 @@ def private_gate(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     if len(out) == len(effects):
         return found
     return out, found[1], found[2]
+
+
+# -- the looked-at cards, shown (playtest nov 18) -- Risen Reef asked "You may choose the card you looked at …" with no card in the
+# prompt when the top card wasn't a land: the chooser looked at it (701.20e: they know it), so the choice shows every card looked at, the
+# ones that don't qualify beside the answers and never answers themselves (``group="seen"``, effects.pick_looked), with why, and words the
+# one-card gate from the card ("Risen Reef: you looked at Forest. It's a land card — put it onto the battlefield tapped?"). The question
+# is still asked whatever the card is, and only the chooser's view holds the prompt, the cards and the reason (view.decision_view).
+_TYPE_ORDER = ("Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery")
+_PLAIN = {"card", "types", "subtypes", "supertypes", "zones", "extras"}
+_ACTS = {"battlefield_tapped": "put it onto the battlefield tapped", "battlefield": "put it onto the battlefield",
+         "hand": "put it into your hand", "graveyard": "put it into your graveyard", "exile": "exile it",
+         "top": "put it on top of your library", "bottom": "put it on the bottom of your library"}
+_GOES = {"hand": "it goes into your hand", "graveyard": "it goes into your graveyard", "exile": "it's exiled",
+         "bottom": "it goes to the bottom of your library", "battlefield": "it goes onto the battlefield",
+         "battlefield_tapped": "it goes onto the battlefield tapped"}
+
+
+def describe(key: str | None) -> str | None:
+    """"a land card", "an instant or sorcery card", "a creature card of the chosen type" — a plain card selector in words, else None."""
+    if not key:
+        return None
+    try:
+        s = selectors.from_key(key)
+    except (ValueError, TypeError):
+        return None
+    data = {k for k, v in vars(s).items() if v != getattr(selectors.Selector(), k)} - {"zones"}
+    extras = set(s.extras)
+    if not s.card or not data <= _PLAIN or not extras <= {"chosen_type"} or (s.subtypes and len(s.types) > 1) or len(s.subtypes) > 1:
+        return None
+    names = [t.lower() for t in sorted(s.types, key=lambda t: _TYPE_ORDER.index(t) if t in _TYPE_ORDER else 99)]
+    kinds = " or ".join(names) if len(names) < 3 else ", ".join(names[:-1]) + ", or " + names[-1]
+    words = " ".join(w for w in (*(x.lower() for x in s.supertypes), *s.subtypes, kinds, "card") if w)
+    if "chosen_type" in extras:
+        words += " of the chosen type"
+    return ("an " if words[0].lower() in "aeiou" else "a ") + words
+
+
+def act(to: str, reveal: bool) -> str | None:
+    """What taking the card does, in words ("put it onto the battlefield tapped", "reveal it and put it into your hand")."""
+    words = _ACTS.get(to)
+    return None if words is None else f"reveal it and {words}" if reveal else words
+
+
+def otherwise(rest: list[dict[str, Any]], did: str | None) -> str | None:
+    """Where the card goes when it isn't taken: Risen Reef's "If you don't put the card onto the battlefield, put it into your hand." (the
+    instructions after the pick), or nowhere — it stays on top (Herald's Horn). None when other instructions follow."""
+    if not rest:
+        return "it stays on top of your library"
+    if (did and len(rest) == 2 and rest[0].get("do") == "only_if" and rest[0].get("cond") == {"succeeded": did, "negate": True}
+            and int(rest[0].get("skip", 0)) == 1 and rest[1].get("do") == "pick_looked" and rest[1].get("which") == "that"
+            and not rest[1].get("optional")):
+        return _GOES.get(rest[1].get("to") or "")
+    return None
+
+
+def gate_prompt(source: str | None, name: str, what: str | None, ok: bool, to: str, reveal: bool, goes: str | None) -> str:
+    """The one-card gate's question, worded from the card: either way it's asked (701.20e), only the chooser reads it."""
+    head = f"{source}: you looked at {name}" if source else f"You looked at {name}"
+    if ok:
+        doing = act(to, reveal) or "take it"
+        return f"{head}. It's {what} — {doing}?" if what else f"{head} — {doing}?"
+    tail = f" — {goes}" if goes else ""
+    return f"{head} (not {what}){tail}." if what else f"{head} (it doesn't qualify){tail}."

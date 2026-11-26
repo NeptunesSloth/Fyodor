@@ -41,7 +41,12 @@ export interface CardData {
   faces: CardFaceData[];
   double_faced: boolean;
   image_faces: number;
+  /** Some picture will show: this printing's own, or another printing's of the same card (see own_image). */
   has_image: boolean;
+  /** This printing's own picture is on this computer. */
+  own_image?: boolean;
+  /** Without its own picture: the printing whose picture shows instead. */
+  art_from?: string;
   released_at?: string | null;
   artist?: string | null;
   commander_legal?: string | null;

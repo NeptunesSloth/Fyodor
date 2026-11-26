@@ -1,0 +1,125 @@
+/* -- playtest (nov 18) -- the declare-attackers prompt (DeclareAttackers.tsx), docked at the right side of the table above the turn dial so
+   the boards stay in view; compact rows with each creature's stats; the quick actions on top, the summary and the declare button at the
+   bottom edge (sticky while the rows scroll) */
+@media (min-width: 721px) {
+  body .decision-panel.frame[data-kind="declare_attackers"] {
+    --dw: min(420px, calc(100vw - 32px));
+    left: auto; right: 16px; transform: none; top: 64px; bottom: auto;
+    max-height: calc(100vh - 64px - 330px);
+    padding: 10px 14px 10px;
+  }
+}
+.decision-panel[data-kind="declare_attackers"] .decision-prompt { font-size: 14px; margin-bottom: 6px; }
+.decision-combat.attackers { gap: 6px; margin-bottom: 0; }
+.attack-quick { display: flex; flex-wrap: wrap; gap: 5px; }
+.attack-quick .tt-btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.attack-quick .tt-btn.on { border-color: var(--accent); color: var(--room-bone); background: color-mix(in srgb, var(--accent) 16%, rgba(0, 0, 0, 0.3)); }
+.attack-quick kbd {
+  font: 600 10.5px/1 var(--font-ui); padding: 2px 4px; border: 1px solid var(--line-2); border-radius: 3px; color: var(--text-dim);
+}
+.attack-rows { display: flex; flex-direction: column; }
+.combat-row.attacker-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(128px, 40%); gap: 2px 8px; align-items: center;
+  padding: 3px 0 3px 8px; border-left: 2px solid transparent;
+}
+.combat-row.attacker-row.attacking { border-left-color: var(--danger, #e0645c); }
+.combat-row.attacker-row:hover { background: rgba(255, 255, 255, 0.035); }
+.combat-row.attacker-row > .combat-count, .combat-row.attacker-row > select[data-testid^="band-"] { grid-column: 2; }
+.attacker-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; min-width: 0; font-size: 13px; }
+.attacker-row select { width: 100%; min-height: 26px; font-size: 12.5px; }
+.decision-combat.attackers > .decision-options { justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
+.attack-summary { flex: 1; min-width: 0; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.decision-combat.attackers > .decision-options > .tt-btn.brass { min-width: 120px; font-weight: 650; }
+
+/* the caption by the pointer while a creature is dragged during the decision */
+.attack-drag-hint {
+  position: fixed; z-index: 3001; pointer-events: none; padding: 4px 9px; border-radius: 3px; white-space: nowrap;
+  font: 600 12.5px/1.2 var(--font-ui); color: var(--room-bone); background: var(--hud-surface); border: 1px solid var(--line-2);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+.attack-drag-hint.attack { border-color: var(--danger, #e0645c); }
+.attack-drag-hint.attack::before { content: "⚔ "; }
+.attack-drag-hint.refuse { color: var(--text-dim); border-style: dashed; }
+
+/* the 2D table: an attacker (declared, or planned in the prompt) is pushed forward out of its row toward the middle of the table, as a
+   player pushes the card toward whomever it attacks; a blocker steps forward too. `translate` composes with the card's own rotation. */
+.table-card.pushed { translate: 0 calc(var(--push, 0px) * -1); }
+.table-card.pushed.push-down { translate: 0 var(--push, 0px); }
+div.table-card { transition: left 0.14s ease-out, top 0.14s ease-out, transform 0.16s ease-out, translate 0.22s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.12s; }
+body.reduced-motion div.table-card { transition: none; }
+@media (prefers-reduced-motion: reduce) { div.table-card { transition: none; } }
+.table-card.attack-planned { box-shadow: 0 0 0 2px color-mix(in srgb, #e0645c 70%, transparent), 0 4px 12px rgba(0, 0, 0, 0.6); }
+/* "→ B Bob": whom it attacks, the seat colour on the initial (never colour alone); "blocks 2" for a creature blocking several */
+.mark.atk-to {
+  display: inline-flex; align-items: center; gap: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: rgba(20, 12, 10, 0.88); color: #f3e6d8; border: 1px solid #e0645c;
+}
+.mark.atk-to i {
+  font-style: normal; font-weight: 700; display: inline-grid; place-items: center; min-width: 13px; height: 13px; border-radius: 50%;
+  background: var(--seat, #c9a45c); color: #120c08; font-size: 9px; line-height: 1;
+}
+.mark.atk-to.planned { border-style: dashed; }
+.mark.blk-n { background: rgba(10, 16, 24, 0.88); color: #d6e6ff; border: 1px solid #5fa8ff; }
+
+/* -- playtest (nov 18) -- "divide N among …" (DivideRows.tsx): the same compact rows, docked at the side like the attackers prompt */
+@media (min-width: 721px) {
+  body .decision-panel.frame[data-kind="divide"] {
+    --dw: min(460px, calc(100vw - 32px));
+    left: auto; right: 16px; transform: none; top: 64px; bottom: auto;
+    max-height: calc(100vh - 64px - 330px);
+    padding: 10px 14px 10px;
+  }
+}
+.decision-panel[data-kind="divide"] .decision-prompt { font-size: 14px; margin-bottom: 6px; }
+.combat-row.divide-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+}
+.combat-row.divide-row.lethal { border-left-color: var(--danger, #e0645c); }
+.combat-row.divide-row.free { border-left-color: var(--accent); }
+.combat-row.divide-row:hover { background: rgba(255, 255, 255, 0.035); }
+.divide-order {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 50%; font: 700 10.5px/1 var(--font-ui);
+  color: var(--text-dim); border: 1px solid var(--line-2); align-self: center;
+}
+.divide-row .attacker-name { align-items: center; }
+.divide-row .combat-stat { flex-basis: 100%; padding-left: 24px; white-space: normal; }
+.divide-step { display: inline-flex; align-items: center; gap: 4px; }
+.divide-step .tt-btn { min-width: 28px; min-height: 28px; padding: 0 8px; }
+.divide-step .tt-btn.ghost { min-width: 0; font-size: 12px; }
+.divide-step input { width: 9ch; min-height: 28px; text-align: center; font-variant-numeric: tabular-nums; }
+.divide-warn { font-size: 12px; color: var(--danger, #e0645c); }
+.attack-summary.off { color: var(--danger, #e0645c); }
+
+/* -- playtest (nov 18) -- the declare-blockers prompt (DeclareBlockers.tsx): docked at the side like the attackers prompt, so the attackers
+   and my creatures stay in view while I drag one onto another; the drag's caption, and a planned blocker on the 2D table: pushed forward
+   like a declared one, a dashed rim and "⛨ Serra Angel" while it is only planned */
+@media (min-width: 721px) {
+  body .decision-panel.frame[data-kind="declare_blockers"] {
+    --dw: min(420px, calc(100vw - 32px));
+    left: auto; right: 16px; transform: none; top: 64px; bottom: auto;
+    max-height: calc(100vh - 64px - 330px);
+    padding: 10px 14px 10px;
+  }
+}
+.decision-panel[data-kind="declare_blockers"] .decision-prompt { font-size: 14px; margin-bottom: 6px; }
+.decision-combat.blockers > .decision-options { justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
+.decision-combat.blockers > .decision-options > .tt-btn.brass { min-width: 120px; font-weight: 650; }
+.blockers-attacker.blocked { border-color: #5fa8ff; }
+.blocked-n { font-size: 11px; font-weight: 700; color: #a9cdff; font-variant-numeric: tabular-nums; }
+.blocker-row .block-extra { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.blocker-row .block-extra .block-also { min-height: 24px; font-size: 12px; color: var(--text-dim); }
+.block-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 2px 1px 7px; font-size: 12px; border-radius: 3px;
+  border: 1px solid #5fa8ff; background: rgba(10, 16, 24, 0.6);
+}
+.block-chip button { min-width: 22px; min-height: 22px; padding: 0; border: 0; background: none; color: var(--text-dim); cursor: pointer; font-size: 14px; }
+.block-chip button:hover, .block-chip button:focus-visible { color: var(--room-bone); }
+.attack-drag-hint.block { border-color: #5fa8ff; }
+.attack-drag-hint.block::before { content: "⛨ "; }
+.table-card.block-planned { outline: 2px dashed #5fa8ff; outline-offset: 2px; }
+.mark.blk-to {
+  display: inline-flex; align-items: center; gap: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: rgba(10, 16, 24, 0.88); color: #d6e6ff; border: 1px dashed #5fa8ff;
+}
+.blocker-row .block-extra .block-also { width: auto; max-width: 100%; min-height: 22px; padding-top: 0; padding-bottom: 0; }

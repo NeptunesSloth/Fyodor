@@ -1,4 +1,4 @@
-/* CASTABLE FROM EXILE (ExileCastables.tsx): a small brass-edged row above the hand's left end; the pile badge and browser marks */
+/* CASTABLE FROM EXILE (ExileCastablesRow.tsx): a small brass-edged row above the hand's left end; the pile badge and browser marks */
 .exile-castables {
   /* fixed in the free corner above the Tokens / Dice / Hand buttons (.tool-tray), left of the hand, over both tables */
   position: fixed; left: 12px; bottom: 54px; z-index: 34; pointer-events: auto; width: max-content; max-width: min(420px, 32vw);

@@ -1,0 +1,16 @@
+/* -- hot-seat hand-off -- (HotSeatCover.tsx) opaque: the last player's hand and choices stay hidden until the next player clicks */
+.game-screen .modal-backdrop.hotseat-cover {
+  z-index: 3000; background: radial-gradient(ellipse at 50% 45%, #15191b 0%, var(--bg) 70%); cursor: pointer; animation: none;
+}
+.hotseat-plate {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 40px; max-width: min(520px, calc(100vw - 32px));
+  text-align: center; border-top: 3px solid var(--seat, var(--frame)); background: var(--panel-grad); border-radius: var(--radius);
+  box-shadow: 0 0 0 1px var(--frame), 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.hotseat-chip {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font: 700 26px var(--font-display);
+  color: #111; background: var(--seat, var(--frame)); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--seat, var(--frame));
+}
+.hotseat-plate h2 { margin: 4px 0 0; font: 600 30px var(--font-display); color: var(--text); }
+.hotseat-plate p { margin: 0; color: var(--text-dim); }
+.hotseat-plate .btn { margin-top: 8px; min-height: 40px; padding: 8px 22px; font-size: 15px; }

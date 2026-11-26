@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
+import { useAttackDraft } from "../game/rules/attackDraft";
+import { useBlockDraft } from "../game/rules/blockDraft";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
@@ -19,9 +21,12 @@ import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableSc
 import { startAmbience } from "./ambience";
 import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
-import { offMat } from "./framing";
+import { offDice, offMat } from "./framing";
 import { PLATE } from "./layout";
+import { softwareGraphicsDefault } from "./renderer";
+import { toast } from "../components/Toasts";
 import "./table3d.css";
+import { PlayerInitial } from "../game/PlayerInitial";
 
 declare global {
   interface Window {
@@ -45,7 +50,7 @@ declare global {
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
       motionFreeze?: (ms: number | null) => void;
-      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
+      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; clips: number; lunges: number };
       /** -- framing -- the canvas size, the chrome the table is framed clear of, and the seat view's elevation. */
       framing?: () => ReturnType<TableScene["framingState"]>;
       /** Hold the room's own motion (candles, dust, beams' flow), to compare frames. */
@@ -82,6 +87,14 @@ export function Table3D({ me }: { me: string }) {
   useEffect(() => {
     const el = host.current;
     if (!el) return;
+    // -- software 3D -- the first time this device draws the table without a graphics card: the Low preset (the table is
+    // built once, with it: the change of preset runs this again)
+    const auto = softwareGraphicsDefault(graphics);
+    if (auto) {
+      usePrefs.getState().set({ graphics: auto, tokenCollapse: 5 });
+      toast("This computer draws 3D without a graphics card: graphics set to Low for a smoother table (Settings → Graphics).", "info");
+      return;
+    }
     const quality: Quality = graphics === "low" ? "low" : graphics === "medium" ? "medium" : "high";
     const scene = new TableScene(el, plane(usePrefs.getState().plane), quality);
     sceneRef.current = scene;
@@ -96,11 +109,21 @@ export function Table3D({ me }: { me: string }) {
     };
     sync();
     const unGame = useGame.subscribe((s, prev) => {
-      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      if (s.view !== prev.view || s.selection !== prev.selection || s.peek !== prev.peek || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      // -- stack readability -- a stack row pointed at (or let go): its targets' glow and arrows
+      else if (s.hover !== prev.hover && s.view && (s.view.stack.includes(s.hover ?? "") || s.view.stack.includes(prev.hover ?? ""))) sync();
       if (s.errorCard && s.errorCard !== prev.errorCard) setTimeout(sync, ERROR_MS + 50);
     });
     const unCards = useCardCache.subscribe((s, prev) => {
       if (s.cards !== prev.cards) sync();
+    });
+    // -- playtest (nov 18) -- an attack planned in the declare-attackers prompt slides out toward its defender (rules/attackDraft.ts)
+    const unAttack = useAttackDraft.subscribe((s, prev) => {
+      if (s.plan !== prev.plan || s.decision !== prev.decision) sync();
+    });
+    // -- playtest (nov 18) -- a block planned in the declare-blockers prompt steps in front of its attacker (rules/blockDraft.ts)
+    const unBlock = useBlockDraft.subscribe((s, prev) => {
+      if (s.plan !== prev.plan || s.decision !== prev.decision) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
     setPingLocator3D({
@@ -184,6 +207,8 @@ export function Table3D({ me }: { me: string }) {
       const most = ppus.length ? Math.max(...ppus) : 0;
       const spread = ppus.length ? 1 - Math.min(...ppus) / most : 0;
       const own = Math.max(0, Math.min(1, (spread - 0.16) / 0.1)); // 0: one scale (the seat view's ~0.14 spread) … 1: each its own
+      // the dice at rest (page px → this host's), which the plates keep clear of
+      const dice = scene.diceOnScreen(true).map((d) => ({ x: d.x - host.left, y: d.y - host.top }));
       for (const [node, pt, pid] of seatPts) {
         if (!node || !pt) continue;
         // (sizes are measured in each form, so the compact switch doesn't flicker)
@@ -211,6 +236,8 @@ export function Table3D({ me }: { me: string }) {
         const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
         // never over its own mat (seen low, a plate standing past the mat's edge would cover the nearest tiles)
         y = offMat({ x, y, w: pw, h: ph }, pt.matEdge, pt.matAbove);
+        // nor over thrown dice (a die that rolled toward its mat's edge, seen low): it steps on, away from its mat
+        if (dice.length) y = offDice({ x, y, w: pw, h: ph }, dice.map((d) => ({ ...d, r: DIE_R * (ppu || pt.pxPerUnit) })), pt.matAbove);
         x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
         y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
         // the fixed panels (camera strip, dial, stack panels): a plate is never hidden under one
@@ -231,8 +258,12 @@ export function Table3D({ me }: { me: string }) {
       if (measure) scene.setPlateBoxes(boxes); // (its heart is fitted to it: TableScene fitHearts)
       // the selection toolbar rides above the card it acts on (the camera can move every frame)
       if (selectionAnchor.node && selectionAnchor.card) {
+        const toClient = (b: { left: number; top: number; right: number; bottom: number }) =>
+          ({ left: host.left + b.left, top: host.top + b.top, right: host.left + b.right, bottom: host.top + b.bottom });
         const r = scene.cardRect(selectionAnchor.card, w, h);
-        placeAnchored(selectionAnchor.node, r && { left: host.left + r.left, top: host.top + r.top, right: host.left + r.right, bottom: host.top + r.bottom });
+        // the stack's standing cards are drawn in 3D, so the toolbar is told where they are (it flips to the card's other side)
+        const stack = (useGame.getState().view?.stack ?? []).map((id) => scene.cardRect(id, w, h)).filter((b) => !!b).map(toClient);
+        placeAnchored(selectionAnchor.node, r && toClient(r), stack);
       }
       // name tags under the selected cards (the card faces are too small to read at seat distance)
       for (const [cid, node] of Object.entries(tags.current)) {
@@ -248,6 +279,8 @@ export function Table3D({ me }: { me: string }) {
       scene.onFrame = null;
       unGame();
       unCards();
+      unAttack();
+      unBlock();
       setDropResolver3D(null);
       setPingLocator3D(null);
       ro.disconnect();
@@ -374,6 +407,8 @@ const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: 
  * and the scale below which it shows the portrait alone (at the farthest zoom on every screen).
  */
 const PLATE_REF = 168;
+/** A die's reach on the table (world units, a d20's bounding radius and its contact shadow): a plate keeps this clear of it. */
+const DIE_R = 0.75;
 const PLATE_MIN = 0.62;
 const PLATE_MAX = 1.3;
 const PLATE_COMPACT = 0.62;
@@ -461,7 +496,7 @@ function PlayerChip({ player }: { player: string }) {
   const p = useGame((s) => s.view?.players.find((x) => x.id === player));
   return (
     <span className="cam-player">
-      <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden>{p?.name.slice(0, 1).toUpperCase()}</i>
+      <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden><PlayerInitial p={p} size={12} /></i>
       {p?.name ?? "?"}
     </span>
   );
@@ -490,7 +525,7 @@ function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateActio
     };
     const unsub = useGame.subscribe((s, old) => {
       const v = s.view;
-      if (!v || v === old.view) return;
+      if (!v || v === old.view || s.interim) return; // (-- resolving progress -- the camera follows the table's own updates)
       const before = prev.current;
       prev.current = autoSnap(v);
       if (!before) return;

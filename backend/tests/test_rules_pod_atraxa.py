@@ -141,7 +141,7 @@ def test_atraxas_end_step_proliferate_counts_for_merens_trigger_ordered_after_it
     give(s, "p2", "poison", 3)
     until(s, lambda s: s.state.turn.phase == "end" and s.state.rules.decision is not None)
     d = s.state.rules.decision
-    assert d.kind == "order" and {o.label for o in d.options} == {"Atraxa, Praetors' Voice", "Meren of Clan Nel Toth"}
+    assert d.kind == "order" and {o.label.split(" — ")[0] for o in d.options} == {"Atraxa, Praetors' Voice", "Meren of Clan Nel Toth"}
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Meren")),
                                                                 next(o.id for o in d.options if o.label.startswith("Atraxa"))])
     resolve(s, "Ezuri", "No")  # (Meren's target; Ezuri's "you may pay {3}" is declined)

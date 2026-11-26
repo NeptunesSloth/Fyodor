@@ -10,13 +10,17 @@ import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
-import type { AutomationLevel, MulliganPolicy, TableFormat } from "../types/game";
+import type { AutomationLevel, DummyBlocks, MulliganPolicy, TableFormat } from "../types/game";
+import { DUMMY_BLOCKS, DUMMY_COLOR, dummyActions, dummyName, rememberedDummies, type DummySeat } from "../game/targetDummy";
+import { BOT_COLOR, BOT_LEVELS, DEFAULT_BOT_LEVEL, botName, botRequests, deckSourceLabel, isDeckSource, rememberedBots, seatsLeft, type BotSeat } from "../game/botSeat";
+import { BotDeckSources } from "./BotDeckSources";
 import { FORMAT_NAME, SANDBOX_RAIL, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
 import {
+  addBot,
   closeGame,
   createGame,
   tableAction,
@@ -37,7 +41,7 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
-import { orderGames, ownName, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
+import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
@@ -107,10 +111,23 @@ export function PlayPage({ route }: { route: Route }) {
     if (plan.kind === "open") navigate(`/game/${plan.gameId}`);
     else if (plan.kind === "password") setAskPassword(true);
     else if (plan.kind === "join") {
-      void joinTable({ code: invite.code, name: invite.name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
+      void joinTable({ code: invite.code, name: invite.name || activeProfile().name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
         .catch(toastError);
     }
   }, [invite, games]);
+
+  // -- clear the shelf -- close every open table, then delete every save (closing autosaves a table: listed after)
+  const clearAll = async () => {
+    if (!window.confirm("Remove all tables and saved games?\n\nEvery open table closes (players are sent back) and every saved game is deleted. Your decks are kept. This can't be undone.")) return;
+    try {
+      for (const g of games ?? []) await closeGame(g.id);
+      for (const s of await listSaves()) await deleteSave(s.id);
+      toast("All tables and saved games removed");
+    } catch (e) {
+      toastError(e);
+    }
+    refresh();
+  };
 
   // "Resume a game" on the launcher opens the shelf
   const shelf = useRef<HTMLDetailsElement>(null);
@@ -176,6 +193,12 @@ export function PlayPage({ route }: { route: Route }) {
                 )}
             </details>
           )}
+          {host && (games?.length || saves.length) ? (
+            <button className="tt-btn ghost pg-clear-all" data-testid="clear-all-tables"
+              title="Close every open table and delete every saved game (decks are kept)" onClick={() => void clearAll()}>
+              Remove all tables and saved games…
+            </button>
+          ) : null}
           {host && <LanHint />}
         </aside>
       </div>
@@ -187,11 +210,18 @@ export function PlayPage({ route }: { route: Route }) {
  * A new game is a LAN night: the pod joins from their own computers with the room code (the host alone at the table is solo
  * testing). Its format is Commander, or Sandbox: free play with the same Commander decks.
  */
+/** -- target dummy -- how a dummy seat blocks, in the few words its plinth has room for (the full words: its title). */
+const BLOCKS_SHORT: Record<DummyBlocks, string> = { never: "Never", chump: "Chump the biggest", all: "With everything" };
+
 /** -- same as last time -- the host's last table setup (this browser only; never the password). */
 const LAST_NIGHT = "fyodor.lastNight";
 interface LastNight {
   name: string; format: TableFormat; life: string; lobby: boolean; privacy: "private" | "commander_only" | "public"; mulligan: string;
   policy: MulliganPolicy | null; helper: "off" | "simple"; automation: AutomationLevel; hostDeck: string | null; players: CreatePlayer[];
+  dummies?: DummySeat[]; // -- target dummy -- (Sandbox) the dummy seats beside yours
+  dummy?: boolean; // (older records: one dummy, a checkbox)
+  dummyBlocks?: DummyBlocks;
+  bots?: BotSeat[]; // -- test opponent -- (Sandbox) the opponents with a deck that the server plays for
 }
 const lastNight = (): LastNight | null => {
   try { return JSON.parse(localStorage.getItem(LAST_NIGHT) ?? "null") as LastNight | null; } catch { return null; }
@@ -219,7 +249,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const useLobby = lobby;
   const level: AutomationLevel = automation; // (a Sandbox table starts manual on the server; its chosen level is switched on at once)
   const [players, setPlayers] = useState<CreatePlayer[]>([
-    { name: ownName(activeProfile().name) || "Player 1", deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name
+    { name: activeProfile().name, deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name (as Settings → Profile shows it)
     { name: "Seat 2", deck_id: null, color: COLORS[1] },
   ]);
   const [busy, setBusy] = useState(false);
@@ -228,6 +258,16 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   // never a default; everyone else, and a host who chose none, brings a deck in the lobby
   const [hostDeck, setHostDeck] = useState<string | null>(preselect);
   const [pickingHost, setPickingHost] = useState(false);
+  // -- target dummy -- Sandbox: opponents with no deck to aim damage at, seated beside yours (none until the host adds them)
+  const [dummies, setDummies] = useState<DummySeat[]>([]);
+  const updateDummy = (i: number, patch: Partial<DummySeat>) => setDummies((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  // -- test opponent -- Sandbox: opponents with a deck that the server plays for (they need rules automation at Full)
+  const [bots, setBots] = useState<BotSeat[]>([]);
+  const [pickingBot, setPickingBot] = useState<number | null>(null);
+  const updateBot = (i: number, patch: Partial<BotSeat>) => setBots((bs) => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+  const free = seatsLeft(dummies.length, bots.length);
+  const botsNeedFull = sandbox && bots.length > 0;
+  const missingBotDeck = sandbox && bots.some((b) => !b.deck_id);
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
@@ -249,7 +289,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   }, [players, picking]);
 
   const remember = () => {
-    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players };
+    const last: LastNight = { name, format, life, lobby, privacy, mulligan, policy, helper, automation, hostDeck, players, dummies, bots };
     try { localStorage.setItem(LAST_NIGHT, JSON.stringify(last)); } catch { /* not remembered */ }
   };
   const [last] = useState(lastNight);
@@ -259,6 +299,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setName(last.name); setFormat(last.format); setLife(last.life); setLobby(last.lobby); setPrivacy(last.privacy);
     setMulligan(last.mulligan); setPolicy(last.policy); setHelper(last.helper); setAutomation(last.automation);
     setHostDeck(known(last.hostDeck));
+    setDummies(rememberedDummies(last));
+    setBots(rememberedBots(last, (id) => decks.some((d) => d.id === id)));
     if (last.players.length) setPlayers(last.players.map((p) => ({ ...p, deck_id: known(p.deck_id) })));
     toast("Set up as last time");
   };
@@ -272,7 +314,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           name: name.trim() || "Deck test",
           format,
           mode: "lan",
-          players: [{ name: players[0]?.name.trim() || "Player 1", deck_id: hostDeck, color: players[0]?.color }],
+          players: [{ name: players[0]?.name.trim() || activeProfile().name, deck_id: hostDeck, color: players[0]?.color }],
           shuffle: true,
           lobby: false,
           seats: 1,
@@ -286,7 +328,14 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         });
         if (configurable && policy) rememberPolicy(mulligan, policy);
         if (res.seat) rememberSeat(res.game.id, res.seat.token);
-        if (automation !== "off") await tableAction(res.game.id, { type: "configure", automation }).catch(toastError);
+        for (const add of botRequests(bots)) { // -- test opponent -- beside you first, each with its deck (before the rules start)
+          await addBot(res.game.id, add).catch(toastError);
+        }
+        for (const add of dummyActions(dummies)) { // (seated in order, before the rules start)
+          await tableAction(res.game.id, add).catch(toastError);
+        }
+        const auto: AutomationLevel = bots.length ? "full" : automation; // (an opponent plays through the rules engine: Full)
+        if (auto !== "off") await tableAction(res.game.id, { type: "configure", automation: auto }).catch(toastError);
         remember();
         navigate(`/game/${res.game.id}`);
         return;
@@ -296,7 +345,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         format,
         mode: "lan",
         password: password || null,
-        players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p, i) => ({ ...p, name: p.name.trim() || `Seat ${i + 1}` })),
+        players: useLobby ? [{ name: players[0]?.name.trim() || activeProfile().name, deck_id: null }] : players.map((p, i) => ({ ...p, name: p.name.trim() || `Seat ${i + 1}` })),
         shuffle: true,
         lobby: useLobby,
         turn_order: "pod", // the pod's own rule is the default for game nights (Table settings can change it)
@@ -378,8 +427,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         </div>
 
         {sandbox ? (
-          // -- Sandbox -- one seat: yours, with the deck you're testing
-          <ul className="pg-seats pg-lobby pg-solo" aria-label="Your seat" data-testid="sandbox-seat">
+          // -- Sandbox -- your seat, with the deck you're testing, and the target dummies you add beside it (up to three)
+          <ul className="pg-seats pg-dealt pg-solo" aria-label="Seats" data-testid="sandbox-seat">
             <li className="pg-seat host">
               <div className="pg-plate">
                 <SeatChip color={COLORS[0]} text="1" />
@@ -391,6 +440,116 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)}
                 note={decks.length ? "Choose the deck you want to test." : "No decks yet: import one on the Decks page."} />
             </li>
+            {bots.map((b, i) => {
+              const deck = decks.find((d) => d.id === b.deck_id);
+              const source = b.deck_id && isDeckSource(b.deck_id) ? deckSourceLabel(b.deck_id, b.deck_label) : null; // -- bot decks --
+              const label = b.name.trim() || botName(i);
+              return (
+                <li key={`bot-${i}`} className="pg-seat pg-dummy pg-bot" style={chipStyle(BOT_COLOR)} data-testid="bot-seat">
+                  <div className="pg-plate">
+                    <SeatChip color={BOT_COLOR} text={String(i + 2)} />
+                    <label className="pg-name-field">
+                      <span className="pg-name-label">Opponent</span>
+                      <input className="pg-name" value={b.name} maxLength={40} placeholder={botName(i)} onChange={(e) => updateBot(i, { name: e.target.value })}
+                        aria-label={`Seat ${i + 2}: opponent name`} data-testid="bot-name" />
+                    </label>
+                    <button className="tt-icon pg-remove" onClick={() => setBots((bs) => bs.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${label}`} title="Remove this opponent" data-testid="bot-remove">
+                      <Icon name="close" size={14} />
+                    </button>
+                  </div>
+                  <button className={`pg-art ${deck || source ? "" : "no-deck"}`} onClick={() => setPickingBot(i)} data-testid="bot-deck"
+                    aria-label={`${label}'s deck: ${deck ? deckTitle(deck) : source ? source.title : "none"}. Choose a deck`}>
+                    {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : source ? <CommanderArt back /> : (
+                      <span className="pg-slot"><Icon name="cards" size={26} /><span>Choose a deck</span></span>
+                    )}
+                  </button>
+                  <div className="pg-deck">
+                    {deck ? (
+                      <>
+                        <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
+                        <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
+                      </>
+                    ) : source ? (
+                      <>
+                        <p className="pg-cmdr" title={source.title}>{source.title}</p>
+                        <p className="pg-sub"><span className="pg-deckname" title={source.sub}>{source.sub}</span></p>
+                      </>
+                    ) : (
+                      <p className="pg-note">Choose the deck it plays: one of yours, a precon or a generated one.</p>
+                    )}
+                  </div>
+                  <div className="pg-seat-foot pg-dummy-opts pg-bot-opts">
+                    <span className="pg-rule pg-bot-plays" title="How well it plays (Full automation); the table's top bar changes it mid-game">
+                      <span id={`pg-bot-level-${i}`}>Plays</span>
+                      <span className="pg-segs pg-bot-levels" role="radiogroup" aria-labelledby={`pg-bot-level-${i}`} data-testid="bot-plays">
+                        {BOT_LEVELS.map((l) => {
+                          const on = (b.level ?? DEFAULT_BOT_LEVEL) === l.id;
+                          return (
+                            <label key={l.id} className={on ? "on" : ""} title={l.hint}>
+                              <input type="radio" name={`bot-level-${i}`} checked={on} onChange={() => updateBot(i, { level: l.id })}
+                                data-testid={`bot-level-${l.id}`} />{l.label}
+                            </label>
+                          );
+                        })}
+                      </span>
+                    </span>
+                    <button className="tt-btn" onClick={() => setPickingBot(i)}>{deck || source ? "Change deck" : "Choose deck"}</button>
+                  </div>
+                </li>
+              );
+            })}
+            {dummies.map((d, i) => (
+              <li key={i} className="pg-seat pg-dummy" style={chipStyle(DUMMY_COLOR)} data-testid="dummy-seat">
+                <div className="pg-plate">
+                  <SeatChip color={DUMMY_COLOR} text={String(bots.length + i + 2)} />
+                  <label className="pg-name-field">
+                    <span className="pg-name-label">Target dummy</span>
+                    <input className="pg-name" value={d.name} maxLength={40} placeholder={dummyName(i)} onChange={(e) => updateDummy(i, { name: e.target.value })}
+                      aria-label={`Seat ${bots.length + i + 2}: target dummy name`} data-testid="dummy-name" />
+                  </label>
+                  <button className="tt-icon pg-remove" onClick={() => setDummies((ds) => ds.filter((_, j) => j !== i))}
+                    aria-label={`Remove ${d.name.trim() || dummyName(i)}`} title="Remove this dummy" data-testid="dummy-remove">
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+                <div className="pg-art no-deck" aria-hidden>
+                  <span className="pg-slot pg-slot-dummy"><Icon name="target" size={26} /><span>No deck</span></span>
+                </div>
+                <div className="pg-deck">
+                  <p className="pg-note" title="It never takes a turn; the server answers for it">No deck · takes hits, blocks as set</p>
+                </div>
+                <div className="pg-seat-foot pg-dummy-opts">
+                  <label className="pg-rule" title="With automation on, how this dummy blocks your attacks (Solo tools changes it mid-game)">
+                    <span>Blocks</span>
+                    <select data-testid="dummy-blocks" value={d.blocks} onChange={(e) => updateDummy(i, { blocks: e.target.value as DummyBlocks })}>
+                      {DUMMY_BLOCKS.map(([k, v]) => <option key={k} value={k} title={v}>{BLOCKS_SHORT[k]}</option>)}
+                    </select>
+                  </label>
+                  <label className="pg-rule pg-dummy-life" title="Its starting life (empty: the table's Starting life; Reset dummy goes back to it)">
+                    <span>Life</span>
+                    <input type="number" min={1} value={d.life} placeholder={life || "40"} onChange={(e) => updateDummy(i, { life: e.target.value })}
+                      aria-label={`${d.name.trim() || dummyName(i)}: starting life`} data-testid="dummy-life" />
+                  </label>
+                </div>
+              </li>
+            ))}
+            {free > 0 && (
+              <li className="pg-add-wrap pg-add-dummy">
+                <button className="pg-add" data-testid="add-dummy"
+                  onClick={() => setDummies((ds) => [...ds, { name: dummyName(ds.length), blocks: "never", life: "" }])}>
+                  <span className="pg-add-mark"><Icon name="target" size={26} /></span>
+                  <span>Add a target dummy</span>
+                  <span className="pg-add-note">{dummies.length || bots.length ? `${free} more at most` : "An opponent with no deck to aim damage at"}</span>
+                </button>
+                <button className="pg-add pg-add-bot" data-testid="add-bot"
+                  onClick={() => { setBots((bs) => [...bs, { name: botName(bs.length), deck_id: null, level: DEFAULT_BOT_LEVEL }]); setPickingBot(bots.length); }}>
+                  <span className="pg-add-mark"><Icon name="cards" size={26} /></span>
+                  <span>Add an opponent</span>
+                  <span className="pg-add-note">{bots.length || dummies.length ? `${free} more at most` : "It plays a deck back at you (Full automation)"}</span>
+                </button>
+              </li>
+            )}
           </ul>
         ) : useLobby ? (
           // only your own seat until the room opens: one compact row (the others take theirs with the room code)
@@ -479,7 +638,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             {(
               <label className="pg-rule">
                 <span>Automation</span>
-                <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
+                <select data-testid="automation-level" value={botsNeedFull ? "full" : automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint"
+                  disabled={botsNeedFull} title={botsNeedFull ? "An opponent plays through the rules engine: Full automation" : undefined}>
                   {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
                 </select>
               </label>
@@ -503,7 +663,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 </select>
               </label>
             )}
-            {level === "off" && (
+            {level === "off" && !botsNeedFull && (
               <label className="pg-rule">
                 <span>Response helper</span>
                 <select value={helper} onChange={(e) => setHelper(e.target.value as typeof helper)}>
@@ -515,16 +675,22 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           </div>
           <p className="pg-rail-note">
             <span id="pg-auto-hint">{sandbox ? <><b>Sandbox.</b> {SANDBOX_RAIL}</> : <><b>Automation {AUTOMATION_NAME[level]}.</b> {AUTOMATION_HINT[level]}</>}</span>{" "}
-            {sandbox ? `Automation ${AUTOMATION_NAME[level]}: ${AUTOMATION_HINT[level]}` : useLobby ? "The pod brings decks in the lobby; you start from there."
+            {sandbox ? `Automation ${AUTOMATION_NAME[botsNeedFull ? "full" : level]}: ${AUTOMATION_HINT[botsNeedFull ? "full" : level]}${botsNeedFull ? " Your opponent plays through the rules engine." : ""}` : useLobby ? "The pod brings decks in the lobby; you start from there."
               : `The pod joins with the room code.${mulligan === "none" ? " With “None” everyone draws by hand." : ""}`}
           </p>
-          <button className="pg-start" disabled={busy || (sandbox && !hostDeck)} onClick={() => void start()} data-testid="create-game"
-            title={sandbox && !hostDeck ? "Choose the deck to test first" : undefined}>
+          <button className="pg-start" disabled={busy || (sandbox && (!hostDeck || missingBotDeck))} onClick={() => void start()} data-testid="create-game"
+            title={sandbox && !hostDeck ? "Choose the deck to test first" : missingBotDeck ? "Choose a deck for each opponent first" : undefined}>
             {busy ? "Setting up…" : sandbox ? "Start testing" : useLobby ? "Open the table" : "Deal and start"}
           </button>
         </footer>
       </div>
 
+      {pickingBot !== null && bots[pickingBot] && (
+        <DeckPicker decks={decks} value={bots[pickingBot]!.deck_id} seat={bots[pickingBot]!.name.trim() || botName(pickingBot)} usedBy={new Map()} noEmpty
+          extra={<BotDeckSources value={bots[pickingBot]!.deck_id} hasLibrary={decks.length > 0}
+            onPick={(id, deckLabel) => { updateBot(pickingBot, { deck_id: id, deck_label: deckLabel }); setPickingBot(null); }} />}
+          onClose={() => setPickingBot(null)} onPick={(id) => { updateBot(pickingBot, { deck_id: id, deck_label: undefined }); setPickingBot(null); }} />
+      )}
       {pickingHost && (
         <DeckPicker decks={decks} value={hostDeck} seat={players[0]?.name.trim() || "You"} usedBy={new Map()}
           onClose={() => setPickingHost(false)} onPick={(id) => { setHostDeck(id); setPickingHost(false); }} />
@@ -593,7 +759,7 @@ function HostDeck({ deck, canPick, onPick, onClear, note = "You host. Choose you
 function JoinGame({ invite, askPassword }: { invite: Invite | null; askPassword: boolean }) {
   // an invite link (#/play?code=ABC123) fills the room code in; a join link also the name (and asks for a password here)
   const [code, setCode] = useState(() => invite?.code ?? "");
-  const [name, setName] = useState(() => invite?.name || ownName(activeProfile().name));
+  const [name, setName] = useState(() => invite?.name || activeProfile().name); // the profile's name, as the host seat uses it
   const [password, setPassword] = useState("");
   const passwordField = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -651,12 +817,11 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
       <div className="pg-tile-main">
         <h3><span className="pg-tile-name">{g.name}</span>{lan && g.has_password && <Icon name="lock" size={14} label="Password" className="pg-lock" />}</h3>
         <p className="pg-meta">
-          <span>{lan ? "LAN" : "Hot-seat"}</span>
-          {isSandbox(g.format) && <span>Sandbox</span>}
+          {isSandbox(g.format) ? <span>Sandbox</span> : <span>{lan ? "LAN" : "Hot-seat"}</span>}
           {lan && g.code && <span>Room <b className="pg-room">{g.code}</b></span>}
           <span>{lobby ? "In the lobby" : `Turn ${g.turn}`}</span>
         </p>
-        <p className="pg-who">{who.join(", ")}</p>
+        <p className="pg-who" title={who.join(", ")}>{who.join(", ")}</p>
       </div>
       {host && (
         <div className="pg-tile-acts">
@@ -687,7 +852,7 @@ function TileJoin({ game: g }: { game: GameSummary }) {
     if (g.has_password && !asking) return setAsking(spectate ? "watch" : "join");
     setBusy(true);
     try {
-      await joinTable({ code: g.code!, name: ownName(activeProfile().name) || undefined, password: password || undefined, spectate });
+      await joinTable({ code: g.code!, name: activeProfile().name || undefined, password: password || undefined, spectate });
     } catch (e) {
       toastError(e); // the server has the last word: a seat taken meanwhile, a wrong password
       setBusy(false);
@@ -729,7 +894,8 @@ function SaveTile({ save: s, onDeleted }: { save: SaveSummary; onDeleted: () => 
           <span>{whenSaved(s.created_at)}</span>
           <span>Turn {s.turn}</span>
         </p>
-        <p className="pg-who">{s.players.map((p) => `${p.name} ${p.life}`).join(", ")}</p>
+        {/* (name and life apart: "Player 1 40" read as "Player 140") */}
+        <p className="pg-who" title={s.players.map((p) => `${p.name}: ${p.life} life`).join(", ")}>{s.players.map((p) => `${p.name}: ${p.life} life`).join(", ")}</p>
       </div>
       <div className="pg-tile-acts">
         {/* a saved game comes back as a LAN night, like every new one: the host takes their seat, the pod rejoins with the code */}

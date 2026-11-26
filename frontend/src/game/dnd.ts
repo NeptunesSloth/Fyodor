@@ -17,6 +17,8 @@ export interface DragGhost {
   offsetY: number;
   width: number;
   overZone: string | null;
+  /** Alt is held: the drop will place the card by hand (the drag's caption says so). */
+  manual?: boolean;
 }
 
 interface DragStore {
@@ -37,6 +39,8 @@ export interface DropResult {
   position?: "top" | "bottom";
   /** The manual-override modifier (Alt) was held: do it by hand, not as a rules intent. */
   manual?: boolean;
+  /** Where the pointer let go (screen px): a chooser the drop opens shows there (game/handDrop.ts). */
+  at?: { clientX: number; clientY: number };
 }
 
 const THRESHOLD = 5;
@@ -115,27 +119,42 @@ export function beginPointerDrag(
       document.body.classList.add("dragging");
     }
     const over = findDropTarget(ev.clientX, ev.clientY, offsetX, offsetY);
-    setDrag({ ids: opts.ids, from: opts.from, x: ev.clientX, y: ev.clientY, offsetX, offsetY, width: opts.width ?? rect.width, overZone: over?.zone ?? null });
+    setDrag({ ids: opts.ids, from: opts.from, x: ev.clientX, y: ev.clientY, offsetX, offsetY, width: opts.width ?? rect.width, overZone: over?.zone ?? null, manual: ev.altKey });
+  };
+  // Alt pressed or let go mid-drag, without moving: the caption follows
+  const alt = (ev: KeyboardEvent) => {
+    if (ev.key !== "Alt") return;
+    const d = useDrag.getState().drag;
+    if (dragging && d) {
+      ev.preventDefault(); // (no browser menu bar focus)
+      setDrag({ ...d, manual: ev.type === "keydown" });
+    }
   };
   const up = (ev: PointerEvent) => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", cancel);
+    window.removeEventListener("keydown", alt);
+    window.removeEventListener("keyup", alt);
     document.body.classList.remove("dragging");
     setDrag(null);
     if (dragging) {
       const target = findDropTarget(ev.clientX, ev.clientY, offsetX, offsetY);
-      opts.onDrop(target ? { ...target, manual: ev.altKey } : null);
+      opts.onDrop(target ? { ...target, manual: ev.altKey, at: { clientX: ev.clientX, clientY: ev.clientY } } : null);
     }
   };
   const cancel = () => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", cancel);
+    window.removeEventListener("keydown", alt);
+    window.removeEventListener("keyup", alt);
     document.body.classList.remove("dragging");
     setDrag(null);
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", cancel);
+  window.addEventListener("keydown", alt);
+  window.addEventListener("keyup", alt);
 }

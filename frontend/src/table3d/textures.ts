@@ -576,6 +576,118 @@ export function textCardTexture(card: CardData | undefined, face: number, fallba
   return t;
 }
 
+/** A triggered or activated ability on the stack (GameCard.ability), as the 2D table's `.ability-card`. */
+export interface AbilityFace { kind: string; source_name: string | null; text: string }
+
+/** Words wrapped to `maxW` at the current font; null when they need more than `maxLines`. */
+function wrap(g: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number): string[] | null {
+  const lines: string[] = [];
+  for (const para of text.split("\n")) {
+    let line = "";
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && g.measureText(next).width > maxW) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    if (lines.length > maxLines) return null;
+  }
+  return lines;
+}
+
+/**
+ * An ability's card: its source's art (when cached) across the top, a brass rule, what kind of ability it is,
+ * the source's name and the ability's text, fitted. Drawn at once and once more when the art arrives.
+ */
+export function abilityCardTexture(a: AbilityFace, artUrl: string | null): THREE.CanvasTexture {
+  const [c, g] = canvas(PROXY_W, PROXY_H);
+  const t = texture(c);
+  const draw = (art: HTMLImageElement | null) => {
+    const W = PROXY_W;
+    const H = PROXY_H;
+    const u = W / 100;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = BORDER;
+    roundRect(g, 0, 0, W, H, 4.75 * u);
+    g.fill();
+    const b = 3.2 * u;
+    const iw = W - b * 2;
+    const artH = H * 0.42;
+    g.save();
+    roundRect(g, b, b, iw, H - b * 2, 1.6 * u);
+    g.clip();
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#2a2622");
+    bg.addColorStop(1, "#151311");
+    g.fillStyle = bg;
+    g.fillRect(b, b, iw, H - b * 2);
+    if (art) {
+      // a Scryfall "normal" scan: its art box is roughly 8–92% across and 11–55% down
+      const sx = art.naturalWidth * 0.08;
+      const sy = art.naturalHeight * 0.11;
+      const sw = art.naturalWidth * 0.84;
+      const sh = art.naturalHeight * 0.44;
+      const scale = Math.max(iw / sw, artH / sh);
+      const dw = iw / scale;
+      const dh = artH / scale;
+      g.drawImage(art, sx + (sw - dw) / 2, sy + (sh - dh) / 2, dw, dh, b, b, iw, artH);
+      const fade = g.createLinearGradient(0, b + artH * 0.6, 0, b + artH);
+      fade.addColorStop(0, "rgba(21, 19, 17, 0)");
+      fade.addColorStop(1, "rgba(21, 19, 17, 0.85)");
+      g.fillStyle = fade;
+      g.fillRect(b, b, iw, artH);
+    }
+    g.restore();
+    const ruleY = b + artH;
+    g.fillStyle = "#b8945a";
+    g.fillRect(b, ruleY, iw, 0.5 * u);
+    const pad = 6 * u;
+    const textW = iw - pad * 2 + 2 * b;
+    let y = ruleY + 7 * u;
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    g.fillStyle = "#c9a25c";
+    g.font = `700 ${4.2 * u}px Cinzel, Georgia, serif`;
+    g.fillText(clip(g, (a.kind === "other" ? "ability" : `${a.kind} ability`).toUpperCase(), textW), pad, y);
+    if (a.source_name) {
+      y += 7.5 * u;
+      g.fillStyle = "#efe6d4";
+      g.font = `700 ${6.2 * u}px Cinzel, Georgia, serif`;
+      g.fillText(clip(g, a.source_name, textW), pad, y);
+    }
+    y += 6 * u;
+    const bottom = H - b - 4 * u;
+    // the largest size the whole text fits at, down to a floor (then it's cut with an ellipsis)
+    let size = 6.4 * u;
+    let lines: string[] | null = null;
+    for (; size >= 3.6 * u; size -= 0.2 * u) {
+      g.font = `430 ${size}px "Inter Variable", Inter, Arial, sans-serif`;
+      lines = wrap(g, a.text, textW, Math.floor((bottom - y) / (size * 1.28)));
+      if (lines) break;
+    }
+    if (!lines) {
+      const max = Math.floor((bottom - y) / (size * 1.28));
+      lines = (wrap(g, a.text, textW, 999) ?? []).slice(0, max);
+      if (lines.length) lines[lines.length - 1] = clip(g, `${lines[lines.length - 1]}…`, textW);
+    }
+    g.fillStyle = "#e4dccb";
+    lines.forEach((line, i) => g.fillText(line, pad, y + size * 0.64 + i * size * 1.28));
+    t.needsUpdate = true;
+  };
+  draw(null);
+  let loaded: HTMLImageElement | null = null;
+  if (artUrl) {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => draw((loaded = img));
+    img.src = artUrl;
+  }
+  if (!proxyFontsReady()) void whenProxyFontsReady().then(() => draw(loaded));
+  return t;
+}
+
 /** The card back drawn here while the host hasn't the Magic card back yet (cards/drawnBack.ts, as the 2D table's). */
 export function backCanvas(): HTMLCanvasElement {
   return drawnBackCanvas();
@@ -689,6 +801,89 @@ export interface CardOverlay {
   pile?: number;
   /** The encoder's owner gem: someone else owns this card (their initial, in their seat colour). */
   owner?: { initial: string; color: string };
+  /**
+   * -- attached elsewhere -- another player's attachment tucked under a permanent here (game/attachments.ts guests): a frame in
+   * their seat colour and their initial on a tab in the corner that peeks out (the right edge, at the `front` end: the edge toward
+   * the middle of the table).
+   */
+  guest?: { initial: string; color: string; front: "top" | "bottom" };
+  /**
+   * -- playtest (nov 18) -- combat read physically: whom this attacker attacks ("→" and the defender's initial on their seat colour; a
+   * dashed rim while only planned in the declare-attackers prompt), and how many attackers a blocker blocks when it blocks several.
+   */
+  combat?: { to?: { initial: string; color: string; planned: boolean }; blocks?: number; planned?: boolean };
+}
+
+/** The combat chip (CardOverlay.combat) at (x, y), `h` tall, on any overlay canvas: "→ (B)" for an attacker, "blocks 2" for a blocker. */
+export function drawCombatChip(g: CanvasRenderingContext2D, x: number, y: number, h: number, combat: NonNullable<CardOverlay["combat"]>): void {
+  const to = combat.to;
+  // (a block planned in the declare-blockers prompt: "blocks" — "blocks 2" for several — on a dashed rim until declared)
+  const label = to ? "→" : combat.planned && (combat.blocks ?? 1) <= 1 ? "blocks" : `blocks ${combat.blocks ?? ""}`;
+  g.save();
+  g.font = `800 ${Math.round(h * 0.62)}px Inter, Arial, sans-serif`;
+  const tw = g.measureText(label).width;
+  const w = tw + h * (to ? 1.35 : 0.55);
+  g.fillStyle = "#16110c";
+  roundRect(g, x, y, w, h, h * 0.3);
+  g.fill();
+  g.lineWidth = Math.max(2, h * 0.07);
+  g.strokeStyle = to ? "#e0645c" : "#5fa8ff";
+  if (to?.planned || combat.planned) g.setLineDash([h * 0.16, h * 0.1]);
+  g.stroke();
+  g.setLineDash([]);
+  g.textAlign = "left";
+  g.textBaseline = "middle";
+  g.fillStyle = "#f6ead8";
+  g.fillText(label, x + h * 0.22, y + h / 2 + 1);
+  if (to) {
+    const r = h * 0.36;
+    const cx = x + h * 0.32 + tw + r;
+    g.beginPath();
+    g.arc(cx, y + h / 2, r, 0, Math.PI * 2);
+    g.fillStyle = to.color;
+    g.fill();
+    g.fillStyle = "#0e0b08";
+    g.textAlign = "center";
+    g.font = `800 ${Math.round(h * 0.46)}px Inter, Arial, sans-serif`;
+    g.fillText(to.initial, cx, y + h / 2 + 1);
+  }
+  g.restore();
+}
+
+/** The guest frame and tab (CardOverlay.guest) on a W × H overlay. */
+export function drawGuestMark(g: CanvasRenderingContext2D, W: number, H: number, guest: NonNullable<CardOverlay["guest"]>): void {
+  const lw = Math.max(3, W * 0.028);
+  g.save();
+  g.strokeStyle = guest.color;
+  g.lineWidth = lw;
+  roundRect(g, lw / 2, lw / 2, W - lw, H - lw, W * 0.045);
+  g.stroke();
+  // the tab: inside the strip a tucked card shows (12% of the width), a notched flag hanging from the front edge
+  const tw = W * 0.115;
+  const th = W * 0.17;
+  const x = W - tw;
+  const down = guest.front === "top";
+  const y0 = down ? 0 : H;
+  const y1 = down ? th : H - th;
+  const notch = down ? th * 0.82 : H - th * 0.82;
+  g.beginPath();
+  g.moveTo(x, y0);
+  g.lineTo(W, y0);
+  g.lineTo(W, y1);
+  g.lineTo(x + tw / 2, notch);
+  g.lineTo(x, y1);
+  g.closePath();
+  g.fillStyle = guest.color;
+  g.fill();
+  g.lineWidth = Math.max(2, W * 0.008);
+  g.strokeStyle = "rgba(14, 11, 8, 0.8)";
+  g.stroke();
+  g.fillStyle = "#0e0b08";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = `800 ${Math.round(tw * 0.78)}px Inter, Arial, sans-serif`;
+  g.fillText(guest.initial, x + tw / 2, down ? th * 0.4 : H - th * 0.4);
+  g.restore();
 }
 
 export const OVERLAY_W = 512;
@@ -798,6 +993,38 @@ function plate(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
   g.stroke();
 }
 
+/** The pile badge's canvas height; its width follows the figure (pileBadgeCanvas). */
+export const PILE_BADGE_H = 96;
+
+/**
+ * The ×N of a token pile or land pile on the 3D table, as its own badge (TableScene sizes it to stay readable at any camera
+ * distance): the figure in heavy bone type on a near-black plate with a brass rim, wide enough for "×131,072".
+ */
+export function pileBadgeCanvas(n: number): HTMLCanvasElement {
+  const text = countText(n);
+  const h = PILE_BADGE_H;
+  const font = "900 68px Inter, Arial, sans-serif";
+  const [, mg] = canvas(4, 4);
+  mg.font = font;
+  const w = Math.ceil(Math.max(h * 1.45, mg.measureText(text).width + 40));
+  const [c, g] = canvas(w, h);
+  g.fillStyle = "rgba(0, 0, 0, 0.5)"; // a soft drop, so the plate stands off a pale card frame or the felt
+  roundRect(g, 2, 7, w - 4, h - 8, (h - 8) * 0.32);
+  g.fill();
+  g.fillStyle = "#120d08";
+  roundRect(g, 4, 3, w - 8, h - 10, (h - 10) * 0.32);
+  g.fill();
+  g.strokeStyle = BRASS;
+  g.lineWidth = 5;
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = font;
+  g.fillStyle = "#fff6e2";
+  g.fillText(text, w / 2, h / 2 - 2);
+  return c;
+}
+
 /** Transparent overlay drawn on top of a card face: P/T plate, damage, keyword badges, counters. */
 export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
   const W = OVERLAY_W;
@@ -830,6 +1057,7 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.font = "800 58px Inter, Arial, sans-serif";
     g.fillText(o.owner.initial, 78, 154);
   }
+  if (o.combat) drawCombatChip(g, 14, 232, 120, o.combat); // (under the owner gem, over the art's left edge)
   // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
   if (o.pt) {
     const w = 380;
@@ -931,5 +1159,6 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.fillStyle = "#f4ead6";
     g.fillText(text, x + w / 2, y + h / 2 + 2);
   });
+  if (o.guest) drawGuestMark(g, W, H, o.guest);
   return c;
 }

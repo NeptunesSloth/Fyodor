@@ -9,6 +9,9 @@
  * natural 20 or 1 gets a thin ring on the table; the ignored dice of a "roll one more and ignore the lowest" are
  * greyed. Impacts make their sound as the throw reaches them. Landed dice stay until cleared (`dismiss`, `clear`).
  * Geometry, atlases and materials are cached and disposed with the last tray.
+ *
+ * A throw from the hand is simulated on the dice worker (diceWorker.ts) where there is one: the throw waits, hidden, the
+ * moment its tracks take to come back, then plays from its start on this loop; a dozen dice no longer stall a frame.
  */
 import * as THREE from "three";
 import { diceClock, natural, rollLine, type DiceShow } from "../game/dice";
@@ -17,7 +20,8 @@ import { coinAtlas, coinGeometry, dieAtlas, disposeDiceArt } from "./diceArt";
 import { COIN_RADIUS, COIN_THICK, dieSolid, disposeSolids, type DieKind } from "./diceGeometry";
 import { coinMaterial, diceMaterial, type DiceLook } from "./diceLook";
 import type { HudThrow } from "./diceHud";
-import { placeRoll, prefixTrack, throwRoll, type Launcher, type ThrowEnv, type ThrownDie } from "./diceThrow";
+import { placeRoll, prefixTrack, throwRoll, type Launcher, type ThrowEnv, type Thrown, type ThrownDie } from "./diceThrow";
+import { canThrowOffThread, prewarmDiceWorker, throwOffThread } from "./diceWorker";
 import { FRAMES_PER_SECOND, poseLerp } from "./physics";
 import { flightSeconds } from "../game/cannon";
 
@@ -51,6 +55,8 @@ export interface TrayOptions {
   sound?: boolean;
   /** Reflection strength (a brighter environment wants less). */
   envIntensity?: number;
+  /** Throws from the hand go to the dice worker (default). Off: thrown at once (the toy tray lays each throw by the last's dice). */
+  offThread?: boolean;
 }
 
 interface LiveDie { spec: ThrownDie; mesh: THREE.Mesh; blob: THREE.Mesh; ring: THREE.Mesh | null; radius: number; height: number }
@@ -64,7 +70,10 @@ interface LiveThrow {
   dice: LiveDie[];
   impacts: ReturnType<typeof throwRoll>["impacts"];
   heard: number;
-  started: number;
+  /** null: on the worker still, or back and starting at the next update. */
+  started: number | null;
+  /** Its tracks are still being simulated on the worker (no dice yet). */
+  pending: boolean;
   /** When the last die came to rest (ms of throw time). */
   settles: number;
   cleared: number | null;
@@ -128,7 +137,7 @@ export function prewarmDice(): () => void {
   // idle time, or within two seconds at the latest (a busy table may never be idle)
   const idle = ric ? (f: () => void) => ric(f, { timeout: 2000 }) : (f: () => void) => setTimeout(f, 400);
   const cancel = (globalThis as { cancelIdleCallback?: (n: number) => void }).cancelIdleCallback ?? ((n: number) => clearTimeout(n));
-  const jobs: (() => void)[] = [() => dieAtlas("d20"), () => dieAtlas("d6"), () => dieSolid("d20"), () => dieSolid("d6"), () => coinAtlas()];
+  const jobs: (() => void)[] = [prewarmDiceWorker, () => dieAtlas("d20"), () => dieAtlas("d6"), () => dieSolid("d20"), () => dieSolid("d6"), () => coinAtlas()];
   let handle = 0;
   const next = () => {
     const job = jobs.shift();
@@ -155,13 +164,43 @@ export class DiceTray {
 
   /**
    * Throw a roll in `frame` (the roller's mat). `env` is the throw's world in that frame (diceThrow.ts tableEnv
-   * for the live table), `now` the clock the tray is updated with.
+   * for the live table), `now` the clock the tray is updated with. `settles`: when its dice are all at rest (ms after
+   * `now`); 0 for a throw gone to the worker (it starts when it's back).
    */
   throw(show: DiceShow, color: string, name: string, frame: ThrowFrame, env: ThrowEnv, now: number, opts: ThrowOptions = {}): { settles: number } {
     const t0 = performance.now();
-    const thrown = opts.still ? placeRoll(show, env) : throwRoll(show, env, opts.launcher);
     const root = new THREE.Group();
     this.place(root, frame);
+    const live: LiveThrow = {
+      key: show.key, actor: show.actor, color, name, show, root, dice: [], impacts: [], heard: 0, started: now, pending: false,
+      settles: 0, cleared: null, age: -1, ms: 0, delay: Math.max(0, opts.delay ?? 0), line: opts.line ?? null, tag: opts.tag ?? null,
+    };
+    this.group.add(root);
+    this.throws.push(live);
+    this.changed = true;
+    // a plain throw from the hand goes to the worker (the cannon's and the still ones are thrown here: their callers time
+    // what follows by when they settle, and they are few dice)
+    if (this.opts.offThread !== false && !opts.still && !opts.from && !opts.launcher && canThrowOffThread()) {
+      root.visible = false;
+      live.pending = true;
+      live.started = null;
+      const sent = throwOffThread(show, env, undefined, (thrown) => {
+        if (!this.throws.includes(live)) return; // cleared and gone (or the tray disposed) meanwhile
+        live.pending = false;
+        this.land(live, thrown, opts, t0);
+      });
+      if (sent) return { settles: 0 };
+      live.pending = false;
+      live.started = now;
+      root.visible = true;
+    }
+    this.land(live, opts.still ? placeRoll(show, env) : throwRoll(show, env, opts.launcher), opts, t0);
+    return { settles: live.delay + live.settles };
+  }
+
+  /** A throw's tracks are in: its dice go on the table. */
+  private land(live: LiveThrow, thrown: Thrown, opts: ThrowOptions, t0: number): void {
+    const root = live.root;
     let impacts = thrown.impacts;
     if (opts.from && !opts.still) {
       // fired from the cannon: each die flies from the muzzle (in this throw's own frame) into the throw (diceThrow.ts)
@@ -179,17 +218,13 @@ export class DiceTray {
       }
       impacts = impacts.map((x) => ({ ...x, t: x.t + longest }));
     }
-    root.visible = !(opts.delay && opts.delay > 0);
-    const dice = thrown.dice.map((spec) => this.makeDie(spec, color, root));
-    this.group.add(root);
-    const delay = Math.max(0, opts.delay ?? 0);
-    const settles = Math.max(...thrown.dice.map((d) => d.rest)) * 1000;
-    this.throws.push({
-      key: show.key, actor: show.actor, color, name, show, root, dice, impacts, heard: 0, started: now,
-      settles, cleared: null, age: -1, ms: performance.now() - t0, delay, line: opts.line ?? null, tag: opts.tag ?? null,
-    });
+    // (a throw back from the worker stays hidden until the next update starts its clock)
+    root.visible = !(live.delay > 0) && live.started !== null;
+    live.dice = thrown.dice.map((spec) => this.makeDie(spec, live.color, root));
+    live.impacts = impacts;
+    live.settles = Math.max(...thrown.dice.map((d) => d.rest)) * 1000;
+    live.ms = performance.now() - t0;
     this.changed = true;
-    return { settles: delay + settles };
   }
 
   private place(root: THREE.Group, f: ThrowFrame): void {
@@ -264,6 +299,14 @@ export class DiceTray {
     this.changed = false;
     const frozen = diceClock.frozen;
     for (const t of [...this.throws]) {
+      if (t.pending) {
+        // on the worker still: nothing to show yet (cleared meanwhile: it never shows); keep the frames coming till it's back
+        if (t.cleared !== null) this.remove(t);
+        moving = true;
+        continue;
+      }
+      // back from the worker: its throw starts now, from the hand
+      t.started ??= now;
       // (a cannon's throw waits `delay` before it leaves the muzzle: hidden until then; reduced motion shows only the result)
       const age = reduced && frozen === null ? t.settles + 1000 : (frozen ?? (now - t.started) * rate) - t.delay;
       const waiting = age < 0;
@@ -321,7 +364,7 @@ export class DiceTray {
 
   /** The chips and lines for the DOM labels (diceHud.ts), placed with `project` (world → screen). */
   hud(project: (p: THREE.Vector3) => { x: number; y: number; visible: boolean }, now = performance.now()): HudThrow[] {
-    return this.throws.map((t) => {
+    return this.throws.filter((t) => !t.pending).map((t) => {
       const fade = t.cleared === null ? 1 : Math.max(0, 1 - (now - t.cleared) / CLEAR_MS);
       const at = (x: number, y: number, z: number) => project(tmpV.set(x, y, z).applyMatrix4(t.root.matrixWorld));
       let cx = 0, cy = 0;
@@ -392,9 +435,11 @@ export class DiceTray {
     this.changed = true;
   }
 
-  /** Where the dice are now, in world coordinates (tests and diagnostics). */
-  positions(): THREE.Vector3[] {
-    return this.throws.filter((t) => t.cleared === null).flatMap((t) => t.dice.map((d) => d.mesh.getWorldPosition(new THREE.Vector3())));
+  /** Where the dice are now, in world coordinates (tests and diagnostics; `resting`: only those that have come to rest). */
+  positions(resting = false): THREE.Vector3[] {
+    return this.throws.filter((t) => t.cleared === null && (!resting || t.root.visible)).flatMap((t) => t.dice
+      .filter((d) => !resting || t.age >= d.spec.rest * 1000)
+      .map((d) => d.mesh.getWorldPosition(new THREE.Vector3())));
   }
 
   /** Where a throw's dice come to rest, in world coordinates. */
@@ -409,9 +454,9 @@ export class DiceTray {
     });
   }
 
-  /** What each throw shows (tests and diagnostics): each die's label, kind, whether ignored and whether at rest. */
+  /** What each throw shows (tests and diagnostics): each die's label, kind, whether ignored and whether at rest (not one still on the worker). */
   describe(): { key: string; ms: number; dice: { label: string; kind: DieKind; ignored: boolean; resting: boolean }[] }[] {
-    return this.throws.filter((t) => t.cleared === null).map((t) => ({
+    return this.throws.filter((t) => t.cleared === null && !t.pending).map((t) => ({
       key: t.key, ms: Math.round(t.ms * 10) / 10, dice: t.dice.map((d) => ({ label: d.spec.label, kind: d.spec.kind, ignored: d.spec.ignored, resting: t.age >= d.spec.rest * 1000 })),
     }));
   }

@@ -68,7 +68,8 @@ def set_choice(state: GameState, a: A.SetChoice) -> None:
         if c.choices.pop(a.key, None) is None:
             raise ActionError("No such choice")
         parts = [pname(state, a.actor), text(f" cleared {a.key} on "), ops.card_part(state, c)]
-    log(state, a.actor, a.ts, parts, kind="minor")
+    if not ops.internal_choice(a.key):  # (-- playtest M7 -- "Opponent recorded for Elvish Mystic — Engaged110j: 4" on every attack)
+        log(state, a.actor, a.ts, parts, kind="minor")
 
 
 def set_stack_info(state: GameState, a: A.SetStackInfo) -> None:

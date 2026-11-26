@@ -494,7 +494,8 @@ def random_looked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                                          ctx.get("source_card")))
     if not pool:
         return True
-    pick = (plan.rng or secrets.SystemRandom()).choice(pool)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), pool, kind='card', player=ctx['controller'])
     plan.note(f"{ctx.get('name') or 'It'}: chosen at random →", [pick], actor=ctx["controller"])
     return bool(effects._picked(plan, ctx, e, [pick]))
 

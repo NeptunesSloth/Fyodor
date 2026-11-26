@@ -38,4 +38,12 @@ test("commander tax buttons, and a partner gets its own slot and counter", async
   const partner = (await alice()).commanders[1]!.key;
   await zone.getByTestId(`tax-${partner}`).click();
   await expect.poll(async () => (await alice()).commanders.map((c) => c.tax)).toEqual([2, 2]);
+
+  // the zone's name opens the Command zone browser, as Library / Graveyard / Exile do (clicking the commander previews it)
+  await page.getByTestId("command-browse-p1").click();
+  const browser = page.locator(".zone-browser");
+  await expect(browser.locator(".zb-head b")).toHaveText("Command");
+  await expect(browser.locator(".zb-head .hint")).toHaveText("2 cards");
+  await browser.getByRole("button", { name: "Close" }).click();
+  await expect(browser).toHaveCount(0);
 });

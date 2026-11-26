@@ -35,8 +35,15 @@ const PATHS = {
   trash: "M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 10.5v6M14 10.5v6",
   // a folder: the deck shelf's folders
   folder: "M3.5 7.5a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z",
+  // a practice target, rings and a bullseye: the Sandbox's target dummy
+  target: "M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 11.4v1.2",
+  // a small robot head, antenna and eyes: a seat the server plays (a bot), in place of a person's initial
+  bot: "M12 3.5v3M7.5 6.5h9a2.5 2.5 0 0 1 2.5 2.5v6.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 15.5V9a2.5 2.5 0 0 1 2.5-2.5zM9.5 11.5v1M14.5 11.5v1M9.5 15.5h5M2.5 11v3M21.5 11v3",
   // a padlock: a table with a password
   lock: "M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9.5H6zM12 14.5v2.5",
+  // a sun with eight short rays, and a crescent moon: day and night (CR 726)
+  sun: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4",
+  moon: "M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

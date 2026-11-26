@@ -87,6 +87,7 @@ def test_players_join_choose_their_own_decks_and_get_ready(lobby):
     state = client.app.state.services.hub.get(gid).session.state
     assert [state.players[p].name for p in state.seat_order] == ["Alice", "Bob"]
     assert state.players["p2"].deck_name == "Goblins"
+    assert state.players["p1"].deck_name == "Atraxa, Praetors' Voice"  # (a pasted list without a name: after its commander, not "Deck")
     # opening hands are dealt under the table's mulligan rule (Commander London by default)
     assert len(state.zones["p2:hand"]) == 7 and len(state.zones["p2:library"]) == 6
     assert len(state.zones["p1:hand"]) == 7 and len(state.zones["p1:library"]) == 5

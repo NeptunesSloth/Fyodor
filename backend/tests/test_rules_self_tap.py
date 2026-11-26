@@ -133,3 +133,24 @@ def test_convoke_by_tapping_your_creatures(cards):
             break
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.players["p2"].life == 36
+
+
+def test_auto_pay_taps_the_solvers_sources_in_one_click(cards):
+    # -- auto pay (nov 18) -- tapping your own mana stays the default, but the prompt's AUTO PAY taps what the engine's solver picks
+    s, bears, forests = build(cards, lands=3)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    d = s.state.rules.decision
+    assert d.display["auto_pay"] is not None and len(d.display["auto_pay"]) == 2 and d.display["auto_why"] == ""
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["auto"])
+    assert s.state.rules.decision is None and s.state.cards[bears.id].zone in ("stack", "p1:battlefield")
+    assert sum(s.state.cards[f].tapped for f in forests) == 2 and mana_pool(s) == {}
+
+
+def test_auto_pay_says_why_it_cant(cards):
+    s, bears, forests = build(cards, lands=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    d = s.state.rules.decision
+    assert d.display["auto_pay"] is None and "{1}{G}" in d.display["auto_why"]
+    with pytest.raises(ActionError, match=r"\{1\}\{G\}"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["auto"])
+    assert s.state.cards[bears.id].zone == "p1:hand" and not s.state.cards[forests[0]].tapped

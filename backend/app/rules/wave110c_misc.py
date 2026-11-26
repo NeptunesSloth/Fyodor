@@ -603,7 +603,8 @@ def kefka_exile(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     for pid in order:
         gy = sorted(plan.state.zones.get(f"{pid}:graveyard", []))
         if gy:
-            picked.append((pid, (plan.rng or secrets.SystemRandom()).choice(gy)))
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            picked.append((pid, randomness.choice(plan, plan.rng or secrets.SystemRandom(), gy, kind='card', player=me)))
     before = [r for _, c in picked if (r := context.ref_of(plan, c)) is not None]
     for pid, cid in picked:
         plan.note(f"{ctx.get('name') or 'It'}: {plan.name(pid)}'s graveyard, chosen at random →", [cid], actor=me)

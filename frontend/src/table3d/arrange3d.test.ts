@@ -58,6 +58,17 @@ describe("arranged 3D mats", () => {
     expect(m.spots.get("bear")!.rank).toBeGreaterThan(m.spots.get("eq")!.rank); // tucked under its host
   });
 
+  it("lays a big token pile low, with only its top card labelled and shadowed", () => {
+    const swarm = Array.from({ length: 80 }, (_, i) => card(`s${i}`, "creature", { key: "Swarm" }));
+    const m = arrangeMat(swarm, false);
+    const top = m.spots.get("s79")!;
+    expect(top.pile).toBe(80);
+    expect(top.under).toBeUndefined();
+    expect(swarm.slice(0, 79).every((c) => m.spots.get(c.id)!.under)).toBe(true);
+    // the buried cards share one height: the top lies a few layers up, not 80
+    expect(top.rank - m.spots.get("s0")!.rank).toBeLessThanOrEqual(4);
+  });
+
   it("squashes a card to a tile's proportions", () => {
     expect((CARD_H * TILE_SQUASH) / CARD_W).toBeCloseTo(TILE_RATIO);
   });
@@ -82,6 +93,23 @@ describe("arranged 3D boards: every board reads upright from my seat", () => {
     // the three Forests are one stack
     const tops = b.piles("p1");
     expect([...tops.values()]).toEqual([3]);
+  });
+
+  it("tucks my Aura on an opponent's creature under it on their mat, not on mine (game/attachments.ts guests)", () => {
+    const b = new ArrangedBoards();
+    const s = seats(["p1", "p2", "p3", "p4"], "p1");
+    const v = view();
+    v.cards["p1-aura"] = vis("p1-aura", "p1", "Ring", { attached_to: "p2-bear" });
+    v.zones["p1:battlefield"] = [...(v.zones["p1:battlefield"] as string[]), "p1-aura"];
+    const spots = b.layout(v, s, "p1", src);
+    const aura = spots.get("p1-aura")!;
+    const host = spots.get("p2-bear")!;
+    expect(aura.player).toBe("p2"); // laid out on the host's mat
+    expect(Math.hypot(aura.x - host.x, aura.z - host.z)).toBeLessThan(host.w * 0.5); // peeking out from under it
+    expect(aura.rank).toBeLessThan(host.rank);
+    // and the board is laid out again when that changes, though the opponent's own zone array didn't
+    const v2 = { ...v, cards: { ...v.cards, "p1-aura": { ...v.cards["p1-aura"]!, attached_to: null } } } as GameView;
+    expect(b.layout(v2, s, "p1", src).get("p1-aura")!.player).toBe("p1");
   });
 
   it("reuses a mat whose cards are the same objects (the view shares unchanged ones)", () => {
@@ -142,5 +170,22 @@ describe("arranged 3D boards: rearranging", () => {
     const order = orderFromRest(mat.layout, (id) => (id === "a" ? [m.layout.place.get("c")!.left + m.layout.w * 2, pa.top + m.layout.h / 2] : null));
     expect(order).toEqual(["b", "c", "a", "l"]);
     expect(toArrange(m.layout, 0, 0)[0]).toBeCloseTo((MAT_W / 2) * 100 - m.layout.w / 2);
+  });
+});
+
+describe("a crowded mat (playtest nov 16: 300 permanents)", () => {
+  it("stays inside the mat and its front rows stay on the felt: ranks count within a line", () => {
+    const cards: ArrangeCard[] = [];
+    for (let i = 0; i < 90; i++) cards.push(card(`c${i}`, "creature"));
+    for (let i = 0; i < 45; i++) cards.push(card(`o${i}`, "other"));
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 40; j++) cards.push(card(`l${i}_${j}`, "land", { key: `L${i}` }));
+    const m = arrangeMat(cards, false);
+    const d = m.layout.h / 100;
+    for (const s of m.spots.values()) {
+      expect(Math.abs(s.lz) + d / 2).toBeLessThanOrEqual(MAT_D / 2 + 1e-6);
+      expect(Math.abs(s.lx) + s.w / 2).toBeLessThanOrEqual(MAT_W / 2 + 1e-6);
+    }
+    // TableScene lifts a tile 0.0035 per rank: across the whole mat 300 ranks lifted the creatures a full unit
+    expect(Math.max(...[...m.spots.values()].map((s) => s.rank)) * 0.0035).toBeLessThan(0.15);
   });
 });

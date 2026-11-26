@@ -96,9 +96,9 @@ def test_tapping_a_forest_under_lantern_asks_which_mana(cards):
     s = saved(s)
     tap(s, forest)
     assert s.state.rules.decision.prompt == "Which mana should Forest add?"
-    assert labels(s) == ["{G}", "{W}", "{U}", "{B}", "{R}", "Cancel"]
+    assert labels(s) == ["{G} ({T}: Add {G})", *(f"{{{c}}} ({{T}}: Add one mana of any color)" for c in "WUBR"), "Cancel"]
     s = saved(s)
-    pick(s, "{B}")
+    pick(s, "{B} ({T}: Add one mana of any color)")
     assert mana_pool(s) == {"B": 1} and s.state.cards[forest.id].tapped
     replay_matches(s)
     saved(s)
@@ -153,11 +153,11 @@ def test_a_pain_land_tapped_while_paying_asks_inside_the_payment(cards):
     tap(s, reef)
     d = s.state.rules.decision
     assert d.prompt == "Which mana should Shivan Reef add?"
-    assert labels(s) == ["{C}", "{U} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you.)",
-                         "{R} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you.)", "Cancel"]
+    assert labels(s) == ["{C} ({T}: Add {C})", "{U} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you)",
+                         "{R} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you)", "Cancel"]
     s = saved(s)
     life = s.state.players["p1"].life
-    pick(s, "{R} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you.)")
+    pick(s, "{R} ({T}: Add {U} or {R}. Shivan Reef deals 1 damage to you)")
     settle(s)
     assert s.state.players["p2"].life == 37 and s.state.players["p1"].life == life - 1
     replay_matches(s)

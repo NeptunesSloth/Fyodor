@@ -843,7 +843,7 @@ def glamer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 def _glamer_move(plan: Any, ctx: dict[str, Any], auras: list[str], host: str) -> bool:
     from app.rules import attachments
 
-    for a in auras:
+    for a in attachments.apnap(plan, list(auras)):  # (613.7e, 613.7m: attached at once, timestamped in APNAP order)
         card = plan.state.cards[a]
         if attachments.host_problem(plan, card, host, ctx["controller"]) is None:
             attachments.attach(plan, a, host, ctx["controller"])
@@ -1204,7 +1204,8 @@ def elkin(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if not hand:
         context.bind_objects(plan, ctx, "e0", [])
         return True
-    cid = (plan.rng or secrets.SystemRandom()).choice(hand)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    cid = randomness.choice(plan, plan.rng or secrets.SystemRandom(), hand, kind='card', player=pid)
     before = [r for r in [context.ref_of(plan, cid)] if r is not None]
     plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=pid)
     context.bind_moved(plan, ctx, "e0", before)

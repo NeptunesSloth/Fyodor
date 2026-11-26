@@ -339,7 +339,11 @@ def test_decks_survive_card_database_updates(client, settings):
     assert sol["printing_id"] == cid("Sol Ring|cmm|410")
     # a Scryfall update drops that printing
     remaining = [c for c in fixture_cards() if not (c["name"] == "Sol Ring" and c["set"] == "cmm")]
-    build_database(remaining, settings.cards_db_path)
+    # the way the updater does it: build a staging file, then swap it in (the repository closes its connection first —
+    # Windows can't replace a file that is open)
+    staging = settings.cards_db_path.with_name(settings.cards_db_path.name + ".update")
+    build_database(remaining, staging)
+    client.app.state.services.cards.replace_with(staging)
     time.sleep(0.01)
     after = client.get(f"/api/decks/{deck['id']}").json()
     sol = by_name_dict(after["entries"], "Sol Ring")

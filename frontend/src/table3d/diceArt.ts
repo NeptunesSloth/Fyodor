@@ -107,6 +107,13 @@ function number(g: CanvasRenderingContext2D, text: string, x: number, y: number,
   g.restore();
 }
 
+/**
+ * A d4's numbers (in the face's inradius; `at`: how far out toward its corner each sits, of the way from the middle): as
+ * big as three fit on a face, each clear of the edges near its corner and of the other two, so they read from a seat
+ * away (they were 0.86 at 0.52, small at seat distance).
+ */
+export const D4_LABEL = { at: 0.46, size: 1.18, maxW: 1.15 };
+
 /** The ink for every face of a die, in its atlas cells (white on transparent). */
 function drawInk(g: CanvasRenderingContext2D, s: DieSolid, kind: DieKind, cell: number): void {
   g.fillStyle = "#fff";
@@ -130,9 +137,9 @@ function drawInk(g: CanvasRenderingContext2D, s: DieSolid, kind: DieKind, cell: 
       // each corner's number near that corner, its top toward it
       for (let k = 0; k < f.verts.length; k++) {
         const [vx, vy] = f.poly[k]!;
-        const [x, y] = at(vx * 0.52, vy * 0.52);
+        const [x, y] = at(vx * D4_LABEL.at, vy * D4_LABEL.at);
         const angle = Math.atan2(vx, vy);
-        number(g, String(s.pointValues[f.verts[k]!]), x, y, cell * inr * 0.86, angle, cell * inr * 1.0);
+        number(g, String(s.pointValues[f.verts[k]!]), x, y, cell * inr * D4_LABEL.size, angle, cell * inr * D4_LABEL.maxW);
       }
       return;
     }

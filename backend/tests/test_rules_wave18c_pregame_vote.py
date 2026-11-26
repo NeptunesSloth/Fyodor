@@ -175,6 +175,26 @@ def test_nothing_to_use_still_asks_everyone(cards):
     roundtrip(s)
 
 
+def test_one_person_against_a_bot_with_nothing_to_use_is_not_asked(cards):
+    """-- opening hand (playtest nov 17) -- Alice's only opponent is a bot: her empty question is skipped (nobody else could learn
+    anything from it); the bot is still asked, so its own hand never shows through the timing. With a card to use she is asked."""
+    def bot_table(alice):
+        s = table(cards, alice, [])
+        s.state.players["p2"].bot = "simple"
+        act(s, "p1", type="mulligan_keep")
+        s.perform_bot("p2", {"type": "mulligan_keep"})
+        return s
+
+    s = bot_table([])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # (the bot, asked whatever it holds)
+    s.perform_bot("p2", {"type": "choose", "decision_id": d.id, "option_ids": []})
+    assert s.state.rules.decision is None and s.state.rules.priority == "p1"
+    s = bot_table(["Leyline of Sanctity"])
+    assert s.state.rules.decision.player == "p1" and [o.label for o in s.state.rules.decision.options] == ["Leyline of Sanctity"]
+    # (two people: still everyone, as test_nothing_to_use_still_asks_everyone)
+
+
 def test_serum_powder_exiles_the_hand_and_redraws_without_taking_a_mulligan(cards):
     s = table(cards, ["Serum Powder"], [])
     powder = next(c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Serum Powder")

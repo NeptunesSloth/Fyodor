@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArtFoldersSetting } from "./ArtFolders";
 import { KeepArtSetting } from "./ArtKeeper";
 import { checkCardBack } from "../cards/cardBack";
 import { checkSymbols } from "../cards/symbols";
 import { toast, toastError } from "../components/Toasts";
 import { ApiError } from "../services/api";
 import {
-  bulkName, cardData, checkCardData, progressFraction, progressText, scryfallDay, startCardUpdate,
+  type ArtFolder, bulkName, cardData, checkCardData, progressFraction, progressText, scryfallDay, startCardUpdate,
   type CardCheck, type CardDataInfo, type CardJob,
 } from "../services/cardData";
 import { SettingsSection } from "./SettingsSection";
@@ -76,6 +77,9 @@ export function CardUpdateProgress({ job }: { job: CardJob }) {
 export function CardDataSection() {
   const { info, denied, check, checking, job, running, start, lookForNew } = useCardData();
   const db = info?.current;
+  // card art in two places: pictures Fyodor downloaded itself, and pictures it reads from art folders
+  const [folders, setFolders] = useState<ArtFolder[] | null>(null);
+  const folderPictures = (folders ?? []).reduce((n, f) => n + (f.exists ? f.count : 0), 0);
   return (
     <SettingsSection id="card-data" testId="card-data">
       {denied ? (
@@ -87,7 +91,9 @@ export function CardDataSection() {
               <p className="carddata-count"><span className="numeral">{db.oracle_cards.toLocaleString()}</span> cards</p>
               <p className="carddata-facts">
                 <span>{db.printings.toLocaleString()} printings</span>
-                <span>{db.images.toLocaleString()} images cached</span>
+                <span title="Card pictures Fyodor downloaded itself, and pictures it reads in place from the art folders below">
+                  Card art: {db.images.toLocaleString()} downloaded{folderPictures > 0 ? `, ${folderPictures.toLocaleString()} in art folders` : ""}
+                </span>
                 <span>Scryfall data from {scryfallDay(db.bulk_updated_at)}{db.bulk_type ? ` (${bulkName(db.bulk_type)})` : ""}</span>
               </p>
             </>
@@ -122,6 +128,7 @@ export function CardDataSection() {
           {!info.network && <p className="hint">Network access is turned off on this computer (FYODOR_ALLOW_NETWORK=0).</p>}
           <p className="hint">Tables keep playing while it updates.</p>
           <KeepArtSetting />
+          <ArtFoldersSetting onFolders={setFolders} />
         </div>
       ) : null}
     </SettingsSection>

@@ -108,6 +108,19 @@ def test_token_stacks(s):
     assert small_create.stacked is False  # small counts stay individual by default
 
 
+def test_bulk_tokens_form_one_pile(s):
+    """-- token piles -- N separate tokens made at once lie on one spot (a pile with ×N on the table, "Spread pile" lays them
+    out), where asked or on a free spot; ``stacked`` is still one card ×N."""
+    act(s, "p1", type="create_token", player="p1", token={"name": "Goblin", "power": "1", "toughness": "1"},
+        count=30, stacked=False, x=300, y=200)
+    goblins = [c for c in s.state.cards.values() if c.is_token and c.name == "Goblin"]
+    assert len(goblins) == 30 and {(c.x, c.y) for c in goblins} == {(300, 200)}
+    act(s, "p1", type="create_token", player="p1", token={"name": "Elf", "power": "1", "toughness": "1",
+                                                          "type_line": "Token Creature — Elf"}, count=5, stacked=False)
+    elves = [c for c in s.state.cards.values() if c.is_token and c.name == "Elf"]
+    assert len(elves) == 5 and len({(c.x, c.y) for c in elves}) == 1
+
+
 def test_mana_pool_is_manual_unless_the_table_opts_in(s):
     act(s, "p1", type="add_mana", mana={"C": 2, "G": 1})
     assert s.state.players["p1"].mana == {"C": 2, "G": 1}

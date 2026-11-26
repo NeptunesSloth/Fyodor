@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from "react";
+import { countedGroup, countedName } from "./logGroups";
 import { CardFace } from "../cards/CardFace";
 import { ManaText, OracleText } from "../cards/ManaText";
 import { openMenu } from "../components/ContextMenu";
@@ -56,9 +57,11 @@ export function Inspector({ id }: { id?: string | null } = {}) {
             <span className="insp-cost"><ManaText text={faceData?.mana_cost ?? data.mana_cost} /></span>
           </div>
           <div className="hint">{faceData?.type_line ?? data.type_line}</div>
-          <div className="insp-oracle"><OracleText text={faceData?.oracle_text ?? data.oracle_text} /></div>
+          <div className="insp-oracle"><OracleText text={faceData?.oracle_text ?? data.oracle_text} keywords={data.keywords} /></div>
         </div>
       )}
+      {/* -- stack readability -- an ability on the stack: the ability itself, under its source's card */}
+      {visibleCard?.ability?.text && <div className="insp-note" data-testid="insp-ability"><b>{visibleCard.ability.kind === "triggered" ? "Triggered" : "Ability"}:</b> <ManaText text={visibleCard.ability.text} keywords /></div>}
       {visibleCard?.copy_of && <div className="insp-note">Copy of {visibleCard.copy_of.source_name}{visibleCard.copy_of.modifications ? ` — ${visibleCard.copy_of.modifications}` : ""}</div>}
       {(card?.quantity ?? 1) > 1 && <div className="insp-note" data-testid="insp-stack">{countMark(card)!.title}</div>}
       {visibleCard?.note && <div className="insp-note">✎ {visibleCard.note}</div>}
@@ -129,7 +132,7 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
 function Part({ part }: { part: LogPartView }) {
   const hoverCard = useHoverCard();
   const hover = (printId: string | null | undefined) => (printId ? hoverCard(`print:${printId}`) : {});
-  if ("t" in part) return <>{part.t}</>;
+  if ("t" in part) return <ManaText text={part.t} />;
   if ("card" in part) {
     return (
       <span className="log-card" {...hover(part.card.card_id)}>
@@ -137,11 +140,11 @@ function Part({ part }: { part: LogPartView }) {
       </span>
     );
   }
-  const names = part.group;
+  const names = countedGroup(part.group); // (-- playtest nov 16 -- "Mountain ×42", not 42 names)
   const hidden = part.hidden;
   const pieces: React.ReactNode[] = names.map((n, i) => (
     <span key={i} className="log-card" {...hover(n.card.card_id)}>
-      {n.card.name}
+      {countedName(n)}
     </span>
   ));
   if (hidden) pieces.push(<span key="h" className="log-hidden">{hidden === 1 ? (names.length ? "1 other card" : "a card") : `${hidden} ${names.length ? "other " : ""}cards`}</span>);

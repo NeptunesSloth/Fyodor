@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { GameView, NightProposal } from "../types/game";
-import { describeResult, overByRules, proposalSeat, showEliminated, stillIn } from "./nightEnding";
+import { SPECTATOR, type GameView, type NightProposal } from "../types/game";
+import { DUMMIES_WIN, describeResult, overByRules, proposalSeat, showEliminated, stillIn, testEnding } from "./nightEnding";
 
 const SEATS = ["p1", "p2", "p3"];
 
@@ -94,5 +94,70 @@ describe("the proposal bar", () => {
     expect(describeResult({ result_type: "multiple", winner_names: ["Ann", "Ben"] })).toBe("Ann and Ben win");
     expect(describeResult({ result_type: "draw", winner_names: [] })).toBe("a draw");
     expect(describeResult({ result_type: "no_result", winner_names: [] })).toBe("no result");
+  });
+});
+
+describe("the test-table ending (target dummies)", () => {
+  // Ann tests her deck against Ben and Cat, two target dummies
+  const table = (rules: Record<string, unknown>, extra: { viewer?: string; dummies?: string[] } = {}) => {
+    const v = view({ rules, viewer: extra.viewer });
+    const dummies = extra.dummies ?? ["p2", "p3"];
+    return { ...v, turn: { number: 3 }, players: v.players.map((p) => ({ ...p, dummy: dummies.includes(p.id) })) } as unknown as GameView;
+  };
+
+  it("shows nothing while the test goes on, to a spectator, or at a table with no dummy", () => {
+    expect(testEnding(table({}), "p1")).toBeNull();
+    expect(testEnding(table({ lost: { p1: "0 or less life" } }, { viewer: SPECTATOR }), "p1")).toBeNull();
+    expect(testEnding(table({ lost: { p1: "0 or less life" } }, { dummies: [] }), "p1")).toBeNull();
+    expect(testEnding(view({ rules: null }), "p1")).toBeNull();
+  });
+
+  it("says how you lost, and who won when the rules ended it", () => {
+    const one = testEnding(table({ lost: { p1: "0 or less life" }, winner: "p2" }, { dummies: ["p2"] }), "p1")!;
+    expect(one).toMatchObject({ kind: "lost", title: "You lost", line: "You lost: 0 or less life. Ben wins." });
+    const standing = testEnding(table({ lost: { p1: "0 or less life" } }), "p1")!; // (two dummies: no winner, the test is still over)
+    expect(standing.line).toBe("You lost: 0 or less life. The dummies are still standing.");
+    expect(testEnding(table({ conceded: ["p1"] }), "p1")!.line).toBe("You conceded. The dummies are still standing.");
+    // the server ends a test with only dummies left (app/rules/dummy_ending.py): no endless turns of theirs; it reads as their win
+    const over = testEnding(table({ lost: { p1: "0 or less life" }, draw_reason: DUMMIES_WIN }), "p1")!;
+    expect(over).toMatchObject({ kind: "lost", line: "You lost: 0 or less life. Only target dummies are left in the game: the dummies win." });
+  });
+
+  it("names the dummy defeated, or a draw, and keys each ending apart", () => {
+    expect(testEnding(table({ winner: "p1", lost: { p2: "0 or less life" } }, { dummies: ["p2"] }), "p1")!.title).toBe("Ben defeated");
+    expect(testEnding(table({ winner: "p1" }), "p1")!.title).toBe("Target dummies defeated");
+    expect(testEnding(table({ draw_reason: "Every player lost at once" }), "p1")).toMatchObject({ kind: "draw", line: "Every player lost at once." });
+    const a = testEnding(table({ lost: { p1: "0 or less life" } }), "p1")!.key;
+    const b = testEnding(table({ lost: { p1: "drew from an empty library" } }), "p1")!.key;
+    expect(a).not.toBe(b);
+  });
+
+  it("covers a test opponent the server plays for too", () => {
+    const withBot = (rules: Record<string, unknown>) => {
+      const v = table(rules, { dummies: [] });
+      return { ...v, players: v.players.map((p) => ({ ...p, bot: p.id === "p2" ? "simple" : null })) } as unknown as GameView;
+    };
+    expect(testEnding(withBot({}), "p1")).toBeNull();
+    expect(testEnding(withBot({ lost: { p1: "0 or less life" }, winner: "p2" }), "p1")).toMatchObject({ kind: "lost", line: "You lost: 0 or less life. Ben wins." });
+    expect(testEnding(withBot({ winner: "p1", lost: { p2: "0 or less life" } }), "p1")).toMatchObject({ kind: "won", title: "Ben defeated",
+      line: "Every opponent is out. Start over deals a new game." });
+    expect(testEnding(withBot({ conceded: ["p1"] }), "p1")!.line).toBe("You conceded. Your opponents are still standing.");
+  });
+
+  it("leaves a LAN game night with a bot the host seated to the night's own result flow (-- LAN bots --)", () => {
+    // (the bot holds its seat with the server's token: claimed; a Sandbox opponent's seat is open)
+    const night = (rules: Record<string, unknown>) => {
+      const v = table(rules, { dummies: [] });
+      return { ...v, players: v.players.map((p) => ({ ...p, bot: p.id === "p2" ? "simple" : null })),
+        game: { ...v.game, seats: { p1: { claimed: true }, p2: { claimed: true }, p3: { claimed: true } } } } as unknown as GameView;
+    };
+    expect(testEnding(night({ lost: { p1: "0 or less life" }, winner: "p2" }), "p1")).toBeNull();
+    expect(testEnding(night({ conceded: ["p1"] }), "p1")).toBeNull();
+    expect(showEliminated(night({ conceded: ["p1"] }), "p1")).toBe(true); // (out while the others play on: the hub, as at any night)
+  });
+
+  it("takes the place of the Eliminated hub", () => {
+    expect(showEliminated(table({ lost: { p1: "0 or less life" } }), "p1")).toBe(false);
+    expect(showEliminated(table({ lost: { p1: "0 or less life" } }, { dummies: [] }), "p1")).toBe(true);
   });
 });

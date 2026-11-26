@@ -8,7 +8,17 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.rules_state import emit
-from app.game.state import ALL, STACK, CardInstance, DigLog, GameState, ViewContext, split_zone, zone_key
+from app.game.state import (
+    ALL,
+    STACK,
+    CardInstance,
+    DigLog,
+    GameState,
+    RevealLog,
+    ViewContext,
+    split_zone,
+    zone_key,
+)
 from app.game.visibility import seers
 
 OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"}
@@ -137,9 +147,20 @@ def move(state: GameState, a: A.Move) -> None:
             # a random order is no one's; a hidden card is only counted, so its place in the list says nothing)
             group_cards = sorted(group_cards, key=lambda c: (c.name or "", c.id))
         verb = _verb(src, dest, log_position)
-        parts = [pname(state, a.actor), text(f" {verb} "), group(state, group_cards, who_saw)]
-        if verb in ("played", "cast", "discarded"):
-            if split_zone(src)[0] != a.actor:
+        # -- playtest M6 -- 701.9a: a player discards from their own hand: an effect that makes each player discard ("Each player discards
+        # their hand", Wheel of Fortune) reads "Bob discarded …", not "Alice discarded … from Bob's hand" (the rules engine's moves keep ids)
+        who = split_zone(src)[0] if verb == "discarded" and a.keep_ids and split_zone(src)[0] in state.players else a.actor
+        parts = [pname(state, who), text(f" {verb} "), group(state, group_cards, who_saw)]
+        if a.keep_ids and ops.zone_name(src) == "battlefield" and ops.zone_name(dest) == "graveyard":
+            # the rules engine's own move: "Grizzly Bears dies", "Sol Ring is put into Alice's graveyard" (not "Alice moved … from
+            # their battlefield to their graveyard": nobody moved it, and whose graveyard it is reads by name)
+            many = len(group_cards) > 1
+            if all(c.id in (a.died or ()) for c in group_cards):
+                parts = [group(state, group_cards, who_saw), text(" die" if many else " dies")]
+            else:
+                parts = [group(state, group_cards, who_saw), text(f" {'are' if many else 'is'} put into {zone_label(state, dest)}")]
+        elif verb in ("played", "cast", "discarded"):
+            if split_zone(src)[0] != who:
                 parts.append(text(f" from {zone_label(state, src, a.actor)}"))
         elif verb.startswith("put on"):
             parts.append(text(f" {zone_label(state, dest, a.actor)}"))
@@ -195,6 +216,13 @@ def set_position(state: GameState, a: A.SetPosition) -> None:
             if child.zone == c.zone and child.id in ids:
                 ids.remove(child.id)
                 ids.insert(ids.index(c.id), child.id)
+    if a.learned_rows and a.actor in state.players:  # -- saved rows -- (decided by resolve: app/game/resolve.py _learned_rows)
+        rows = state.players[a.actor].row_overrides
+        for name, row in a.learned_rows.items():
+            if row is None:
+                rows.pop(name, None)
+            else:
+                rows[name] = row
 
 
 def draw_cards(state: GameState, pid: str, count: int, from_bottom: bool = False) -> list[CardInstance]:
@@ -349,7 +377,10 @@ def reveal(state: GameState, a: A.Reveal) -> None:
             c.revealed_to = sorted(set(c.revealed_to) | set(a.to))
     audience = "everyone" if a.to is None else ", ".join(state.players[p].name for p in a.to)
     extra = {c.id: before[c.id] | ({ALL} if a.to is None else set(a.to)) for c in targets}
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(" revealed "), group(state, targets, extra), text(f" to {audience}")])
+    owners = {c.owner for c in targets}
+    # -- public reveals -- the table shows each viewer the cards this line names to them (a reveal to some players: those players only)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" revealed "), group(state, targets, extra), text(f" to {audience}")],
+        reveal=RevealLog(player=owners.pop() if len(owners) == 1 else a.actor or ""))
 
 
 def hide(state: GameState, a: A.Hide) -> None:
@@ -384,7 +415,12 @@ def reveal_top(state: GameState, a: A.RevealTop) -> None:
     top = [state.cards[cid] for cid in state.zone(key)[: a.count]]
     for c in top:
         c.revealed_to = [ALL]
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed the top of {zone_label(state, key, a.actor)}: "), group(state, top)])
+    # -- public reveals -- 701.20a: everyone sees them; the engine names the spell or ability and, for "reveal … until", the card found
+    # ("Alice revealed cards from the top of her library (Nissa, Resurgent Animist): Forest, Forest and Llanowar Elves — found Llanowar Elves")
+    what = f"cards from the top of {zone_label(state, key, a.actor)}" if a.until else f"the top of {zone_label(state, key, a.actor)}"
+    tail = ([text(" — found "), ops.card_part(state, top[-1])] if a.found and top else [text(" — none found")] if a.until else [])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed {what}" + (f" ({a.source})" if a.source else "") + ": "), group(state, top), *tail],
+        reveal=RevealLog(player=pid, source=a.source, until=a.until, found=a.found and bool(top)))
 
 
 def reveal_until(state: GameState, a: A.RevealUntil) -> None:

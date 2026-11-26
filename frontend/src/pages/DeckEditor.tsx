@@ -7,9 +7,9 @@ import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
-import { navigate } from "../hooks/useHashRoute";
+import { navigate, setLeaveGuard } from "../hooks/useHashRoute";
 import { getPrintings } from "../services/cards";
-import { applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, unlinkSource, updateDeck, waitForJob } from "../services/decks";
+import { type ArtStatus, applySource, artStatus, cacheArt, checkSource, exportDeck, getDeck, ignoreSource, importIntoDeck, resetDeckRows, unlinkSource, updateDeck, waitForJob } from "../services/decks";
 import { askText } from "../components/Prompt";
 import { refreshCards, requestCards, useCardCache } from "../state/cardCache";
 import {
@@ -24,9 +24,10 @@ import {
   typeGroup,
 } from "../state/deckEdit";
 import type { CardData } from "../types/cards";
-import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
-import { checkSummary, curveStats, groupGlyph, groupTitle } from "./deckBits";
+import { SECTION_LABEL, SECTIONS, type Deck, type DeckEntry, type DeckWarning, type DeckFormat, type Job, type Section, type SourceDiff } from "../types/decks";
+import { artFirst, checkSummary, curveStats, groupGlyph, groupTitle, printingsShown, savedRows } from "./deckBits";
 import { DeckArt, DeckMenu, type DeckMenuItem } from "./DeckParts";
+import { DeckStats } from "./DeckStats";
 import "./decks.css";
 
 /**
@@ -47,15 +48,19 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const [printingFor, setPrintingFor] = useState<number | null>(null);
   const [exportText, setExportText] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [addSection, setAddSection] = useState<Section>("main");
   const [groupBy, setGroupBy] = useState<"type" | "category">(() => (localStorage.getItem("fyodor.deck.groupBy") === "category" ? "category" : "type"));
   const [exportFormat, setExportFormat] = useState<"archidekt" | "plain">("archidekt");
-  const [art, setArt] = useState<{ printings: number; missing: number } | null>(null);
+  const [art, setArt] = useState<ArtStatus | null>(null);
   const [artJob, setArtJob] = useState<Job | null>(null);
   const [sourceDiff, setSourceDiff] = useState<{ diff: SourceDiff; local_edits: boolean } | null>(null);
   const [sourceBusy, setSourceBusy] = useState(false);
   const cards = useCardCache((s) => s.cards);
   const checksRef = useRef<HTMLElement>(null);
+  // -- added -- the row a search pick added to (or counted up), lit briefly and brought into view, and a quiet line saying so
+  const [added, setAdded] = useState<{ section: Section; printing_id: string; at: number } | null>(null);
+  const [addedNote, setAddedNote] = useState("");
 
   const load = useCallback((d: Deck) => {
     setDeck(d);
@@ -121,6 +126,11 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  // (and inside the app: the top bar, a link or Back would drop the edits without a word)
+  useEffect(() => {
+    if (!dirty) return;
+    return setLeaveGuard(() => window.confirm(`Leave without saving? Your changes to “${name.trim() || "this deck"}” aren't saved yet.`));
+  }, [dirty, name]);
 
   const edit = (fn: (list: DeckEntry[]) => DeckEntry[]) => {
     setEntries((list) => fn(list));
@@ -187,6 +197,9 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
   const total = sectionCount(entries, "main") + sectionCount(entries, "commander");
   const maxCurve = Math.max(1, ...curve.buckets);
   const checks = checkSummary(deck.warnings);
+  // each card's own checks, marked on its row (off-colour, more than one copy, banned): the panel lists them below the fold
+  const cardChecks = new Map<string, DeckWarning[]>();
+  for (const w of deck.warnings) if (w.card) cardChecks.set(w.card, [...(cardChecks.get(w.card) ?? []), w]);
   const showChecks = () => {
     checksRef.current?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     checksRef.current?.focus({ preventScroll: true });
@@ -214,6 +227,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
           </p>
         </div>
         <div className="de-acts">
+          <button className="tt-btn ghost" onClick={() => setStatsOpen(true)} data-testid="deck-stats-open">Stats</button>
           <button className="tt-btn ghost" onClick={() => setImportOpen(true)}>Import text</button>
           <button className="tt-btn ghost" onClick={() => exportDeck(id, exportFormat).then(setExportText, toastError)} title="Archidekt-compatible text">Export</button>
           <button className={`tt-btn de-play ${dirty ? "" : "brass"}`} onClick={() => navigate(`/play?deck=${id}`)} disabled={dirty} title={dirty ? "Save the deck to play it" : undefined}>
@@ -229,7 +243,14 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
       <div className="de-grid">
         <div className="de-list">
           <div className="de-add">
-            <CardSearchBox onPick={(c) => { edit((l) => addCard(l, c, addSection)); requestCards([c.id]); }} onHover={(c) => setHover(c?.id ?? null)} />
+            <CardSearchBox onPick={(c) => {
+              const next = addCard(entries, c, addSection);
+              const qty = next.find((e) => e.section === addSection && e.printing_id === c.id)?.quantity ?? 1;
+              edit(() => next);
+              requestCards([c.id]);
+              setAdded({ section: addSection, printing_id: c.id, at: Date.now() });
+              setAddedNote(`Added ${c.name} (${qty})${addSection === "main" ? "" : ` to ${SECTION_LABEL[addSection]}`}`);
+            }} onHover={(c) => setHover(c?.id ?? null)} />
             <select value={addSection} aria-label="Add cards to" onChange={(e) => setAddSection(e.target.value as Section)}>
               {SECTIONS.map((s) => <option key={s} value={s}>to {SECTION_LABEL[s]}</option>)}
             </select>
@@ -241,6 +262,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                 </button>
               ))}
             </div>
+            <p className="de-added" role="status" aria-live="polite" data-testid="deck-added">{addedNote}</p>
           </div>
           {grouped.map(({ section, groups }) => (
             <section key={section} className={`de-section de-sec-${section}`} aria-label={SECTION_LABEL[section]}>
@@ -267,6 +289,8 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                             key={`${entry.section}-${entry.printing_id ?? entry.name}-${index}`}
                             entry={entry}
                             card={entry.printing_id ? cards[entry.printing_id] : undefined}
+                            checks={entry.printing_id ? cardChecks.get(entry.name) : undefined}
+                            added={added && added.section === entry.section && added.printing_id === entry.printing_id ? added.at : undefined}
                             onHover={() => setHover(entry.printing_id)}
                             onQty={(d) => edit((l) => changeQuantity(l, index, d))}
                             onRemove={() => edit((l) => removeEntry(l, index))}
@@ -323,7 +347,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
             <h2 id="de-art-title">Artwork</h2>
             {art && (
               <p className="de-panel-text">
-                {art.missing === 0 ? <span className="de-ok"><Icon name="check" size={15} />All {art.printings} printings cached for offline play.</span> : <>{art.missing} of {art.printings} printings have no cached image. Cards without one play as readable proxies.</>}
+                {art.missing === 0 ? <span className="de-ok"><Icon name="check" size={15} />All {art.printings} printings cached for offline play.</span> : <ArtSummary art={art} />}
               </p>
             )}
             {artJob?.state === "running" ? (
@@ -350,6 +374,27 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
                 <button className="tt-btn ghost" onClick={async () => { await unlinkSource(id).catch(toastError); load(await getDeck(id)); }}>Unlink</button>
               </div>
               <p className="de-note">This is a normal local deck: it never needs Archidekt to play.</p>
+            </section>
+          )}
+
+          {savedRows(deck.row_overrides).length > 0 && ( /* -- saved rows -- learned at the table, shown only once there are some */
+            <section className="de-panel de-saved-rows" aria-labelledby="de-rows-title" data-testid="deck-saved-rows">
+              <h2 id="de-rows-title">Table rows</h2>
+              <p className="de-note">Cards you moved into another row at the table enter there in later games.</p>
+              <dl className="de-rows-list">
+                {savedRows(deck.row_overrides).map((g) => (
+                  <div key={g.row}><dt>{g.label}</dt><dd>{g.names.join(", ")}</dd></div>
+                ))}
+              </dl>
+              <div className="de-panel-acts">
+                <button className="tt-btn ghost" data-testid="deck-reset-rows" onClick={async () => {
+                  try {
+                    await resetDeckRows(id);
+                    setDeck((d) => (d ? { ...d, row_overrides: {} } : d));
+                    toast("Saved rows reset: cards enter in their type's row again");
+                  } catch (e) { toastError(e); }
+                }}>Reset saved rows</button>
+              </div>
             </section>
           )}
 
@@ -414,6 +459,7 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
           }}
         />
       )}
+      {statsOpen && <DeckStats entries={entries} cards={cards} onClose={() => setStatsOpen(false)} />}
       {importOpen && <ImportInto id={id} onClose={() => setImportOpen(false)} onDone={(d) => { load(d); setImportOpen(false); }} />}
     </div>
   );
@@ -422,6 +468,10 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
 function EntryRow(props: {
   entry: DeckEntry;
   card: CardData | undefined;
+  /** this card's deck checks (as of the last save) */
+  checks?: DeckWarning[];
+  /** when a search pick last added to this row: it lights up for a moment and comes into view */
+  added?: number;
   onHover: () => void;
   onQty: (delta: number) => void;
   onRemove: () => void;
@@ -434,6 +484,17 @@ function EntryRow(props: {
   const { entry, card } = props;
   const fallback = entry.resolution === "fallback" || entry.resolution === "set";
   const [menu, setMenu] = useState(false);
+  const row = useRef<HTMLLIElement>(null);
+  const [lit, setLit] = useState(false);
+  useEffect(() => {
+    // (also on remount: the row moves to its type group once the card's data arrives)
+    if (props.added === undefined || Date.now() - props.added > 2500) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+    setLit(true);
+    const t = window.setTimeout(() => setLit(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [props.added]);
   // (built only while the menu is open: a hundred rows render on every edit)
   const items = (): DeckMenuItem[] => [
     { label: "Make commander", icon: "crown", onClick: () => props.onCommander(false) },
@@ -448,7 +509,7 @@ function EntryRow(props: {
     { label: "Remove", icon: "trash", danger: true, onClick: props.onRemove },
   ];
   return (
-    <li className={`de-row ${entry.printing_id ? "" : "unresolved"} ${menu ? "menu-open" : ""}`} onPointerEnter={props.onHover} onFocus={props.onHover}
+    <li ref={row} className={`de-row ${entry.printing_id ? "" : "unresolved"} ${menu ? "menu-open" : ""} ${lit ? "added" : ""}`} onPointerEnter={props.onHover} onFocus={props.onHover}
       onContextMenu={(e) => { e.preventDefault(); setMenu(true); }}>
       <span className="de-qty">
         <button className="de-step" onClick={() => props.onQty(-1)} aria-label="Remove one">−</button>
@@ -466,6 +527,11 @@ function EntryRow(props: {
       {fallback && (
         <span className="de-fallback" title={`Requested ${[entry.requested?.set_code?.toUpperCase(), entry.requested?.collector_number && `#${entry.requested.collector_number}`].filter(Boolean).join(" ") || "a printing"} that isn't in the local card data; using ${entry.set_code?.toUpperCase()} #${entry.collector_number}`} aria-label="Printing substituted">!</span>
       )}
+      {props.checks && props.checks.length > 0 && (() => {
+        const level = props.checks.some((w) => w.level !== "info") ? "warning" : "info";
+        const text = props.checks.map((w) => w.message).join(" ");
+        return <span className={`de-cardcheck ${level}`} title={text} role="img" aria-label={text}>{level === "info" ? "i" : "!"}</span>;
+      })()}
       <span className="de-cost"><ManaText text={card?.mana_cost} /></span>
       <button className="de-set" onClick={props.onPrinting} title="Choose printing">{entry.set_code?.toUpperCase() ?? "?"}</button>
       {entry.section !== "commander" ? (
@@ -478,22 +544,63 @@ function EntryRow(props: {
   );
 }
 
+/** The deck's artwork in words: printings without their own picture, and how many of those show another printing's instead. */
+function ArtSummary({ art }: { art: ArtStatus }) {
+  const borrowed = Math.min(art.borrowed ?? 0, art.missing);
+  const proxies = art.missing - borrowed;
+  if (borrowed === 0) return <>{art.missing} of {art.printings} printings have no cached image. Cards without one play as readable proxies.</>;
+  return (
+    <>
+      {art.missing} of {art.printings} printings have no cached image of their own; {borrowed === art.missing ? (borrowed === 1 ? "it shows" : "they show") : `${borrowed} show`} another printing's art of the same card.
+      {proxies > 0 && <> {proxies === 1 ? "1 plays as a readable proxy." : `${proxies} play as readable proxies.`}</>}
+    </>
+  );
+}
+
 function PrintingPicker({ entry, onPick, onClose }: { entry: DeckEntry; onPick: (c: CardData) => void; onClose: () => void }) {
   const [printings, setPrintings] = useState<CardData[] | null>(null);
   useEffect(() => {
-    if (entry.printing_id) getPrintings(entry.printing_id).then(setPrintings, toastError);
+    if (entry.printing_id) getPrintings(entry.printing_id).then((ps) => setPrintings(artFirst(ps)), toastError);
   }, [entry.printing_id]);
+  const byId = new Map((printings ?? []).map((p) => [p.id, p]));
+  const withArt = printings?.filter((p) => p.own_image ?? p.has_image).length ?? 0;
+  // "Only with art" starts on when any printing has art here (the chosen printing always stays in the list)
+  const [onlyArt, setOnlyArt] = useState<boolean | null>(null);
+  const artOnly = (onlyArt ?? withArt > 0) && withArt > 0;
+  const shown = printings && printingsShown(printings, entry.printing_id, artOnly);
   return (
     <Modal title={`Printings of ${entry.name}`} onClose={onClose} wide>
       {!entry.printing_id && <p>This card is not in the local database. Remove it or re-add it from search.</p>}
       {printings === null && entry.printing_id && <p>Loading…</p>}
+      {printings && printings.length > 1 && withArt < printings.length && (
+        <p className="de-note de-printings-note">
+          {withArt === 0
+            ? "No printing of this card has art on this computer: it plays as a readable proxy."
+            : `${withArt} of ${printings.length} printings ${withArt === 1 ? "has" : "have"} art on this computer. The others show that art until their own is downloaded.`}
+        </p>
+      )}
+      {printings && withArt > 0 && withArt < printings.length && (
+        <label className="row-check de-printings-filter">
+          <input type="checkbox" checked={artOnly} onChange={(e) => setOnlyArt(e.target.checked)} data-testid="printings-art-only" />
+          <span>Only printings with art here</span>
+          <span className="de-n">{artOnly ? `${shown?.length ?? 0} of ${printings.length} shown` : `${printings.length} shown`}</span>
+        </label>
+      )}
       <div className="card-grid small de-printings">
-        {printings?.map((p) => (
-          <button key={p.id} className={`grid-card ${p.id === entry.printing_id ? "selected" : ""}`} onClick={() => onPick(p)} title={`${p.set_name} #${p.collector_number}`} aria-pressed={p.id === entry.printing_id}>
-            <CardFace card={p} size="small" />
-            <span className="caption">{p.set_code.toUpperCase()} #{p.collector_number}</span>
-          </button>
-        ))}
+        {shown?.map((p) => {
+          const own = p.own_image ?? p.has_image;
+          const from = !own && p.art_from ? byId.get(p.art_from) : undefined;
+          const title = `${p.set_name} #${p.collector_number}${own ? " — art on this computer" : from ? ` — no art on this computer; shows ${from.set_code.toUpperCase()} #${from.collector_number}'s art` : " — no art on this computer"}`;
+          return (
+            <button key={p.id} className={`grid-card ${p.id === entry.printing_id ? "selected" : ""} ${own ? "de-art-here" : "de-art-elsewhere"}`} onClick={() => onPick(p)} title={title} aria-pressed={p.id === entry.printing_id}>
+              <CardFace card={p} size="small" />
+              <span className="caption">{p.set_code.toUpperCase()} #{p.collector_number}</span>
+              {own
+                ? <span className="caption de-art-tag">Art here</span>
+                : <span className="caption de-art-tag">{from ? `No art here · shows ${from.set_code.toUpperCase()} #${from.collector_number}` : "No art here"}</span>}
+            </button>
+          );
+        })}
       </div>
     </Modal>
   );

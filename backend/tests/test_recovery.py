@@ -139,3 +139,39 @@ def test_websocket_retries_are_idempotent(client):
         assert ack(2) == {"type": "ack", "id": 2, "status": "ALREADY_APPLIED"}
     view = client.get(f"/api/games/{gid}/view", headers=h(host)).json()
     assert len(view["zones"]["p1:hand"]) == 1
+
+
+def test_a_same_decks_rematch_still_works_after_a_crash(settings, card_db):
+    """-- restart rematch -- the crash record keeps every seat's deck, so "Rematch — same decks" isn't refused after a restart."""
+    first = TestClient(create_app(settings))
+    gid, code, host, mike = lan_table(first)
+    assert act(first, gid, host, {"type": "draw", "count": 1}).status_code == 200
+    crash(first)
+
+    with TestClient(create_app(settings)) as second:
+        night = second.get(f"/api/games/{gid}/view", headers=h(host)).json()["game"]["night"]
+        assert night["rematch_missing"] == []
+        assert "Counterspell" not in json.dumps(night)  # (only seat names are public, never a card)
+        assert second.post(f"/api/games/{gid}/night/propose", json={"result_type": "draw"}, headers=h(host)).status_code == 200
+        assert second.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(mike)).status_code == 200
+        assert second.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch"}, headers=h(host)).status_code == 200
+        res = second.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch"}, headers=h(mike))
+        assert res.status_code == 200 and res.json()["decision"] == "rematch", res.text
+        v = second.get(f"/api/games/{gid}/view", headers=h(mike)).json()
+        assert v["game"]["night"]["number"] == 2
+        assert {c["name"] for p in v["players"] for c in p["commanders"]} == {"Atraxa, Praetors' Voice", "Krenko, Mob Boss"}
+
+
+def test_a_rematch_the_table_cant_start_is_refused_before_the_vote_counts(settings, card_db):
+    """-- restart rematch -- a record without the decks (saved before they were kept): the view says so, and a rematch vote is
+    refused without being stored (it used to be kept and shown as "Deciding…")."""
+    with TestClient(create_app(settings)) as client:
+        gid, code, host, mike = lan_table(client)
+        client.app.state.services.hub.get(gid).night.setups = {}
+        assert client.post(f"/api/games/{gid}/night/propose", json={"result_type": "draw"}, headers=h(host)).status_code == 200
+        assert client.post(f"/api/games/{gid}/night/answer", json={"agree": True}, headers=h(mike)).status_code == 200
+        night = client.get(f"/api/games/{gid}/view", headers=h(host)).json()["game"]["night"]
+        assert night["rematch_missing"] == ["Jonathan", "Mike"]
+        res = client.post(f"/api/games/{gid}/night/vote", json={"choice": "rematch"}, headers=h(mike))
+        assert res.status_code == 409 and "return to the lobby" in res.json()["detail"]
+        assert client.get(f"/api/games/{gid}/view", headers=h(host)).json()["game"]["night"]["votes"] == {}

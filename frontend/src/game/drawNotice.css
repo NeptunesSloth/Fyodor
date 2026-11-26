@@ -1,0 +1,57 @@
+/* -- draw notice -- the cards I just drew, for me only, fanned up above my hand for a moment (DrawNotice.tsx) */
+.draw-notice {
+  position: fixed; z-index: 54; left: 50%; bottom: 168px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: min(760px, calc(100vw - 32px));
+  cursor: pointer; pointer-events: auto;
+}
+.draw-cards { display: flex; align-items: flex-end; justify-content: center; padding: 0 12px; }
+.draw-card {
+  margin: 0 0 0 -22px; width: 104px; aspect-ratio: 63 / 88; border-radius: 4.5%; overflow: hidden; background: var(--steel-lo, #222);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 12px 26px rgba(0, 0, 0, 0.6);
+  transform: translateY(calc(var(--fan) * var(--fan) * 2px)) rotate(calc(var(--fan) * 3deg)); transform-origin: 50% 120%;
+}
+.draw-card:first-child { margin-left: 0; }
+.draw-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.draw-plain { display: grid; place-items: center; height: 100%; padding: 6px; font-size: 11px; text-align: center; color: var(--text); }
+.draw-more {
+  align-self: center; margin-left: 10px; padding: 3px 9px; border-radius: 12px; font: 700 14px var(--font-display, inherit);
+  color: var(--text); background: var(--hud-surface, rgba(16, 14, 12, 0.92)); box-shadow: 0 0 0 1px var(--frame, #6b5a3a);
+}
+.draw-line {
+  margin: 0; display: flex; align-items: center; gap: 10px; padding: 5px 8px 5px 12px; font-size: 13px; color: var(--text);
+  background: var(--hud-surface, rgba(16, 14, 12, 0.92)); border: 1px solid var(--frame, #6b5a3a); border-top-color: var(--frame-hi, #c9a25c);
+  border-radius: 5px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5); max-width: 100%;
+}
+.draw-line > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-count { font-weight: 700; color: var(--accent-2, #e0b860); flex: none; }
+.draw-close { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 2px 4px; flex: none; }
+.draw-close:hover { color: var(--text); }
+.draw-close:focus-visible { outline: 2px solid var(--select); }
+/* the cards rise out of the hand one after another (motion tokens; the speed setting scales it, reduced motion: none) */
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.reduced-motion) .draw-card {
+    animation: draw-rise calc(260ms * var(--anim-scale, 1)) var(--ease-out) both;
+    animation-delay: calc(var(--i) * 45ms * var(--anim-scale, 1));
+  }
+  body:not(.reduced-motion) .draw-line { animation: draw-fade calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
+}
+@keyframes draw-rise { from { opacity: 0; translate: 0 90px; scale: 0.82; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes draw-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 720px) { .draw-card { width: 72px; margin-left: -16px; } .draw-notice { bottom: 130px; } }
+/* a card I drew and haven't looked at yet: a brass edge in my hand (and the hand browser) until I hover it or the turn moves on */
+.hand-card.fresh-draw, .zb-card.fresh-draw { box-shadow: 0 0 0 2px var(--frame-hi, #c9a25c), 0 4px 12px rgba(0, 0, 0, 0.55); }
+.hand-card.fresh-draw::after, .zb-card.fresh-draw::after {
+  content: "new"; position: absolute; left: 3px; top: 24%; z-index: 2; pointer-events: none;
+  padding: 0 5px; border-radius: 6px; font: 700 9.5px/14px var(--font-ui, inherit); letter-spacing: 0.04em; text-transform: uppercase;
+  color: #1a140c; background: var(--frame-hi, #c9a25c);
+}
+.zb-card { position: relative; }
+/* -- playtest (nov 16) -- in a long hand strip only a sliver of each card shows: the tag stands on its side there ("NEW" was cut to "NE") */
+.hand-cards[data-mode="strip"] > .hand-card.fresh-draw::after { writing-mode: vertical-rl; transform: rotate(180deg); left: 2px; padding: 5px 0; }
+/* -- second pass (nov 17) -- the notice never lies on my land row: with my lands measured low (game/landsClear.ts) it rises above them,
+   a size smaller (it covered the lands for 4–9 s after Timetwister) */
+body.lands-clear .draw-notice { bottom: max(168px, var(--lands-clear)); }
+body.lands-clear .draw-card { width: 80px; margin-left: -18px; }
+body.lands-clear .draw-card:first-child { margin-left: 0; }
+/* -- sweep B2 -- a selected card's action bar is where the notice would fan up: it shows under the top bar instead (its line first, the cards under it) */
+body .draw-notice.dodge { top: 64px; bottom: auto; flex-direction: column-reverse; }

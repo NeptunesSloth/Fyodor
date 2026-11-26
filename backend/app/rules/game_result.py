@@ -56,7 +56,7 @@ def _stops(plan: Plan, player: str, what: str) -> bool:
                 return True
     # -- prohibitions (wave 22B) -- 611.2a: a resolved "can't lose the game this turn" (a record of the turn it was made)
     turn = plan.state.turn.number
-    return any(x["player"] == player and x["what"] == what and x["turn"] == turn for x in plan.rules.results)
+    return any(x["player"] == player and x["what"] == what and (x["turn"] == turn or x.get("until") == "planeswalk_pcb") for x in plan.rules.results)  # (until: planechase chaos wave B)
 
 
 def cannot_lose(plan: Plan, player: str) -> bool:
@@ -115,10 +115,11 @@ def cant_result(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     r = plan.rules
     turn = plan.state.turn.number
-    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results = [x for x in r.results if x["turn"] == turn or x.get("until") == "planeswalk_pcb"]
+    until = e.get("until")  # -- planechase chaos (wave B) -- "until a player planeswalks" (611.2a: planar_chaos.on_events ends it)
     for pid in _players(plan, ctx, e["who"]):
-        r.results.append({"player": pid, "what": e["what"], "turn": turn})
-        plan.note(f"{plan.name(pid)} can't {e['what']} the game this turn", actor=ctx["controller"])
+        r.results.append({"player": pid, "what": e["what"], "turn": turn, **({"until": until} if until else {})})
+        plan.note(f"{plan.name(pid)} can't {e['what']} the game {'until a player planeswalks' if until else 'this turn'}", actor=ctx["controller"])
     return True
 
 

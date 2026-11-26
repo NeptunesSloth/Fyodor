@@ -913,7 +913,7 @@ def attach_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         here = context._same(plan, ref)
         snap = context.snapshot(plan, ref)
         ids = [c.id for c in plan.state.cards.values() if c.attached_to == here.id] if here is not None else list(snap.attached) if snap else []
-        for cid in ids:
+        for cid in attachments.apnap(plan, ids):  # (613.7e, 613.7m: attached at once, timestamped in APNAP order)
             gear = plan.state.cards.get(cid)
             if gear is not None and gear.zone.endswith(":battlefield") and "Equipment" in plan.ch(gear).subtypes:
                 attachments.attach(plan, cid, me.id, ctx["controller"])
@@ -1025,15 +1025,15 @@ def ask_skip(plan: Plan, done: list[str]) -> bool:
 
     if skips._static(plan, plan.active, "draw") is not None:
         return False  # a mandatory skip replaces the step first
-    for c in plan.state.cards.values():
-        if c.id in done or c.controller != plan.active or not c.zone.endswith(":battlefield") or c.face_down:
-            continue
-        if any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values()):
-            decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
-                   options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
-                   resume={"step": "skip_may110i", "src": c.id, "done": done})
-            return True
-    return False
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        c = next((c for c in plan.state.cards.values() if c.id not in done and c.controller == plan.active and c.zone.endswith(":battlefield")
+                  and not c.face_down and any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values())), None)
+    if c is None:
+        return False
+    decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
+           options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
+           resume={"step": "skip_may110i", "src": c.id, "done": done})
+    return True
 
 
 def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1345,7 +1345,8 @@ def catalyst(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     refs = plan.rules.crafted_materials.get(ctx.get("source_object") or "", [])
     found = sorted(r.card for r in refs if (c := plan.state.cards.get(r.card)) is not None and plan.oid(c) == r.object_id and c.zone.endswith(":exile"))
-    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    pick = randomness.choice(plan, plan.rng or secrets.SystemRandom(), found, kind='card', player=ctx['controller']) if found else None
     if pick is not None:
         plan.note(f"{ctx.get('name') or 'It'}: chosen at random \u2192", [pick], actor=ctx["controller"])
     context.bind_objects(plan, ctx, "crafted110i", [pick] if pick is not None else [])

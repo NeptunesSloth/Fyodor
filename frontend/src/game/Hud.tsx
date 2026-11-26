@@ -9,7 +9,8 @@ import { ManaText } from "../cards/ManaText";
 import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
-import { isVisible } from "../types/game";
+import { isVisible, type GameView } from "../types/game";
+import { gameEnded } from "./nightEnding";
 import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { cardEditRefusal } from "./cardPermissions";
@@ -22,6 +23,7 @@ import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 import { clearHover, hoverElement, placePreview, previewKey, type Box } from "./hoverCard";
 import { toyIconUrl } from "./seatIcons";
+import { groupText } from "./logGroups";
 
 /** The hovered card's rectangle on screen: its picture on the page, or where the 3D table draws it. */
 function cardBox(id: string): Box | null {
@@ -90,7 +92,21 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   }, [hover]); // eslint-disable-line react-hooks/exhaustive-deps
   // placed once per card (and again when its words arrive), before it shows: a hidden render at full size is measured,
   // then the panel goes where it is clear, its picture as large as the room lets it be
-  const key = `${shown}|${ready}`;
+  // -- playtest (nov 17) -- placed again when the stack or a prompt comes or goes: they open beside it (a stack panel that grew after the
+  // preview was placed covered it)
+  // (and when the priority or the step changes: the turn dial grows and shrinks with them)
+  const chrome = useGame((s) => `${s.view?.stack.length ?? 0}|${s.view?.rules?.decision?.id ?? ""}|${s.view?.rules?.priority ?? ""}|${s.view?.turn.phase ?? ""}`);
+  // ... and when the turn dial changes size by itself (folded or unfolded, its buttons): placed against its old size the preview went under it
+  const [dialSize, setDialSize] = useState("");
+  useEffect(() => {
+    if (!shown || typeof ResizeObserver === "undefined") return;
+    const dial = document.querySelector(".turn-dial-wrap");
+    if (!dial) return;
+    const ro = new ResizeObserver(() => { const r = dial.getBoundingClientRect(); setDialSize(`${Math.round(r.top)}:${Math.round(r.height)}`); });
+    ro.observe(dial);
+    return () => ro.disconnect();
+  }, [shown]);
+  const key = `${shown}|${ready}|${chrome}|${dialSize}`;
   const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
     const node = panel.current;
@@ -118,7 +134,8 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
         scroll = Math.max(60, Math.floor(oracleH - (shortest + slack - p.maxH)));
       }
     }
-    lastScroll.current = { id: shown, scroll: scroll !== null };
+    // (-- keyword help -- a preview with keywords also lingers, for the pointer to reach their reminders)
+    lastScroll.current = { id: shown, scroll: scroll !== null || !!node.querySelector(".kw") };
     setPlace({ key, ...p, art: fitArt, scroll });
   });
   if (!shown || (skipHand && inHand)) return null;
@@ -133,7 +150,7 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const scrolls = !measuring && !!place?.scroll;
   return (
     <div ref={panel} className={`card-preview ${side}${scrolls ? " scrolls" : ""}`} data-testid="card-preview" data-dock={side} style={style}
-      onPointerEnter={() => scrolls && setHeld(shown)} onPointerLeave={() => setHeld(null)}
+      onPointerEnter={(e) => (scrolls || (e.target as Element).closest?.(".kw")) && setHeld(shown)} onPointerLeave={() => setHeld(null)}
       onScrollCapture={(e) => {
         const t = e.target as HTMLElement;
         panel.current?.toggleAttribute("data-at-end", t.scrollTop + t.clientHeight >= t.scrollHeight - 2);
@@ -180,9 +197,9 @@ export function LogDrawer() {
   const open = useGame((s) => s.logOpen);
   const setOpen = (v: boolean) => useGame.getState().setLayout({ logOpen: v });
   // the last real entry (step dividers like "— Precombat main —" read as empty)
-  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("");
+  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : groupText(p.group))).join("");
   const last = [...log].reverse().find((e) => !entryText(e).trim().startsWith("—"));
-  const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("") : "";
+  const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : groupText(p.group))).join("") : "";
   return (
     <div className={`log-drawer ${open ? "open" : ""}`} data-testid="log-drawer">
       {open ? (
@@ -193,7 +210,7 @@ export function LogDrawer() {
       ) : (
         <button className="log-pill" onClick={() => setOpen(true)} title="Game log and chat">
           <span className="log-pill-label">Log</span>
-          <span className="log-pill-last">{text}</span>
+          <span className="log-pill-last"><ManaText text={text} /></span>
         </button>
       )}
     </div>
@@ -225,6 +242,11 @@ export function ToolTray() {
   );
 }
 
+/** What the selection bar's moment is: the stack and the open decision (either changing closes the bar). */
+export function barMoment(view: GameView): string {
+  return `${view.stack.join(",")}|${view.rules?.decision?.id ?? ""}`;
+}
+
 /** Contextual toolbar for the current selection on the battlefield, attached to the card it acts on. */
 export function SelectionBar() {
   const selection = useGame((s) => s.selection);
@@ -232,7 +254,15 @@ export function SelectionBar() {
   const actingAs = useGame((s) => s.actingAs);
   const ref = useRef<HTMLDivElement>(null);
   const onTable = view ? selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield")) : [];
-  const anchor = onTable[0] ?? null;
+  // -- playtest (nov 16) -- the bar is for the moment the card was picked: once the stack or a decision moves on (an activation from the
+  // bar opens targets, then triggers, then choices) it closes, and it never stays over the ending (it sat over the Defeat screen); a click
+  // on the card opens it again. The selection itself stays (a decision reads it).
+  const moment = view ? barMoment(view) : "";
+  const picks = useGame((s) => s.picks);
+  const pickedAt = useRef<{ pick: number; at: string } | null>(null);
+  if (pickedAt.current?.pick !== picks) pickedAt.current = { pick: picks, at: moment }; // (a fresh pick by the player, not the view pruning it)
+  const stale = !!view && (pickedAt.current.at !== moment || gameEnded(view, perspective(view, actingAs)));
+  const anchor = stale ? null : onTable[0] ?? null;
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node || !anchor) return;

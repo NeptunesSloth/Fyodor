@@ -86,7 +86,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     pairs = [list(p) for p in r["pairs"]]
     if chosen and chosen[0] in plan.state.cards and not plan.state.cards[chosen[0]].tapped:
-        plan.do({"type": "tap", "card_ids": [chosen[0]], "tapped": True})
+        plan.do({"type": "tap", "card_ids": [chosen[0]], "tapped": True, "cost": True})
         pairs.append([r["current"], chosen[0]])
         plan.note(f"{plan.name(plan.active)} enlisted {plan.state.cards[chosen[0]].name or 'a creature'} for "
                   f"{plan.state.cards[r['current']].name or 'an attacker'}", [chosen[0], r["current"]])

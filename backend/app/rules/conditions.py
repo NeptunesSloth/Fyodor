@@ -72,6 +72,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    from app.rules import mbc_a  # -- Mystery Booster Commander (wave MBC-A) -- Whtz's starting deck
+
+    if (mbca := mbc_a.condition(t)) is not None:
+        return mbca
     from app.rules import wave110c_last  # -- last cards (wave 110C) --
 
     if (last110c := wave110c_last.condition(t)) is not None:
@@ -314,6 +318,12 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"event_attack_excludes": "you"}
     if (pair := merged.condition(t)) is not None:
         return pair
+    from app.rules import (
+        dive,  # -- dive (wave DV) -- "it devoured a creature" (702.82b), the intervening if of the first card with dive
+    )
+
+    if (devoured := dive.devoured_condition(t)) is not None:
+        return devoured
     if t.lower() in ("you control a ring-bearer", "you don't control a ring-bearer"):  # (wave 25B: before the "you control a …" selector reading)
         return {"status": _DESIGNATIONS[t.lower()]}
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
@@ -1645,6 +1655,14 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any((held110f := plan.state.cards[c]).controller in plan.live() and held110f.controller != plan.active
                    and selectors.matches(plan, sel, held110f, plan.ch(held110f), ctx["controller"], ctx.get("source_card"))
                    for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    if "mbca" in cond:  # -- Mystery Booster Commander (wave MBC-A) --
+        from app.rules import mbc_a
+
+        return mbc_a.holds(plan, ctx, cond)
+    if "mbcc" in cond:  # -- Mystery Booster Commander (wave MBC-C) --
+        from app.rules import mbc_c
+
+        return mbc_c.holds(plan, ctx, cond)
     if "w111c" in cond:  # -- Star Trek statics (wave 111C) --
         from app.rules import wave111c_statics
 

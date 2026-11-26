@@ -96,7 +96,7 @@ export class ToyTrayScene {
     this.renderer.setClearColor(0x000000, 0);
     if (this.renderer.shadowMap) {
       this.renderer.shadowMap.enabled = quality === "high";
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed in three: same result, no warning)
     }
     try {
       // soft studio reflections for the glossy dice (no download)
@@ -108,7 +108,8 @@ export class ToyTrayScene {
     } catch {
       this.env = null;
     }
-    this.dice = new DiceTray({ look, envMap: this.env, shadows: quality === "high", envIntensity: 0.6 });
+    // (thrown at once: each kind's throw lands round the dice already at rest, and a reduced-motion tray draws once)
+    this.dice = new DiceTray({ look, envMap: this.env, shadows: quality === "high", envIntensity: 0.6, offThread: false });
     const hemi = new THREE.HemisphereLight(0xfff1dc, 0x1a120c, 1.0);
     const key = new THREE.DirectionalLight(0xffe8c8, 2.2);
     key.position.set(-3, 9, 5);

@@ -11,6 +11,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from app.cards import glossary
+from app.cards.art_fallback import ArtFallback, Sibling
 from app.cards.images import ImageStore
 from app.cards.names import normalize_name
 from app.cards.search import compile_query, fts_quote
@@ -24,6 +26,7 @@ SUMMARY_COLUMNS = (
     "p.legalities, p.released_at, p.artist, p.edhrec_rank"
 )
 # Layouts whose faces each have their own image and which can be turned over.
+MAX_TOKEN_ART_FALLBACK = 120  # -- engine token art -- token printings of a name token_art looks through
 DOUBLE_FACED_LAYOUTS = {"transform", "modal_dfc", "double_faced_token", "reversible_card", "meld", "battle"}
 
 
@@ -42,9 +45,15 @@ class CardRepository:
         self._names_for: sqlite3.Connection | None = None
         self._word_names: frozenset[str] = frozenset()
         self._word_names_for: sqlite3.Connection | None = None
+        self._glossary: tuple[sqlite3.Connection, dict[str, str]] | None = None  # -- keyword help -- per open database
         # the rules engine's reads (rules_card): one per printing per open database
         self._rules: dict[str, dict[str, Any] | None] = {}
         self._rules_for: sqlite3.Connection | None = None
+        # -- engine token art -- token_art's answers, per open database
+        self._token_art: dict[tuple[Any, ...], tuple[str, int] | None] = {}
+        self._token_art_for: sqlite3.Connection | None = None
+        # -- same-card art -- a printing without a picture here shows another printing's of the same card (app/cards/art_fallback.py)
+        self.art = ArtFallback(images, self._art_family)
 
     # -- connection management -------------------------------------------------------
     def _connection(self) -> sqlite3.Connection:
@@ -60,6 +69,7 @@ class CardRepository:
             conn = sqlite3.connect(f"file:{self.db_path.as_posix()}?mode=ro", uri=True, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             self._conn, self._inode = conn, ident
+            self.art.clear()
             log.info("Opened card database %s", self.db_path)
         return self._conn
 
@@ -333,11 +343,108 @@ class CardRepository:
                 self._names_for = conn
             return self._names
 
+    def glossary(self) -> dict[str, str]:
+        """-- keyword help -- {keyword or ability word: a short reminder} (app/cards/glossary.py), built once per open database."""
+        with self._lock:
+            conn = self._connection()
+            if self._glossary is None or self._glossary[0] is not conn:
+                self._glossary = (conn, glossary.from_connection(conn))
+            return self._glossary[1]
+
+    def planar_cards(self) -> list[dict[str, Any]]:
+        """-- planechase -- every plane and phenomenon (one printing each, the default): the pool a planar deck is dealt from
+        (app/game/handlers/planechase.py)."""
+        rows = self._query(
+            "SELECT p.id, p.name, p.type_line FROM oracle_defaults d JOIN printings p ON p.id = d.printing_id "
+            "WHERE p.type_line LIKE 'Plane %' OR p.type_line = 'Plane' OR p.type_line LIKE 'Phenomenon%' ORDER BY p.name"
+        )
+        return [{"id": r["id"], "name": r["name"], "type_line": r["type_line"]} for r in rows]
+
     def related_tokens(self, card_id: str) -> list[dict[str, Any]]:
         card = self.get(card_id)
         if not card:
             return []
         return card["related_tokens"]
+
+    # -- engine token art (app/cards/token_match.py) ------------------------------------
+    def token_art(self, source_id: str | None, name: str, type_line: str, power: str | None, toughness: str | None,
+                  colors: list[str]) -> tuple[str, int] | None:
+        """The token printing (and its picture face) that pictures a token the rules engine described, preferring the source
+        printing's related tokens; None when no token printing matches. Remembered per open database."""
+        from app.cards import token_match
+
+        want = token_match.wanted(name, type_line, power, toughness, colors)
+        key = (source_id, want)
+        with self._lock:
+            conn = self._connection()
+            if conn is not self._token_art_for:
+                self._token_art, self._token_art_for = {}, conn
+            if key in self._token_art:
+                return self._token_art[key]
+        source = self.rules_card(source_id) if source_id else None
+        related = [t["id"] for t in (source or {}).get("related_tokens") or []]
+        found = token_match.choose(related, self.rules_card, want, self._has_art)
+        if found is None:
+            found = token_match.choose(self._token_ids_named(name), self.rules_card, want, self._has_art)
+        with self._lock:
+            if len(self._token_art) > 4096:
+                self._token_art.clear()
+            self._token_art[key] = found
+        return found
+
+    def _token_ids_named(self, name: str) -> list[str]:
+        """Token printings named ``name`` (or with a face of that name), single-faced first, then newest first: ``token_art``'s
+        fallback."""
+        n = name.strip()
+        if not n:
+            return []
+        like = n.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        rows = self._query(
+            "SELECT id FROM printings WHERE is_token = 1 AND (name = ? COLLATE NOCASE OR name LIKE ? ESCAPE '\\' "
+            "OR name LIKE ? ESCAPE '\\') ORDER BY instr(name, ' // ') > 0, released_at DESC, set_code, collector_number, id "
+            f"LIMIT {int(MAX_TOKEN_ART_FALLBACK)}",
+            (n, like + " // %", "% // " + like),
+        )
+        return [r["id"] for r in rows]
+
+    def _has_art(self, card_id: str, face: int) -> bool:
+        """A picture of this printing's face shows here: its own (the cache or an art folder) or another printing's of it."""
+        if self.images.has(card_id, face):
+            return True
+        rows = self._query("SELECT oracle_id, layout, image_uris, card_faces FROM printings WHERE id = ?", (card_id,))
+        if not rows or not rows[0]["oracle_id"]:
+            return False
+        r = rows[0]
+        return self.art.find(card_id, r["oracle_id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"]),
+                             face=face) is not None
+
+    # -- same-card art ----------------------------------------------------------------
+    def _art_family(self, oracle_id: str) -> list[Sibling]:
+        """Every printing of a card as (id, layout, image faces): the default printing first, then the newest."""
+        rows = self._query(
+            "SELECT p.id, p.layout, p.image_uris, p.card_faces FROM printings p "
+            "LEFT JOIN oracle_defaults d ON d.oracle_id = p.oracle_id AND d.printing_id = p.id "
+            "WHERE p.oracle_id = ? ORDER BY d.printing_id IS NULL, p.released_at DESC, p.set_code, p.collector_number",
+            (oracle_id,),
+        )
+        return [(r["id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"])) for r in rows]
+
+    def find_art(self, card_id: str, *, face: int = 0, size: str = "normal") -> Path | None:
+        """The picture shown for a printing: its own, or another printing's of the same card (None: a proxy)."""
+        own = self.images.find(card_id, face=face, size=size)
+        if own is not None:
+            return own
+        return self.borrowed_art(card_id, face=face, size=size)
+
+    def borrowed_art(self, card_id: str, *, face: int = 0, size: str = "normal") -> Path | None:
+        """Another printing's picture of the same card for this printing's face (not its own), or None."""
+        rows = self._query("SELECT oracle_id, layout, image_uris, card_faces FROM printings WHERE id = ?", (card_id,))
+        if not rows:
+            return None
+        r = rows[0]
+        got = self.art.find(card_id, r["oracle_id"], r["layout"], _image_face_count(r["image_uris"], r["card_faces"]),
+                            face=face, size=size)
+        return got[0] if got else None
 
     # -- row mapping -----------------------------------------------------------------
     def _to_card(self, row: sqlite3.Row, *, detail: bool = False, images: bool = True) -> dict[str, Any]:
@@ -389,7 +496,14 @@ class CardRepository:
             "image_faces": len(image_faces),
         }
         if images:  # (a file check per call: rules_card leaves it out)
-            card["has_image"] = self.images.has(row["id"], 0)
+            # own_image: this printing's picture is here; has_image: some picture will show (-- same-card art -- another
+            # printing's of the same card when this one has none)
+            own = self.images.has(row["id"], 0)
+            card["own_image"] = own
+            borrowed = None if own else self.art.find(row["id"], row["oracle_id"], layout, len(image_faces))
+            card["has_image"] = own or borrowed is not None
+            if borrowed is not None:
+                card["art_from"] = borrowed[1]  # the printing whose picture shows
         if detail:
             legal = json.loads(row["legalities"] or "{}")
             card.update(
@@ -430,6 +544,14 @@ class CardRepository:
             return bool(row["is_token"]), [json.loads(row["image_uris"])]
         faces = json.loads(row["card_faces"] or "[]")
         return bool(row["is_token"]), [f.get("image_uris") or {} for f in faces if f.get("image_uris")]
+
+
+def _image_face_count(image_uris: str | None, card_faces: str | None) -> int:
+    """How many pictures a printing has (as ``_to_card``'s ``image_faces``)."""
+    if image_uris:
+        return 1
+    faces = json.loads(card_faces) if card_faces else []
+    return max(1, sum(1 for f in faces if f.get("image_uris")))
 
 
 class RulesCards:

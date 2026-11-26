@@ -38,7 +38,8 @@ def consume(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
     pool = sorted(selectors.candidates(plan, selectors.Selector(
         types=('Creature',), extras=('attacked_this_turn',)), ctx['controller'], ctx.get('source')))
     if pool:
-        selected = (plan.rng or secrets.SystemRandom()).choice(pool)
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        selected = randomness.choice(plan, plan.rng or secrets.SystemRandom(), pool, kind='object', player=ctx['controller'])
         context.bind_objects(plan, ctx, 'r43_metzali_selected', [selected])
         coin_recipes.insert(ctx, [{'do': 'destroy', 'who': 'ref:r43_metzali_selected'}])
     return True

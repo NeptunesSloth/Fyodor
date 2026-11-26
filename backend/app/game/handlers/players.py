@@ -146,8 +146,10 @@ def remove_player(state: GameState, a: A.RemovePlayer) -> None:
     if len(state.seat_order) <= 1:
         raise ActionError("The last player can't leave the table")
     name = state.players[pid].name
+    from app.game.handlers import planechase
+
     for c in list(state.cards.values()):
-        if c.id not in state.cards:
+        if c.id not in state.cards or planechase.is_face(c):  # (-- planechase automation -- the plane stays: 311.5, ``sync`` below)
             continue
         if c.owner == pid:
             ops.delete(state, c)  # everything they own leaves the game
@@ -168,6 +170,7 @@ def remove_player(state: GameState, a: A.RemovePlayer) -> None:
     for key in ("monarch", "initiative"):
         if getattr(state.table, key) == pid:
             setattr(state.table, key, None)
+    planechase.sync(state)  # -- planechase automation -- 311.5: the next player in turn order becomes the planar controller
     log(state, a.actor, a.ts, [text(f"{name} left the table; the cards they own left the game.")])
 
 
@@ -190,7 +193,8 @@ def set_table_playmat(state: GameState, a: A.SetTablePlaymat) -> None:
         kind="minor")
 
 
-RESTORE_FIELDS = ("players", "seat_order", "cards", "zones", "turn", "table", "arrows", "pregame", "settings", "auto_pass")
+RESTORE_FIELDS = ("players", "seat_order", "cards", "zones", "turn", "table", "arrows", "pregame", "settings", "auto_pass",
+                  "planechase")  # (-- planechase -- the planar deck goes back with the settings that say whether there is one)
 
 
 def restore_state(state: GameState, a: A.RestoreState) -> None:

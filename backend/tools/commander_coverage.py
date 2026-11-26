@@ -43,6 +43,35 @@ def rows(db_path: Path) -> tuple[list[dict[str, Any]], dict[str, str]]:
     return out, meta
 
 
+def taught_entries(app_db: Path) -> list[dict[str, Any]]:
+    """-- Teach Fyodor -- the host's enabled taught keywords and card lines (app.sqlite, read-only; none when there is no library)."""
+    if not app_db.is_file():
+        return []
+    try:
+        db = sqlite3.connect(f"file:{app_db}?mode=ro", uri=True)
+        try:
+            rows_ = db.execute("SELECT entry FROM taught WHERE enabled = 1 ORDER BY created_at, id").fetchall()
+        finally:
+            db.close()
+    except sqlite3.Error:  # (an older database without the table)
+        return []
+    return [json.loads(r[0]) for r in rows_]
+
+
+def with_taught(cards: list[dict[str, Any]], entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """The cards with the taught library applied (as a game would read them), and how many cards it changed."""
+    from app.rules import taught
+
+    if not entries:
+        return cards, 0
+    out, changed = [], 0
+    for c in cards:
+        applied = taught.apply(c, entries)
+        changed += applied is not c
+        out.append(applied if applied is not None else c)
+    return out, changed
+
+
 def pod_ids(reports: Path) -> tuple[set[str], set[str]]:
     path = reports / "rules_inventory.json"
     if not path.is_file():
@@ -84,22 +113,30 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--db", type=Path, help="card database (default: the data dir's cards.sqlite)")
     parser.add_argument("--out", type=Path, default=REPORTS_DIR)
+    parser.add_argument("--app-db", type=Path, help="app database with the taught library (default: the data dir's app.sqlite; "
+                                                     "cards a taught keyword or line applies to count as taught)")
+    parser.add_argument("--no-taught", action="store_true", help="ignore the taught library")
     args = parser.parse_args(argv)
-    db = args.db or load_settings().cards_db_path
+    settings = load_settings()
+    db = args.db or settings.cards_db_path
     cards, meta = rows(db)
+    entries = [] if args.no_taught else taught_entries(args.app_db or settings.app_db_path)
+    cards, taught_count = with_taught(cards, entries)
     pod, pod_cmdrs = pod_ids(args.out)
     rep = pool.analyse(cards, pod_oracle_ids=pod, pod_commander_ids=pod_cmdrs)
     data = pool.as_json(rep, {
         "generated_at": time.strftime("%Y-%m-%d %H:%M"), "card_data": meta.get("bulk_updated_at") or meta.get("source"),
         "comprehensive_rules": current_version(), "rules_engine_version": RULES_ENGINE_VERSION,
     })
+    data["taught"] = {"entries": len(entries), "cards": taught_count}  # -- Teach Fyodor -- (docs/TEACH_FYODOR.md)
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "commander_rules_coverage.json").write_text(json.dumps(data, indent=1), "utf-8")
     (args.out / "commander_rules_coverage.md").write_text(pool.markdown(data), "utf-8")
     (args.out / "commander_coverage.md").write_text(pool.commander_markdown(data), "utf-8")
     (args.out / "mechanics.md").write_text(mechanics(latest_text(), dict(rep.keyword_cards), args.out), "utf-8")
     lv = data["levels"]
-    print(f"Commander-legal cards: {data['commander_legal_cards']} — " + ", ".join(f"{k} {v}" for k, v in lv.items()))
+    print(f"Commander-legal cards: {data['commander_legal_cards']} — " + ", ".join(f"{k} {v}" for k, v in lv.items())
+          + (f", taught {taught_count} (from {len(entries)} taught entries)" if entries else ""))
     print(f"Possible commanders: {data['possible_commanders']} — "
           + ", ".join(f"{k} {v}" for k, v in data["commander_levels"].items()))
     return 0

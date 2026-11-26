@@ -393,7 +393,7 @@ def resume_gollum_guess(plan: Any, d: Any, chosen: list[str]) -> None:
     ctx, me = d.resume["ctx"], d.resume["ctx"]["controller"]
     top = plan.state.zones.get(f"{me}:library", [])
     if top:
-        plan.do({"type": "reveal_top", "player": me, "count": 1}, actor=me)  # 701.20a: revealed after the guess
+        plan.do({"type": "reveal_top", "player": me, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=me)  # 701.20a: revealed after the guess
         is_land = chars.of(plan.state.cards[top[0]], plan.info).is_land
         right = (is_land == (d.resume["kind"] == "land")) == (chosen[0] == "yes")
         plan.note(f"{plan.name(d.player)} guessed {'right' if right else 'wrong'}", actor=d.player)

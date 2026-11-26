@@ -97,7 +97,8 @@ export function BulkImportDialog({ onClose, onSaved }: { onClose: () => void; on
       </>
     }>
       <div className="bulk">
-        <p className="bulk-lead">Import your decks while connected to the internet. Deck lists are saved on this Fyodor host and stay available after restarting. Connect to this host to use them without internet.</p>
+        {/* (export files need no Internet: only Archidekt links and artwork do, and those show only while online) */}
+        <p className="bulk-lead">Each deck is saved on this Fyodor host and stays after restarting; the pod plays them from here without the Internet.{online ? " Archidekt links and artwork downloads need the Internet." : ""}</p>
         {!finished && <div className={`bulk-inputs ${online ? "two" : ""}`}>
           <label className={`bulk-drop ${files.length ? "has-files" : ""}`}
             onDragOver={e => e.preventDefault()}

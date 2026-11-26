@@ -59,7 +59,7 @@ def trade_reveal(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in players:
         library = plan.state.zones.get(f"{pid}:library", [])
         if library:
-            plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
+            plan.do({"type": "reveal_top", "player": pid, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=pid)
             shown.append(library[0])
     context.bind_objects(plan, ctx, e["as"], shown)
     context.bind_players(ctx, e["as"] + "p", players)  # (a player with no card still loses life equal to the other's card: "you each lose life …")

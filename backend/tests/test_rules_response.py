@@ -63,9 +63,29 @@ def test_force_stop_is_registered_any_time_and_consumed(s):
 
 def test_pass_until_next_turn(s):
     main1(s)
-    act(s, "p1", type="pass_priority", until="next_turn")  # skips Alice's own main-2 stop…
-    assert where(s) == (2, "upkeep", "p1")  # …and stops at the first priority of the next turn
+    act(s, "p1", type="pass_priority", until="next_turn")  # END TURN: skips Alice's own main-2 stop…
+    # …and once Bob's turn has begun with nothing on the stack, Alice's usual stops decide: no "Your priority" in his upkeep
+    # with nothing to do there (it read as a hang against bots); Bob's own main-1 stop is next
+    assert where(s) == (2, "main1", "p2")
     assert rules(s).prefs["p1"].pass_until is None  # met and cleared (Bob's turn is a new turn)
+
+
+def test_pass_until_next_turn_keeps_a_stop_set_for_the_next_turn(s):
+    main1(s)
+    act(s, "p1", type="set_prefs", stops_their_turn=["upkeep"])  # a stop Alice chose herself still stops her
+    act(s, "p1", type="pass_priority", until="next_turn")
+    assert where(s) == (2, "upkeep", "p1")
+
+
+def test_end_turn_still_stops_for_another_players_spell(s):
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="pass_priority")
+    assert where(s) == (1, "upkeep", "p2")
+    act(s, "p2", type="pass_priority", until="next_turn")  # Bob presses End turn in Alice's upkeep…
+    assert where(s) == (1, "main1", "p1")
+    ring = cast_ring(s)
+    assert where(s)[2] == "p2" and s.state.cards[ring.id].zone == "stack"  # …and still gets to answer the spell she casts
+    assert rules(s).prefs["p2"].pass_until is None
 
 
 def test_pass_until_needs_a_stack_for_resolve_controls(s):

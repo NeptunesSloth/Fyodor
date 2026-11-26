@@ -1,4 +1,4 @@
-import { tapGesture } from "./rules/intents";
+import { doubleClickGesture } from "./rules/intents";
 import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
@@ -9,13 +9,16 @@ import { dropCards } from "./drop";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
-import { answerByClick, legalClass } from "./rules/RulesHud";
+import { clickAnswer, justAnswered, legalClass } from "./rules/RulesHud";
 import { TargetMark } from "./targeting/TargetMark";
 import { Icon } from "../components/Icon";
 import { countMark, countText } from "./piles";
 import { BoardTile, packStats } from "./BoardTile";
 import { reorderArranged } from "./arrangeDrop";
 import { useHoverCard } from "./hoverCard";
+import { attackDrop, attackSpot2D, defenderBadge, myAttackDecision, useAttackDraft } from "./rules/attackDraft";
+import { blockDrop, blockSpot2D, myBlockDecision, useBlockDraft } from "./rules/blockDraft";
+import "./rules/attackers.css";
 
 interface Props {
   id: string;
@@ -28,10 +31,19 @@ interface Props {
   pile?: number;
   /** On the arranged board: drawn as an art tile (game/BoardTile.tsx), dragged along its row to reorder. */
   tile?: boolean;
+  /** The combat filter dims it (game/combatFilter.ts): drawn darker, still fully usable. */
+  dim?: boolean;
+  /** The player whose board it is drawn on: a card controlled by someone else is attached here from their board (game/attachments.ts guests). */
+  board?: string;
+  /** Which edge of the card faces the middle of the table on this board (where a tucked card peeks out). */
+  front?: "top" | "bottom";
+  /** -- sweep B (nov 18) -- px between the card and its board's edge on the `front` side: a card stepping forward (an attacker or blocker)
+   * stops there, so a creature in the row nearest that edge isn't pushed out of the board (its name and "⛨ Serra Angel" were cut off). */
+  room?: number;
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false, dim = false, board, front = "top", room }: Props) {
   const card = useCardView(id);
   const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
@@ -43,39 +55,92 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     const c = s.view?.cards[id];
     return c && c.owner !== c.controller ? s.view?.players.find((p) => p.id === c.owner) : undefined;
   });
+  // -- attached elsewhere -- drawn on another player's board: its controller's seat colour and initial, never colour alone
+  const guest = useGame((s) => {
+    const c = s.view?.cards[id];
+    return board && c && c.zone !== `${board}:battlefield` ? s.view?.players.find((p) => p.id === c.controller) : undefined;
+  });
+  const guestOf = useGame((s) => {
+    const c = guest ? s.view?.cards[id] : undefined;
+    if (!c) return "";
+    const host = c.attached_to ? s.view?.cards[c.attached_to] : undefined;
+    return host ? (isVisible(host) ? host.name : "a face-down permanent") : s.view?.players.find((p) => p.id === c.attached_player)?.name ?? "";
+  });
+  const peek = useGame((s) => s.peek.includes(id));
+  // -- playtest (nov 18) -- combat read physically: an attacker (planned in the declare-attackers prompt, or declared) is pushed forward
+  // toward the middle of the table and says whom it attacks ("→ B Bob"); a blocker steps forward too ("blocks 2" when it blocks several)
+  const draftTarget = useAttackDraft((d) => d.plan[`a:${id}`]);
+  const draftId = useAttackDraft((d) => d.decision);
+  const deciding = useGame((s) => myAttackDecision(s.view, s.actingAs)?.id);
+  const planned = draftId && draftId === deciding ? draftTarget : undefined;
+  const attackTo = useGame((s) => {
+    const c = s.view?.cards[id];
+    const t = planned ? { id: planned.slice(2) } : c?.attacking;
+    const b = s.view && t ? defenderBadge(s.view, t) : null;
+    return b ? `${b.initial}|${b.color}|${b.name}` : "";
+  });
+  // -- playtest (nov 18) -- a block planned in the declare-blockers prompt or by dragging this creature onto an attacker (rules/blockDraft.ts):
+  // it steps forward as a declared blocker does, with a dashed rim and "⛨ Serra Angel" (+N when it blocks several) until declared
+  const blockList = useBlockDraft((d) => d.plan[`b:${id}`]);
+  const blockDraftId = useBlockDraft((d) => d.decision);
+  const blockDeciding = useGame((s) => myBlockDecision(s.view, s.actingAs)?.id);
+  const blockPlan = blockDraftId && blockDraftId === blockDeciding && blockList?.length ? blockList : undefined;
+  const blockTo = useGame((s) => {
+    const a = blockPlan?.[0] && s.view?.cards[blockPlan[0].slice(2)];
+    return a ? (isVisible(a) ? a.name.split(" // ")[0]! : "a face-down creature") : "";
+  });
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
   const count = countMark(card, pile); // ×N: the land pile it tops, or the token stack it is
+  const fights = !!(card.attacking || card.attacking_without_target || card.blocking || card.blocking_without_attacker);
+  const pushed = !!planned || !!blockPlan || (fights && !tile); // (an arranged tile's forward step is the layout's: game/arrange.ts)
+  const [atkInitial, atkColor, atkName] = attackTo ? attackTo.split("|") : [];
+  const blocks = card.blocking ? 1 + (card.blocking_more?.length ?? 0) : 0;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     const store = useGame.getState();
-    if (legal === "rules-target" && answerByClick(store.view, id, me)) return; // click-to-target
+    if (clickAnswer(store.view, id, me, legal)) return; // click-to-target, and click a highlighted land to pay
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       store.select([id], "toggle");
       return;
     }
-    if (!store.selection.includes(id)) store.select([id]);
+    // (a click on the one selected card selects it afresh: its action bar, closed when the stack moved on, opens again: Hud.tsx SelectionBar)
+    if (!store.selection.includes(id) || store.selection.length === 1) store.select([id]);
     const ids = targetsFor(id);
-    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t) });
+    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => {
+      // declaring attackers: dragged toward an opponent it attacks them, back in my row it doesn't (rules/attackDraft.ts)
+      const v = useGame.getState().view;
+      if (t?.at && v && attackDrop(ids, attackSpot2D(v, me, t.zone, t.at.clientX, t.at.clientY))) return;
+      // declaring blockers: dropped onto an attacker it blocks it (Shift: as well), back in my row it doesn't (rules/blockDraft.ts)
+      if (t?.at && v && blockDrop(ids, blockSpot2D(v, t.zone, t.at.clientX, t.at.clientY, ids))) return;
+      return (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t);
+    } });
   };
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}${dim ? " combat-dim" : ""}${guest ? " guest" : ""}${peek ? " peek" : ""}${pushed ? ` pushed${front === "bottom" ? " push-down" : ""}` : ""}${planned ? " attack-planned" : ""}${blockPlan ? " block-planned" : ""}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
+      data-attack-planned={planned ? planned.slice(2) : undefined}
+      data-block-planned={blockPlan ? blockPlan.map((a) => a.slice(2)).join(" ") : undefined}
       data-tile={tile ? "" : undefined}
-      style={tile
-        // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
-        ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
-        : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+      style={{
+        ...(tile
+          // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
+          ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
+          : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }),
+        ...(guest ? { ["--guest" as string]: guest.color } : {}),
+        ...(pushed ? { ["--push" as string]: `${pushBy(width, room)}px` } : {}),
+      }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        tapGesture(targetsFor(id), (x) => void tapCards(x));
+        if (justAnswered(id)) return; // the click already tapped it for mana (or chose it): don't tap it back
+        doubleClickGesture(targetsFor(id), e, (x) => void tapCards(x)); // (-- playtest nov 17 -- a "{T}: …" ability activates, not a plain tap)
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -91,6 +156,12 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     >
       {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
       {legal === "rules-target" && <TargetMark id={id} />}
+      {guest && (
+        <span className={`guest-tab ${front}`} data-testid="guest-tab" aria-label={`${guest.name}'s, attached to ${guestOf}`}
+          title={`${guest.name} controls this${guestOf ? ` (attached to ${guestOf})` : ""}`}>
+          {guest.name.slice(0, 1).toUpperCase()}
+        </span>
+      )}
       {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>{countText(count.n)}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
@@ -107,7 +178,16 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>
         )}
         {(card.attacking || card.attacking_without_target) && <span className="mark atk" title="Attacking"><Icon name="swords" size={11} /></span>}
+        {attackTo && (
+          <span className={`mark atk-to${planned ? " planned" : ""}`} data-testid="attack-to" style={{ ["--seat" as string]: atkColor }}
+            title={`${planned ? "Will attack" : "Attacking"} ${atkName}`}>→ <i>{atkInitial}</i>{atkName}</span>
+        )}
         {(card.blocking || card.blocking_without_attacker) && <span className="mark blk" title="Blocking">⛨</span>}
+        {blockPlan && (
+          <span className="mark blk-to" data-testid="block-to" title={`Will block ${blockTo}${blockPlan.length > 1 ? ` and ${blockPlan.length - 1} more` : ""}`}>
+            ⛨ {blockTo}{blockPlan.length > 1 ? ` +${blockPlan.length - 1}` : ""}</span>
+        )}
+        {blocks > 1 && <span className="mark blk-n" data-testid="blocks-n" title={`Blocking ${blocks} attackers`}>blocks {blocks}</span>}
         {card.locked && <span className="mark lock" title="Locked in place">🔒</span>}
         {visible && card.choices && Object.keys(card.choices).length > 0 && (
           <span className="mark choice" title={Object.entries(card.choices).map(([k, v]) => `${k}: ${v}`).join("\n")}>
@@ -133,6 +213,9 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
     </div>
   );
 });
+
+/** How far a card steps forward (an attacker or blocker, planned or declared): 0.3 of its width, never past its board's edge (`room`). */
+export const pushBy = (width: number, room?: number): number => Math.max(0, Math.min(Math.round(width * 0.3), room == null ? Infinity : Math.floor(room) - 2));
 
 /** The creature's current power/toughness and gained/lost keywords, when the rules change them. */
 export function StatBadge({ stats }: { stats: CardStats }) {

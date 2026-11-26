@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import json
 import time
@@ -11,7 +12,8 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
-from app.decks import archidekt, service, sites
+from app.cards.repository import CardDatabaseUnavailable
+from app.decks import archidekt, service, sharing, sites
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
@@ -148,6 +150,37 @@ def set_art_keeper(body: ArtKeeperIn, services: ServicesDep) -> dict[str, Any]:
     return {**services.art_keeper.status(), "network": services.settings.allow_network}
 
 
+# -- deck sharing -- friends on the network may browse the decks shared here (app/decks/sharing.py, GET /api/lan/decks)
+
+
+class SharingIn(BaseModel):
+    enabled: bool
+    all: bool = False
+
+
+class SharedIn(BaseModel):
+    shared: bool
+
+
+@router.get("/decks/sharing")
+def sharing_status(services: ServicesDep) -> dict[str, Any]:
+    return sharing.load(services.settings.data_dir)
+
+
+@router.put("/decks/sharing")
+def set_sharing(body: SharingIn, services: ServicesDep) -> dict[str, Any]:
+    return sharing.save(services.settings.data_dir, enabled=body.enabled, all=body.all)
+
+
+@router.put("/decks/{deck_id}/shared")
+def set_deck_shared(deck_id: str, body: SharedIn, services: ServicesDep) -> dict[str, Any]:
+    try:
+        services.decks.set_shared(deck_id, body.shared)
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "shared": body.shared}
+
+
 @router.post("/decks/preview")
 def preview_import(body: DeckImportRequest, services: ServicesDep) -> dict[str, Any]:
     """Parse and resolve an import (Archidekt URL/JSON or deck text) without saving."""
@@ -242,6 +275,16 @@ def move_deck_to_folder(deck_id: str, body: FolderIn, services: ServicesDep) -> 
     except DeckNotFound:
         raise HTTPException(404, "Deck not found") from None
     return {"id": deck_id, "folder": _folder_name(body.folder)}
+
+
+@router.delete("/decks/{deck_id}/rows")
+def reset_deck_rows(deck_id: str, services: ServicesDep) -> dict[str, Any]:
+    """-- saved rows -- forget where the deck's cards were moved at the table: they enter in their type's row again."""
+    try:
+        services.decks.set_row_overrides(deck_id, {})
+    except DeckNotFound:
+        raise HTTPException(404, "Deck not found") from None
+    return {"id": deck_id, "row_overrides": {}}
 
 
 class FolderRename(BaseModel):
@@ -351,7 +394,12 @@ def art_status(deck_id: str, services: ServicesDep) -> dict[str, Any]:
     deck = _get(services, deck_id)
     ids = [e.printing_id for e in deck.entries if e.printing_id]
     missing = [pid for pid in dict.fromkeys(ids) if not services.images.has(pid)]
-    return {"printings": len(set(ids)), "missing": len(missing)}
+    # missing: no picture of its own here (what "Cache entire deck artwork" downloads); borrowed: of those, the ones that show
+    # another printing's picture of the same card meanwhile (-- same-card art --) rather than a proxy
+    borrowed = 0
+    with contextlib.suppress(CardDatabaseUnavailable):
+        borrowed = sum(1 for pid in missing if services.cards.borrowed_art(pid) is not None)
+    return {"printings": len(set(ids)), "missing": len(missing), "borrowed": borrowed}
 
 
 @router.get("/jobs/{job_id}")

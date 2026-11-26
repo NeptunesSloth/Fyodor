@@ -28,6 +28,8 @@ export interface Environment {
   dispose(): void;
   /** Top of the table (cards lie just above this). */
   tableY: number;
+  /** The room's main lights (table3d/dayNight.ts eases them to a moonlit night and back). */
+  lights: { hemi: THREE.HemisphereLight; key: THREE.DirectionalLight; pool: THREE.PointLight; rim: THREE.DirectionalLight };
 }
 
 const TABLE_THICK = 0.7;
@@ -325,6 +327,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   return {
     group,
     tableY,
+    lights: { hemi, key, pool, rim },
     update(time: number) {
       // the candles' lights on the table flutter with their flames; the room's practicals, flames, beams and
       // particles follow the room's clock (on the GPU)

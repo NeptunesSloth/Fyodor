@@ -12,9 +12,9 @@
  * - A partner's (or background's) well in the command zone, as the commander's (table3d/zoneWells.ts).
  */
 import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
+import { chipHex, SEAT_CHIPS } from "../game/seatChips";
 import { drawSeatIcon, drawTaxCoinFace, drawTaxCoinTop, drawTaxSocket, taxCasts } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
 import { BUTTON_R, buttonRowZ, COIN, plateDepth, commandSlot, COMMAND_SLOTS, COMMAND_WELL, HEART, heartSpot, heartTilt, plateOffset, plateWidth, TAX_READOUT, TAX_STACK, taxReadoutSpot, taxSpot, toWorld, wellPiece, type Seat } from "./layout";
@@ -23,7 +23,7 @@ import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, typ
 const HEART_W = HEART.w;
 const HEART_Y = HEART.y;
 const BUTTON_H = 0.08;
-/** How far a seat button's chit is tipped up toward its owner (radians). */
+/** How far a seat button's chip is tipped up toward its owner (radians). */
 const CHIT_TILT = 0.5;
 /** The buttons' row (layout.ts buttonRowZ): one medallion every PITCH, the two groups apart by DIVIDE. */
 const PITCH = 0.64;
@@ -272,9 +272,9 @@ export class SeatProps {
     // the medallions: a face drawn lit from the top left (the same picture as the 2D table's buttons, unlit, its rim's
     // edge soft in the texture's alpha), a brass edge lit by the table's light, a contact shadow, and a glow ring for hover
     const contact = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2.7, BUTTON_R * 2.7).rotateX(-Math.PI / 2));
-    const faceGeo = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2, BUTTON_R * 2).rotateX(-Math.PI / 2));
-    // an ivory chit: a low rounded tile, its inked face printed on top
-    const sideGeo = this.keep(new RoundedBoxGeometry(BUTTON_R * 2, BUTTON_H, BUTTON_R * 2, 3, BUTTON_R * 0.36));
+    const faceGeo = this.keep(new THREE.CircleGeometry(BUTTON_R, 48).rotateX(-Math.PI / 2));
+    // a round gaming chip in the button's own colour (game/seatChips.ts): a low disc, its face printed on top
+    const sideGeo = this.keep(new THREE.CylinderGeometry(BUTTON_R, BUTTON_R, BUTTON_H, 48));
     const ringGeo = this.keep(new THREE.RingGeometry(BUTTON_R * 1.04, BUTTON_R * 1.32, 64).rotateX(-Math.PI / 2));
     const ROW_Z = buttonRowZ(mine.duel);
     const groups = [SEAT_ACTIONS.filter((a) => a.id !== "mulligan" && a.id !== "extras"), SEAT_ACTIONS.filter((a) => a.id === "mulligan" || a.id === "extras")];
@@ -298,7 +298,8 @@ export class SeatProps {
       const top = new THREE.Mesh(faceGeo, this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
       top.position.y = BUTTON_H + 0.002;
       top.userData = { seatButton: a.id };
-      const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0xcdb98e, roughness: 0.55, metalness: 0, emissive: 0xffc870, emissiveIntensity: 0 }));
+      const chip = SEAT_CHIPS[a.id];
+      const edge = this.keep(new THREE.MeshStandardMaterial({ color: chipHex(chip.base), roughness: 0.45, metalness: 0.05, emissive: chipHex(chip.light), emissiveIntensity: 0 }));
       const side = new THREE.Mesh(sideGeo, edge);
       side.position.y = BUTTON_H / 2;
       side.userData = { seatButton: a.id };

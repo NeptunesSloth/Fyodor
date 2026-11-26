@@ -107,6 +107,7 @@
 .night-votes b.lobby { color: var(--text); }
 .night-votes b.waiting { color: var(--text-dim); font-weight: 500; }
 .night-force { margin-top: 8px; font-size: 12.5px; }
+.night-note { margin: 8px 0 0; color: var(--text-dim); font-size: 12.5px; line-height: 1.4; }
 /* -- final board -- the result panel folds into this bar so the finished table can be looked at (and opened again) */
 .night-board-open { margin-right: auto; }
 .night-board-bar { position: fixed; z-index: 36; left: 50%; top: 52px; transform: translateX(-50%); max-width: calc(100vw - 32px); }

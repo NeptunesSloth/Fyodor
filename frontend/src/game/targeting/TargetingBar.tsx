@@ -13,6 +13,7 @@ import { usePrefs } from "../../state/prefs";
 import { resolveRenderer } from "../../table3d/renderer";
 import { isVisible, type GameView } from "../../types/game";
 import { GameCardFace } from "../GameCardFace";
+import { ManaText } from "../../cards/ManaText";
 import { choose } from "../rules/intents";
 import { canSubmitChoice, doneLabel } from "../rules/RulesHud";
 import { pickNumber, useTargeting, type Pick } from "./store";
@@ -20,6 +21,7 @@ import { progress, ptOf, step, traySeats, type Candidate, type Targeting } from 
 import { TargetArrows } from "./TargetArrows";
 import { useHoverCard } from "../hoverCard";
 import "../targeting.css";
+import { PlayerInitial } from "../PlayerInitial";
 
 const NONE: Pick[] = [];
 
@@ -76,20 +78,25 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   const src = (from && view.cards[from]) || srcObj;
   const dock = t.candidates.some((c) => c.where === "hand") ? "above-hand" : "hand";
   const groups = traySeats(t, view, me);
+  // -- sweep B2 -- Shift+click and "Select all" read the tray's order (discarding 30 cards was 30 clicks)
+  useEffect(() => useTargeting.getState().setOrder(groups.flatMap((g) => g.runs.flat()).map((c) => ({ opt: c.option.id, ref: c.ref }))));
+  const many = t.multi && t.max >= 4 && t.candidates.length > 1;
+  const all = Math.min(t.max, t.candidates.length);
   return (
     <>
-      <section ref={bar} className="tgt-bar" data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
+      <section ref={bar} className={`tgt-bar${src ? "" : " no-source"}`} data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
         aria-label={`${t.sourceName ? `${t.sourceName}: ` : ""}${t.instruction}`}
         onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") e.stopPropagation(); /* not the table's T/Space keys */ }}>
-        <div ref={artRef} className="tgt-source" data-tgt-origin="" aria-hidden
+        {/* -- sweep B2 -- no source card (discard to hand size): no empty card frame */}
+        {src && <div ref={artRef} className="tgt-source" data-tgt-origin="" aria-hidden
           {...(t.source ? { onPointerEnter: srcHover.onPointerEnter, onPointerLeave: srcHover.onPointerLeave } : {})}>
-          {src ? <GameCardFace card={src} size="small" /> : <span className="tgt-source-none" />}
-        </div>
+          <GameCardFace card={src} size="small" />
+        </div>}
         <div className="tgt-main">
           <div className="tgt-head">
             <p className="tgt-words">
               {t.sourceName && <span className="tgt-name">{t.sourceName}</span>}
-              <span className="tgt-what" data-testid="targeting-instruction">{t.instruction}</span>
+              <span className="tgt-what" data-testid="targeting-instruction"><ManaText text={t.instruction} /></span>
             </p>
             {t.multi && <span className="tgt-count" aria-live="polite" data-testid="targeting-count">{progress(picked.length, t)}</span>}
             <span className="tgt-actions">
@@ -101,6 +108,10 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
                   Cancel <kbd aria-hidden>Esc</kbd>
                 </button>
               )}
+              {many && (picked.length >= all
+                ? <button className="tt-btn ghost" data-testid="targeting-clear" onClick={() => useTargeting.getState().fill(d.id, 0)}>Clear</button>
+                : <button className="tt-btn ghost" data-testid="targeting-all" title="Shift+click a card to choose every card between it and the last one you clicked"
+                  onClick={() => useTargeting.getState().fill(d.id, all)}>{all === t.candidates.length ? "Select all" : `Select first ${all}`}</button>)}
               {t.multi && (
                 <button className="tt-btn brass tgt-done" data-testid="decision-done" disabled={!canDone} onClick={done}>
                   {doneLabel(picked.length, t.min, t.max)}
@@ -115,7 +126,7 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
               return (
                 <div key={g.seat ?? "-"} className="tgt-seat" style={p ? { ["--player-color" as string]: p.color } : undefined}>
                   {p && !(g.runs.length === 1 && g.runs[0]![0]!.kind === "player") && ( /* (a player alone is their own chip) */
-                    <span className="tgt-chip" title={p.name} aria-hidden>{p.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="tgt-chip" title={p.name} aria-hidden><PlayerInitial p={p} size={12} /></span>
                   )}
                   {g.runs.map((run) => run.length === 1 ? <Thumb key={run[0]!.ref} {...thumbOf(t, run[0]!, pickNumber(picked, run[0]!.ref), 0, me)} /> : (
                     // alike candidates fan out like a pile: each is its own button (and its own card on the table)
@@ -174,8 +185,9 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
     s().setHot(null);
     if (kind === "card") cardHover.onPointerLeave(e);
   };
-  const choose1 = () => {
-    if (multi) s().toggle(decision, { opt, ref: refId }, max);
+  const choose1 = (e: React.MouseEvent) => {
+    if (multi && e.shiftKey && s().anchor && s().decision === decision) s().range(decision, { opt, ref: refId }, max); // (-- sweep B2 -- a run)
+    else if (multi) s().toggle(decision, { opt, ref: refId }, max);
     else void choose(decision, [opt]);
   };
   const shownNote = twins > 1 ? `${twins} alike` : note || (where && where !== "battlefield" ? (where === "stack" ? "on the stack" : `in ${where}`) : "");
@@ -191,7 +203,7 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
       onBlur={() => { s().setFocus(null); if (useGame.getState().hover === refId) useGame.getState().setHover(null); }}>
       <span className="tgt-art" aria-hidden>
         {card ? <GameCardFace card={card} size="small" />
-          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}>{(player?.name ?? label).slice(0, 1).toUpperCase()}</span>}
+          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}><PlayerInitial p={player} name={label} size={20} /></span>}
         {pt && <span className={`tgt-pt ${plus > 0 ? "up" : plus < 0 ? "down" : ""}`}>{pt}</span>}
         {player && <span className="tgt-pt tgt-life" title="Life">{player.life}</span>}
         {card?.tapped && <span className="tgt-tapped" title="Tapped">↷</span>}

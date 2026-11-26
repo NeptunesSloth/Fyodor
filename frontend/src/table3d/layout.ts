@@ -362,3 +362,38 @@ export function pileAt(lx: number, lz: number, seat?: Pick<Seat, "side">): PileZ
   if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
   return null;
 }
+
+/**
+ * -- planechase -- how far along the aisle the stack's cards reach from the table's middle, either way, in a pod (TableScene's stack:
+ * at most 8 world units of fanned cards, plus half the top card at its largest, 2.25×).
+ */
+export const STACK_REACH = 4 + (CARD_W * 2.25) / 2 + 0.1;
+
+/**
+ * -- planechase -- where the face-up plane lies on the 3D table, in my frame (x to my right, z toward me; TableScene turns it by my
+ * seat's rotation), its size (× a card), how far it is tipped up toward me (radians from flat, about its near edge) and which way
+ * further face-up planes lie beside it (`along`: +1 to its right, -1 to its left): a landscape card in the aisle between the rows, its
+ * footprint on no mat, clear of the stack and of every seat's heart and plate. In a pod, flat, to the stack's left (the hearts and
+ * plates sit in the aisle by each seat's own mat, further out). In a duel the aisle is too narrow for a flat card anyone can read (and
+ * a duel is seen low, DUEL_VIEW, so a flat one is squashed to half its depth), and a card standing in it rises over the far mat on
+ * screen: it stands past the mats' left ends, at the aisle's end between the two command columns (the stack lies at the aisle's left
+ * end on the felt, the dice cannon rolls in at its right end), tipped up to face my seat like a card on a stand, as wide as the wood
+ * between the mats and the rail lets it be.
+ */
+export const DUEL_PLANE_TILT = 1.0;
+/** -- planechase -- a duel's plane keeps this far off the mats' felt hems and inside the rail (world units). */
+export const DUEL_PLANE_GAP = 0.08;
+export function planarSpot(all: Pick<Seat, "duel">[]): { x: number; z: number; scale: number; tilt: number; along: 1 | -1 } {
+  if (all.some((s) => s.duel)) {
+    const tilt = DUEL_PLANE_TILT;
+    // the duel table's half width (tableSize: the command column's outer edge, plus 1.2), less its rail
+    const inner = Math.max(STRIP_X + CARD_W / 2, COMMAND_X + COMMAND_WELL.w / 2) + 1.2 - RAIL - DUEL_PLANE_GAP;
+    const end = MAT_W / 2 + FELT_HEM + DUEL_PLANE_GAP; // (off the felt hem too: on screen, clear of my mat's far corner)
+    const scale = Math.min(2.4, (inner - end) / CARD_H);
+    const half = (CARD_W * scale * Math.cos(tilt)) / 2;
+    // (its near edge rests on the felt level with my mat's far edge; further face-up planes lie toward the aisle)
+    return { x: -(end + (CARD_H * scale) / 2), z: DUEL_AISLE - 0.075 - half, scale, tilt, along: 1 };
+  }
+  const scale = 1.8;
+  return { x: -(STACK_REACH + 0.7 + (CARD_H * scale) / 2), z: 0, scale, tilt: 0, along: 1 };
+}

@@ -121,6 +121,8 @@ def receipt_for(candidate: Candidate, group: TokenCreationGroup) -> TokenReplace
 
 
 def token_spec(plan: Plan, candidate: Candidate, receipt: TokenReplacementChoice) -> dict[str, Any] | None:
+    if candidate.op.get('mode') == 'fixed_mbc':  # -- Mystery Booster Commander (wave MBC-B) -- Flitwing: "that many Clue tokens" (one fixed token)
+        return dict(candidate.op['token'])
     if receipt.choice in ('cat', 'dog'):
         name, power, toughness, keyword = ('Cat', '2', '2', 'Haste') if receipt.choice == 'cat' else ('Dog', '3', '1', 'Vigilance')
         return {'name': name, 'power': power, 'toughness': toughness, 'colors': ['G'],
@@ -241,7 +243,7 @@ def snapshot(plan: Plan, candidate: Candidate, group: TokenCreationGroup,
         raise ActionError('Choose an available token replacement option')
     receipt = TokenReplacementChoice(source=source, index=candidate.seq[-1], player=group.player, choice=choice,
                                      atom=identity(group))
-    if choice in ('decline', 'cat', 'dog'):
+    if choice in ('decline', 'cat', 'dog') or candidate.op.get('mode') == 'fixed_mbc':  # (wave MBC-B: a fixed token copies nothing)
         return receipt
     card = plan.state.cards.get(source.card)
     if candidate.op.get('mode') in ('host', 'host_creature'):

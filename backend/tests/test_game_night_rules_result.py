@@ -308,7 +308,9 @@ def test_every_engine_loss_gets_the_eliminated_flow_and_only_the_finalists_confi
     assert s.state.rules.lost["p6"] == "an effect" and s.state.rules.winner == "p1"
     assert "p6" in s.view("p6")["rules"]["lost"]
     p = room.night.proposal
-    assert p is not None and p.voters == ["p1", "p6"] and p.winners == ["p1"] and p.rules == "Fay lost (an effect)"
+    # -- playtest (nov 16) -- a loss an effect caused names the card that made it (Final Fortune said "Alice lost (an effect)")
+    tool = s.state.rules.lost_source["p6"].name
+    assert tool and p is not None and p.voters == ["p1", "p6"] and p.winners == ["p1"] and p.rules == f"Fay lost ({tool})"
     roundtrip(s)
 
 

@@ -481,7 +481,7 @@ def reveal_names(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     tops = {p: plan.state.zones.get(zone_key(p, "library"), [])[:1] for p in plan.apnap() if p in chosen and p in plan.live()}
     for p, top in tops.items():
         if top:
-            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+            plan.do({"type": "reveal_top", "player": p, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=p)
     for p, top in tops.items():
         if not top:
             continue

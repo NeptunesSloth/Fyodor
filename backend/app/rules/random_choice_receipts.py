@@ -120,7 +120,8 @@ def recipe(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     elif kind == 'rag_discard':
         players = effects._players(plan, ctx, 'target')
         cards = [c for pid in players for c in plan.state.zones.get(pid + ':hand', []) if plan.ch(plan.state.cards[c]).is_creature]
-        chosen = [rng.choice(cards)] if cards else []
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        chosen = [randomness.choice(plan, rng, cards, kind='discard', player=plan.state.cards[cards[0]].owner)] if cards else []  # (701.9b)
         context.bind_objects(plan, ctx, 'r41_revealed', chosen)
         steps = [_step('discard_receipt')]
     elif kind == 'fossil':
@@ -142,7 +143,8 @@ def recipe(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if not players:
             return True
         cards = list(plan.state.zones.get(me + ':graveyard', []))
-        chosen = [rng.choice(cards)] if cards else []
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        chosen = [randomness.choice(plan, rng, cards, kind='card', player=me)] if cards else []
         context.bind_objects(plan, ctx, 'r41_survivor', chosen)
         if chosen:
             plan.note('A graveyard card was chosen at random', chosen, actor=players[0])
@@ -170,14 +172,16 @@ def recipe(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             src = plan.state.cards[sources[0]]
             players = [pid for pid in plan.live() if pid != me and pid not in previous and attachments.host_problem(plan, src, pid) is None]
             if players:
-                attachments.attach(plan, src.id, rng.choice(players), me)
+                from app.rules import randomness  # -- random choices (wave MBC-D) --
+                attachments.attach(plan, src.id, randomness.choice(plan, rng, players, kind='player', player=me), me)
     elif kind == 'rage':
         cards = effects._cards(plan, ctx, e.get('who', 'self_aura_gy'))
         if cards:
             src = plan.state.cards[cards[0]]
             hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield') and plan.in_game(c) and plan.ch(c).is_creature and attachments.host_problem(plan, src, c.id) is None]
             if hosts:
-                context.bind_objects(plan, ctx, 'r41_rage_host', [rng.choice(hosts)])
+                from app.rules import randomness  # -- random choices (wave MBC-D) --
+                context.bind_objects(plan, ctx, 'r41_rage_host', [randomness.choice(plan, rng, hosts, kind='object', player=me)])
                 steps = [{'do': 'return_card', 'who': e.get('who', 'self_aura_gy'), 'to': 'battlefield', 'under': 'you', 'host': 'ref:r41_rage_host'}]
     elif kind == 'aim':
         sel = selectors.Selector(not_types=('Enchantment',), controller='opponent')
@@ -193,13 +197,15 @@ def recipe(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if len(cards) >= 2:
             cards = [c for c in cards if 'indestructible' not in plan.ch(plan.state.cards[c]).keywords]
             if cards:
-                context.bind_objects(plan, ctx, 'r41_bombard', [rng.choice(cards)])
+                from app.rules import randomness  # -- random choices (wave MBC-D) --
+                context.bind_objects(plan, ctx, 'r41_bombard', [randomness.choice(plan, rng, cards, kind='object', player=me)])
                 steps = [{'do': 'destroy', 'who': 'ref:r41_bombard'}]
     elif kind == 'tyrant':
         players = effects._players(plan, ctx, 'target')
         cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield') and plan.in_game(c) and c.controller in players]
         if cards:
-            cid = rng.choice(cards)
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            cid = randomness.choice(plan, rng, cards, kind='object', player=me)
             context.bind_objects(plan, ctx, 'r41_tyrant_chosen', [cid])
             ctx['r41_tyrant_nonland'] = not plan.ch(plan.state.cards[cid]).is_land
             context.refs(ctx).pop('r41_tyrant_done', None)
@@ -223,7 +229,8 @@ def recipe(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield') and plan.in_game(c) and not plan.ch(c).is_land]
         assignments: dict[str, list[str]] = {pid: [] for pid in plan.live()}
         for cid in cards:
-            assignments[rng.choice(list(assignments))].append(cid)
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            assignments[randomness.choice(plan, rng, list(assignments), kind='player', player=me)].append(cid)
         for pid, chosen in assignments.items():
             context.bind_objects(plan, ctx, 'r41_scramble_' + pid, chosen)
             context.bind_players(ctx, 'r41_scramble_player_' + pid, [pid])

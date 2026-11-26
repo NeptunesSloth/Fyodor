@@ -323,3 +323,24 @@ def test_has_base_power_and_toughness_is_layer_7b_only(cards):
     assert now.pt == (2, 3) and "flying" in now.keywords and now.subtypes == frozenset({"Test"})  # 7b, then 7c counters
     assert [e.layer for e in s.state.rules.effects] == ["7b"]
     replay_matches(s)
+
+
+def test_a_pump_marker_names_the_spells_controller_in_the_log(cards):
+    """"Bob gave +3/+3 to …" for Bob's Giant Growth, though Alice's pass is what resolved it (the marker's log line named the
+    player whose pass resolved it: a bot's pump in combat read as the human's)."""
+    s = build(cards)
+    bear = token(s, "p2", "Bear", "2/2", "Flying")
+    growth = find(s.state, "Giant Growth", "p1")
+    act(s, "p1", type="move", card_ids=[growth.id], to={"zone": "hand", "player": "p2"})
+    mana(s, "p2", G=1)
+    for pid in ("p1", "p2"):  # (Bob stops to act in Alice's main phase; Alice stops to answer his spell)
+        act(s, pid, type="set_prefs", full_control=True)
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    act(s, "p2", type="cast_spell", card_id=growth.id, targets=[bear.id])
+    assert s.state.rules.priority == "p1" and s.state.zones["stack"]
+    act(s, "p1", type="pass_priority")  # (Alice's pass resolves Bob's spell)
+    assert not s.state.zones["stack"]
+    lines = ["".join(p.t or "" for p in e.parts) for e in s.state.log]
+    gave = [t for t in lines if " gave +3/+3" in t]
+    assert gave and all(t.startswith("Bob gave") for t in gave), gave

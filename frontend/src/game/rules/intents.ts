@@ -8,11 +8,13 @@
  */
 import { create } from "zustand";
 import { openMenu, type MenuItem } from "../../components/ContextMenu";
+import { toast } from "../../components/Toasts";
 import { perspective, useGame } from "../../state/gameStore";
 import { useCardCache } from "../../state/cardCache";
 import type { Action, GameView, ResponseMode } from "../../types/game";
 import { splitZone } from "../../types/game";
 import type { DropResult } from "../dnd";
+import { castableNow } from "./passStop";
 
 /** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
  * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
@@ -79,17 +81,28 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
     return true;
   }
   if ((to.zone === "battlefield" && to.player === me) || to.zone === "stack") {
+    // -- drag to cast -- dropped on my own battlefield: a permanent spell enters at the drop spot as it resolves (the server keeps it with
+    // the spell and uses it only if the permanent enters my battlefield), as a dragged land does; both tables' drops carry x, y
+    const spot = to.zone === "battlefield" && target.x != null && target.y != null ? { x: target.x, y: target.y } : {};
     // -- playtest fixes (nov 5) -- the server asks for optional additional costs the table offers (Silverquill's casualty, 601.2b)
     // -- playtest nov 6 -- a card with kicker asks first (a drag never offered it; only the right-click menu did): cast plain, or kicked
+    // -- round 5 (replicate) -- a card with replicate / squad / offspring, or given replicate (Djinn Illuminatus, Hugh), asks how many times
+    // to pay it first (601.2b): the count chooser, at 0 (a drag or a double-click never offered it; only the right-click menu did, for a grant),
+    // with the spell's own kicker as a row of the same chooser when it has both (Burst Lightning under Djinn Illuminatus)
+    // -- sweep B2 -- only for a card the hints let me cast now: otherwise the plain cast goes and the server's refusal says why (it's Bob's
+    // decision, not my priority, no mana …), not after the kicker was chosen
+    const now = castableNow(view, [card.id]).length > 0;
+    if (now && openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id, ask_optional: true, ...spot })) return true;
     const data = card.hidden || !card.card_id ? undefined : useCardCache.getState().cards[card.card_id];
     const kicker = kickerLine(data?.faces?.[card.hidden ? 0 : card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "");
-    if (kicker) {
-      const at = { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
-      openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true }) },
-        ...kickerItems(card.id, kicker)], `${data?.name ?? "Cast"}: kicker?`);
+    if (kicker && now) {
+      // -- second pass S1 -- the chooser opens where the card was clicked or dropped (`at`, as handDrop.ts's face chooser), else mid-screen
+      const at = target.at ?? { clientX: Math.round((globalThis.innerWidth ?? 800) / 2), clientY: Math.round((globalThis.innerHeight ?? 600) / 2) };
+      openMenu(at, [{ label: "Cast without kicker", onClick: () => void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot }) },
+        ...kickerItems(card.id, kicker, true, spot)], `${data?.name ?? "Cast"}: kicker?`);
       return true;
     }
-    void send({ type: "cast_spell", card_id: card.id, ask_optional: true });
+    void send({ type: "cast_spell", card_id: card.id, ask_optional: true, ...spot });
     return true;
   }
   return false;
@@ -105,12 +118,15 @@ export function manaAbilityIndex(cardId: string, view: GameView): number | null 
   // -- playtest fixes (nov 6) -- a granted mana ability (Cryptolith Rite, Enduring Vitality) works on a token with no card data too
   const granted = view.rules?.stats?.[cardId]?.abilities?.find((a) => a.kind === "mana" && /\{T\}/.test(a.text));
   const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
-  if (!data) return granted ? granted.index : null;
-  const face = data.faces?.[c.face ?? 0];
-  const lines = abilityLines(face?.oracle_text ?? data.oracle_text ?? "");
+  // -- sweep B (nov 18) -- a token made by an effect (a Treasure) has no card data, only its own text: read that ("{T}, Sacrifice this token:
+  // Add one mana of any color."), or a click on a highlighted Treasure while paying selected it instead of adding its mana
+  const tokenText = !data && "token" in c ? c.token?.text : undefined;
+  if (!data && !tokenText) return granted ? granted.index : null;
+  const face = data?.faces?.[c.face ?? 0];
+  const lines = abilityLines(face?.oracle_text ?? data?.oracle_text ?? tokenText ?? "");
   const i = lines.findIndex((l) => /^[^"]*\{T\}[^"]*: Add /.test(l));
   if (i >= 0) return i;
-  const typeLine = face?.type_line ?? data.type_line ?? "";
+  const typeLine = face?.type_line ?? data?.type_line ?? "";
   if (/\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "")) return lines.length;
   return granted ? granted.index : null;
 }
@@ -131,7 +147,8 @@ export function tapForMana(cardId: string, seat?: string): boolean {
     if (pay.convoke?.includes(cardId)) return payWith(cardId, "convoke");
     if (pay.improvise?.includes(cardId)) return payWith(cardId, "improvise");
   }
-  const index = manaAbilityIndex(cardId, view);
+  // (a source the payment prompt offers is tapped for mana even when this table can't tell which ability: the server reads it, tap_gesture.py)
+  const index = manaAbilityIndex(cardId, view) ?? (pay?.sources?.includes(cardId) ? 0 : null);
   if (index == null) return false;
   // -- playtest fixes (nov 5) -- the server reads which mana ability a tap means: a Forest under Chromatic Lantern has two (305.6 + the
   // granted one), so the player is asked which mana (backend app/rules/tap_gesture.py); `ability` is only this table's guess
@@ -163,7 +180,58 @@ export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): vo
   tapPlain(ids);
 }
 
+/** -- playtest (nov 17) -- a permanent's "{T}: …" abilities that aren't mana abilities, the way the server numbers them (printed lines,
+ * then granted ones): a double-click on it shouldn't just tap it and waste them. */
+export function tapAbilities(cardId: string, view: GameView): { index: number; text: string }[] {
+  const c = view.cards[cardId];
+  if (!c || c.hidden || c.face_down) return [];
+  const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
+  const text = data?.faces?.[c.face ?? 0]?.oracle_text ?? data?.oracle_text ?? (c.card_id ? "" : c.token?.text ?? "");
+  const tapCost = (line: string) => /^[^":]*\{T\}[^":]*:\s/.test(line) && !/: Add /.test(line);
+  const out = abilityLines(text).map((line, index) => ({ index, text: line })).filter((a) => tapCost(a.text));
+  for (const g of view.rules?.stats?.[cardId]?.abilities ?? []) if (g.kind === "activated" && tapCost(g.text)) out.push({ index: g.index, text: g.text });
+  return out;
+}
+
+/**
+ * -- playtest (nov 17) -- a double-click on a permanent of mine with rules automation on: a mana source taps for mana (as before); one with
+ * a "{T}: …" ability activates it (several: a chooser at the pointer) instead of a plain tap that would use the ability up for the turn.
+ * When none can be activated now it says why and leaves the card alone: T and the card menu's Tap still tap it by hand. Automation
+ * off, or a card without such an ability: the plain tap / untap, as before.
+ */
+export function doubleClickGesture(ids: string[], at: { clientX: number; clientY: number }, tapPlain: (ids: string[]) => void): void {
+  if (ids.length === 1 && tapForMana(ids[0]!)) return;
+  const { view, actingAs } = useGame.getState();
+  const id = ids[0];
+  const c = id ? view?.cards[id] : undefined;
+  if (ids.length !== 1 || !view || !c || !automationOn(view) || c.tapped || c.controller !== perspective(view, actingAs) || !c.zone.endsWith(":battlefield")) {
+    tapPlain(ids);
+    return;
+  }
+  const abilities = tapAbilities(c.id, view);
+  if (!abilities.length) {
+    tapPlain(ids);
+    return;
+  }
+  const name = "name" in c && c.name ? c.name : "This card";
+  const ready = abilities.filter((a) => view.rules?.hints.activatable?.some((h) => h.card_id === c.id && h.ability === a.index));
+  const activate = (a: { index: number }) => void send({ type: "activate_ability", card_id: c.id, ability: a.index });
+  if (ready.length === 1) activate(ready[0]!);
+  else if (ready.length > 1) openMenu(at, ready.map((a) => ({ label: `Activate: ${a.text}`, onClick: () => activate(a) })), name);
+  else toast(`${name}: its {T} ability can't be activated now. To tap it by hand, press T or use the card menu's Tap.`, "info");
+}
+
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });
+/**
+ * RESOLVE (the priority bar's big button, and P): with something on the stack, resolve the top object only. The server passes for you
+ * until the stack changes, so you get priority back after each resolution while anything is left on it (CR 117.3b, 608.2): a chain of
+ * triggers resolves one press at a time and every draw is seen. Once the stack is empty your usual stops decide (a lone spell: one
+ * press, then play goes on as before). With an empty stack it is a plain pass (the next step).
+ */
+// -- smart resolve -- the top object, and on through a run of your own triggered abilities under it (six landfall triggers: one press);
+// it stops for anything else on top, a decision or a card you drew that you could cast now (backend engine.own_run_over, resolveRun.ts)
+export const RESOLVE_UNTIL = "own_triggers";
+export const passOrResolve = (stackSize: number) => passPriority(stackSize > 0 ? RESOLVE_UNTIL : undefined);
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });
 /** Answer a "choose a card name" decision (CR 201.4): the typed Oracle name (the server checks it). */
@@ -203,8 +271,8 @@ const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
 /** -- playtest nov 6 -- the "Cast with Kicker {cost}" entries for a card with this kicker line (702.33): one cost, "{A} and/or {B}", or multikicker. */
-export function kickerItems(cardId: string, kicker: string, castable = true): MenuItem[] {
-  const cast = (times: number) => () => void send({ type: "cast_spell", card_id: cardId, kicker: times });
+export function kickerItems(cardId: string, kicker: string, castable = true, spot: { x?: number; y?: number } = {}): MenuItem[] {
+  const cast = (times: number) => () => void send({ type: "cast_spell", card_id: cardId, kicker: times, ...spot });
   const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
   if (two) {
     // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
@@ -215,9 +283,97 @@ export function kickerItems(cardId: string, kicker: string, castable = true): Me
     // 702.33c: any number of times. The server checks the total cost when it's paid.
     return [{ label: `Cast with ${kicker}`, disabled: !castable,
       submenu: [...MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })),
-        { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId }, field: "kicker" }) }] }];
+        { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: cardId, ...spot }, field: "kicker" }) }] }];
   }
   return [{ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) }];
+}
+
+/** -- round 5 (replicate) -- one count of an optional additional cost asked before a cast: the card's own replicate / squad (any number of
+ * times) or offspring (once), sent as cast_spell's `kicker`; or one replicate a permanent gives the spell (Hugh, Djinn Illuminatus: the
+ * hints' `replicate111r3`), sent at its `slot` of `replicate` (702.56b). `cost`: one payment ("{1}{U}", or the words of a cost that isn't mana).
+ * -- round 6 (cast choosers) -- `kicked`: a row from the spell's kicker line, shown beside a grant (the card menu's kicker entry opens the chooser
+ * then); `mask`: one of "Kicker {A} and/or {B}"'s two costs (702.33b), each paid at most once, OR-ed into `kicker` (1, 2; both: 3). */
+export interface CountRow { label: string; cost: string; field: "kicker" | "replicate"; slot?: number; once?: boolean; kicked?: boolean; mask?: number }
+
+/** The open count chooser (RulesHud's CountPrompt): the cast it completes, the card's name, its rows. */
+export const useCountPrompt = create<{ action: Action | null; title: string; rows: CountRow[] }>(() => ({ action: null, title: "", rows: [] }));
+
+/** 702.56a replicate, 702.157a squad: "[cost]" any number of times; 702.175a offspring: once. Mana costs, or "Replicate—Tap an untapped Dalek …". */
+const COUNTED = /^(replicate|squad|offspring) ((?:\{[^}]+\})+)$|^(replicate|squad)—(.+?)\.?$/i;
+
+/** The counts a cast of this card from my hand asks for (none: cast it as before). */
+export function countRows(cardId: string, view: GameView): CountRow[] {
+  const card = view.cards[cardId];
+  if (!card || card.hidden || !card.card_id) return [];
+  const data = useCardCache.getState().cards[card.card_id];
+  const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+  const rows: CountRow[] = [];
+  for (const line of abilityLines(oracle)) {
+    const m = COUNTED.exec(line);
+    if (!m) continue;
+    const word = (m[1] ?? m[3] ?? "").toLowerCase();
+    rows.push({ label: word[0]!.toUpperCase() + word.slice(1), cost: m[2] ?? m[4] ?? "", field: "kicker", once: word === "offspring" });
+    break; // (one such cost a card has: CastSpell.kicker is its count)
+  }
+  // -- round 6 (cast choosers) -- offspring a permanent gives the spell (Zinnia, Valley's Voice: the hints' `offspring110a`, "Offspring {2} (Zinnia, …)"),
+  // paid once as `kicker` (702.175a); the server lists it only for a spell without a kicker-like cost of its own
+  const offspring = view.rules?.hints.offspring110a?.[cardId];
+  if (offspring && !rows.some((r) => r.field === "kicker")) {
+    const from = /\(([^)]+)\)\s*$/.exec(offspring)?.[1];
+    rows.push({ label: from ? `Offspring (${from})` : "Offspring", cost: /\{[^(]*\}/.exec(offspring)?.[0] ?? "", field: "kicker", once: true });
+  }
+  const granted = view.rules?.hints.replicate111r3?.[cardId] ?? [];
+  granted.forEach((label, slot) => {
+    const cost = /\{[^(]*\}/.exec(label)?.[0] ?? "";
+    const from = /\(([^)]+)\)\s*$/.exec(label)?.[1];
+    rows.push({ label: from ? `Replicate (${from})` : "Replicate", cost, field: "replicate", slot });
+  });
+  // a spell given replicate that has its own kicker / multikicker: one chooser for both (601.2b: each announced; CastSpell.kicker and .replicate)
+  const line = granted.length && !rows.some((r) => r.field === "kicker") ? kickerLine(oracle) ?? "" : "";
+  const kick = /^(multi)?kicker ((?:\{[^}]+\})+)$/i.exec(line);
+  if (kick) rows.unshift({ label: kick[1] ? "Multikicker" : "Kicker", cost: kick[2]!, field: "kicker", once: !kick[1], kicked: true });
+  // -- round 6 (cast choosers) -- "Kicker {A} and/or {B}" (Temporal Firestorm under Djinn Illuminatus): a row per cost, each once (702.33b)
+  const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(line);
+  if (two) rows.unshift({ label: "Kicker", cost: two[1]!, field: "kicker", once: true, kicked: true, mask: 1 },
+    { label: "Kicker", cost: two[2]!, field: "kicker", once: true, kicked: true, mask: 2 });
+  return rows;
+}
+
+/** Open the count chooser for `action` (a cast of `cardId`) when the card has counts to choose; false when it has none. */
+export function openCountPrompt(cardId: string, view: GameView, action: Action): boolean {
+  const rows = countRows(cardId, view);
+  if (!rows.length) return false;
+  const card = view.cards[cardId];
+  const name = card && !card.hidden && card.card_id ? useCardCache.getState().cards[card.card_id]?.name ?? card.name : undefined;
+  useCountPrompt.setState({ action, title: name ?? "Cast", rows });
+  return true;
+}
+
+/** Send the chooser's cast with these counts (one per row; 0: not paid). A cast paying none keeps `ask_optional` (other optional costs are asked). */
+export function submitCounts(counts: number[]): void {
+  const { action, rows } = useCountPrompt.getState();
+  useCountPrompt.setState({ action: null, title: "", rows: [] });
+  if (!action) return;
+  const out: Action = { ...action };
+  const replicate: number[] = [];
+  rows.forEach((row, i) => {
+    const n = Math.max(0, Math.min(row.once ? 1 : 1000, Math.floor(counts[i] ?? 0)));
+    if (row.field === "kicker") {
+      if (n) out.kicker = row.mask ? (Number(out.kicker) || 0) | row.mask : n; // (702.33b: the two costs' mask)
+    } else replicate[row.slot ?? 0] = n;
+  });
+  if (replicate.some((n) => n)) out.replicate = Array.from(replicate, (n) => n ?? 0);
+  void send(out);
+}
+
+/** -- round 5 (replicate) -- a plain cast from a pile (the top of a library, an exile, the command zone): the count chooser first when the card has
+ * counts to choose (replicate, squad, offspring, a granted replicate), else sent as it is. */
+export function castOrCount(action: Action): Promise<boolean> {
+  const view = useGame.getState().view;
+  const id = action.card_id as string | undefined;
+  if (view && id && action.type === "cast_spell" && !action.free && action.alt_cost === undefined && !action.kicker && !action.replicate
+      && openCountPrompt(id, view, action)) return Promise.resolve(true);
+  return send(action);
 }
 
 /** The kicker line of a card's rules text, if it has one the table can offer (702.33, 702.42 entwine). */

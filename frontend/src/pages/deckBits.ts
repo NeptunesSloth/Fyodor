@@ -2,7 +2,7 @@
 import type { GlyphKind } from "../cards/proxy";
 import type { GameResult } from "../services/pod";
 import type { CardData } from "../types/cards";
-import type { DeckEntry, DeckWarning } from "../types/decks";
+import type { DeckEntry, DeckWarning, SavedRow } from "../types/decks";
 
 /** What the pod's recorded games say about one library deck. */
 export interface DeckRecord {
@@ -111,4 +111,26 @@ export function deckFolders(decks: { folder?: string }[], made: string[] = []): 
   for (const name of made) if (name) counts.set(name, 0);
   for (const d of decks) if (d.folder) counts.set(d.folder, (counts.get(d.folder) ?? 0) + 1);
   return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }));
+}
+
+const ROW_NAME: Record<SavedRow, string> = { land: "Land row", creature: "Creature row", other: "Back row" };
+const ROW_ORDER: SavedRow[] = ["land", "creature", "other"];
+
+/** -- saved rows -- the rows a deck learned at the table, grouped by row (lands first, as on the table), names sorted. */
+export function savedRows(rows: Record<string, SavedRow> | undefined): { row: SavedRow; label: string; names: string[] }[] {
+  const entries = Object.entries(rows ?? {});
+  return ROW_ORDER.map((row) => ({
+    row, label: ROW_NAME[row], names: entries.filter(([, r]) => r === row).map(([n]) => n).sort((a, b) => a.localeCompare(b)),
+  })).filter((g) => g.names.length > 0);
+}
+
+/** Printings whose own picture is on this computer first; release order otherwise (as the server sends them). */
+export function artFirst(printings: CardData[]): CardData[] {
+  const here = (p: CardData) => Number(p.own_image ?? p.has_image);
+  return printings.map((p, i) => [p, i] as const).sort(([a, i], [b, j]) => here(b) - here(a) || i - j).map(([p]) => p);
+}
+
+/** The printing picker's list: with "only with art" on, printings whose own picture is here, plus the chosen one wherever it is. */
+export function printingsShown(printings: CardData[], chosen: string | null | undefined, onlyArt: boolean): CardData[] {
+  return onlyArt ? printings.filter((p) => (p.own_image ?? p.has_image) || p.id === chosen) : printings;
 }

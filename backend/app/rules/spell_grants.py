@@ -129,7 +129,7 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     extra: list[Any] = []
     view = None
     for src, g in found:
-        if src.controller != card.controller or g["keyword"] in ch.keywords:
+        if (src.controller != card.controller and not g.get("all")) or g["keyword"] in ch.keywords:  # (wave E1: "all": Lake Silencio, every spell)
             continue
         if g.get("cast_tag"):  # (wave 45D) the payment record of the cast
             rec = state.rules.payments.get(state.rules.object_id(card.id)) if state.rules is not None else None

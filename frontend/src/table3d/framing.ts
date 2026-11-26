@@ -395,3 +395,25 @@ export function offMat(plate: { x: number; y: number; w: number; h: number }, ed
   const at = (px: number) => (Math.abs(x2 - x1) < 1e-6 ? (matAbove ? Math.max(y1, y2) : Math.min(y1, y2)) : y1 + ((y2 - y1) * (px - x1)) / (x2 - x1));
   return matAbove ? Math.max(plate.y, Math.max(at(lo), at(hi)) + plate.h / 2 + gap) : Math.min(plate.y, Math.min(at(lo), at(hi)) - plate.h / 2 - gap);
 }
+
+/**
+ * A DOM plate's middle height (screen px) so that it covers none of the thrown dice (`dice`: each die's middle and radius
+ * on screen): it steps on past each die it would cover, away from its mat (`matAbove` as for offMat), so it never steps
+ * back over the mat or its own cards. Where it covers none it stays where it is.
+ */
+export function offDice(plate: { x: number; y: number; w: number; h: number }, dice: { x: number; y: number; r: number }[], matAbove: boolean, gap = 4): number {
+  let y = plate.y;
+  const covers = (d: { x: number; y: number; r: number }) => {
+    // the nearest point of the plate to the die's middle, within its radius
+    const nx = Math.max(plate.x - plate.w / 2, Math.min(plate.x + plate.w / 2, d.x));
+    const ny = Math.max(y - plate.h / 2, Math.min(y + plate.h / 2, d.y));
+    return Math.hypot(nx - d.x, ny - d.y) < d.r;
+  };
+  // (stepping past one die can land on the next one out: a few passes, nearest first)
+  for (let pass = 0; pass < 4; pass++) {
+    const hit = dice.filter(covers);
+    if (!hit.length) break;
+    y = matAbove ? Math.max(...hit.map((d) => d.y + d.r + plate.h / 2 + gap)) : Math.min(...hit.map((d) => d.y - d.r - plate.h / 2 - gap));
+  }
+  return y;
+}

@@ -158,25 +158,26 @@ def other_untap_step(plan: Plan) -> None:
     active = plan.active
     live = plan.live()
     found: list[str] = []
-    for key, ids in list(plan.state.zones.items()):
-        if not key.endswith(":battlefield"):
-            continue
-        for cid in ids:
-            src = plan.state.cards[cid]
-            if src.controller == active or src.controller not in live or src.face_down or plan.manual(src):
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        for key, ids in list(plan.state.zones.items()):
+            if not key.endswith(":battlefield"):
                 continue
-            ch = plan.ch(src)
-            for d in scripts.definitions(ch).values():
-                if d.get("static") != STATIC:
+            for cid in ids:
+                src = plan.state.cards[cid]
+                if src.controller == active or src.controller not in live or src.face_down or plan.manual(src):
                     continue
-                if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
-                    continue
-                if d["sel"] == "self":
-                    found.append(src.id)
-                    continue
-                sel = selectors.from_key(d["sel"])
-                found += [c for c in selectors.candidates(plan, sel, src.controller, src.id)
-                          if plan.state.cards[c].controller == src.controller]
+                ch = plan.ch(src)
+                for d in scripts.definitions(ch).values():
+                    if d.get("static") != STATIC:
+                        continue
+                    if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
+                        continue
+                    if d["sel"] == "self":
+                        found.append(src.id)
+                        continue
+                    sel = selectors.from_key(d["sel"])
+                    found += [c for c in selectors.candidates(plan, sel, src.controller, src.id)
+                              if plan.state.cards[c].controller == src.controller]
     cards = [c for c in dict.fromkeys(found) if plan.state.cards[c].tapped and plan.state.cards[c].zone.endswith(":battlefield")]
     if not cards:
         return

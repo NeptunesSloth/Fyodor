@@ -22,6 +22,7 @@ from app.game.state import (
     LogPart,
     split_zone,
 )
+from app.game.ops import internal_choice
 from app.game.visibility import OMNISCIENT, SPECTATOR, can_see
 
 VIEW_VERSION = 2
@@ -70,8 +71,14 @@ def _copied(state: GameState, c: CardInstance, view: dict[str, Any]) -> None:
     named = next((e.name for e in reversed(recipe.excepts) if e.name), None)
     if recipe.printing:
         view["card_id"], view["face"] = recipe.printing, recipe.face
+        if view.get("token"):  # -- engine token art -- the copied printing pictures it: not the picture it had as itself
+            view["token"] = {**view["token"], "art_id": None, "art_face": 0}
     else:
-        view["token"] = {**(view.get("token") or {}), **(recipe.token or {})}
+        # -- engine token art -- the copied token's values and its picture (none: no picture), never the one this object had as itself; a
+        # printed card that copies a described token is shown as that token (its own printing would picture the card it was)
+        copied = recipe.token or {}
+        view["token"] = {**(view.get("token") or {}), **copied, "art_id": copied.get("art_id"), "art_face": int(copied.get("art_face") or 0)}
+        view["card_id"] = None
     view["name"] = named or recipe.source or c.name
     changes = []
     for e in recipe.excepts:
@@ -134,8 +141,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["stack_info"] = c.stack_info.model_dump()
         if c.exile_group and not view.get("hidden"):
             view["exile_group"] = c.exile_group
-        if c.choices and not view.get("hidden"):
-            view["choices"] = dict(c.choices)
+        if c.choices and not view.get("hidden") and (shown_choices := {k: v for k, v in c.choices.items() if not internal_choice(k)}):
+            view["choices"] = shown_choices  # (the rules engine's own bookkeeping isn't a mark on the card: ops.internal_choice)
     if c.test_object and not view.get("hidden"):
         view["test_object"] = True
     if c.stickers101 and c.zone.split(':')[-1] in ('battlefield', 'graveyard', 'exile', 'command', 'stack', 'phased'):
@@ -220,6 +227,34 @@ def bag_view(state: GameState, viewer: str) -> dict[str, Any]:
     }
 
 
+VISITED_SHOWN = 12  # -- planechase -- the latest planes visited a view lists
+
+
+def planechase_view(state: GameState) -> dict[str, Any] | None:
+    """-- planechase -- what every viewer sees of the planar deck (app/game/handlers/planechase.py): the face-up plane or phenomenon,
+    how many cards are in the deck, the planes visited (public: they went to the bottom face up) and the die. Never the order or
+    names of the cards below the face-up one, for anyone (the hot-seat open view included): nobody at the table knows them."""
+    pc = state.planechase
+    if pc is None or not pc.deck:
+        return None
+    from app.game.handlers.planechase import roll_cost
+
+    return {
+        "current": pc.deck[0].model_dump(),
+        # -- planechase deck (wave D) -- every face-up card (901.11c: Spatial Merging, Norn's Seedcore), ``current`` first; the cards an
+        # effect revealed from the planar deck and hasn't put back yet (public, 701.20) — never where they go
+        "faces": [c.model_dump() for c in pc.deck[:max(1, min(pc.face_count, len(pc.deck)))]],
+        "revealed": [c.model_dump() for c in pc.revealed],
+        "count": len(pc.deck),  # (the face-up cards included, as before)
+        "visited": [c.model_dump() for c in pc.visited[-VISITED_SHOWN:]],
+        "visited_count": len(pc.visited),
+        "walks": pc.walks,
+        "cost": roll_cost(state),
+        "rolls": pc.rolls if pc.roll_turn == state.turn.number else 0,
+        "last_roll": pc.last_roll.model_dump() if pc.last_roll else None,
+    }
+
+
 def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
     return [
         {
@@ -234,6 +269,7 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             **({"folded": True} if e.folded else {}),
             **({"roll": e.roll.model_dump(exclude={"cannon"} if e.roll.cannon is None else None)} if e.roll else {}),  # (a plain roll: as before)
             **({"dig": e.dig.model_dump()} if e.dig else {}),
+            **({"reveal": e.reveal.model_dump()} if e.reveal else {}),  # -- public reveals -- the cards themselves are the per-viewer ``parts``
             # -- table toys -- a draw from the draw bag: a hidden chit only for its drawer (and the hot-seat open view)
             **({"bag": {"player": e.bag.player, "hidden": e.bag.hidden, "left": e.bag.left,
                         "chit": e.bag.chit if not e.bag.hidden or viewer in (e.bag.player, OMNISCIENT) else None}} if e.bag else {}),
@@ -300,7 +336,7 @@ def build_view(
     for pid in state.seat_order:
         p = state.players[pid]
         own = viewer in (pid, OMNISCIENT)
-        exclude = set() if own else {"token_shortcuts", "deck_id"}
+        exclude = set() if own else {"token_shortcuts", "deck_id", "row_overrides"}  # (saved rows name the deck's cards)
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)
@@ -354,4 +390,5 @@ def build_view(
         "stack": list(state.zones.get(STACK, [])),
         "log": render_log(log[-log_limit:], viewer),
         "bag": bag_view(state, viewer),  # -- table toys -- how many chits, and the drawn ones this viewer may see
+        "planechase": planechase_view(state),  # -- planechase -- the face-up plane, never the deck's order
     }

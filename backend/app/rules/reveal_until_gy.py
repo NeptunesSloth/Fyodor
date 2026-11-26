@@ -40,7 +40,7 @@ def reveal_until_gy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         top = library if at is None else library[: at + 1]
         if not top:
             continue
-        plan.do({"type": "reveal_top", "player": pid, "count": len(top)}, actor=pid)
+        plan.do({"type": "reveal_top", "player": pid, "count": len(top), **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=pid)
         for start in range(0, len(top), 250):  # (a move names at most 250 cards)
             plan.do({"type": "move", "card_ids": top[start:start + 250], "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
     return True

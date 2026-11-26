@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useGame } from "../state/gameStore";
-import { freeSlot, hoverProps, placePreview, previewDock, previewKey, PREVIEW_RIGHT_GAP, PREVIEW_W } from "./hoverCard";
+import { freeSlot, hoverProps, placePreview, previewDock, previewKey, PREVIEW_RIGHT_GAP, PREVIEW_W, tallestSlot } from "./hoverCard";
 
 const el = () => ({ isConnected: true }) as unknown as HTMLElement;
 const enter = (props: ReturnType<typeof hoverProps>, target: HTMLElement) =>
@@ -52,6 +52,24 @@ describe("where the preview goes among the table's chrome (placePreview)", () =>
     expect(p.side).toBe("left");
     expect(p.top).toBeGreaterThanOrEqual(155); // under the opponent strip
     expect(p.left).toBeGreaterThanOrEqual(205); // beside my rail, not over my plate
+  });
+});
+
+describe("a crowded small window (playtest nov 17: the preview's rules text under the turn dial)", () => {
+  const box = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom });
+
+  it("the tallest free stretch of a column, however short", () => {
+    expect(tallestSlot(1000, 262, 96, 788, [box(980, 300, 1270, 340), box(980, 560, 1270, 788)])).toEqual({ top: 348, height: 204 });
+    expect(tallestSlot(1000, 262, 96, 788, [box(980, 0, 1270, 800)])).toBeNull();
+  });
+
+  it("with no room to its liking anywhere, it takes the stretch above the dial instead of the window's height behind it", () => {
+    // 1600x1000 at 125%: a 1280x800 page; the dial and its buttons from 330 down, a seat strip across the left
+    const dial = box(1000, 330, 1270, 788);
+    const strip = box(0, 60, 1000, 788);
+    const p = placePreview({ vw: 1280, vh: 800, w: 262, minH: 300, top: 96, naturalH: 520, card: box(500, 400, 600, 540), obstacles: [dial, strip] });
+    expect(p.side).toBe("right");
+    expect(p.top + p.maxH).toBeLessThanOrEqual(330);
   });
 });
 

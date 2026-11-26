@@ -9,6 +9,29 @@
 @import "@fontsource/cinzel/700.css";
 @import "@fontsource-variable/inter/index.css";
 
+/*
+ * Cinzel's figures are its capitals' cousins: its "1" is a bare stem, so "PLAYER 1" reads "PLAYER I" and seat chip 1 looks like a
+ * Roman numeral. Its digits (only its digits: unicode-range) come from a classical serif with lining figures and a flagged 1, declared
+ * under the same family name after Cinzel's own faces so they win for 0-9 wherever Cinzel is named (CSS, canvas plaques, dice,
+ * proxies). Offline: a serif already on the computer (Palatino on Windows and macOS), else the bundled Inter. The phase dial's
+ * Roman numerals are letters, so they stay Cinzel.
+ */
+@font-face {
+  font-family: "Cinzel"; font-style: normal; font-weight: 500; font-display: swap; unicode-range: U+0030-0039; size-adjust: 112%;
+  src: local("Palatino Linotype"), local("PalatinoLinotype-Roman"), local("Palatino"), local("Palatino-Roman"), local("Book Antiqua"), local("Cambria"),
+    local("Times New Roman"), url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cinzel"; font-style: normal; font-weight: 600; font-display: swap; unicode-range: U+0030-0039; size-adjust: 112%;
+  src: local("Palatino Linotype Bold"), local("PalatinoLinotype-Bold"), local("Palatino Bold"), local("Palatino-Bold"), local("Book Antiqua Bold"),
+    local("Cambria Bold"), local("Times New Roman Bold"), url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Cinzel"; font-style: normal; font-weight: 700; font-display: swap; unicode-range: U+0030-0039; size-adjust: 112%;
+  src: local("Palatino Linotype Bold"), local("PalatinoLinotype-Bold"), local("Palatino Bold"), local("Palatino-Bold"), local("Book Antiqua Bold"),
+    local("Cambria Bold"), local("Times New Roman Bold"), url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+}
+
 :root {
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-ui: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

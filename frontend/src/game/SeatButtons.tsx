@@ -6,8 +6,8 @@ import { isOut } from "./outOfGame";
 
 /**
  * Your seat's buttons on the 2D table, by your mat as on the Oops tables: Untap, Draw, Scry, Mill, Reveal, Mulligan and
- * the Bag of Extras, as brass medallions (game/seatIcons.ts). Click does one, right-click three, or hover one and type a
- * number. (The 3D table has the same medallions as physical buttons on the table: table3d/seatProps.ts.)
+ * the Bag of Extras, as round coloured chips (game/seatIcons.ts, game/seatChips.ts). Click does one, right-click three, or hover one and type a
+ * number. (The 3D table has the same chips as physical buttons on the table: table3d/seatProps.ts.)
  */
 export function SeatButtons() {
   const view = useGame((s) => s.view);

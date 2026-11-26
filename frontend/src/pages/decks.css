@@ -97,6 +97,16 @@
 .dk-group-head .tt-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-2); font: inherit; text-decoration: none; }
 .dk-group-head .tt-link:hover { color: var(--room-bone); }
 .dk-group-head .n { font: 400 13px/1 var(--font-body, inherit); color: var(--text-faint); }
+/* hide or show a folder's decks on the all-decks shelf (remembered on this device) */
+.dk-group-toggle {
+  align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0;
+  margin-right: -4px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--text-dim); cursor: pointer;
+}
+.dk-group-toggle:hover { color: var(--room-bone); border-color: var(--line); }
+.dk-group-toggle:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.dk-group.shut { margin-bottom: 10px; }
+.dk-grid[hidden] { display: none; }
+.dk-group.shut .dk-group-head { margin-bottom: 0; }
 .dk-deck[draggable="true"] { cursor: grab; }
 @media (prefers-reduced-motion: reduce) { .dk-folder, .dk-group { transition: none; } }
 
@@ -253,7 +263,11 @@ body.perf-low .dk-empty::before { display: none; }
   background: linear-gradient(180deg, #151618, #0c0d0f); border: 1px solid var(--line); border-radius: 6px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 16px -10px rgba(0, 0, 0, 0.9);
 }
-.de-add .search-box { flex: 1; min-width: 0; }
+.de-add { flex-wrap: wrap; }
+.de-add .search-box { flex: 1 1 200px; min-width: 0; }
+/* a quiet line under the search: "Added Lightning Bolt (2)" */
+.de-added { order: 9; flex: 1 1 100%; margin: -2px 0 0 4px; font-size: 12.5px; color: var(--text-dim); }
+.de-added:empty { display: none; }
 .de-page .de-add :is(input, select) { height: 36px; }
 .de-page .de-add select { flex: none; }
 .de-seg { display: inline-flex; flex: none; border: 1px solid var(--line-2); border-radius: var(--room-radius); overflow: hidden; }
@@ -286,6 +300,16 @@ body.perf-low .dk-empty::before { display: none; }
   font-size: 14px; break-inside: avoid;
 }
 .de-row:hover, .de-row:focus-within, .de-row.menu-open { background: rgba(255, 255, 255, 0.05); }
+/* -- added -- the row a search pick just added to: a brass wash that fades out (reduced motion: shown, then gone); clear of the sticky add bar */
+.de-row { scroll-margin: 84px 0 24px; }
+.de-row.added { animation: de-added 1600ms var(--ease-out, ease-out) both; }
+@keyframes de-added {
+  0%, 35% { background-color: color-mix(in srgb, var(--frame-hi) 24%, transparent); box-shadow: inset 2px 0 0 var(--frame-hi); }
+  100% { background-color: transparent; box-shadow: inset 2px 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .de-row.added { animation: none; background: color-mix(in srgb, var(--frame-hi) 24%, transparent); box-shadow: inset 2px 0 0 var(--frame-hi); }
+}
 .de-qty { display: inline-flex; align-items: center; flex: none; }
 .de-step {
   width: 20px; height: 22px; display: grid; place-items: center; padding: 0 0 1px; border: 1px solid var(--line-2); border-radius: 3px;
@@ -302,6 +326,12 @@ body.perf-low .dk-empty::before { display: none; }
   width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; cursor: help;
   font: 800 10.5px/1 var(--font-ui); color: #1a1208; background: var(--warn);
 }
+/* a card's own deck check on its row (the Checks panel's marks, smaller): off-colour, extra copies, banned */
+.de-cardcheck {
+  width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; cursor: help;
+  font: 800 10.5px/1 var(--font-ui); color: #1a1208; background: var(--warn);
+}
+.de-cardcheck.info { background: var(--line-2); color: var(--room-bone); font: italic 700 11px/1 Georgia, serif; }
 .de-cost { --pip: 18px; flex: none; gap: 2px; font-size: 14px; }
 .de-set {
   flex: none; min-width: 42px; height: 22px; padding: 0 5px; border: 1px solid transparent; border-radius: 3px; background: none;
@@ -345,6 +375,11 @@ body.perf-low .dk-empty::before { display: none; }
 .de-panel-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .de-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
 .de-dim { color: var(--text-dim); }
+/* -- saved rows -- the rows a deck learned at the table */
+.de-rows-list { margin: 8px 0 10px; font-size: 13px; line-height: 1.45; }
+.de-rows-list div { display: grid; grid-template-columns: 7.5em 1fr; gap: 8px; padding: 2px 0; }
+.de-rows-list dt { color: var(--text-dim); }
+.de-rows-list dd { margin: 0; color: var(--room-bone); overflow-wrap: anywhere; }
 .de-ok { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 8px; color: var(--ok); font-size: 13.5px; }
 .de-panel .tt-btn .icon { color: var(--frame-hi); }
 .de-checks:focus { outline: none; }
@@ -379,6 +414,16 @@ body.perf-low .dk-empty::before { display: none; }
 .de-progress > span { position: relative; display: block; text-align: center; font: 600 11.5px/20px var(--font-ui); color: var(--room-bone); text-shadow: 0 1px 2px #000, 0 0 4px #000; font-variant-numeric: tabular-nums; }
 .de-page .de-panel textarea { width: 100%; min-height: 96px; font: 13.5px/1.5 var(--font-ui); }
 .de-printings .grid-card { border-radius: 6px; }
+/* -- same-card art -- printings with their own picture here read first; the others show another printing's, dimmed */
+.de-printings-note { margin-bottom: 10px; }
+.de-printings-filter { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13.5px; }
+.de-printings-filter .de-n { margin-left: 4px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.de-printings .de-art-tag { margin-top: 1px; font-size: 10.5px; letter-spacing: 0.02em; }
+.de-printings .de-art-here .de-art-tag { color: var(--ok); }
+.de-printings .de-art-elsewhere .card-face { opacity: 0.55; filter: saturate(0.6); transition: opacity 0.12s, filter 0.12s; }
+.de-printings .de-art-elsewhere:hover .card-face,
+.de-printings .de-art-elsewhere:focus-visible .card-face,
+.de-printings .de-art-elsewhere.selected .card-face { opacity: 1; filter: none; }
 
 /* ---------------------------------------------------------------- the import dialog */
 .imp { display: flex; flex-direction: column; gap: 16px; }
@@ -544,3 +589,45 @@ body.perf-low .dk-empty::before { display: none; }
 .pc-name span { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc-when { flex: none; font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .pc-added { flex: none; min-width: 52px; text-align: center; font-size: 12.5px; color: var(--accent-2); }
+
+/* -- deck lab -- the editor's Stats dialog (DeckStats.tsx) */
+.ds-lab { display: flex; flex-direction: column; gap: 14px; }
+.ds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 14px; }
+.ds-box { padding: 12px 14px 14px; border-radius: 6px; background: var(--dk-placard); border: 1px solid var(--hud-edge); }
+.ds-box h3 {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 10px;
+  font: 600 14.5px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--accent-2);
+}
+.ds-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--room-bone, var(--text)); }
+.ds-table th, .ds-table td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+.ds-table thead th { font-weight: 500; font-size: 12px; color: var(--text-dim); }
+.ds-types { display: grid; gap: 4px; margin: 0; font-size: 13px; }
+.ds-types div { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 2px 0; }
+.ds-types dt { color: var(--room-bone, var(--text)); }
+.ds-types dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ds-lead { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--room-bone, var(--text)); }
+.ds-lead b { font-size: 18px; color: var(--accent-2); }
+.ds-hand-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ds-seed { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12.5px; color: var(--text-dim); }
+.ds-seed input { width: 90px; }
+.ds-hand { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ds-hand li { min-width: 0; font-size: 12px; color: var(--room-bone, var(--text)); }
+
+/* -- friends' decks -- (FriendDecks.tsx) */
+.dk-friends { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
+.dk-friends-body { display: flex; flex-direction: column; gap: 12px; }
+.dk-friends .dk-none { margin: 0; font-size: 13.5px; }
+.dk-friend-hosts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dk-friend-addr { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; font-size: 13px; color: var(--text-dim); }
+.dk-friend-addr input { width: 170px; }
+.dk-friend-list h3 { margin: 0 0 8px; font: 600 15px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
+.dk-friend-list ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.dk-friend-list li {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px;
+  background: var(--dk-placard); border: 1px solid var(--hud-edge);
+}
+.dk-friend-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dk-friend-name b { font-weight: 600; color: var(--room-bone, var(--text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-friend-name span { font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-friend-n { flex: none; font-size: 12.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.dk-shared { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-2); }

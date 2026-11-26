@@ -32,6 +32,8 @@ def active(plan: Plan, record: dict[str, Any]) -> bool:
         from app.rules import delayed
 
         return delayed._source_ok(plan, 'source_on_battlefield', record.get('source_card'), record.get('source'), record.get('controller'))
+    if record.get('until') == 'game':  # -- planechase deck (wave D) -- "prevent all damage … this game" (Mount Keralia's chaos ability)
+        return True
     turn = plan.state.turn.number
     if record.get('until') == 'next_turn':
         return not (record.get('until_player') == plan.active and turn > int(record.get('turn') or 0))

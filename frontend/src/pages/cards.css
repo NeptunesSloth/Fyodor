@@ -77,3 +77,10 @@ body.perf-low .card-browser .grid-card .card-face { box-shadow: none; }
   .card-browser .card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 12px; }
   .cb-help .cb-eg:nth-of-type(n + 4) { display: none; }
 }
+
+/* the card's rules automation, in the card detail */
+.cov-line p { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
+.cov-level { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--room-bone); }
+.cov-level i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.cov-line.full .cov-level i { background: var(--ok); }
+.cov-line.partial .cov-level i, .cov-line.review .cov-level i { background: var(--warn); }

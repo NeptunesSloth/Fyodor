@@ -52,7 +52,7 @@ export function KeepArtSetting() {
         {" "}Keep deck art for offline play: when you save a deck while online, its card art downloads in the background
       </label>
       {s.enabled && s.pending > 0 && (
-        <p className="hint">{s.pending === 1 ? "One deck waits" : `${s.pending} decks wait`} for this computer to be online to fetch its art.</p>
+        <p className="hint">{s.pending === 1 ? "One deck waits for this computer to be online to fetch its art." : `${s.pending} decks wait for this computer to be online to fetch their art.`}</p>
       )}
     </>
   );

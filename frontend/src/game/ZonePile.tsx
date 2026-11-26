@@ -4,11 +4,12 @@ import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber, askText } from "../components/Prompt";
 import { useCardView, useGame, useLibrary, useZoneIds } from "../state/gameStore";
-import { splitZone, type ZoneName } from "../types/game";
+import { isVisible, splitZone, type GameView, type ZoneName } from "../types/game";
+import { useCardCache } from "../state/cardCache";
 import { draw, moveCards, send } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
-import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
+import { castOrCount, dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
 import { castableIn } from "./exileCastables";
 import "./exile.css";
@@ -49,18 +50,32 @@ export function libraryTopActions(player: string, me: string): MenuItem[] {
     items.push({ label: `Play ${whose} as your land`, onClick: () => void sendIntent({ type: "play_land", card_id: topId }) });
   }
   if (hints.castable?.includes(topId)) {
-    items.push({ label: `Cast ${whose}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId }) });
+    items.push({ label: `Cast ${whose}`, onClick: () => void castOrCount({ type: "cast_spell", card_id: topId }) });
   }
   if (hints.chorus?.includes(topId)) {
     items.push({ label: `Cast ${whose} with Chorus of the Conclave…`, onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: topId }, field: "chorus" }) });
   }
   if (hints.free_castable?.includes(topId)) {
-    items.push({ label: `Cast ${whose} without paying its mana cost`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId, free: true }) });
+    items.push({ label: `Cast ${whose} ${citadelLike(view!, me) ? "by paying life equal to its mana value" : "without paying its mana cost"}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId, free: true, ask_optional: true }) });
+    // (-- round 6 -- ask_optional: kicker, replicate and other optional additional costs may still be paid, 118.9d: Bolas's Citadel, Temporal Aperture)
   }
   for (const a of hints.activatable?.filter((x) => x.card_id === topId) ?? []) {
     items.push({ label: "Plot the top card (special action)", onClick: () => void sendIntent({ type: "activate_ability", card_id: topId, ability: a.ability }) });
   }
   return items.length ? [...items, "separator"] : [];
+}
+
+/**
+ * -- playtest (nov 16) -- a permanent of mine that has spells cast from the top of my library paid for with life (Bolas's Citadel): the row
+ * said "without paying its mana cost" though the cast costs life. Read from the public battlefield's own oracle text.
+ */
+export function citadelLike(view: GameView, me: string): boolean {
+  const cache = useCardCache.getState().cards;
+  return ((view.zones[`${me}:battlefield`] as string[] | undefined) ?? []).some((id) => {
+    const c = view.cards[id];
+    const text = c && isVisible(c) && c.card_id ? cache[c.card_id]?.oracle_text ?? "" : "";
+    return /pay life equal to its mana value rather than pay its mana cost/i.test(text);
+  });
 }
 
 const REVEAL_TYPES = ["Creature", "Land", "Basic Land", "Artifact", "Enchantment", "Instant", "Sorcery", "Planeswalker"];
@@ -164,6 +179,7 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
   const beingSearched = searching ? Object.entries(searching).filter(([, z]) => z === key).map(([p]) => p) : [];
   const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- no "double-click to draw" for a player who left
   const count = lib?.count ?? 0;
+  const castable = useGame((s) => castableIn(s.view, key)); // -- playtest (nov 16) -- Bolas's Citadel: the top card is yours to cast
   return (
     <div
       className={`pile library ${over ? "drop-over" : ""}`}
@@ -189,6 +205,7 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
       <span className="pile-count">{count}</span>
       <span className="pile-label">Library</span>
       {beingSearched.length > 0 && <span className="pile-flag">searching</span>}
+      {castable > 0 && <span className="pile-castable" data-testid="pile-castable" title="You may cast or play the top card now (click for how)">castable</span>}
     </div>
   );
 }
@@ -221,7 +238,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
   const top = useCardView(topId ?? "");
   const over = useDrag((s) => s.drag?.overZone === key);
   const label = LABEL[zone] ?? zone;
-  const castable = useGame((s) => (zone === "exile" ? castableIn(s.view, key) : 0));
+  const castable = useGame((s) => castableIn(s.view, key)); // (an exile, and -- playtest nov 16 -- a graveyard's flashback or escape cards)
   const open = () => useGame.getState().openBrowser({ zone: key, title: label });
   return (
     <div
@@ -260,9 +277,19 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
   const players = useGame((s) => s.view?.players);
   const list = commanders ?? [];
   const others = ids.filter((id) => !list.some((c) => c.instance_id === id));
+  const label = LABEL.command!;
+  // the zone browser, as Library / Graveyard / Exile open theirs (clicking the commander itself still previews it)
+  const open = () => useGame.getState().openBrowser({ zone: key, title: label });
+  const onCard = (e: { target: EventTarget }) => (e.target as HTMLElement).closest(".command-card, .tax-btn") != null;
   return (
-    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}>
-      {ids.length === 0 && list.length === 0 && <span className="pile-label">Command</span>}
+    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}
+      title={`${label}: click to see everything in it`}
+      onClick={(e) => { if (!onCard(e)) open(); }}
+      onContextMenu={(e) => {
+        if (onCard(e)) return;
+        e.preventDefault();
+        openMenu(e, [{ label: `View command zone (${ids.length})`, onClick: open }], label);
+      }}>
       {list.map((c, i) => (
         <div key={c.key} className="command-slot">
           {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
@@ -275,6 +302,11 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
       {others.map((id) => (
         <CommandCard key={id} id={id} me={me} player={player} />
       ))}
+      <button type="button" className="pile-label command-label" data-testid={`command-browse-${player}`}
+        aria-label={`${label} zone: ${ids.length} ${ids.length === 1 ? "card" : "cards"}. Open it`}
+        onClick={(e) => { e.stopPropagation(); open(); }}>
+        {label}
+      </button>
     </div>
   );
 }

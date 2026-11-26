@@ -17,7 +17,7 @@ def test_rules_card_is_get_without_the_image_flag(cards):
     full = cards.get(sol["id"])
     rules = cards.rules_card(sol["id"])
     assert "has_image" in full and "has_image" not in rules
-    assert {k: v for k, v in full.items() if k != "has_image"} == rules
+    assert {k: v for k, v in full.items() if k not in ("has_image", "own_image", "art_from")} == rules
     assert cards.rules_card("no-such-printing") is None
 
 

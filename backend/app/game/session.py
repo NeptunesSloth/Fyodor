@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import ValidationError
 
 from app.cards.repository import CardRepository, RulesCards
-from app.game import engine, out_of_game, table_rights, undo_requests, undo_rights
+from app.game import autoseat, dummy, engine, out_of_game, table_rights, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -18,7 +21,7 @@ from app.game.ops import pname, text
 from app.game.resolve import CardInfo, NoCardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
-from app.rules import RulesRegistry, Suggestion
+from app.rules import RulesRegistry, Suggestion, progress, taught
 
 log = logging.getLogger(__name__)
 
@@ -30,16 +33,37 @@ CONTROLLED_MAY = (INTENT_TYPES - {"set_card_automation"}) | {"chat", "set_positi
                                                             "set_appearance", "set_table_playmat"}
 
 
+# -- sweep B2 -- the undo line in words a player says ("Alice undid: choose" read like a bug)
+_SAID = {"choose": "a choice", "pass_priority": "a pass", "cast_spell": "a cast", "activate_ability": "an activation", "play_land": "a land drop"}
+
+
 def describe(action: Action) -> str:
-    return action.type.replace("_", " ")
+    return _SAID.get(action.type, action.type.replace("_", " "))
+
+
+@dataclass
+class Prepared:
+    """An action ``GameSession.prepare`` worked out, for ``commit`` to apply: on exactly the table it was worked out on."""
+
+    actor: str
+    resolved: Action
+    was: Any
+    rng: Any
+    trusted: bool
+    host: bool
+    state: GameState
+    seq: int
 
 
 class GameSession:
     def __init__(self, state: GameState, *, cards: CardInfo | None = None, history: History | None = None,
                  history_limit: int = 500, rules: RulesRegistry | None = None) -> None:
         self.state = state
+        if history is None and state.taught is None:  # -- Teach Fyodor -- a new game keeps the taught library it started with
+            state.taught = taught.snapshot()
+        cards = taught.unwrap(cards)
         # the rules read card data through the repository's cache (no image checks): CardRepository.rules_card
-        self.cards = RulesCards(cards) if isinstance(cards, CardRepository) else cards
+        self.cards = taught.wrap(RulesCards(cards) if isinstance(cards, CardRepository) else cards, state.taught)
         self.rules = rules
         self.suggestions: list[Suggestion] = []
         self.history = history or History(state, limit=history_limit)
@@ -49,6 +73,28 @@ class GameSession:
         self.table_snapshots: list[dict[str, Any]] = []
         self.rules_failure: dict[str, Any] | None = None  # the last unexpected rules-engine failure
         self.undo_request: undo_requests.UndoRequest | None = None  # -- quick undo request -- waiting for the table (in memory)
+        self._answering = False  # -- target dummy -- the server is answering for the dummy (app/game/dummy.py)
+        self._dummy_gave_up: list[dict[str, Any]] | None = None  # the answers it last couldn't give (said once)
+        self._bot_acting = False  # -- test opponent -- the server is playing for an opponent (app/game/bot.py)
+        self.bot_memory: dict[str, Any] = {}  # -- test opponent -- what it tried this priority window (in memory: never replayed)
+
+    def begin_first_turn(self) -> None:
+        """-- first turn (S7) -- a new game with the rules on and no mulligans: 502.4, nobody gets priority in the first untap step, so
+        the engine goes on to the first step that gives priority (app/rules/engine.py compile_first_turn). Part of the game's starting
+        table: run before any action, the history starts from the table it leaves (undo can't take the game back into its untap step,
+        a replay starts where the game did). With mulligans the end of the pregame does the same (opening_hand.finish)."""
+        if self.history.actions:
+            return
+        import secrets
+
+        from app.game.handlers.rules import replay_steps
+        from app.rules.engine import compile_first_turn
+
+        steps = compile_first_turn(self.state, self.cards, secrets.SystemRandom())
+        if not steps:
+            return
+        replay_steps(self.state, steps)
+        self.history = History(self.state, limit=self.history.limit)
 
     # -- actions ---------------------------------------------------------------------
     def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
@@ -56,6 +102,14 @@ class GameSession:
 
         ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot). ``host``: the actor counts as the
         host for the table's card permissions (the host's seat at a LAN table, every seat at a hot-seat one; app/game/table_rights.py)."""
+        return self.commit(self.prepare(actor, payload, trusted=trusted, host=host))
+
+    def prepare(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False,
+                watcher: progress.Watcher | None = None) -> Prepared:
+        """The first half of ``perform``: the checks, and the action worked out (a rules intent compiled on a scratch copy). It only reads
+        the table, so it may run off the event loop while the table stays as it was (-- resolving progress -- the hub does that for rules
+        intents: app/multiplayer/hub.py ``perform``). ``watcher``: shown each object the engine resolves as it goes (app/rules/progress.py),
+        read only: the action worked out is the same without it. ``commit`` applies it."""
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
@@ -63,9 +117,14 @@ class GameSession:
             self._check_not_controlled(actor)
         if not trusted and (out := out_of_game.refusal(self.state, actor, action.type)) is not None:
             raise ActionError(out)  # -- out of the game -- 800.4a: a player who left no longer takes part
+        if not trusted and not self._answering and dummy.is_dummy(self.state, actor):
+            raise ActionError("The target dummy acts on its own")  # (a hot-seat table can act as any seat: not as this one)
+        if not trusted and not self._bot_acting and autoseat.is_bot(self.state, actor):
+            raise ActionError("That opponent plays on its own")  # -- test opponent -- (app/game/bot.py)
         was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
-            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
+            with progress.watching(watcher):
+                resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
         except ActionError:
             raise
         except Exception as exc:
@@ -82,8 +141,15 @@ class GameSession:
                 f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
                 "Resolve it manually with the table tools, pause automation, or export a rules scenario."
             ) from exc
+        return Prepared(actor=actor, resolved=resolved, was=was, rng=rng, trusted=trusted, host=host, state=self.state, seq=self.state.seq)
+
+    def commit(self, prepared: Prepared) -> Action:
+        """The second half of ``perform``: apply and record the action ``prepare`` worked out (on the table it was worked out on)."""
+        if prepared.state is not self.state or prepared.seq != self.state.seq:
+            raise ActionError("The table changed while that was worked out. Look again and retry.")
+        actor, resolved, trusted = prepared.actor, prepared.resolved, prepared.trusted
         if not trusted:  # -- table permissions -- on the resolved action: placeholders are real ids, a macro's steps filled in
-            table_rights.check(self.state, resolved, actor, host=host)
+            table_rights.check(self.state, resolved, actor, host=prepared.host)
         try:
             engine.apply(self.state, resolved)
         except ActionError:
@@ -93,12 +159,64 @@ class GameSession:
             log.exception("Unexpected error applying %s; restoring state", resolved.type)
             self.state = self.history.rebuild()
             raise
-        resolved.shown = undo_requests.classify(resolved, was, self.state, rng.used)  # -- quick undo request --
+        resolved.shown = undo_requests.classify(resolved, prepared.was, self.state, prepared.rng.used)  # -- quick undo request --
         self.history.record(resolved, self.state)
         self.suggestions = self.rules.after_action(self.state, resolved) if self.rules else []
         self.updated_at = time.time()
         self._drop_stale_request()
+        if not self._answering:
+            self._answer_for_dummy()
         return resolved
+
+    def _answer_for_dummy(self) -> None:
+        """-- target dummy -- answer for the dummy until nothing waits for it (app/game/dummy.py): recorded actions of its own, after
+        the action that put the question to it. A question it can't answer is left to the table (pause automation, or Reset dummy)."""
+        suggestions = self.suggestions  # (the player's own action's suggestions stay the ones shown)
+        self._answering = True
+        try:
+            for _ in range(dummy.MAX_ANSWERS):
+                todo = dummy.to_answer(self.state, self.cards)
+                if todo is None:
+                    self._dummy_gave_up = None
+                    return
+                pid, tries = todo
+                for payload in tries:
+                    try:
+                        self.perform(pid, payload, host=True)
+                        break
+                    except (ActionError, ValidationError):
+                        continue
+                    except Exception:  # noqa: BLE001 - the player's own action is already applied: never fail it for the dummy
+                        log.exception("The target dummy's answer failed: %s", payload.get("type"))
+                        continue
+                else:
+                    if tries != self._dummy_gave_up:  # (said once; tried again after each action: the table may have changed)
+                        self._notice(None, [pname(self.state, pid), text(" can't answer this by itself. Pause automation to go on by "
+                                                                             "hand, or use Reset dummy.")])
+                    self._dummy_gave_up = tries
+                    return
+            log.warning("The target dummy answered %d times in a row; stopping", dummy.MAX_ANSWERS)
+        finally:
+            self._answering = False
+            self.suggestions = suggestions
+
+    def perform_bot(self, actor: str, payload: dict[str, Any]) -> Action:
+        """-- test opponent -- one action the server plays for an opponent (app/game/bot.py): an ordinary recorded action of its own."""
+        self._bot_acting = True
+        try:
+            return self.perform(actor, payload, host=True)
+        finally:
+            self._bot_acting = False
+
+    def _glued(self, end: int) -> int:
+        """-- target dummy -- how many of the history's actions just before position ``end`` are the dummy's answers: they go with the
+        player's action they answered, so undo and redo take them back and put them back together with it. -- test opponent -- so do an
+        opponent's plays: they follow from the player's action before them (passing into its turn), and the server would play them again
+        at once after an undo of them alone."""
+        n = 0
+        while end - n > 1 and autoseat.non_human(self.state, self.history.actions[end - n - 1].actor):
+            n += 1
+        return n
 
     def _check_not_controlled(self, actor: str) -> None:
         if is_controlled(self.state, actor):
@@ -109,16 +227,54 @@ class GameSession:
         -- quick undo request -- ``others``: who would approve a request from ``actor`` (None at a hot-seat table): when there is
         someone to ask, an undo of something already seen asks them first. ``approved``: the table approved this undo (its label)."""
         self._check_not_controlled(actor)
+        glued = self._glued(self.history.cursor)  # -- target dummy -- its answers on top go back with the action they answered
         if approved is None:
             if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
                 raise ActionError(out)  # -- out of the game (gaps5) -- a player who left doesn't take the game's actions back (the host may)
-            undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
-            if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
-                raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
-        state, undone = self.history.undo()
+            self.history.cursor -= glued  # (the checks are about that action, not the dummy's answers)
+            try:
+                undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
+                if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
+                    raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
+            finally:
+                self.history.cursor += glued
+        if glued:
+            state, gone = self.history.undo_to(self.history.cursor - glued - 1)
+            undone = gone[0]
+        else:
+            state, undone = self.history.undo()
         self.state = state
         said = f" undid: {describe(undone)}" if approved is None else f" undid: {approved} (with the table's approval)"
         self._notice(actor, [pname(self.state, actor), text(said)])
+        self._drop_stale_request()
+        return undone
+
+    def undo_to(self, actor: str, position: int, *, host: bool = False, others: list[str] | None = None) -> list[Action]:
+        """-- undo back to here -- take back every action after history ``position`` at once (a whole combat, a whole turn), under
+        the same rules as undoing them one at a time: the table's undo setting must allow each of them, and when there is someone to
+        ask, none may have shown hidden information or a random result (those still go one at a time, through a request, or the
+        host's Restore from here)."""
+        self._check_not_controlled(actor)
+        if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+            raise ActionError(out)
+        while 0 <= position < self.history.cursor and autoseat.non_human(self.state, self.history.actions[position].actor):
+            position += 1  # -- target dummy -- its answers stay with the action they answered
+        if not 0 <= position < self.history.cursor:
+            raise ActionError("Nothing to undo back to there")
+        policy = self.state.settings.undo_policy
+        for i, a in enumerate(self.history.actions[position:self.history.cursor], start=position + 1):
+            if autoseat.non_human(self.state, a.actor):
+                continue  # (the dummy's answers and an opponent's plays go with the action they followed)
+            if policy == "host" and not host:
+                raise ActionError("Only the host may undo at this table (the host's undo setting).")
+            if policy == "own" and a.actor != actor:
+                raise ActionError(f"Players may only undo their own actions at this table: #{i} ({describe(a)}) was another player's.")
+            if others and (kind := undo_requests.shown(a)) is not None:
+                raise ActionError(f"{undo_requests.reason(kind)} (#{i}, {describe(a)}) Undo up to it one action at a time, or ask the host"
+                                  " to restore from there.")
+        state, undone = self.history.undo_to(position)
+        self.state = state
+        self._notice(actor, [pname(self.state, actor), text(f" undid {len(undone)} action{'s' if len(undone) != 1 else ''} back to #{position}")])
         self._drop_stale_request()
         return undone
 
@@ -128,6 +284,8 @@ class GameSession:
             raise ActionError(out)  # -- out of the game (gaps5) --
         undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
+        while self.history.can_redo and autoseat.non_human(state, self.history.actions[self.history.cursor].actor):
+            state, _ = self.history.redo(state)  # -- target dummy -- its answers come back with the action they answered
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])
         self._drop_stale_request()
@@ -152,28 +310,48 @@ class GameSession:
         self.updated_at = time.time()
 
     # -- views -----------------------------------------------------------------------
-    def view(self, viewer: str, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    @contextmanager
+    def reading(self) -> Iterator[None]:
+        """-- big boards (views) -- one read pass for several views of the table as it is now (a broadcast builds one per viewer): the
+        characteristics every view derives are worked out once, not once per viewer. What a pass keeps is the table's (a player's own
+        answers are kept under that player), and the block must not change the table."""
+        if self.state.rules is None or self.cards is None:
+            yield
+            return
+        from app.rules import read_pass
+
+        with read_pass.scope(self.state, self.cards):
+            yield
+
+    def view(self, viewer: str, *, meta: dict[str, Any] | None = None, state: GameState | None = None) -> dict[str, Any]:
+        """``viewer``'s view of the table. ``state``: of another table object instead (-- resolving progress -- an action's scratch table
+        while the engine is still carrying it out: the same builders, so the same hidden-information rules)."""
+        state = self.state if state is None else state
         info = {
             "can_undo": self.history.can_undo,
             "can_redo": self.history.can_redo,
             "suggestions": [{"module": x.module, "message": x.message, "level": x.level} for x in self.suggestions],
             **(meta or {}),
         }
-        view = build_view(self.state, viewer, extra_log=self.notices, meta=info)
-        pregame = self.state.pregame
+        view = build_view(state, viewer, extra_log=self.notices, meta=info)
+        pregame = state.pregame
         seat = pregame.seats.get(viewer) if pregame is not None and not pregame.finished else None
         if seat is not None and seat.status == "deciding" and view.get("pregame"):  # -- opening hand (wave 18C) -- 103.5b, own hand only
             from app.rules.opening_hand import powder_cards
 
-            if powder := powder_cards(self.state, viewer, self.cards or NoCardInfo()):
+            if powder := powder_cards(state, viewer, self.cards or NoCardInfo()):
                 view["pregame"]["mine"] = {"powder": powder}
-        if self.state.rules is not None:
+        if state.rules is not None:
             from app.rules.view import rules_view  # only needed for tables with rules automation
 
-            rules = rules_view(self.state, viewer, self.cards or NoCardInfo())
+            rules = rules_view(state, viewer, self.cards or NoCardInfo())
             if rules is not None:
                 if self.rules_failure is not None:  # public: what failed, not the error internals
                     rules["failure"] = {"intent": self.rules_failure["intent"]["type"], "at": self.rules_failure["at"]}
+                if viewer in state.players:  # -- mana readout -- what my untapped sources make now (the line by my hand)
+                    from app.rules.view import mana_ready
+
+                    rules["mana_ready"] = mana_ready(state, viewer, self.cards or NoCardInfo())
                 view["rules"] = rules
         return view
 

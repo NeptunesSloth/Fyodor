@@ -1403,9 +1403,10 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
 
     for card in state.cards.values():
         # -- trigger other (wave 25B) -- eminence: a static that names "in the command zone or on the battlefield" works from the command zone (113.6b)
-        eminent = card.zone.endswith(":command") and not designations.emblem_card(card)
+        plane = card.id.startswith("planar-") and card.zone.endswith(":command")  # -- planechase automation -- the face-up plane's statics (311.4, 113.6p)
+        eminent = card.zone.endswith(":command") and not designations.emblem_card(card) and not plane
         emblem = designations.emblem_card(card)
-        if not (card.zone.endswith(":battlefield") or eminent or emblem) or card.face_down or card.controller not in live \
+        if not (card.zone.endswith(":battlefield") or eminent or emblem or plane) or card.face_down or card.controller not in live \
                 or r.card_mode(card.id) == "manual":
             continue
         ch = derive(state, card, chars.of(card, info), info)
@@ -1415,6 +1416,11 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue
+                if plane:  # -- planechase automation -- only the kinds coverage claims for a plane (planar.ability_ok): the rest stay by hand
+                    from app.rules import planar
+
+                    if not planar.ability_ok(d):
+                        continue
                 out.append((card, index, d))
     return out
 
@@ -1434,6 +1440,8 @@ def _card_zone(state: GameState, player: str, card: CardInstance) -> str | None:
         return "hand"
     if card.zone.endswith(":exile") and card.owner == player:
         return "exile"
+    if card.zone == zone_key(player, "foretell"):  # -- planechase more 3 (wave F2) -- a foretold card (exiled face down, 702.143a): Singing Towers' permission
+        return "foretell"
     if card.zone == zone_key(player, "library"):
         library = state.zones.get(card.zone) or []
         return "library_top" if library and library[0] == card.id else None
@@ -1584,6 +1592,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
         if d.get('zone_owner') == 'any' and d['zone'] == 'graveyard' and card.zone.endswith(':graveyard'):
             permission_where = 'graveyard'
+        if d.get('any_library_f1') and card.zone.endswith(':library') and (state.zones.get(card.zone) or [''])[0] == card.id:
+            permission_where = 'library_top'  # -- planechase more 2 (wave F1) -- Windriddle Palaces: the top card of any player's library
         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
             continue
         if d.get('foreign') and card.owner == player:
@@ -1916,6 +1926,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     from app.rules import caster_turn_costs63
 
     mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
+    from app.rules import (
+        planar_events,  # -- planechase events (wave E2) -- The Dining Car's "cost {2} less … this turn"
+    )
+
+    mods += planar_events.ability_modifiers(state, player)
     from app.rules import selected_keyword_costs65
 
     mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
@@ -2265,6 +2280,13 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             from app.rules import wave111b_cards
 
             pid = wave111b_cards.caster(plan, ctx)
+        if str(e["caster"]).startswith("ref:"):  # -- Mystery Booster Commander (wave MBC-C) -- Itazura: "they may cast": the player a binding names
+            from app.rules.effects import _players
+
+            found = _players(plan, ctx, str(e["caster"]))
+            if not found:
+                return _free_cast_over(ctx, e)  # (nobody to cast)
+            pid = str(found[0])
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)

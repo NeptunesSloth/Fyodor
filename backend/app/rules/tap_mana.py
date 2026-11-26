@@ -156,6 +156,15 @@ def _scan_triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str
                         out.append((c.controller, {**d, "extra": [[color]], "only": color}, c.id))
                 elif d.get("trigger") == "tap_for_mana":
                     out.append((c.controller, d, c.id))
+    from app.game.handlers import planechase  # -- planechase deck (wave D) -- each face-up plane's (901.11c)
+    from app.rules import planar_statics
+
+    pc = state.planechase
+    for plane in [state.cards[i] for i in (planechase.all_face_ids(pc) if pc is not None else []) if i in state.cards]:
+        if not planar_statics.functions(state, plane):  # (wave A: planar_statics.py) the face-up plane's (311.4: Eloren Wilds), in no zone list
+            continue
+        out += [(plane.controller, d, plane.id) for d in scripts.definitions(chars.of(plane, info)).values()
+                if d.get("trigger") == "tap_for_mana" and not d.get("chosen") and planar_statics.read(d)]
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
         out += [(str(x["controller"]), {**x["def"], 'effect_source_object': x.get('source_object')}, x.get('source_card'))
                 for x in r.tap_mana if x.get("turn") == state.turn.number and x["def"].get("trigger")]  # (wave 49A: the replacements go to mana_replace)
@@ -170,6 +179,10 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
         return False
     if d.get("monarch") and state.table.monarch != owner:
         return False
+    if (need := d.get("self_counters_mbc")) is not None:  # -- Mystery Booster Commander (wave MBC-B) -- Rikala: "if there are three or more tide counters on ~" (603.4)
+        held = state.cards.get(source or "")
+        if held is None or held.counters.get(need[0], 0) < int(need[1]):
+            return False
     plan = Plan.view(state, owner, info)
     return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner, source)
 

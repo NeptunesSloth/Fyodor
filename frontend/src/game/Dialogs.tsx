@@ -1,3 +1,4 @@
+import { showFirstGameGuide } from "./FirstGameGuide";
 import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { DicePanel } from "./DicePanel";
@@ -10,7 +11,7 @@ import { SpawnDialog } from "./SpawnDialog";
 import { TokenMathDialog } from "./TokenMathDialog";
 import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
-import { HOTKEYS, keyCap } from "./hotkeys";
+import { HOTKEYS, hotkeyLabel, keyCap } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
 import { CardDetails } from "../cards/CardDetails";
 import { CardFace } from "../cards/CardFace";
@@ -277,7 +278,8 @@ const SHORTCUTS: [string, string][] = [
   ["Right-click", "All actions for a card, pile or player"],
   ["Drag", "Move cards between zones; drag empty table to box-select"],
   ["Shift / Ctrl + click", "Add to selection"],
-  ["Alt + drop", "Place by hand, without the rules engine"],
+  ["Drag from hand", "With automation on: drop on the table to play the land or cast the spell (the label over the dragged card says which)"],
+  ["Alt + drop", "Place by hand, without the rules engine (a card from your hand just moves)"],
   ["Right-drag", "3D table: turn the view around the table, and tilt it (a right-click that doesn't move still opens the menu)"],
   ["Middle-drag", "3D table: move the view across the table"],
   ["Wheel", "3D table: zoom toward the pointer (over a life heart: change life)"],
@@ -308,7 +310,8 @@ const TABLE_LEGEND: [string, string][] = [
 function HelpDialog({ onClose, initial }: { onClose: () => void; initial: string }) {
   const [q, setQ] = useState(initial);
   const match = ([k, v]: [string, string]) => !q.trim() || `${k} ${v}`.toLowerCase().includes(q.trim().toLowerCase());
-  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].filter(match);
+  const automated = useGame((s) => !!s.view?.rules);
+  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), hotkeyLabel(h, automated)])].filter(match);
   const how = HOW_TO.filter(match);
   const legend = TABLE_LEGEND.filter(match);
   return (
@@ -335,6 +338,8 @@ function HelpDialog({ onClose, initial }: { onClose: () => void; initial: string
       )}
       {!how.length && !legend.length && !keys.length && <p className="hint">Nothing matches “{q}”. Try a game word like attack, mana, stack or undo.</p>}
       <p className="hint">With automation on, the rules engine decides what's legal; with it off, you decide, as at a real table. Everything is logged and can be undone.</p>
+      {/* -- first-game guide -- offered once on a first Sandbox game; this brings it back */}
+      <button className="tt-btn ghost" data-testid="help-first-game-guide" onClick={() => { showFirstGameGuide(); onClose(); }}>Show the first-game guide (Sandbox)</button>
     </Modal>
   );
 }

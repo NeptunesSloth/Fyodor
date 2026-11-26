@@ -10,8 +10,11 @@ import json
 import os
 import re
 import threading
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
+
+from app.cards.art_roots import ArtRoot
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 IMAGE_SIZES = ("small", "normal", "large", "art_crop")
@@ -32,17 +35,35 @@ SYMBOL_CODE_RE = re.compile(r"^[A-Z0-9]{1,16}$")
 SYMBOL_INDEX = "symbology.json"
 
 
+def media_type(path: Path) -> str:
+    """A picture's type from its first bytes (an art folder may hold PNG or WebP); JPEG, the cache's, otherwise."""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(12)
+    except OSError:
+        return "image/jpeg"
+    if head[1:4] == b"PNG" and head[:1] == bytes((0x89,)):
+        return "image/png"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
+
+
 class InvalidImageRequest(ValueError):
     pass
 
 
 class ImageStore:
-    def __init__(self, root: Path, bundled: Path | None = None) -> None:
+    def __init__(self, root: Path, bundled: Path | None = None, roots: Sequence[ArtRoot] = ()) -> None:
         self.root = root
-        # -- offline token art -- read-only images the Windows installer carries (seed/images, same layout): found when the cache
-        # has none, never written to (docs/OFFLINE.md)
-        self.bundled = bundled
-        self._symbols: tuple[int, dict[str, dict[str, str]]] | None = None  # the symbol list, by its file's mtime
+        # -- art folders -- read-only folders of pictures searched after the cache, in order, never written to (docs/OFFLINE.md):
+        # the installer's seed/images (-- offline token art --), folders found beside Fyodor's data, and the ones the host added
+        self.roots: tuple[ArtRoot, ...] = (*((ArtRoot(bundled, "bundled", "fyodor"),) if bundled is not None else ()), *roots)
+        self._symbols: tuple[tuple[str, int], dict[str, dict[str, str]]] | None = None  # the symbol list, by its file and mtime
+
+    @property
+    def bundled(self) -> Path | None:
+        return next((r.base for r in self.roots if r.source == "bundled"), None)
 
     def path_for(self, card_id: str, *, face: int = 0, size: str = DEFAULT_SIZE, is_token: bool = False) -> Path:
         if not UUID_RE.match(card_id):
@@ -62,25 +83,34 @@ class ImageStore:
                 path = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token)
                 if path.is_file():
                     return path
-        if self.bundled is not None:
-            for candidate_size in sizes:
-                for is_token in (True, False):
-                    rel = self.path_for(card_id, face=face, size=candidate_size, is_token=is_token).relative_to(self.root)
-                    path = self.bundled / rel
-                    if path.is_file():
-                        return path
+        for art_root in self.roots:
+            found = art_root.find(card_id, face=face, sizes=sizes)
+            if found is not None:
+                return found
         return None
 
     def card_back_path(self) -> Path:
         return self.root / "backs" / f"{CARD_BACK_ID}-normal.jpg"
 
     def card_back(self) -> Path | None:
-        path = self.card_back_path()
-        return path if path.is_file() else None
+        """The cached card back, else one an art folder carries (a portable build's seed/images: offline from the start)."""
+        rel = self.card_back_path().relative_to(self.root)
+        for base in (self.root, *(r.base for r in self.roots if r.layout == "fyodor")):
+            if (base / rel).is_file():
+                return base / rel
+        return None
 
     # -- mana symbols --------------------------------------------------------------------
     def symbols_dir(self) -> Path:
         return self.root / "symbols"
+
+    def _symbols_read_dir(self) -> Path:
+        """Where symbols are read from: the cache once it has them, else the first art folder that carries a set
+        (a portable build's seed/images/symbols), so an offline computer draws the real symbols from the start."""
+        for base in (self.root, *(r.base for r in self.roots if r.layout == "fyodor")):
+            if (base / "symbols" / SYMBOL_INDEX).is_file():
+                return base / "symbols"
+        return self.symbols_dir()
 
     def symbol_path(self, code: str) -> Path:
         if not SYMBOL_CODE_RE.match(code):
@@ -89,9 +119,9 @@ class ImageStore:
 
     def symbol_index(self) -> dict[str, dict[str, str]]:
         """The cached symbols: their text without braces ("W/U") -> ``{"svg": "WU", "english": …}``. Empty until fetched."""
-        path = self.symbols_dir() / SYMBOL_INDEX
+        path = self._symbols_read_dir() / SYMBOL_INDEX
         try:
-            stamp = path.stat().st_mtime_ns
+            stamp = (str(path), path.stat().st_mtime_ns)
         except OSError:
             return {}
         if self._symbols and self._symbols[0] == stamp:
@@ -120,7 +150,7 @@ class ImageStore:
         known = {entry["svg"] for entry in self.symbol_index().values()}
         if code not in known or not SYMBOL_CODE_RE.match(code):
             return None
-        path = self.symbol_path(code)
+        path = self._symbols_read_dir() / self.symbol_path(code).name
         return path if path.is_file() else None
 
     def has(self, card_id: str, face: int = 0) -> bool:

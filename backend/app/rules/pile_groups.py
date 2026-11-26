@@ -454,7 +454,8 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             st["g"] += 1
             continue
         if e["pick"] == "random":  # every pile equally likely, an empty one too
-            grp["pick"] = (plan.rng or secrets.SystemRandom()).choice(range(n))
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            grp["pick"] = randomness.choice(plan, plan.rng or secrets.SystemRandom(), range(n), kind="other", player=ctx["controller"])
             plan.note(f"{plan.name(grp['owner'])}'s pile {grp['pick'] + 1} is chosen at random: {_say(plan, grp['piles'][grp['pick']])}",
                       grp["piles"][grp["pick"]] if _public(plan, grp["piles"][grp["pick"]]) else [])
             st["g"] += 1

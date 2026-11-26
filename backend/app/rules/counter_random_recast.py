@@ -40,7 +40,8 @@ def prepare(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True
     pid = entry.controller if entry is not None else card.controller
     names = card_names.reference_names(plan.ch(card))  # (Spy Kit, wave 110J: a rule-named spell also carries the ANY_CREATURE sentinel)
-    n = (plan.rng or secrets.SystemRandom()).randint(1, 3)
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    n = randomness.randint(plan, plan.rng or secrets.SystemRandom(), 1, 3, kind='number', player=ctx['controller'])
     ctx[_KEY] = {'player': pid, 'names': names, 'exiled': []}
     context.bind_players(ctx, _KEY, [pid])
     effects.counter_object(plan, spell, ctx['controller'], by=ctx['controller'])

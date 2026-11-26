@@ -1,9 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import os
+import sys
 from pathlib import Path
 
 import pytest
+
+# Windows: the locale code page (cp1252) is the default text encoding, and game states hold characters like "→" and "—". The
+# app always names an encoding; many tests write/read saved states with bare ``Path.write_text``/``read_text`` and hand them to a
+# fresh ``sys.executable`` process. Make both this process's bare Path text I/O and every child process speak UTF-8, as they do
+# on Linux/macOS (and here under PYTHONUTF8=1), so the tests check the same thing on every platform.
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+if not sys.flags.utf8_mode:
+    _read_text, _write_text = Path.read_text, Path.write_text
+
+    def _utf8_read_text(self, encoding=None, errors=None, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return _read_text(self, encoding or "utf-8", errors, *args, **kwargs)
+
+    def _utf8_write_text(self, data, encoding=None, errors=None, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return _write_text(self, data, encoding or "utf-8", errors, *args, **kwargs)
+
+    Path.read_text = _utf8_read_text  # type: ignore[method-assign]
+    Path.write_text = _utf8_write_text  # type: ignore[method-assign]
 from fastapi.testclient import TestClient
 
 from app.cards.images import ImageStore
@@ -36,6 +56,13 @@ def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.cards.linked.DOWNLOADS", False)
     # -- token pictures -- fetched when a client first asks for one (app/cards/token_art.py): likewise
     monkeypatch.setattr("app.cards.token_art.DOWNLOADS", False)
+
+
+@pytest.fixture(autouse=True)
+def _no_home_art_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # -- art folders -- the server reads %USERPROFILE%\Fyodor\images and the like when they exist (app/cards/art_folders.py):
+    # never this computer's own in the tests, so what a test sees doesn't depend on whose machine it runs on
+    monkeypatch.setattr("app.cards.art_folders.home_dir", lambda: tmp_path / "home")
 
 
 @pytest.fixture()

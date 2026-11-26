@@ -58,6 +58,9 @@ export interface TokenDef {
   colors: string[];
   type_line: string;
   text: string;
+  /** -- engine token art -- a described token (no `card_id`): the token printing that pictures it (picture only), and its face. */
+  art_id?: string | null;
+  art_face?: number;
 }
 
 export interface AttackTarget {
@@ -189,6 +192,14 @@ export interface PlayerView {
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
   left?: boolean;
+  /** -- target dummy -- Sandbox's practice opponent: no deck, never takes a turn, the server answers for it. */
+  dummy?: boolean;
+  /** -- target dummy -- how it blocks with automation on (the host sets it: Solo tools, Dummy blocks). */
+  dummy_blocks?: DummyBlocks;
+  /** -- test opponent -- a seat with a deck that the server plays for (Sandbox: Add an opponent); its policy. */
+  bot?: "simple" | null;
+  /** -- bot levels -- how well it plays (the host sets it: the Play page, the table's top bar); none: Intermediate. */
+  bot_level?: BotLevel;
   sleeve?: string | null;
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
@@ -223,6 +234,8 @@ export interface LogEntryView {
   roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[]; cannon?: CannonLog | null }; // ignored: indexes the rules ignored (Barbarian Class)
   /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
   dig?: DigLog;
+  /** -- public reveals -- cards this line turned face up for the table (701.20a); the cards are the ones its parts name to this viewer. */
+  reveal?: { player: string; source: string | null; until: boolean; found: boolean };
   /** -- table toys -- a chit drawn from the draw bag: `chit` is null for a hidden draw unless this viewer drew it. */
   bag?: BagLogView;
 }
@@ -232,6 +245,26 @@ export interface CannonLog { mode: "volley" | "first"; players: string[]; rounds
 export interface BagLogView { player: string; hidden: boolean; left: number; chit: string | null }
 /** -- table toys -- the draw bag as this viewer sees it: how many chits inside (never which), the latest drawn ones. */
 export interface DrawBagView { count: number; drawn: { player: string; chit: string | null; shown: boolean }[]; drawn_count: number }
+
+/** -- planechase -- a plane or phenomenon of the planar deck (its art and text come from the card cache, by printing). */
+export interface PlanarCardView { printing_id: string; name: string; phenomenon: boolean }
+export type PlanarFace = "planeswalker" | "chaos" | "blank";
+/** -- planechase -- the shared planar deck as every viewer sees it: the face-up card, never the order of the rest
+ * (server: app/game/views.py planechase_view). `cost`: generic mana the active player's next roll costs this turn. */
+export interface PlanechaseView {
+  current: PlanarCardView;
+  count: number;
+  visited: PlanarCardView[];
+  visited_count: number;
+  walks: number;
+  cost: number;
+  rolls: number;
+  last_roll: { player: string; face: PlanarFace; cost: number; seq: number } | null;
+  /** -- planechase deck (wave D) -- every face-up card, `current` first (CR 901.11c: Spatial Merging, Norn's Seedcore); absent from older servers. */
+  faces?: PlanarCardView[];
+  /** Cards an effect revealed from the planar deck and hasn't put back yet (public); never where they go. */
+  revealed?: PlanarCardView[];
+}
 
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
@@ -264,6 +297,10 @@ export interface GameMeta {
     undo_policy?: UndoPolicy;
     /** Who may change a player's cards (the host's setting; the server enforces it, see game/cardPermissions.ts). */
     card_permissions?: CardPermissions;
+    /** -- planechase -- the table plays with a shared planar deck (absent from an older server: off). */
+    planechase?: boolean;
+    planar_deck_size?: number;
+    planar_phenomena?: boolean;
   };
   /** The history has an action to undo / redo (whether this viewer may: game/undoPolicy.ts). */
   can_undo: boolean;
@@ -275,6 +312,8 @@ export interface GameMeta {
   redo_by?: string | null;
   /** -- quick undo request -- why this viewer's undo would ask the table first (null: it undoes directly, or can't). */
   undo_ask?: string | null;
+  /** -- clearer undo -- what Undo takes back, in words ("cast Lightning Bolt"; a card only when everyone can see it). */
+  undo_label?: string | null;
   /** The undo request waiting for the table, if any (public: who asks, what, and who still has to answer). */
   undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
@@ -292,6 +331,8 @@ export interface GameMeta {
   night?: NightInfo;
   /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
   events?: MajorEvent[];
+  /** -- test opponent -- at a table with one: how fast the server plays its actions, and whether one is waiting (Step plays it). */
+  bot?: { speed: BotSpeed; waiting: boolean; stuck?: boolean };
   /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
   practice?: PracticeInfo;
   /** Spectators' fake-point predictions, revealed once the game has a result (docs/SPECTATOR_ACTIVITIES_MILESTONE.md). */
@@ -372,6 +413,8 @@ export interface NightInfo {
   }[];
   /** The host's table-wide switch for spectators' reactions (absent: on). */
   reactions?: boolean;
+  /** -- restart rematch -- names of the seats whose decks this table doesn't know: a same-decks rematch can't start (absent: none). */
+  rematch_missing?: string[];
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
@@ -433,6 +476,8 @@ export interface GameView {
   arrows?: TableArrow[];
   /** -- table toys -- the table's draw bag (older servers: absent). */
   bag?: DrawBagView;
+  /** -- planechase -- the planar deck (null or absent: the table isn't planechasing). */
+  planechase?: PlanechaseView | null;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];
@@ -482,6 +527,8 @@ export interface RulesPrefs {
   mana_sources: Record<string, "prefer" | "save">;
   auto_resolve_own_triggers: "off" | "safe" | "on";
   auto_order_identical_triggers: boolean;
+  /** "Always use this order for these cards (this game)": each a set of triggered abilities' keys ("Name:index"), first on the stack first. */
+  trigger_orders?: string[][];
   auto_target?: boolean;
   ask_graveyard_order: boolean;
   hold_priority: boolean;
@@ -504,26 +551,34 @@ export interface RulesHints {
   x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
   chorus?: string[]; // castable creature cards whose cast may set `chorus` (Chorus of the Conclave, 601.2b, wave 110C)
   replicate111r3?: Record<string, string[]>; // castable card → one label per replicate a permanent gives it (Hugh), in CastSpell.replicate's order (702.56b, wave 111R3)
+  offspring110a?: Record<string, string>; // castable card → the offspring a permanent gives it as it is cast (Zinnia: "Offspring {2} (Zinnia, Valley's Voice)"), paid as CastSpell.kicker 1 (702.175a, round 6)
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   summoning_sick?: string[]; // your untapped permanents that can't use {T} abilities yet (302.6)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
   cost_now?: Record<string, string>; // castable card → what it costs to cast now, when that differs from its mana cost (601.2f)
+  mana_now?: number; // -- sweep B2 -- about how much mana my untapped sources make (Cabal Coffers: its Swamps less {2}); sent with x_cast etc.
   exiled_with?: Record<string, string>; // exile markers: castable/playable exiled card → the name of the card that exiled it (607.2a)
   channel?: string; // -- wave 110I -- Channel: the player-level mana ability's ActivateAbility.card_id ("player:channel110i"), while you have it (605.3a)
 }
 
 export interface RulesView {
   automation: AutomationLevel;
+  /** -- mana readout -- my untapped sources now (my own view only): about how much mana, and a symbol per mana ("G", "G/W", "any"). */
+  mana_ready?: { count: number; symbols: string[] };
   preset: "sandbox" | "assisted" | "full" | "custom";
   options: Record<string, boolean | string>;
   status: { auto: string; resp: string | null };
   paused: boolean;
   priority: string | null;
   passed: string[];
+  /** -- I have a response -- who called "wait, I have a response!" and hasn't had priority since (public; absent while nobody has). */
+  responding?: string[];
   attacking_bands?: string[][]; // Public card IDs; bands last until their members leave combat.
   conceded: string[];
   lost: Record<string, string>;
+  /** -- loss sources -- the card the rules recorded with each player's loss (public: name and printing; a token has no printing). */
+  lost_source?: Record<string, { name: string; card_id: string | null }>;
   winner: string | null;
   draw_reason?: string | null;
   overrides: number;
@@ -600,6 +655,15 @@ export interface CommanderRef {
 
 export type Action = { type: string } & Record<string, unknown>;
 
+/** -- bot levels -- how well a test opponent plays (app/game/bot.py). */
+export type BotLevel = "simple" | "intermediate" | "advanced";
+
+/** -- test opponent -- how fast the server plays its actions (app/multiplayer/bots.py): a short pause, a very short one, or one per click. */
+export type BotSpeed = "normal" | "fast" | "step";
+
+/** -- target dummy -- how it blocks with automation on: never, chump the biggest attacker, or block with everything it can. */
+export type DummyBlocks = "never" | "chump" | "all";
+
 export const zoneKey = (player: string | null, zone: ZoneName): string => (zone === "stack" ? "stack" : `${player}:${zone}`);
 
 export function splitZone(key: string): { player: string | null; zone: ZoneName } {
@@ -627,6 +691,10 @@ export interface LobbySettings {
   turn_order?: "pod" | "random" | "seats";
   /** -- table permissions -- who may change a player's cards (absent from an older server: everyone). */
   card_permissions?: CardPermissions;
+  /** -- planechase -- a shared planar deck dealt at the start (absent from an older server: off). */
+  planechase?: boolean;
+  planar_deck_size?: number;
+  planar_phenomena?: boolean;
 }
 
 export interface LobbyDeckSummary {
@@ -662,6 +730,8 @@ export interface LobbySeat {
   deck: LobbyDeckSummary | null;
   /** Your own seat only: this deck is the one you queued while out of the last game (unchanged since). */
   queued?: boolean;
+  /** -- LAN bots -- the host seated a bot here (the server plays it): its level. */
+  bot?: BotLevel;
 }
 
 export interface LobbyView {

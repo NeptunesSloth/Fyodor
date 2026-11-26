@@ -3,6 +3,11 @@ import { useCardView, useGame } from "../state/gameStore";
 import { useDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { attachmentLinks, tetherAnchor } from "./attachments";
+import { dropCaption, dropFacts, handDropKind } from "./handDrop";
+import { isLand } from "./rules/intents";
+import { chainEntries, stackFocus } from "./StackChain";
+import { locate as locateTarget } from "./targeting/TargetArrows";
+import { arrowLines } from "./stackGroups";
 
 /** Card ghosts that follow the pointer while dragging. */
 export function DragLayer() {
@@ -14,8 +19,22 @@ export function DragLayer() {
         <GhostCard key={id} id={id} index={i} />
       ))}
       {drag.ids.length > 1 && <span className="drag-count">{drag.ids.length}</span>}
+      <DropCaption ids={drag.ids} over={drag.overZone} manual={!!drag.manual} />
     </div>
   );
+}
+
+/** What letting go will do, over the table with automation on: "Cast", "Play land", or "Place by hand" while Alt is held. */
+function DropCaption({ ids, over, manual }: { ids: string[]; over: string | null; manual: boolean }) {
+  const view = useGame((s) => s.view);
+  const facts = view ? dropFacts(ids, over, manual) : null;
+  if (!facts || !view) return null;
+  const kind = handDropKind(facts);
+  const fromMine = handDropKind({ ...facts, manual: false }) !== "move";
+  const land = !!ids[0] && (isLand(ids[0], view) || !!view.rules?.hints?.playable_lands?.includes(ids[0]));
+  const text = dropCaption(kind, land, manual && fromMine);
+  if (!text) return null;
+  return <span className={`drop-caption ${kind}`} role="status" data-testid="drop-caption">{text}</span>;
 }
 
 function GhostCard({ id, index }: { id: string; index: number }) {
@@ -54,26 +73,31 @@ function locate(ref: string): Element | null {
 /**
  * Arrows over the whole table: blockers → attackers, plus every arrow players drew
  * (targets, attacks, custom). Kept thin and translucent so a busy Commander board stays readable.
+ * -- playtest B3 -- a batch of identical stack objects points once at each target (×N, from its stack row), and at most
+ * STACK_ARROW_CAP lines leave from the stack (stackGroups.arrowLines).
  */
 export function CombatArrows() {
-  const cards = useGame((s) => s.view?.cards);
-  const arrows = useGame((s) => s.view?.arrows);
+  const view = useGame((s) => s.view);
+  const cards = view?.cards;
+  const arrows = view?.arrows;
+  const hover = useGame((s) => s.hover);
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => {
-    if (!cards) return;
+    if (!cards || !view) return;
+    // -- stack readability -- a stack object's target arrows only while its row (or its card) is pointed at
+    const onStack = new Set(view.stack);
+    const focus = stackFocus(view, hover);
     const compute = () => {
       const out: Line[] = [];
       // blocks are shown by the combat strip (CombatStrip), not by lines across the table
-      for (const ar of arrows ?? []) {
-        const a = locate(ar.source);
-        if (!a) continue;
+      for (const l of arrowLines(arrows ?? [], view.stack.length ? chainEntries(view) : [])) {
+        if (onStack.has(l.source) && !focus?.ids.has(l.source)) continue;
+        const a = locate(l.source);
+        const b = a && locate(l.target);
+        if (!a || !b) continue;
         const p = center(a);
-        ar.targets.forEach((t, i) => {
-          const b = locate(t);
-          if (!b) return;
-          const q = center(b);
-          out.push({ key: `${ar.id}-${t}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: ar.kind, label: i === 0 ? ar.label : undefined });
-        });
+        const q = center(b);
+        out.push({ key: l.key, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: l.kind, label: l.label });
       }
       setLines(out);
     };
@@ -83,7 +107,7 @@ export function CombatArrows() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", compute);
     };
-  }, [cards, arrows]);
+  }, [cards, arrows, view, hover]);
   if (!lines.length) return null;
   return (
     <svg className="combat-arrows" data-testid="table-arrows">
@@ -105,6 +129,30 @@ export function CombatArrows() {
 }
 
 /**
+ * -- stack readability -- while a stack object is pointed at (its row hovered or focused), its targets wear a ring and the permanent
+ * it comes from a brass edge, on the 2D table and on the player plaques (both tables; the 3D table lights its own cards).
+ */
+export function StackFocusMarks() {
+  const view = useGame((s) => s.view);
+  const hover = useGame((s) => s.hover);
+  useEffect(() => {
+    const focus = view && stackFocus(view, hover);
+    if (!focus) return;
+    const marked: Element[] = [];
+    const mark = (id: string, how: string) => {
+      const el = locateTarget(id, view);
+      if (!el || focus.ids.has(el.getAttribute("data-card-id") ?? "")) return; // (a spell it targets on the stack: that row is ringed)
+      el.setAttribute("data-stack-hl", how);
+      marked.push(el);
+    };
+    for (const t of focus.targets) mark(t, "target");
+    if (focus.source) mark(focus.source, "source");
+    return () => marked.forEach((el) => el.removeAttribute("data-stack-hl"));
+  }, [view, hover]);
+  return null;
+}
+
+/**
  * 2D attachment lines (game/attachments.ts): while an Aura, Equipment or Fortification or what it's attached to is
  * hovered or selected, a thin bone line joins them, with a dot on the attachment and a ring on the host (a shape,
  * not only a colour, and no arrowhead: arrows mean targeting here). It starts on the part of a tucked attachment
@@ -114,11 +162,12 @@ export function AttachLines() {
   const cards = useGame((s) => s.view?.cards);
   const hover = useGame((s) => s.hover);
   const selection = useGame((s) => s.selection);
+  const peek = useGame((s) => s.peek);
   const focus = useGame((s) => s.focus);
   const [lines, setLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   useEffect(() => {
     if (!cards) return;
-    const links = attachmentLinks({ cards }, [hover, ...selection]);
+    const links = attachmentLinks({ cards }, [hover, ...selection, ...peek]);
     if (!links.length) {
       setLines((old) => (old.length ? [] : old));
       return;
@@ -148,7 +197,7 @@ export function AttachLines() {
       window.clearTimeout(late);
       window.removeEventListener("resize", compute);
     };
-  }, [cards, hover, selection, focus]);
+  }, [cards, hover, selection, peek, focus]);
   if (!lines.length) return null;
   return (
     <svg className="attach-lines" data-testid="attach-lines" aria-hidden>

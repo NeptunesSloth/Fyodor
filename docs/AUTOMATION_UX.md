@@ -92,10 +92,19 @@ client setting).
   once it stops you.
 - **PASS UNTIL …:** next action (another player acts), stack changes, stack empty, next step,
   next turn, my turn, combat.
-- Stack fast controls: **RESOLVE ONE** = pass until the stack changes; **RESOLVE ALL UNTIL
-  DECISION** = pass until the stack is empty; **HOLD AFTER THIS RESOLVES** = stop once a
-  chosen stack object has left the stack; **PASS UNTIL STACK CHANGES**. A forced stop is never
-  skipped.
+- Stack fast controls: **RESOLVE** (the big button and P with a stack) = pass until the stack
+  changes: the top object resolves and you get priority back while anything is left on the
+  stack (117.3b), so a chain of triggers goes one press at a time; once the stack is empty your
+  usual stops decide (a lone spell is still one press). **RESOLVE ALL UNTIL DECISION** = pass
+  until the stack is empty; **HOLD AFTER THIS RESOLVES** = stop once a chosen stack object has
+  left the stack. A forced stop is never skipped.
+- **Runaway chains:** every PASS UNTIL … stops when a card arrives in your hand that you could
+  cast now at instant speed (drawn mid-chain: you passed over what you had, not over what you
+  hadn't seen). And no action resolves more than 20 objects on automatic passes once the stack
+  keeps refilling (a loop of mandatory triggers, e.g. Shabraz + Marina Vendrell's Grimoire):
+  passing stops, the log says how many resolved and who drew how many, and the active player has
+  priority. RESOLVE goes on one at a time, RESOLVE ALL for another round of at most 20. (Each
+  round is one update to the table; RESOLVE gives one update per object.)
 
 **Information-leak safety:** auto-passes look exactly like passes, and nothing ever says
 "Jonathan has no playable responses". **BLUFF STOPS** (optional) also stop you on public
@@ -217,7 +226,7 @@ state.
   host's AUTO menu switches OFF / ASSISTED / FULL and PAUSE / RESUME.
 - **Creating a table / LAN lobby:** an Automation selector (default OFF). The old response
   helper is only offered with automation OFF.
-- **Priority bar:** whose priority, PASS / NEXT, RESOLVE ONE, RESOLVE ALL, END TURN, cancel a
+- **Priority bar:** whose priority, PASS / NEXT / RESOLVE (the top object), RESOLVE ALL, END TURN, cancel a
   pass-until, and the HOLD / FULL CONTROL / STOP overrides.
 - **STACK — N** helper with targets and HOLD AFTER THIS RESOLVES (⏸).
 - **Prompts** for every decision kind: choose one / confirm with remembered answers, order,

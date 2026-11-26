@@ -5,6 +5,15 @@ import type { GameResult, Outcome } from "../services/pod";
  * nothing new is asked of the server.
  */
 
+/**
+ * A recorded name, for display: pod stats record a LAN bot as "Bot (bot)" so it never counts as a person of the pod; the page
+ * shows "Bot" with a small bot mark instead of saying it twice. The recorded history is unchanged.
+ */
+export function splitBot(name: string): { name: string; bot: boolean } {
+  const m = /^(.*\S)\s+\(bot\)$/.exec(name);
+  return m ? { name: m[1]!, bot: true } : { name, bot: false };
+}
+
 /** A recorded outcome in a word, for a player's recent games. */
 export const OUTCOME_WORD: Record<Outcome, string> = { win: "Won", loss: "Lost", draw: "Draw", none: "—" };
 

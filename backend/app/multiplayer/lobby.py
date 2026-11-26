@@ -52,6 +52,10 @@ class LobbySettings(BaseModel):
     turn_order: TurnOrder = "random"
     # -- table permissions -- "Who may change a player's cards" (app/game/table_rights.py); copied into the game's settings at the start
     card_permissions: CardPermissions = "everyone"
+    # -- planechase -- (app/game/handlers/planechase.py) a shared planar deck of distinct planes, dealt at the start; off by default
+    planechase: bool = False
+    planar_deck_size: int = Field(default=10, ge=2, le=60)
+    planar_phenomena: bool = True
 
     @field_validator("name")
     @classmethod
@@ -97,6 +101,7 @@ class SubmittedDeck:
     collection: list[CollectionCard] = field(default_factory=list)
     offline: dict[str, Any] = field(default_factory=dict)
     commander_ids: list[str] = field(default_factory=list)  # printings, for the seat card's art
+    deck_id: str | None = None  # -- saved rows -- a deck from the host's library (host computer only); never sent to clients
 
     def entries_public(self) -> list[dict[str, Any]]:
         return [
@@ -126,6 +131,7 @@ class LobbySeatInfo:
     collection: list[CollectionCard] = field(default_factory=list)
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
     queued: SubmittedDeck | None = None  # (spectator activities) the deck queued while out of the last game, as put here
+    bot: str | None = None  # -- LAN bots -- the host seated a bot here: its level (the seat's token is the server's: hub.BOT_TOKEN)
 
 
 def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool, table_format: str = "commander") -> dict[str, Any] | None:

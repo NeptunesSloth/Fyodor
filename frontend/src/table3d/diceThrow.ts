@@ -10,7 +10,8 @@
  * symmetry that shows the server's number on top (table3d/diceGeometry.ts faceTurn).
  */
 import * as THREE from "three";
-import { DICE_SHOWN, type DiceShow } from "../game/dice";
+import type { DiceShow } from "../game/dice";
+import { DICE_SHOWN } from "../game/diceShown";
 import { COIN_RADIUS, COIN_THICK, coinTurn, dieSolid, faceText, faceTurn, kindsFor, percentile, tilt, topFace, topPoint, type DieKind } from "./diceGeometry";
 import { poseAt, randomAxis, randomRotation, restSeconds, seeded, simulate, trackSeconds, FRAMES_PER_SECOND, type BodyInit, type Impact, type Obstacle, type Track } from "./physics";
 

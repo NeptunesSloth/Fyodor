@@ -3,7 +3,7 @@ import { CardDetails } from "../cards/CardDetails";
 import { CardFace } from "../cards/CardFace";
 import { Modal } from "../components/Modal";
 import { useDebounced } from "../hooks/useDebounced";
-import { getCard, getPrintings, searchCards } from "../services/cards";
+import { type CardCoverage, getCard, getCoverage, getPrintings, searchCards } from "../services/cards";
 import { useCardCache } from "../state/cardCache";
 import type { CardData } from "../types/cards";
 import "./cards.css";
@@ -51,7 +51,8 @@ export function CardBrowser() {
     <div className="page card-browser">
       <header className="cb-head">
         <h1>Cards</h1>
-        <p>Every card Fyodor knows, for looking things up. Choose one for its rules text, tokens and printings.</p>
+        <p>Every card Fyodor knows, for looking things up. Choose one for its rules text, tokens and printings. A mechanic Fyodor
+          doesn't play yet? <a href="#/teach">Teach Fyodor</a>.</p>
       </header>
       <div className="toolbar cb-bar">
         <label className="cb-search">
@@ -134,6 +135,7 @@ export function CardModal({ id, onClose, onSelect }: { id: string; onClose: () =
                 ))}
               </div>
             )}
+            <CoverageLine id={card.id} />
             {printings.length > 1 && (
               <div className="printings">
                 <h4>Printings ({printings.length})</h4>
@@ -150,5 +152,30 @@ export function CardModal({ id, onClose, onSelect }: { id: string; onClose: () =
         }
       />
     </Modal>
+  );
+}
+
+const COVERAGE_WORD: Record<CardCoverage["level"], string> = { FULL: "Full", PARTIAL: "Partial", REVIEW: "Review", MANUAL: "Manual" };
+
+/** The card's rules automation: FULL / PARTIAL (and what is played by hand) / REVIEW / MANUAL. */
+function CoverageLine({ id }: { id: string }) {
+  const [cov, setCov] = useState<CardCoverage | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    setCov(undefined);
+    getCoverage(id).then((c) => live && setCov(c), () => live && setCov(null));
+    return () => { live = false; };
+  }, [id]);
+  if (!cov) return null;
+  const manual = cov.manual_parts;
+  const why = cov.level === "FULL" ? "Fyodor plays every part of it by itself."
+    : cov.level === "REVIEW" ? "Its Oracle text changed since its rules were checked: play it by hand until a new Fyodor checks it again."
+    : cov.level === "PARTIAL" ? `Played by hand: ${manual.join("; ")}.`
+    : manual.length ? `Played by hand: ${manual.join("; ")}.` : "Played by hand.";
+  return (
+    <div className={`cov-line ${cov.level.toLowerCase()}`} data-testid="card-coverage">
+      <h4>Rules automation</h4>
+      <p><b className="cov-level"><i aria-hidden />{COVERAGE_WORD[cov.level]}</b> {why}</p>
+    </div>
   );
 }

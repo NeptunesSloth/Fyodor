@@ -3,8 +3,8 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
-import { canSubmitChoice, dialState, doneLabel, legalClass, paidSymbol } from "./RulesHud";
+import { abilityLines, automationOn, canConcede, castOrCount, choose, concede, countRows, divide, dropAsIntent, submitCounts, useCountPrompt, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
+import { canSubmitChoice, clickAnswer, dialState, doneLabel, justAnswered, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 import { libraryTopActions } from "../ZonePile";
 import type { MenuItem } from "../../components/ContextMenu";
@@ -81,7 +81,7 @@ describe("automation intents", () => {
 
   it("asks about kicker when a kicker card is dragged to cast (Rite of Replication): plain, or kicked (playtest nov 6)", async () => {
     const { useMenu } = await import("../../components/ContextMenu");
-    const base = view(RULES);
+    const base = view({ ...RULES, hints: { castable: ["r1"] } });
     const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView;
     useGame.setState({ view: v });
     expect(dropAsIntent(["r1"], { zone: "stack" })).toBe(true);
@@ -91,6 +91,24 @@ describe("automation intents", () => {
     const kicked = useMenu.getState().menu!.items[1] as { onClick: () => void };
     kicked.onClick();
     expect(sent).toEqual([{ type: "cast_spell", card_id: "r1", kicker: 1 }]);
+  });
+
+  it("opens the kicker chooser where the card was clicked or dropped (second pass S1)", async () => {
+    const { useMenu } = await import("../../components/ContextMenu");
+    const base = view({ ...RULES, hints: { castable: ["r1"] } });
+    useGame.setState({ view: { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView });
+    expect(dropAsIntent(["r1"], { zone: "stack", at: { clientX: 312, clientY: 845 } })).toBe(true);
+    expect(useMenu.getState().menu).toMatchObject({ x: 312, y: 845 });
+  });
+
+  it("casts plainly, no kicker chooser, when the hints don't let me cast it now: the server's refusal says why (sweep B2)", async () => {
+    const { useMenu } = await import("../../components/ContextMenu");
+    useMenu.setState({ menu: null });
+    const base = view({ ...RULES, hints: { has_priority: false } });
+    useGame.setState({ view: { ...base, cards: { ...base.cards, r1: card("r1", "p1:hand", "rite") } } as unknown as GameView });
+    expect(dropAsIntent(["r1"], { zone: "stack" })).toBe(true);
+    expect(useMenu.getState().menu).toBeNull();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "r1", ask_optional: true }]);
   });
 
   it("turns a drop from hand into play_land or cast_spell", () => {
@@ -137,6 +155,21 @@ describe("automation intents", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "t1", ability: 100, tap_for_mana: true }]);
   });
 
+  it("a Treasure made by an effect (no card data, only its token text) is tapped for mana by a click (sweep B, nov 18)", () => {
+    const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: ["tr", "odd"] }, options: [] } });
+    const treasure = { ...card("tr", "p1:battlefield", "x"), card_id: null, is_token: true, name: "Treasure",
+      token: { name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." } };
+    const odd = { ...card("odd", "p1:battlefield", "x"), card_id: null, is_token: true, name: "Odd" }; // (offered, no text: the server reads it)
+    const v = { ...base, cards: { ...base.cards, tr: treasure, odd } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(manaAbilityIndex("tr", v)).toBe(0);
+    expect(tapForMana("tr", "p1")).toBe(true);
+    expect(tapForMana("odd", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "tr", ability: 0, tap_for_mana: true },
+      { type: "activate_ability", card_id: "odd", ability: 0, tap_for_mana: true }]);
+  });
+
   it("during a convoke / improvise payment, clicking a highlighted creature or artifact taps it for that", () => {
     const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
       display: { kind: "tap_mana", sources: ["f1"], convoke: ["cr"], improvise: ["ar"] }, options: [] } });
@@ -166,6 +199,22 @@ describe("automation intents", () => {
     expect(paidSymbol("G")).toBe("{G}");
   });
 
+  it("during a payment, a plain click on a highlighted land taps it (and a quick second click doesn't tap it back)", () => {
+    const base = view({ ...RULES, options: { highlights: "on" }, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: ["f1"], convoke: [], improvise: [] }, options: [] } });
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:battlefield", "forest"), l1: card("l1", "p1:battlefield", "looter") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(legalClass(v, "f1", "p1")).toBe("rules-mana-source");
+    expect(clickAnswer(v, "f1", "p1", legalClass(v, "f1", "p1"), 1000)).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0, tap_for_mana: true }]);
+    expect(justAnswered("f1", 1200)).toBe(true);
+    expect(clickAnswer(v, "f1", "p1", "rules-mana-source", 1200)).toBe(true); // the double-click's second click: swallowed
+    expect(sent).toHaveLength(1);
+    expect(justAnswered("f1", 2000)).toBe(false);
+    expect(clickAnswer(v, "l1", "p1", legalClass(v, "l1", "p1"), 3000)).toBe(false); // not highlighted: a click selects as before
+    expect(clickAnswer(v, "l1", "p1", "rules-playable", 3000)).toBe(false);
+  });
+
   it("splits ability lines without reminder text", () => {
     expect(abilityLines("Flying\n{T}: Add {C}{C}. (Mana ability.)\n")).toEqual(["Flying", "{T}: Add {C}{C}."]);
   });
@@ -177,6 +226,17 @@ describe("rules card menu", () => {
   it("is empty with automation off", () => {
     const v = view(undefined);
     expect(rulesMenu(v.cards.c1!, v, "p1")).toEqual([]);
+  });
+
+  it("offers the abilities of a token made with its own text (no card in the database)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "t1", ability: 0 }] } });
+    const horn = { id: "t1", zone: "p1:battlefield", card_id: null, name: "Tide Horn", owner: "p1", controller: "p1", is_token: true,
+      token: { name: "Tide Horn", type_line: "Token Artifact", text: "{T}: Creatures you control dive." } };
+    const v = { ...base, cards: { ...base.cards, t1: horn } } as unknown as GameView;
+    const item = rulesMenu(v.cards.t1!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    if (!item || item === "separator") throw new Error("expected the token's ability");
+    expect(item.label).toBe("Activate: {T}: Creatures you control dive.");
+    expect(item.disabled).toBe(false);
   });
 
   it("offers play, cast, activate and the per-card automation", () => {
@@ -350,6 +410,135 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.c1!, v, "p1")).some((l) => l.startsWith("Cast with Replicate"))).toBe(false);
   });
 
+  // -- round 5 (replicate) -- "I tried replicate and wasn't offered a choice": a drag / double-click of a replicate card asks the count first
+  it("asks how many times to pay a card's own replicate before a drag cast (601.2b), at 0", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, giga: { id: "giga", name: "Gigadrowse", type_line: "Instant",
+      oracle_text: "Replicate {U} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nTap target permanent." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["g1"] } });
+    const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:hand", "giga") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("g1", v)).toEqual([{ label: "Replicate", cost: "{U}", field: "kicker", once: false }]);
+    expect(dropAsIntent(["g1"], { zone: "stack" })).toBe(true);
+    expect(sent).toEqual([]); // nothing sent yet: the chooser is open
+    expect(useCountPrompt.getState().title).toBe("Gigadrowse");
+    submitCounts([3]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g1", ask_optional: true, kicker: 3 }]);
+    expect(useCountPrompt.getState().action).toBeNull();
+    // paying none casts it plainly (other optional costs still asked)
+    expect(dropAsIntent(["g1"], { zone: "stack" })).toBe(true);
+    submitCounts([0]);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "g1", ask_optional: true });
+    // the card menu offers it too
+    const item = rulesMenu(v.cards.g1!, v, "p1").find((i) => i !== "separator" && i.label === "Cast with Replicate {U}…");
+    if (!item || item === "separator") throw new Error("expected the replicate entry");
+    item.onClick?.();
+    expect(useCountPrompt.getState().rows).toHaveLength(1);
+    useCountPrompt.setState({ action: null, title: "", rows: [] });
+  });
+
+  it("asks the count of a granted replicate (Djinn Illuminatus) on a drag, in its slot (702.56b)", () => {
+    const v = view({ ...RULES, hints: { castable: ["c2"], replicate111r3: { c2: ["Replicate {R} (Djinn Illuminatus)"] } } });
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("c2", v)).toEqual([{ label: "Replicate (Djinn Illuminatus)", cost: "{R}", field: "replicate", slot: 0 }]);
+    expect(dropAsIntent(["c2"], { zone: "stack" })).toBe(true);
+    submitCounts([2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", ask_optional: true, replicate: [2] }]);
+  });
+
+  it("asks a kicked spell's kicker and its granted replicate in one chooser (Burst Lightning under Djinn Illuminatus)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, burst: { id: "burst", name: "Burst Lightning", type_line: "Instant",
+      oracle_text: "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["b1"], replicate111r3: { b1: ["Replicate {R} (Djinn Illuminatus)"] } } });
+    const v = { ...base, cards: { ...base.cards, b1: card("b1", "p1:hand", "burst") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("b1", v).map((r) => [r.label, r.cost, r.field, r.once])).toEqual([["Kicker", "{4}", "kicker", true], ["Replicate (Djinn Illuminatus)", "{R}", "replicate", undefined]]);
+    expect(dropAsIntent(["b1"], { zone: "stack" })).toBe(true);
+    submitCounts([1, 1]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "b1", ask_optional: true, kicker: 1, replicate: [1] }]);
+    // without a grant, the kicker menu as before (no chooser)
+    useGame.setState({ view: { ...v, rules: { ...RULES, hints: { castable: ["b1"] } } } as unknown as GameView });
+    expect(countRows("b1", useGame.getState().view!)).toEqual([]);
+  });
+
+  it("asks the count from a pile too (the top of a library, an exile)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, giga: { id: "giga", name: "Gigadrowse", type_line: "Instant",
+      oracle_text: "Replicate {U}\nTap target permanent." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["g2"] } });
+    const v = { ...base, cards: { ...base.cards, g2: card("g2", "p1:exile", "giga") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    void castOrCount({ type: "cast_spell", card_id: "g2" });
+    expect(sent).toEqual([]);
+    submitCounts([2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g2", kicker: 2 }]);
+    void castOrCount({ type: "cast_spell", card_id: "c2" }); // (no counts: sent at once)
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2" });
+  });
+
+  it("offers squad and offspring the same way (offspring at most once)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      arco: { id: "arco", name: "Arco-Flagellant", type_line: "Creature — Human", oracle_text: "Squad {2} (As an additional cost to cast this spell, you may pay {2} any number of times.)\nThis creature can't block." } as CardData,
+      mouse: { id: "mouse", name: "Manifold Mouse", type_line: "Creature — Mouse", oracle_text: "Offspring {2} (You may pay an additional {2} as you cast this spell.)" } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["a1", "m1"] } });
+    const v = { ...base, cards: { ...base.cards, a1: card("a1", "p1:hand", "arco"), m1: card("m1", "p1:hand", "mouse") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("a1", v)[0]).toMatchObject({ label: "Squad", cost: "{2}", once: false });
+    expect(countRows("m1", v)[0]).toMatchObject({ label: "Offspring", cost: "{2}", once: true });
+    expect(dropAsIntent(["m1"], { zone: "p1:battlefield" })).toBe(true);
+    submitCounts([5]); // (clamped to once)
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "m1", ask_optional: true, kicker: 1 }]);
+  });
+
+  // -- round 6 (cast choosers) --
+  it("offers offspring a permanent gives (Zinnia, Valley's Voice) in the chooser, paid once as kicker (702.175a)", () => {
+    const v = view({ ...RULES, hints: { castable: ["c2"], offspring110a: { c2: "Offspring {2} (Zinnia, Valley's Voice)" } } });
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("c2", v)).toEqual([{ label: "Offspring (Zinnia, Valley's Voice)", cost: "{2}", field: "kicker", once: true }]);
+    expect(dropAsIntent(["c2"], { zone: "p1:battlefield" })).toBe(true);
+    expect(sent).toEqual([]); // the chooser is open
+    submitCounts([1]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", ask_optional: true, kicker: 1 }]);
+    // the card menu offers it too
+    const item = rulesMenu(v.cards.c2!, v, "p1").find((i) => i !== "separator" && i.label === "Cast with Offspring (Zinnia, Valley's Voice) {2}");
+    if (!item || item === "separator") throw new Error("expected the offspring entry");
+    item.onClick?.();
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2", kicker: 1 });
+    // not hinted (another player's Zinnia, a noncreature spell): no row, cast at once
+    const plain = view({ ...RULES, hints: { castable: ["c2"] } });
+    useGame.setState({ view: plain });
+    expect(countRows("c2", plain)).toEqual([]);
+  });
+
+  it("asks \"Kicker {A} and/or {B}\" and a granted replicate in one chooser (Temporal Firestorm under Djinn Illuminatus, 702.33b)", () => {
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards, storm: { id: "storm", name: "Temporal Firestorm", type_line: "Sorcery",
+      oracle_text: "Kicker {1}{W} and/or {1}{U} (You may pay an additional {1}{W} and/or {1}{U} as you cast this spell.)\nChoose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.\nTemporal Firestorm deals 5 damage to each creature and each planeswalker." } as CardData } });
+    const base = view({ ...RULES, hints: { castable: ["f1"], replicate111r3: { f1: ["Replicate {3}{R}{R} (Djinn Illuminatus)"] } } });
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:hand", "storm") } } as unknown as GameView;
+    useGame.setState({ view: v, actingAs: "p1" });
+    expect(countRows("f1", v).map((r) => [r.label, r.cost, r.field, r.once, r.mask])).toEqual([
+      ["Kicker", "{1}{W}", "kicker", true, 1], ["Kicker", "{1}{U}", "kicker", true, 2], ["Replicate (Djinn Illuminatus)", "{3}{R}{R}", "replicate", undefined, undefined]]);
+    expect(dropAsIntent(["f1"], { zone: "stack" })).toBe(true);
+    expect(useCountPrompt.getState().rows).toHaveLength(3); // the chooser, not the old kicker menu
+    submitCounts([1, 1, 2]);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "f1", ask_optional: true, kicker: 3, replicate: [2] }]);
+    dropAsIntent(["f1"], { zone: "stack" });
+    submitCounts([0, 1, 0]);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "f1", ask_optional: true, kicker: 2 });
+    // the card menu's kicker entry opens the same chooser (no kicker-only submenu that skips the replicate)
+    const menu = rulesMenu(v.cards.f1!, v, "p1");
+    const kick = menu.find((i) => i !== "separator" && i.label.startsWith("Cast with Kicker {1}{W} and/or {1}{U}"));
+    if (!kick || kick === "separator") throw new Error("expected the kicker entry");
+    expect(kick.submenu).toBeUndefined();
+    kick.onClick?.();
+    expect(useCountPrompt.getState().rows).toHaveLength(3);
+    useCountPrompt.setState({ action: null, title: "", rows: [] });
+    expect(menu.filter((i) => i !== "separator" && i.label.startsWith("Cast with Kicker")).length).toBe(1); // (and no second "Cast with Kicker {1}{W}")
+    // without the grant: the kicker menu as before
+    const plain = { ...v, rules: { ...RULES, hints: { castable: ["f1"] } } } as unknown as GameView;
+    expect(countRows("f1", plain)).toEqual([]);
+    const sub = rulesMenu(plain.cards.f1!, plain, "p1").find((i) => i !== "separator" && i.label.startsWith("Cast with Kicker"));
+    expect(sub !== "separator" && sub?.submenu?.length).toBe(3);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;
@@ -478,6 +667,8 @@ describe("rules card menu", () => {
     expect(cast[0]!.disabled).toBe(true);
     cast[2]!.onClick?.();
     expect(sent).toEqual([{ type: "cast_spell", card_id: "dr", free: true, optional_costs: ["dr:casualty"] }]);
+    cast[1]!.onClick?.(); // -- round 5 -- 118.9d: the plain free cast lets the server ask what may still be paid (kicker, replicate …)
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "dr", free: true, ask_optional: true });
   });
 
   it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
@@ -806,6 +997,11 @@ describe("wave 110 follow-ups: library top, Chorus, Leonin Arbiter", () => {
     useGame.setState({ view: v });
     const items = libraryTopActions("p1", "p1");
     expect(labels(items)).toEqual(["Cast the top card without paying its mana cost", "Plot the top card (special action)", "—"]);
+    // -- round 6 -- the free cast asks for optional additional costs (118.9d: kicker under Bolas's Citadel / Temporal Aperture)
+    const free = items[0];
+    if (!free || free === "separator") throw new Error("expected the free cast");
+    free.onClick?.();
+    expect(sent.shift()).toEqual({ type: "cast_spell", card_id: "t1", free: true, ask_optional: true });
     const plot = items[1];
     if (!plot || plot === "separator") throw new Error("expected Plot");
     plot.onClick?.();

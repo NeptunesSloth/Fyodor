@@ -104,6 +104,12 @@ body.perf-low .battlefield.arranged .mat-band { box-shadow: none; }
 .table-card[data-tile] .mark { font-size: clamp(8.5px, calc(var(--tw, 80px) * 0.1), 10.5px); }
 .table-card[data-tile] .counters { left: calc(var(--tw, 80px) * 0.05); right: calc(var(--tw, 80px) * 0.44); bottom: calc(var(--tw, 80px) * 0.05); }
 .table-card[data-tile] .counter { font-size: clamp(9px, calc(var(--tw, 80px) * 0.12), 12px); padding: 1px 4px; }
+/* -- playtest (nov 16) -- a creature's counters sit on a row of their own over its P/T plate, right-aligned: beside the plate a "+48/+48"
+   chip ran under a widened "51/51" and both were cut ("+48/+", "7/27") */
+.table-card[data-tile]:has(.tile-pt) .counters {
+  left: calc(var(--tw, 80px) * 0.3); right: calc(var(--tw, 80px) * 0.05); justify-content: flex-end; flex-wrap: wrap-reverse;
+  bottom: calc(max(15px, calc(var(--tw, 80px) * 0.21)) + calc(var(--tw, 80px) * 0.08));
+}
 .table-card[data-tile] .card-effects { left: calc(var(--tw, 80px) * 0.05); right: auto; bottom: calc(max(15px, calc(var(--tw, 80px) * 0.21)) + calc(var(--tw, 80px) * 0.09)); flex-direction: column; align-items: flex-start; }
 .table-card[data-tile] .card-effects .fx { font-size: clamp(8.5px, calc(var(--tw, 80px) * 0.105), 11px); }
 .table-card[data-tile] .card-effects .fx.dmg::after { content: " dmg"; font-weight: 600; }
@@ -123,6 +129,17 @@ main.table:not(.is-3d) > .hand:not(.compact) .hand-card { transform: translateY(
 main.table:not(.is-3d) > .hand:not(.compact) .hand-card:hover,
 main.table:not(.is-3d) > .hand:not(.compact) .hand-card:focus-visible { transform: translateY(-30px) scale(1.12); z-index: 50; }
 main.table:not(.is-3d) > .hand:not(.compact) .hand-empty { padding-top: 20px; }
+/* a big hand (past STRIP_AT cards, handLayout.ts): a flat strip that scrolls sideways (wheel, arrows, ‹ ›), sunk like the row; its box
+   leaves room above for a card to lift, so nothing scrolls up and down */
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"] {
+  position: absolute; left: var(--x0); width: var(--box-w); bottom: -30px; height: 230px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; pointer-events: none;
+}
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"]::-webkit-scrollbar { display: none; }
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"] > .hand-card { transform: none; pointer-events: auto; transform-origin: 50% 100%; }
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"] > .hand-card.selected { transform: translateY(-14px); }
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"] > .hand-card:hover,
+main.table:not(.is-3d) > .hand:not(.compact) .hand-cards[data-mode="strip"] > .hand-card:focus-visible { transform: translateY(-62px) scale(1.12); }
 
 /* a mat too small to read (my own while I look at someone else's board): just the cards, no plates or chips */
 .battlefield.arranged.tiny :is(.tile-name, .tile-pt, .card-marks, .counters, .card-effects, .pile-count-mark) { display: none; }

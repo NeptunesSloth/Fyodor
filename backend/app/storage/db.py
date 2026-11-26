@@ -48,10 +48,14 @@ def connect(path: Path | str, *, readonly: bool = False) -> sqlite3.Connection:
     else:
         conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    if not readonly and path != ":memory:":
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        if not readonly and path != ":memory:":
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA synchronous = NORMAL")
+    except BaseException:
+        conn.close()  # a damaged file: don't leave it open (on Windows that blocks moving it aside)
+        raise
     return conn
 
 

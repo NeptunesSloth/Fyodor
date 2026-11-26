@@ -7,6 +7,7 @@ import { changeLife, changeResource, send } from "./actions";
 import { Icon } from "../components/Icon";
 import { LETHAL_COMMANDER } from "./commanderDamage";
 import { CommanderMatrixToggle } from "./CommanderDamageViews";
+import { PlayerInitial } from "./PlayerInitial";
 
 const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
 /** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
@@ -35,7 +36,7 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
       {/* the seat plaque, as on the 3D table: a portrait in the seat colour, then name and life */}
       <div className="pp-top">
         <span className={`portrait pp-portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: compact ? "30px" : "36px", borderColor: p.color }} aria-hidden>
-          {p.name.slice(0, 1).toUpperCase()}
+          <PlayerInitial p={p} size={compact ? 18 : 21} />
         </span>
         <div className="pp-who">
           <div className="pp-head">

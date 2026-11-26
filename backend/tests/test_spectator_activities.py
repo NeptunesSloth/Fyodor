@@ -74,7 +74,7 @@ def test_the_live_summary_is_public_and_the_same_for_everyone(table, seen_viewer
     assert set(seen_viewers) == {SPECTATOR} and OMNISCIENT not in seen_viewers
     players = {p["name"]: p for p in summary["players"]}
     assert players["Bob"]["life"] == 31 and players["Carol"]["out"] == "conceded" and players["Alice"]["out"] is None
-    assert players["Alice"]["hand"] == 7 and summary["stack"] == {"count": 0, "top": None}
+    assert players["Alice"]["hand"] == 8 and summary["stack"] == {"count": 0, "top": None}  # (S7: 7 and her first draw, 103.8c)
     assert summary["active_name"] and summary["turn"] == 1 and summary["log"]
     assert_no_hidden(summary, hidden_cards(room), repo)
     assert frozen(room) == before  # reading it changes nothing

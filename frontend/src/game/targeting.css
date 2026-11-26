@@ -28,10 +28,7 @@
   width: 64px; margin: 2px 0 0 2px; rotate: -3deg; transform-origin: 50% 90%;
   border-radius: 5%; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
-.tgt-source-none {
-  display: grid; aspect-ratio: 63 / 88; border-radius: 5%;
-  border: 1px solid color-mix(in srgb, var(--frame) 60%, transparent); background: rgba(0, 0, 0, 0.3);
-}
+.tgt-bar.no-source { grid-template-columns: minmax(0, 1fr); }
 .tgt-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .tgt-head { display: flex; align-items: center; gap: 12px; min-height: 34px; }
 .tgt-words { margin: 0; display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.2; }
@@ -59,7 +56,7 @@
 /* a long tray: smaller thumbnails, and a fade at the edge it scrolls on past */
 .tgt-tray[data-dense] .tgt-thumb { width: 60px; }
 .tgt-tray[data-dense] .tgt-art { width: 60px; height: 43px; }
-.tgt-tray[data-dense] .tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -46px; }
+.tgt-tray[data-dense] .tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -36px; }
 .tgt-tray[data-more="end"] { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
 .tgt-tray[data-more="start"] { mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
 .tgt-tray[data-more="both"] { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
@@ -120,10 +117,14 @@
 /* alike candidates: a fanned pile, a sliver of each and the top one whole (each sliver is still its own choice) */
 .tgt-fan { flex: none; display: flex; align-items: flex-start; }
 .tgt-fan > .tgt-thumb { position: relative; }
-.tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -52px; }
+/* -- sweep B (nov 18) -- each sliver is at least 24px wide (WCAG 2.5.8): a 12px sliver of a whole card was the only way to pick the second
+   of two alike cards to discard, once the top one was picked */
+.tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -46px; }
 .tgt-fan > .tgt-thumb + .tgt-thumb .tgt-art { box-shadow: -3px 0 5px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.7); }
 .tgt-fan > .tgt-thumb:not(:last-child) :is(.tgt-label, .tgt-note, .tgt-pt) { visibility: hidden; }
-.tgt-fan > .tgt-thumb:is(:hover, :focus-visible) { z-index: 2; }
+/* -- second pass S4 -- only keyboard focus lifts a sliver over its neighbours: a hovered one lifted whole covered the next sliver, so the
+   click aimed at that one landed on the card the pointer had just crossed (each sliver stays where it shows) */
+.tgt-fan > .tgt-thumb:focus-visible { z-index: 2; }
 .tgt-fan > .tgt-thumb:is(:hover, :focus-visible) .tgt-pt { visibility: visible; }
 .tgt-twins {
   position: absolute; z-index: 1; top: 2px; right: 2px; padding: 0 4px; border-radius: 3px;
@@ -210,5 +211,16 @@ body.perf-low .tgt-bar, body.perf-low .tgt-source { box-shadow: none; }
 .tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-thumb[data-whole] { width: 96px; }
 .tgt-thumb[data-whole] .tgt-art, .tgt-tray[data-dense] .tgt-thumb[data-whole] .tgt-art { width: 96px; height: 134px; }
 .tgt-thumb[data-whole] .tgt-art > :is(.card-face, .face-down-known) { left: 0; width: 100%; margin-top: 0; border-radius: 4px; }
-.tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole] { margin-left: -84px; }
+.tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole], .tgt-tray[data-dense] .tgt-fan > .tgt-thumb[data-whole] + .tgt-thumb[data-whole] { margin-left: -72px; }
 .tgt-thumb[data-whole] .tgt-label { font-size: 12px; }
+
+/* -- stack readability -- a stack row pointed at: its targets ringed in the target colour, the permanent it comes from edged in brass
+   (game/Overlays.tsx StackFocusMarks). Static: no motion to reduce. A label as well as a colour: the ring's corner tag. */
+[data-stack-hl] { outline: 2px solid var(--accent-2); outline-offset: 3px; border-radius: 6px; }
+[data-stack-hl="source"] { outline-color: var(--frame-hi); outline-style: dashed; }
+[data-stack-hl]::before {
+  content: "Target"; position: absolute; z-index: 3; top: -10px; left: 50%; transform: translateX(-50%); pointer-events: none;
+  font: 600 10px/1 var(--font-ui); letter-spacing: 0.04em; padding: 2px 5px; border-radius: 3px; background: #15120e; color: var(--accent-2);
+  border: 1px solid currentColor; white-space: nowrap;
+}
+[data-stack-hl="source"]::before { content: "Source"; color: var(--frame-hi); }

@@ -209,7 +209,7 @@ def _you_control(s: Selector, m: re.Match[str]) -> Selector:
 
 @_suffix(r"the opponent to your left controls")
 def _left_control(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, controller="left")  # -- left opponent (wave 110E) -- turn order goes to the left (the next live player: Plan.after)
+    return replace(s, controller="left")  # -- left opponent (wave 110E) -- the next live player seated to the left (Plan.left: seats, not turn order, wave E1)
 
 
 @_suffix(r"(?:that )?(?:an opponent controls|your opponents control|you don't control|you don’t control)")
@@ -2432,6 +2432,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == "streams_f2":  # -- planechase more 3 (wave F2) -- Two Streams Facility: controlled by a player who last chose red waterfall
+            from app.rules import planar_more3
+
+            if not planar_more3.selector_extra(plan, extra, card, you):
+                return False
+            continue
         if extra.startswith("not_controlled_by110a:"):  # -- wave 110A -- "creatures your opponents control" read for a caster other than the rule's holder (Tarrasque lure)
             if card.controller == extra.partition(":")[2]:
                 return False
@@ -2513,7 +2519,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
-    if sel.controller == "left" and card.controller != plan.after(you):
+    if sel.controller == "left" and card.controller != plan.left(you):  # (wave E1: seats, not turn order: Plan.left)
         return False
     if sel.controller == "active" and card.controller != plan.active:
         return False
@@ -2930,6 +2936,15 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             _, kind, original_source = extra.split(':', 2)
             if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
+                return False
+        if extra == "saddled_mbc":  # -- Mystery Booster Commander (wave MBC-B) -- "a saddled creature" (702.171b: this turn's log)
+            from app.rules import crew_saddle
+
+            if not crew_saddle.is_saddled(plan, card):
+                return False
+        if extra == "not_cast_from_your_hand_mbc" and plan.rules is not None:  # -- (wave MBC-B) -- Venser: not a spell cast from your hand (601.2a, 400.3)
+            rec = plan.rules.payments.get(plan.oid(card))
+            if rec is not None and rec.cast_from == "hand" and card.owner == you:
                 return False
         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
             from app.rules import crew_saddle

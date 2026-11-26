@@ -130,8 +130,16 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
     if card.token is not None and not card.card_id:
         t = card.token
         token = {"name": t.name, "power": t.power, "toughness": t.toughness, "colors": list(t.colors),
-                 "type_line": t.type_line, "text": t.text, "mana_cost": t.mana_cost}
+                 "type_line": t.type_line, "text": t.text, "mana_cost": t.mana_cost,
+                 # -- engine token art -- its picture goes with what it copies (a picture only: never a characteristic, _base ignores it)
+                 **({"art_id": t.art_id, "art_face": t.art_face} if t.art_id else {})}
     return CopyRecipe(printing=card.card_id, face=card.face, token=token, source=card.name[:200])
+
+
+def art_of(recipe: CopyRecipe) -> dict[str, Any]:
+    """-- engine token art -- the picture a recipe of a described token carries ({} when none: older recipes, unpictured tokens)."""
+    t = recipe.token or {}
+    return {"art_id": t["art_id"], "art_face": int(t.get("art_face") or 0)} if not recipe.printing and t.get("art_id") else {}
 
 
 MEDDLE_COPY = "Copy of the original face-down spell"
@@ -164,19 +172,30 @@ def with_excepts(recipe: CopyRecipe, excepts: list[CopyExcept]) -> CopyRecipe:
     return recipe.model_copy(update={"excepts": [*recipe.excepts, *kept]}) if kept else recipe
 
 
+# -- big boards (Kiki end step) -- id(recipe) -> (the recipe, the card info, what ``characteristics`` gave): a recipe is never changed once
+# built (copying builds a new one: ``with_excepts``, ``model_copy``), so the same object (held here, so its id is not reused) with the
+# same card info gives the same characteristics without serialising it for the key again (every derivation of a copy token read it).
+_CH_BY_OBJECT: dict[int, tuple[CopyRecipe, Any, Characteristics]] = {}
+
+
 def characteristics(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
     """The characteristics a recipe defines: its base, then each exception in order (707.9)."""
+    known = _CH_BY_OBJECT.get(id(recipe))
+    if known is not None and known[0] is recipe and known[1] is info:
+        return known[2]
     key = recipe.model_dump_json()
     hit = _CH_CACHE.get(key)
-    if hit is not None:
-        return hit
-    ch = _base(recipe, info)
-    for ex in recipe.excepts:
-        ch = _apply(ch, ex)
-    if len(_CH_CACHE) > _CH_MAX:
-        _CH_CACHE.clear()
-    _CH_CACHE[key] = ch
-    return ch
+    if hit is None:
+        hit = _base(recipe, info)
+        for ex in recipe.excepts:
+            hit = _apply(hit, ex)
+        if len(_CH_CACHE) > _CH_MAX:
+            _CH_CACHE.clear()
+        _CH_CACHE[key] = hit
+    if len(_CH_BY_OBJECT) > _CH_MAX:
+        _CH_BY_OBJECT.clear()
+    _CH_BY_OBJECT[id(recipe)] = (recipe, info, hit)
+    return hit
 
 
 def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
@@ -1225,9 +1244,10 @@ def storm(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sid = e["spell"]
     card = plan.state.cards.get(sid)
     if card is not None and plan.manual(card):
-        plan.note("Storm: the spell is handled by hand, so there is nothing to copy")
+        plan.note(f"{e.get('label') or 'Storm'}: the spell is handled by hand, so there is nothing to copy")
         return True
-    job = new_job(ctx, controller=ctx["controller"], objects=[(sid, e["object"], int(e["n"]))], retarget=True, label="Storm",
+    # (-- round 5 -- replicate's copies are made here too: its trigger names itself, "Replicate: 2 copies of Gigadrowse")
+    job = new_job(ctx, controller=ctx["controller"], objects=[(sid, e["object"], int(e["n"]))], retarget=True, label=e.get("label") or "Storm",
                   excepts=[CopyExcept.model_validate(ex) for ex in e.get("excepts") or []])
     return run(plan, job)  # (run copies it as it was, or asks for the copy by hand: never silently none)
 
@@ -1286,6 +1306,7 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
         spec = {k: recipe.token.get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
         if recipe.token.get("mana_cost"):  # (wave 49D: 707.2, a copy copies the mana cost)
             spec["mana_cost"] = recipe.token["mana_cost"]
+        spec.update(art_of(recipe))  # -- engine token art -- the copy is pictured as what it copies
     else:
         (notes if notes is not None else []).append(f"{recipe.source or 'That object'} isn't in the card database: no copy is created")
         return None

@@ -87,7 +87,8 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if mode == "blitz_random":
         import secrets
 
-        keyword = (plan.rng or secrets.SystemRandom()).choice(["flying", "indestructible"])
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+        keyword = randomness.choice(plan, plan.rng or secrets.SystemRandom(), ["flying", "indestructible"], kind="other", player=ctx["controller"])
         plan.note(str(ctx.get("name") or "It") + " randomly gains " + keyword)
         return queued(ctx, [{"do": "grant", "who": "self", "keywords": [keyword]}])
     if mode == "orgg_enter":

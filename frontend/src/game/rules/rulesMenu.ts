@@ -2,7 +2,7 @@
 import type { AbilityRow, MenuItem } from "../../components/ContextMenu";
 import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
-import { abilityLines, automationOn, isLand, kickerItems, kickerLine, send, setPrefs, useXPrompt } from "./intents";
+import { abilityLines, automationOn, countRows, isLand, kickerItems, kickerLine, openCountPrompt, send, setPrefs, useXPrompt } from "./intents";
 
 /** -- Star Trek beam me up (wave 112T) -- the server's label of a beam me up cost: "<source>: beam me up {cost}". */
 const BEAM = /^(.*): beam me up ((?:\{[^}]+\})+)$/;
@@ -14,6 +14,41 @@ const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: s
 /** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
 const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
   data?.layout === "split" && data.faces.length === 2 && data.faces.every((f) => /\bRoom\b/.test(f.type_line ?? ""));
+
+/** 712.12: a modal double-faced card is cast as the face its player chooses, or played as a land if that face is one. */
+const isModal = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
+  data?.layout === "modal_dfc" && data.faces.length === 2;
+
+/**
+ * The ways a card in the hand is cast as one of its faces or halves: a Room's or a split card's half, an adventure or its creature
+ * (709.3, 709.5, 715.3), a modal double-faced card's face, or its land face played instead (712.12). The card menu lists these rows;
+ * a drop from the hand opens them as a chooser where it let go (game/handDrop.ts), so a drag asks what the menu asks. `cast` and
+ * `land` add to the intents sent (a drop asks for optional costs and keeps the land's spot). Null: the card is cast one way.
+ */
+export function faceChoices(card: GameCard, view: GameView, more: { cast?: { ask_optional?: boolean }; land?: { x?: number; y?: number } } = {}): MenuItem[] | null {
+  if (!isVisible(card)) return null;
+  const id = card.card_id;
+  const data = () => (id ? useCardCache.getState().cards[id] : undefined); // (each layout test reads it afresh: the guards overlap)
+  const hints = view.rules?.hints;
+  const cast = (i: number) => () => void send({ type: "cast_spell", card_id: card.id, face: i, ...more.cast });
+  const named = (f: { name: string; mana_cost?: string | null }) => `${f.name} ${f.mana_cost ?? ""}`.trim();
+  // 709.5: a Room is cast as one half (its door is unlocked as it enters)
+  const room = data();
+  if (isRoom(room)) return room.faces.map((f, i) => ({ label: `Cast ${named(f)}`, onClick: cast(i) }));
+  // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
+  const halves = data();
+  if (twoSpells(halves)) return halves.faces.map((f, i) => ({ label: `Cast ${named(f)}`, disabled: !hints?.castable?.includes(card.id), onClick: cast(i) }));
+  // (the hints read only the face showing: its spell row is greyed as the plain Cast row was; the other face and a land face are left to
+  // the server, which says why if it refuses)
+  const showing = card.face ?? 0;
+  const modal = data();
+  if (isModal(modal)) {
+    return modal.faces.map((f, i) => (/\bLand\b/.test(f.type_line ?? "")
+      ? { label: `Play ${f.name} (land)`, onClick: () => void send({ type: "play_land", card_id: card.id, face: i, ...more.land }) }
+      : { label: `Cast ${named(f)}`, disabled: i === showing && !hints?.castable?.includes(card.id), onClick: cast(i) }));
+  }
+  return null;
+}
 
 /**
  * An activated ability as a menu row: cost and effect split at the first ": " outside quotes (602.1), shown whole with mana
@@ -56,18 +91,13 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   // Other zones (your graveyard, exile, the top of your library): only when the server says a
   // permission lets you (flashback, "you may play that card this turn", "… from the top of your library").
   const elsewhere = zone === "graveyard" || zone === "exile" || zone === "library";
-  if (mine && zone === "hand" && isLand(card.id, view)) {
+  const faces = mine && zone === "hand" ? faceChoices(card, view) : null;
+  if (faces) {
+    items.push(...faces);
+  } else if (mine && zone === "hand" && isLand(card.id, view)) {
     items.push({ label: "Play land", disabled: !hints.playable_lands?.includes(card.id), onClick: () => void send({ type: "play_land", card_id: card.id }) });
   } else if (mine && elsewhere && isLand(card.id, view) && hints.playable_lands?.includes(card.id)) {
     items.push({ label: `Play land from ${zone}`, onClick: () => void send({ type: "play_land", card_id: card.id }) });
-  } else if (mine && zone === "hand" && isRoom(data)) {
-    // 709.5: a Room is cast as one half (its door is unlocked as it enters)
-    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(),
-      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
-  } else if (mine && zone === "hand" && twoSpells(data)) {
-    // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
-    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.castable?.includes(card.id),
-      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
@@ -84,7 +114,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Cast with Chorus of the Conclave…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id }, field: "chorus" }) });
   }
   if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
-    items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
+    // -- round 5 -- 118.9d: the server then asks for the optional additional costs still payable (Omniscience with kicker, replicate)
+    items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true, ask_optional: true }) });
   }
   // Alternative costs written on cards (118.9): Force of Will's own, Jodah's for every spell. The server lists the
   // ones usable now; targets and the cards to exile or sacrifice are asked for as usual.
@@ -136,8 +167,21 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });
   }
   const kicker = kickerLine(oracle);
+  const rows = countRows(card.id, view);
   if (mine && (zone === "hand" || zone === "command") && kicker) {
-    items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
+    // -- round 6 (cast choosers) -- a kicked spell a permanent gives replicate (Temporal Firestorm, Burst Lightning under Djinn Illuminatus):
+    // its kicker entry opens the one chooser with the kicker and replicate rows, so the kicker submenu never casts it with replicate unasked
+    if (rows.some((r) => r.kicked)) {
+      items.push({ label: `Cast with ${kicker}…`, disabled: !hints.castable?.includes(card.id),
+        onClick: () => void openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id }) });
+    } else items.push(...kickerItems(card.id, kicker, !!hints.castable?.includes(card.id)));
+  }
+  // -- round 5 (replicate) -- the card's own replicate / squad / offspring: "Cast with Replicate {1}{U}…" opens the count chooser (601.2b)
+  // (-- round 6 -- or offspring a permanent gives it, Zinnia: "Cast with Offspring (Zinnia, Valley's Voice) {2}")
+  const own = rows.find((r) => r.field === "kicker" && !r.kicked);
+  if (mine && (zone === "hand" || zone === "command") && own) {
+    items.push({ label: `Cast with ${own.label} ${own.cost}${own.once ? "" : "…"}`, disabled: !hints.castable?.includes(card.id),
+      onClick: () => (own.once ? void send({ type: "cast_spell", card_id: card.id, kicker: 1 }) : void openCountPrompt(card.id, view, { type: "cast_spell", card_id: card.id })) });
   }
   // -- granted replicate (wave 111R3) -- 702.56b: each replicate a permanent gives this spell (Hugh, First of Many) is paid
   // separately, in the order the server lists them (CastSpell.replicate); listed only for castable cards
@@ -268,14 +312,17 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     });
     // Zone grants use the server's stable ability index and are visible only with the card.
     for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
-      if (ability.kind === "keywords" && /^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling(?: \{|\s*[—-])/i.test(ability.text)) {
+      // (wave F1) Talon Gates' special action, offered on each nonland card in the planar controller's hand (the server checks the timing)
+      if (ability.kind === "keywords" && /^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling(?: \{|\s*[—-])/i.test(ability.text)
+        || /^Talon Gates — Exile this card from your hand/.test(ability.text)) {
         items.push({ label: ability.text.replace(/\s*\(.*$/, ""), disabled: !hints.has_priority,
           onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
       }
     }
   }
   if (mine && zone === "battlefield") {
-    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+    // (a token made with its own words, not from the card database, has its abilities in its text: the server reads them the same way)
+    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? (card.card_id ? undefined : card.token?.text) ?? "";
     const lines = abilityLines(text);
     const abilities = lines
       .map((line, i) => ({ line, i }))

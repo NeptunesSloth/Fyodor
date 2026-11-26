@@ -65,7 +65,7 @@ def _reveal(plan: Plan, ctx: Context, opponent: str) -> bool:
     for p in players:
         library = plan.state.zones.get(zone_key(p, "library"), [])
         if library:
-            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+            plan.do({"type": "reveal_top", "player": p, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=p)
             cards[p] = library[0]
     mv = {p: plan.ch(plan.state.cards[c]).mana_value for p, c in cards.items()}
     winners = [p for p in mv if all(mv[p] > v for q, v in mv.items() if q != p)]

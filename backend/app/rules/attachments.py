@@ -322,6 +322,25 @@ def enchanted_cards(plan: Plan, source: CardInstance) -> list[str]:
             and plan.oid(cid) == oid and plan.state.cards[cid].zone.endswith(":graveyard")]
 
 
+def apnap(plan: Plan, items: list[Any], controller: Any = None) -> list[Any]:
+    """-- simultaneous attachments -- ``items`` (card ids, or anything ``controller`` maps to a player) in APNAP order (613.7m, 101.4): the
+    active player's first, then each other player's in turn order; one player's keep the order they came in (the order 613.7m lets that
+    player choose, automated). Attachments that become attached at the same time are attached one by one in this order, so each gets its
+    new timestamp (613.7e) in APNAP order rather than the table's."""
+    state = plan.state
+    seats = state.turn_order()
+    start = seats.index(state.turn.active_player) if state.turn.active_player in seats else 0
+    rank = {p: (i - start) % len(seats) for i, p in enumerate(seats)}
+
+    def owner_of(item: Any) -> Any:
+        if controller is not None:
+            return controller(item)
+        card = state.cards.get(item)
+        return card.controller if card is not None else None
+
+    return [item for _, item in sorted(enumerate(items), key=lambda pair: (rank.get(owner_of(pair[1]), len(seats)), pair[0]))]
+
+
 def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     """701.3a-b: attach ``source`` to ``host`` if it can be; otherwise it doesn't move."""
     card = plan.state.cards.get(source)
@@ -434,7 +453,7 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     replacements.move_together(plan, entering, simultaneous=ctx.get("simultaneous_move") if ctx else None)
     if ctx is not None:
         ctx.pop("simultaneous_move", None)
-    for entry in entering:
+    for entry in apnap(plan, entering, lambda e: e["player"]):  # (613.7m: several entering attached are timestamped in APNAP order)
         if entry.get("host"):  # it enters attached to what was chosen (303.4f)
             attach(plan, entry["card"], entry["host"], entry["actor"])
     return True

@@ -49,10 +49,18 @@ def check(plan: Plan) -> bool:
     """Perform state-based actions until none apply (or one needs a player's decision). True: none apply now."""
     if plan.rules.draw_reason is not None:
         return False
+    from app.rules.dummy_ending import (
+        end_if_only_dummies,  # -- target dummy -- a test table with only dummies left is over
+    )
+
     for _ in range(MAX_ROUNDS):
+        if end_if_only_dummies(plan):
+            return False
         if plan.rules.decision is not None:
             return False
         if not _round(plan):
+            if end_if_only_dummies(plan):
+                return False
             return plan.rules.decision is None
     return False
 
@@ -109,6 +117,8 @@ def find(plan: Plan) -> Found:
             reason = f"{POISON_LETHAL} poison counters"
         elif any(v >= COMMANDER_LETHAL for v in p.commander_damage.values()):
             reason = f"{COMMANDER_LETHAL} combat damage from one commander"
+        elif pid in r.drew_from_empty and p.dummy:  # -- target dummy -- it has no deck: a draw it was made to take doesn't end the test
+            r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]
         elif pid in r.drew_from_empty:
             reason = "drew from an empty library"
         if reason:
@@ -298,8 +308,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         from app.rules import life_game_history
 
         life_game_history.loss_events(plan, [pid for pid, _ in found.losers])
+    from app.rules import loss_sources
+
     for pid, reason in found.losers:
         r.lost[pid] = reason
+        loss_sources.lost(plan, pid, loss_sources.for_sba(plan, pid, reason))  # -- loss sources --
         plan.note(f"{state.players[pid].name} loses the game ({reason})")
         happened = True
     for card, n in found.annihilate:
@@ -475,6 +488,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         from app.rules import graveyard_order
 
         if graveyard_order.offer(plan):
+            return True
+    if state.planechase is not None:  # -- planechase automation -- 704.6f: a phenomenon whose ability left the stack planeswalks away
+        from app.rules import planar
+
+        if planar.sba(plan):
             return True
     return happened
 

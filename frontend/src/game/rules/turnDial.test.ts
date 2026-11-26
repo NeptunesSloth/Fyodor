@@ -6,7 +6,7 @@ import { TurnDial } from "./RulesHud";
 
 // Server rendering reads a zustand store's initial state, so the store the dial reads is a plain value here (as wheelPanel.test.ts).
 const { state, fakeStore } = vi.hoisted(() => ({
-  state: { game: { view: null as unknown, actingAs: null as string | null } },
+  state: { game: { view: null as unknown, actingAs: null as string | null, resolving: null as unknown } },
   fakeStore: <T extends object>(read: () => T) => Object.assign((select: (s: T) => unknown) => select(read()), { getState: read }),
 }));
 vi.mock("../../state/gameStore", async (original) => ({ ...(await original<object>()), useGame: fakeStore(() => state.game) }));
@@ -60,5 +60,35 @@ describe("the turn dial for a player who is out of the game", () => {
     const spectator = dial("__spectator__", { conceded: ["p3"] });
     expect(spectator).toContain(">Watching<");
     expect(spectator).not.toContain("Next turn");
+  });
+});
+
+describe("the untap step (playtest nov 16: a new game opened there saying \"Your priority\")", () => {
+  it("says nobody has priority yet (502.4), and the pass button still moves on", async () => {
+    const { dialState } = await import("./RulesHud");
+    const v = { viewer: "p1", turn: { number: 1, active_player: "p1", phase: "untap" }, stack: [],
+      rules: { paused: false, conceded: [], lost: {}, priority: "p1", decision: null, controlled_by: null, acting_as: null } } as unknown as GameView;
+    expect(dialState(v, "p1")).toMatchObject({ mine: true, status: "Untap step: no priority yet" });
+    expect(dialState({ ...v, turn: { ...v.turn, phase: "upkeep" } } as GameView, "p1").status).toBe("Your priority");
+  });
+});
+
+describe("a long chain resolving (playtest nov 17: the dial said \"Your priority\" under the Resolving plaque)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { innerWidth: 1600, innerHeight: 900, addEventListener() {}, removeEventListener() {}, setTimeout, clearTimeout });
+    vi.stubGlobal("document", { documentElement: {}, querySelector: () => null, activeElement: null, body: { classList: { contains: () => false } } });
+  });
+  afterEach(() => {
+    state.game.resolving = null;
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the resolving state, not the priority holder, until the chain's own update arrives", () => {
+    state.game.resolving = { resolved: 12, left: 80, by: "p1" };
+    const html = dial("p1", {});
+    expect(html).toContain("Resolving the chain: wait");
+    expect(html).not.toContain(">Your priority<");
+    state.game.resolving = null;
+    expect(dial("p1", {})).toContain("Your priority");
   });
 });

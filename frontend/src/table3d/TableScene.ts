@@ -1,4 +1,4 @@
-import { tapGesture } from "../game/rules/intents";
+import { doubleClickGesture } from "../game/rules/intents";
 /**
  * The 3D table (M19): a three.js scene driven entirely by the server's per-viewer view.
  *
@@ -28,17 +28,19 @@ import type { DropResult } from "../game/dnd";
 import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
-import { answerByClick, legalClass } from "../game/rules/RulesHud";
+import { answerByClick, clickAnswer, legalClass } from "../game/rules/RulesHud";
 import { targetBeams } from "../game/targeting/beams";
+import { stackFocus } from "../game/StackChain";
 import { useTargeting } from "../game/targeting/store";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
+import { DayNightLight } from "./dayNight";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { makeTether } from "./tethers";
 import { combatCardIds, frameBox, isCloseUp } from "./focus";
-import { attachmentLinks, tetherAnchor } from "../game/attachments";
+import { attachmentLinks, boardCards, guests, guestSpot, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
@@ -51,6 +53,8 @@ import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
 import { TableMotion } from "./motion3d";
+import { PlanarTable } from "./planar3d";
+import { showPlanarText } from "../game/planechase";
 import { EndScene3D } from "./endScene3d";
 import { onEndScene } from "../game/motion/endScene";
 import { onTableEvents } from "../game/motion/tableEvents";
@@ -58,18 +62,23 @@ import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
   aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
-  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, wellPiece, wellSize, type PileZone, type Seat,
+  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, planarSpot, wellPiece, wellSize, type PileZone, type Seat,
 } from "./layout";
 import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
+import { abilityCardTexture, backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, pileBadgeCanvas, setMaxAnisotropy, textCardTexture } from "./textures";
 import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
 import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
+import { freeCovers, pileBadgeSpot } from "./covers";
+import { litCards } from "../game/combatFilter";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
+import { tokenArtFace, tokenArtId } from "../game/tokenArt";
+import { attackDrop, attackHint, defenderBadge, livePlan, myAttackDecision, useAttackDraft, type AttackSpot } from "../game/rules/attackDraft";
+import { blockDrop, blockHint, liveBlocks, myBlockDecision, spotForZone, useBlockDraft, type BlockSpot } from "../game/rules/blockDraft";
 import { Cursors3D, type CursorMessage } from "./cursors3d";
 import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
@@ -113,6 +122,13 @@ const MAT_FELT = "#36302a";
 const MAT_NAP = "#40392f";
 /** A card's face over its body's top, and its badges over the face. */
 export const FACE_LIFT = 0.0012;
+/** -- token piles -- a ×N badge's least height on screen (CSS px), and its height bounds on the table (world units). */
+const PILE_BADGE_PX = 26;
+const BADGE_MIN_H = 0.2;
+const BADGE_MAX_H = 0.62;
+const badgeA = new THREE.Vector3();
+const badgeB = new THREE.Vector3();
+const badgeDir = new THREE.Vector3();
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 /** The pale core of a card, glimpsed now and then along a pile's edge. */
@@ -149,6 +165,12 @@ interface CardObj {
   tile?: boolean;
   squash?: number;
   sq?: number;
+  /** -- token piles -- the card it lies wholly under on a battlefield (table3d/covers.ts): while that one sits still over it,
+   * it is not drawn, picked or shadowed. */
+  cover?: string;
+  /** -- token piles -- the ×N badge of a pile's top card (free placement), sized each frame to stay readable (setBadge). */
+  badge?: THREE.Mesh | null;
+  badgeN?: number;
 }
 
 interface PileObj {
@@ -269,6 +291,12 @@ const shadowColor = new THREE.Color();
 /** A body drawn at no size (a fading stand-in card keeps only its shadow). */
 const NO_BODY = new THREE.Matrix4().makeScale(0, 0, 0);
 
+/** -- token piles -- whether `a` lies just where `b` does, turned the same and no larger (so `b`, lying over it, hides it). */
+function lyingOn(a: THREE.Object3D, b: THREE.Object3D): boolean {
+  return Math.abs(a.position.x - b.position.x) < 0.005 && Math.abs(a.position.z - b.position.z) < 0.005
+    && Math.abs(angleLerp(0, b.rotation.y - a.rotation.y, 1)) < 0.01 && a.scale.x <= b.scale.x + 0.01 && a.rotation.x === b.rotation.x;
+}
+
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;
@@ -276,8 +304,25 @@ function angleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. */
-export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number }
+/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. fps counts drawn frames
+ *  only: a table at rest draws none (see the loop's -- idle --). textures: in GPU memory. */
+export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number; textures?: number }
+
+// -- idle -- every texture change (a card's picture arriving, a canvas redrawn) is counted: a table at rest draws again
+let texChanges = 0;
+{
+  const d = Object.getOwnPropertyDescriptor(THREE.Texture.prototype, "needsUpdate");
+  if (d?.set) Object.defineProperty(THREE.Texture.prototype, "needsUpdate", { ...d, set(v: boolean) { if (v) texChanges++; d.set!.call(this, v); } });
+}
+
+/** -- playtest (nov 17) -- the most stack cards the 3D table fans out; older ones pile under the first fanned card. */
+export const STACK_FAN = 12;
+/** A stack card's height over the base: a piled card's share of a low pile (at most PILE_RISE high), then 0.02 a card along the fan. */
+const PILE_RISE = 0.12;
+export function stackLift(i: number, piled: number): number {
+  if (i < piled) return (i * PILE_RISE) / Math.max(1, piled);
+  return (piled ? PILE_RISE : 0) + (i - piled) * 0.02;
+}
 
 export class TableScene {
   readonly canvas: HTMLCanvasElement;
@@ -285,6 +330,8 @@ export class TableScene {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(TABLE_FOV, 1, 0.1, 400);
   private env: Environment | null = null;
+  /** -- day and night -- the room's light at night (table3d/dayNight.ts). */
+  private dayNight = new DayNightLight();
   private world = new THREE.Group();
   private cards = new Map<string, CardObj>();
   private piles = new Map<string, PileObj>();
@@ -300,7 +347,7 @@ export class TableScene {
   private view: GameView | null = null;
   private me = "";
   private raf = 0;
-  private clock = new THREE.Clock();
+  private clock = new THREE.Timer(); // (THREE.Clock is deprecated since r183: a console warning on every 3D load)
   private ray = new THREE.Raycaster();
   private tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private camPos = new THREE.Vector3(0, 30, 30);
@@ -336,8 +383,20 @@ export class TableScene {
   /** Called once per frame after rendering: DOM overlays that follow the table hook in here, so the
    * three.js loop stays the only animation loop. */
   onFrame: (() => void) | null = null;
+  /** -- idle -- with no ambient motion (low graphics, reduced motion), a table at rest draws no frames (a software renderer
+   *  spent every core redrawing an unchanged table): anything that may change the picture wakes it for a while. */
+  private awakeUntil = 0;
+  private awakeFrames = 0;
+  private texSeen = -1;
+  private idleAt = 0;
+  wake = (): void => {
+    this.awakeUntil = performance.now() + 1500;
+    this.awakeFrames = 20; // (and as many frames: some easings step per frame, and a software renderer draws few a second)
+  };
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
+  /** A unit square lying flat: a pile's ×N badge, scaled to its size each frame (sizeBadges). */
+  private badgeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   private fanGeo = twoBackGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
@@ -389,6 +448,8 @@ export class TableScene {
   private post: Post | null = null;
   /** Card flights, stand-ins, riffles, strikes and numbers (table3d/motion3d.ts), stepped from this loop. */
   private motion: TableMotion;
+  /** -- planechase -- the face-up plane lying in the aisle (table3d/planar3d.ts). */
+  private planar = new PlanarTable();
   /** The end-of-game table scene (table3d/endScene3d.ts): dim, camera ease, one pulse, a few motes; stepped from this loop. */
   private end: EndScene3D;
   /** -- arranged boards -- each mat in rows (table3d/arrange3d.ts), unless this device chose free placement; each battlefield card's spot. */
@@ -414,7 +475,7 @@ export class TableScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = quality !== "low";
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed: three fell back to this, with a warning)
     this.canvas = this.renderer.domElement;
     this.canvas.className = "table3d-canvas";
     this.canvas.dataset.drop3d = "";
@@ -426,7 +487,8 @@ export class TableScene {
     this.envMap = pmrem.fromScene(room, 0.04).texture;
     room.dispose();
     pmrem.dispose();
-    this.scene.environment = this.envMap;
+    // (low: no room reflections on the table and cards, which doubled a software renderer's frame for no visible change)
+    if (quality !== "low") this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
     this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
@@ -435,12 +497,18 @@ export class TableScene {
     // -- arranged boards -- the board layout setting, and my order for a board (dragged along its row, here or on the 2D table)
     this.arranged = usePrefs.getState().boardLayout !== "free";
     this.unsubs.push(usePrefs.subscribe((s, prev) => {
+      if (s.combatFilter !== prev.combatFilter && s.boardLayout === prev.boardLayout) return this.syncCards(); // -- combat filter -- (re-dim once)
       if (s.boardLayout === prev.boardLayout) return;
       this.arranged = s.boardLayout !== "free";
       this.syncCards();
       this.updateCameraGoal();
     }), useBoardOrderTick.subscribe(() => this.syncCards()));
     this.unsubs.push(useTargeting.subscribe(() => this.syncCards())); // a candidate hovered in the tray, or chosen
+    this.unsubs.push(usePrefs.subscribe(this.wake), useGame.subscribe(this.wake)); // -- idle --
+    for (const type of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown", "keyup"]) {
+      window.addEventListener(type, this.wake, { capture: true, passive: true });
+      this.unsubs.push(() => window.removeEventListener(type, this.wake, { capture: true }));
+    }
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
@@ -474,6 +542,7 @@ export class TableScene {
     const onCursor = (e: Event) => {
       const msg = (e as CustomEvent<CursorMessage>).detail;
       if (this.view && msg.from !== this.view.viewer) this.cursors.receive(msg, performance.now());
+      this.wake();
     };
     window.addEventListener("fyodor:cursor", onCursor);
     this.unsubs.push(() => window.removeEventListener("fyodor:cursor", onCursor));
@@ -494,6 +563,8 @@ export class TableScene {
       heart: (p) => this.props.heartWorld(p),
     });
     this.unsubs.push(onTableEvents((events, next, prev) => this.motion.play(events, next, prev)), onMotionSkip(() => this.motion.finish()));
+    this.world.add(this.planar.group);
+    this.unsubs.push(onMotionSkip(() => this.planar.finish()));
     this.end = new EndScene3D(this.scene, () => tableSize(this.seatList));
     this.unsubs.push(onEndScene((cue) => this.end.play(cue)));
     this.applyFog();
@@ -571,6 +642,7 @@ export class TableScene {
   }
 
   resize(w: number, h: number): void {
+    this.wake();
     this.viewW = w;
     this.viewH = h;
     this.renderer.setSize(w, h, false);
@@ -585,6 +657,7 @@ export class TableScene {
   }
 
   update(view: GameView, me: string): void {
+    this.wake();
     // landed dice stay for the turn they were rolled in (game/dice.ts)
     if (this.diceTurn >= 0 && view.turn.number !== this.diceTurn) this.dice.clear();
     this.diceTurn = view.turn.number;
@@ -597,6 +670,7 @@ export class TableScene {
       this.rebuildTable();
       this.updateCameraGoal();
     }
+    this.dayNight.show(view.table.day_night);
     const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
     const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
@@ -608,6 +682,7 @@ export class TableScene {
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
       Object.fromEntries(view.players.map((p) => [p.id, p.color])), this.myRot());
     this.cursors.setTable(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, { color: p.color, name: p.name }])), performance.now());
+    this.planar.sync(view.planechase, planarSpot(this.seatList), this.myRot(), performance.now()); // -- planechase --
     this.syncCards();
   }
 
@@ -749,6 +824,7 @@ export class TableScene {
 
   /** Table motion (tests and screenshots): freeze every running motion at a time in ms (null: live), and what is running. */
   motionFreeze(ms: number | null): void {
+    this.wake();
     this.motion.freeze(ms);
   }
 
@@ -756,9 +832,9 @@ export class TableScene {
     return this.motion.state();
   }
 
-  /** The dice on the table, in screen coordinates (tests and diagnostics). */
-  diceOnScreen(): { x: number; y: number }[] {
-    return this.dice.positions().map((p) => this.project(p));
+  /** The dice on the table, in screen coordinates (tests and diagnostics; `resting`: only those at rest, which the plates keep clear of). */
+  diceOnScreen(resting = false): { x: number; y: number }[] {
+    return this.dice.positions(resting).map((p) => this.project(p));
   }
 
   /**
@@ -986,6 +1062,62 @@ export class TableScene {
     return null;
   }
 
+  /**
+   * -- playtest (nov 18) -- while I declare attackers, what a drag of creatures points at: a planeswalker or battle that may be attacked,
+   * or a player's heart, under the pointer; an opponent's mat; the open table ahead of my mat: the opponent whose seat lies most in that
+   * direction (as a player pushes a card toward whomever it attacks); my own mat: "home". Null elsewhere or outside the decision.
+   */
+  attackSpot(clientX: number, clientY: number, dragged: string[] = []): AttackSpot {
+    const view = this.view;
+    const d = myAttackDecision(view);
+    if (!view || !d) return null;
+    const offered = new Set((d.options ?? []).filter((o) => o.id.startsWith("t:")).map((o) => o.id.slice(2)));
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card && !dragged.includes(hit.card) && offered.has(hit.card)) return hit.card;
+    if (hit?.heart && offered.has(hit.heart)) return hit.heart;
+    const p = this.tablePoint(clientX, clientY);
+    if (!p) return null;
+    for (const seat of this.seatList) {
+      const [lx, lz] = toLocal(seat, p.x, p.z);
+      if (!onBattlefield(lx, lz)) continue;
+      if (seat.player === this.me) return "home";
+      return offered.has(seat.player) ? seat.player : null;
+    }
+    const mine = this.seatList.find((s) => s.player === this.me);
+    if (!mine) return null;
+    const [vx, vz] = [p.x - mine.x, p.z - mine.z];
+    const cl = Math.hypot(mine.x, mine.z) || 1;
+    if ((vx * -mine.x + vz * -mine.z) / cl < MAT_D / 2) return null; // not ahead of my mat
+    let best: string | null = null;
+    let score = -2;
+    for (const seat of this.seatList) {
+      if (seat.player === this.me || !offered.has(seat.player)) continue;
+      const [sx, sz] = [seat.x - mine.x, seat.z - mine.z];
+      const cos = (vx * sx + vz * sz) / ((Math.hypot(vx, vz) || 1) * (Math.hypot(sx, sz) || 1));
+      if (cos > score) [best, score] = [seat.player, cos];
+    }
+    return best;
+  }
+
+  /**
+   * -- playtest (nov 18) -- while I declare blockers, what a drag of my creatures points at: an attacker under the pointer; my own mat:
+   * "home"; the attacking player's mat: "board" (a near miss does nothing). Null elsewhere or outside the decision.
+   */
+  blockSpot(clientX: number, clientY: number, dragged: string[] = []): BlockSpot {
+    const view = this.view;
+    const d = myBlockDecision(view);
+    if (!view || !d) return null;
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card && !dragged.includes(hit.card) && d.options!.some((o) => o.id === `a:${hit.card}`)) return hit.card;
+    const p = this.tablePoint(clientX, clientY);
+    if (!p) return null;
+    for (const seat of this.seatList) {
+      const [lx, lz] = toLocal(seat, p.x, p.z);
+      if (onBattlefield(lx, lz)) return spotForZone(view, d, `${seat.player}:battlefield`);
+    }
+    return null;
+  }
+
   /** Drop resolution for DOM drags (from the hand) over the canvas. */
   resolveDrop(clientX: number, clientY: number, offset?: THREE.Vector3): DropResult | null {
     const p = this.tablePoint(clientX, clientY);
@@ -1010,6 +1142,7 @@ export class TableScene {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.motion.dispose();
+    this.planar.dispose();
     this.end.dispose();
     this.dice.dispose();
     this.cannon?.dispose();
@@ -1088,6 +1221,7 @@ export class TableScene {
     const size = tableSize(this.seatList);
     this.env = buildEnvironment(this.plane, size, this.quality, propSpots(this.seatList, size));
     this.world.add(this.env.group);
+    this.dayNight.attach(this.env);
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
       const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(MAT_FELT, MAT_NAP, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
@@ -1302,13 +1436,22 @@ export class TableScene {
 
   private faceKeyFor(card: GameCard): string {
     if (!isVisible(card) || card.face_down) return `back:${card.owner}`;
+    if (card.ability) {
+      // a triggered or activated ability: its source's art and its text (as the 2D table's GameCardFace)
+      const src = card.ability.source_card_id ? useCardCache.getState().cards[card.ability.source_card_id] : undefined;
+      return `ability:${card.ability.source_card_id ?? ""}:${src?.has_image ? "img" : "txt"}:${card.ability.kind}:${card.ability.source_name ?? ""}:${card.ability.text}`;
+    }
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-    const look = data ? (data.has_image ? "img" : "txt") : "pending";
+    // -- engine token art -- a described token pictured by a token printing: that picture, once it is known to be here
+    const artId = tokenArtId(card);
+    const art = artId ? useCardCache.getState().cards[artId] : undefined;
+    const look = data ? (data.has_image ? "img" : "txt") : art?.has_image ? `art-${art.id}-${tokenArtFace(card)}` : "pending";
     // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
       const l = this.tileLookFor(card.id);
-      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${t}${card.tapped ? "|tapped" : ""}`;
+      const bare = this.placed.get(card.id)?.under ? 1 : 0;
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${bare}:${t}${card.tapped ? "|tapped" : ""}`;
     }
     return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
@@ -1318,13 +1461,23 @@ export class TableScene {
     let m = this.materials.get(key);
     if (m) return m;
     if (key.startsWith("tile:")) return this.tileMaterial(card, key);
+    if (key.startsWith("ability:") && isVisible(card) && card.ability) {
+      const id = card.ability.source_card_id;
+      const art = id && useCardCache.getState().cards[id]?.has_image ? imageUrl(id, 0, "normal") : null;
+      m = new THREE.MeshStandardMaterial({ map: abilityCardTexture(card.ability, art), roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
+      this.materials.set(key, m);
+      return m;
+    }
     const vis = card as Extract<GameCard, { hidden?: undefined }>;
     const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
     const text = () => textCardTexture(data, vis.face ?? 0, vis.name);
+    const artId = tokenArtId(card); // -- engine token art --
     let tex: THREE.Texture;
     if (data?.has_image) {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
+    } else if (!data && artId && useCardCache.getState().cards[artId]?.has_image) {
+      tex = this.loadTexture(imageUrl(artId, tokenArtFace(card), this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
     // printed card stock with a faint satin sheen from the room reflections
     // matte card stock: a glossy face catches the overhead light and washes the art out
@@ -1341,10 +1494,12 @@ export class TableScene {
       const vis = card as Extract<GameCard, { hidden?: undefined }>;
       const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
       const imgFace = data?.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
-      const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
+      const artId = tokenArtId(card); // -- engine token art -- the picture only; the tile's words stay the token's
+      const art = data?.has_image ? imageUrl(data.id, imgFace, "normal")
+        : artId && useCardCache.getState().cards[artId]?.has_image ? imageUrl(artId, tokenArtFace(card), "normal") : null;
       const t = vis.token;
       const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
-      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id) },
+      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id), bare: !!this.placed.get(card.id)?.under },
         this.quality === "low" ? 224 : TILE_PX, this.renderer.capabilities.getMaxAnisotropy());
       this.textures.set(base, tex);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
@@ -1378,6 +1533,7 @@ export class TableScene {
     this.world.remove(c.group);
     (c.glow.material as THREE.Material).dispose();
     this.clearOverlay(c);
+    this.setBadge(c, 0);
   }
 
   private clearOverlay(c: CardObj): void {
@@ -1391,6 +1547,13 @@ export class TableScene {
 
   /** Arena-style badges on the card face; rebuilt only when what they say changes. */
   private setOverlay(c: CardObj, o: CardOverlay | null): void {
+    // a free pile's ×N is its own badge, kept readable from the default camera (an arranged tile draws it in its overlay)
+    const pile = !c.tile ? o?.pile ?? 0 : 0;
+    this.setBadge(c, pile);
+    if (pile && o) {
+      const { pile: _n, ...rest } = o;
+      o = rest.pt || rest.damage || rest.chain || rest.owner || rest.guest || rest.combat || rest.keywords.length || rest.counters.length ? rest : null;
+    }
     const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
     const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
     if (c.overlayKey === key) return;
@@ -1400,13 +1563,70 @@ export class TableScene {
     const mat = new THREE.MeshBasicMaterial({
       // -- arranged boards -- a tile's badges are laid out for its proportions (table3d/tiles.ts)
       map: canvasTexture(c.tile ? tileOverlayCanvas(o, 256, look) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      // (a guest lies tucked a hair under its host: a slope-scaled offset would lift its frame through the host's face)
+      polygonOffset: true, polygonOffsetFactor: o.guest ? 0 : -2, polygonOffsetUnits: -2,
     });
     const m = new THREE.Mesh(this.cardFaceGeo, mat);
     m.position.y = THICK + FACE_LIFT * 2;
     m.renderOrder = 2;
     c.group.add(m);
     c.overlay = m;
+  }
+
+  /** -- token piles -- the ×N badge on a pile's top card (0: none); loop() sizes and turns it (sizeBadges). */
+  private setBadge(c: CardObj, n: number): void {
+    if ((c.badgeN ?? 0) === n) return;
+    c.badgeN = n;
+    if (c.badge) {
+      c.group.remove(c.badge);
+      const m = c.badge.material as THREE.MeshBasicMaterial;
+      m.map?.dispose();
+      m.dispose();
+      c.badge = null;
+    }
+    if (!n) return;
+    const canvas = pileBadgeCanvas(n);
+    const mat = new THREE.MeshBasicMaterial({ map: canvasTexture(canvas), transparent: true, depthWrite: false, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const m = new THREE.Mesh(this.badgeGeo, mat);
+    m.position.y = THICK + FACE_LIFT * 3;
+    m.renderOrder = 3;
+    m.raycast = () => undefined; // (clicks go to the card under it)
+    m.userData = { aspect: canvas.width / canvas.height };
+    c.group.add(m);
+    c.badge = m;
+  }
+
+  /**
+   * -- token piles -- each ×N badge keeps at least PILE_BADGE_PX of height on screen however far the camera is (bigger on a
+   * near card, never past a cap), reads upright from my seat, and sits on the corner of its card that is top right from
+   * here, half hanging off it so it covers as little of the art as it can.
+   */
+  private sizeBadges(): void {
+    const h = this.canvas.clientHeight; // (NDC spans the canvas, a view offset or not)
+    if (!h) return;
+    const mine = this.myRot();
+    for (const c of this.cards.values()) {
+      const b = c.badge;
+      if (!b || !c.group.visible) continue;
+      // screen pixels per world unit of depth at the card (toward the camera, along the table: foreshortening included)
+      const at = c.group.position;
+      badgeA.copy(at).project(this.camera);
+      badgeDir.set(this.camera.position.x - at.x, 0, this.camera.position.z - at.z);
+      if (badgeDir.lengthSq() < 1e-9) badgeDir.set(0, 0, 1);
+      badgeB.copy(at).addScaledVector(badgeDir.normalize(), 0.5).project(this.camera);
+      const pxPerUnit = Math.hypot(((badgeA.x - badgeB.x) / 2) * this.canvas.clientWidth, ((badgeA.y - badgeB.y) / 2) * h) / 0.5;
+      const bh = Math.min(BADGE_MAX_H, Math.max(BADGE_MIN_H, pxPerUnit > 0 ? PILE_BADGE_PX / pxPerUnit : BADGE_MAX_H));
+      const bw = bh * (b.userData.aspect as number);
+      const gs = c.group.scale.x || 1;
+      // turned from the card's frame to mine: the badge reads upright, on the corner that is top right from my seat
+      const r = mine - c.group.rotation.y;
+      const at2 = pileBadgeSpot(r, bw, bh, CARD_W, CARD_H);
+      b.position.x = at2.x / gs;
+      b.position.z = at2.z / gs;
+      b.rotation.y = r;
+      b.scale.set(bw / gs, 1, bh / gs);
+    }
   }
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
@@ -1440,6 +1660,7 @@ export class TableScene {
   }
 
   private syncCards(): void {
+    this.wake();
     const view = this.view;
     if (!view) return;
     this.motion.layout();
@@ -1449,12 +1670,19 @@ export class TableScene {
       version: useCardCache.getState().cards,
       order: (zone) => boardOrder(view.game.id, zone),
     }, this.keepOut) : new Map();
-    for (const c of this.cards.values()) c.seen = false;
+    for (const c of this.cards.values()) {
+      c.seen = false;
+      c.cover = undefined;
+    }
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
+    const peek = new Set(store.peek);
     this.selectedIds = selection;
     this.beams = targetBeams(view, this.me);
+    // -- combat filter -- (game/combatFilter.ts) the cards it leaves lit, worked out here once per sync: dimming is a material swap, no per-frame cost
+    const lit = litCards(view, this.me, usePrefs.getState().combatFilter);
+    const sf = stackFocus(view, store.hover); // -- stack readability -- a stack object pointed at: its targets and source glow
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -1463,6 +1691,10 @@ export class TableScene {
       const c = this.cards.get(id) ?? this.makeCard(id);
       c.seen = true;
       if (isVisible(card) && card.card_id && !useCardCache.getState().cards[card.card_id]) need.push(card.card_id);
+      const artId = tokenArtId(card); // -- engine token art --
+      if (artId && !useCardCache.getState().cards[artId]) need.push(artId);
+      const src = isVisible(card) ? card.ability?.source_card_id : null;
+      if (src && !useCardCache.getState().cards[src]) need.push(src);
       const key = this.faceKeyFor(card);
       if (key !== c.faceKey) {
         c.faceKey = key;
@@ -1474,29 +1706,68 @@ export class TableScene {
     for (const seat of this.seatList) {
       const pid = seat.player;
       // battlefield
-      const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
+      // -- attached elsewhere -- with the other players' Auras and Equipment attached to permanents here, each just under its host
+      const bfZone = `${pid}:battlefield`;
+      const bf = boardCards(view, bfZone);
+      const guest = (id: string) => view.cards[id]?.zone !== bfZone;
+      const hostAt = (h: string): [number, number] | null => pending[h] ?? (view.cards[h] ? [view.cards[h]!.x ?? 0, view.cards[h]!.y ?? 0] : null);
       const piles = this.arranged ? this.boards.piles(pid) : zonePileTops(view, `${pid}:battlefield`);
+      // -- token piles -- what lies wholly under another card (a pile's buried cards) is hidden; a raised card (selected, a
+      // targeting choice, on its way somewhere) neither hides nor is hidden
+      const tb0 = this.beams;
+      const lifted = (id: string) => selection.has(id) || !!tb0?.cands.has(id) || id === tb0?.source || !!pending[id];
+      // (nor is a card something is attached to: its tethers lead to it)
+      const hosts = new Set<string>();
+      for (const id of bf) {
+        const a = view.cards[id];
+        if (a && isVisible(a) && a.attached_to) hosts.add(a.attached_to);
+      }
+      const covers = this.arranged ? null : freeCovers(bf.flatMap((id, i) => {
+        const card = view.cards[id];
+        if (!card || guest(id)) return [];
+        const [x, y] = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
+        const look = isVisible(card) ? `${card.card_id ?? `token:${card.name}`}|${card.face ?? 0}|${card.face_down ? 1 : 0}` : "hidden";
+        return [{ id, x, y, turn: (card.tapped ? 1 : 0) + (card.flipped ? 2 : 0) + (card.rotation ?? 0) * 4, lifted: lifted(id) || hosts.has(id), look }];
+      }));
       bf.forEach((id, i) => {
         const card = view.cards[id];
         const c = show(id);
         if (!card || !c) return;
-        const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
+        const away = guest(id);
+        const pos = (away ? guestSpot(view, id, hostAt) : null) ?? pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
         // -- targeting -- the choices lift off the felt (the one pointed at or chosen more), the rest darkens
         const tb = this.beams;
         const lift = tb?.cands.has(id) ? (tb.targets.includes(id) ? 0.16 : 0.06) : 0;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
+        const under = covers ? covers.get(id) : this.placed.get(id)?.cover;
+        c.cover = under && !lifted(id) && !lifted(under) ? under : undefined;
         const face = this.faceMaterial(card, c.faceKey);
-        const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
+        const want = (tb && !tb.cands.has(id) && id !== tb.source) || (lit && !lit.has(id) && !selection.has(id)) ? this.dimmed(face) : face;
         if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
-        const overlay = overlayFor(card, view.rules?.stats?.[id], c.tile);
+        // a stack member under its top card wears no badges (the top card carries the ×N and speaks for the stack)
+        // (nor does a hidden one: 200 tokens with a counter each would be 200 badge textures)
+        const overlay = c.cover || (c.tile && this.placed.get(id)?.under) ? null : overlayFor(card, view.rules?.stats?.[id], c.tile);
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
-        this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
+        // -- attached elsewhere -- its controller's seat colour round the edge and their initial in the corner that peeks out
+        const ctl = away ? view.players.find((p) => p.id === card.controller) : undefined;
+        const visitor = ctl ? { initial: ctl.name.slice(0, 1).toUpperCase(), color: ctl.color, front: c.tile && this.boards.mats.get(pid)?.mirrored ? "bottom" as const : "top" as const } : undefined;
+        // -- playtest (nov 18) -- whom it attacks (planned in the prompt, or declared), or how many it blocks when several
+        const plannedTo = livePlan(view)[`a:${id}`]?.slice(2);
+        const to = plannedTo ? defenderBadge(view, { id: plannedTo }) : card.attacking ? defenderBadge(view, card.attacking) : null;
+        const blocks = card.blocking ? 1 + (card.blocking_more?.length ?? 0) : 0;
+        const plannedBlocks = liveBlocks(view)[`b:${id}`]?.length ?? 0; // (a block planned in the declare-blockers prompt: dashed chip)
+        const combat = to ? { to: { initial: to.initial, color: to.color, planned: !!plannedTo } } : plannedBlocks ? { blocks: plannedBlocks, planned: true }
+          : blocks > 1 ? { blocks } : undefined;
+        this.setOverlay(c, pile || owner || visitor || combat ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}), ...(visitor ? { guest: visitor } : {}), ...(combat ? { combat } : {}) } : overlay);
+        const lit2 = selection.has(id) || peek.has(id); // (peek: a plaque's "attached elsewhere" chip is hovered)
+        const hl = sf?.targets.includes(id) ? this.plane.ui.accent2 : sf?.source === id ? this.plane.ui.frameHi : null;
+        if (hl) this.setGlow(c, hl, 0.95);
+        else this.setGlow(c, lit2 ? this.plane.ui.frameHi : this.legalColor(view, id), lit2 || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -1559,26 +1830,39 @@ export class TableScene {
     // chain), facing me; the top one stands biggest and highest and says it resolves next
     const n = view.stack.length;
     const myRot = seatOf.get(this.me)?.rot ?? 0;
-    const step = Math.min(1.8, 8 / Math.max(1, n));
+    // -- playtest (nov 17) -- a long chain (95 triggers) rose as one tall ramp over both battlefields: only the last STACK_FAN are fanned,
+    // the older ones gather in a low pile under the first of them (the stack panel lists them all, "×95")
+    const fanned = Math.min(n, STACK_FAN);
+    const piled = n - fanned;
+    const step = Math.min(1.8, 8 / Math.max(1, fanned));
     this.stackBox = null;
     this.stackAnchors.clear();
     const grow = (x: number, z: number, r: number) => {
       const b = this.stackBox ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
       this.stackBox = { minX: Math.min(b.minX, x - r), maxX: Math.max(b.maxX, x + r), minZ: Math.min(b.minZ, z - r), maxZ: Math.max(b.maxZ, z + r) };
     };
-    // toward my side of the centre, so the standing cards don't hide the far player's front row
-    const nearMe = 1.6;
+    // laid nearly flat in the aisle between the rows, so no stack card stands up over anyone's front row: centred and
+    // sized to fit a pod's wide aisle; a duel's aisle is too narrow for a readable card, so there the stack lies at the
+    // aisle's left end (the arranged rows are centred, so that corner is the last to fill)
+    const aisle = aisleOf(this.seatList) * 2 - 0.25;
+    const tilt = 0.3; // far edge raised a little: the face turns toward my seat
+    const fit = aisle / (CARD_H * Math.cos(tilt));
+    const narrow = fit < 1.7;
+    const topScale = narrow ? 1.7 : Math.min(2.25, fit);
+    const restScale = topScale * 0.82;
+    const spacing = step * (topScale / 2.25);
+    const x0 = narrow ? -(MAT_W / 2 - (CARD_W * topScale) / 2 - 0.3) + ((fanned - 1) / 2) * spacing : 0;
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
       const top = i === n - 1;
-      const x = (i - (n - 1) / 2) * step;
-      const z = nearMe + (top ? 0.15 : 0);
+      const j = Math.max(0, i - piled); // (its place in the fan: every piled card shares the first)
+      const x = x0 + (j - (fanned - 1) / 2) * spacing;
+      const z = 0;
       const wx = x * Math.cos(myRot) + z * Math.sin(myRot);
       const wz = -x * Math.sin(myRot) + z * Math.cos(myRot);
-      const scale = top ? 2.25 : 1.85;
-      const tilt = 0.75; // far edge up: the face turns toward my seat
-      const y = (top ? 1.45 : 1.3) + i * 0.02;
+      const scale = top ? topScale : restScale;
+      const y = (top ? 0.42 : 0.3) + stackLift(i, piled);
       this.place(c, undefined, wx, wz, y, myRot);
       c.scale = scale;
       grow(wx, wz, (CARD_H / 2) * scale + 0.45);
@@ -1621,7 +1905,7 @@ export class TableScene {
     const view = this.view;
     if (!view) return;
     const store = useGame.getState();
-    const links = attachmentLinks(view, [store.hover, ...store.selection]);
+    const links = attachmentLinks(view, [store.hover, ...store.selection, ...store.peek]);
     const ends: [THREE.Vector3, THREE.Vector3][] = [];
     const foot = (c: CardObj) => ({ x: c.target.x, y: c.target.z, hw: (CARD_W / 2) * c.scale, hh: (CARD_H / 2) * c.scale, rot: -c.rot });
     // just over the card's face, as high as the hover or selection lift carries it
@@ -1654,44 +1938,74 @@ export class TableScene {
    * and facing them; each blocker steps up directly in front of the attacker it blocks.
    */
   private layoutCombat(view: GameView): void {
-    // -- arranged boards -- attackers and blockers stay in their rows, stepping forward, as on Arena; arrows say whom
-    // they attack (syncArrows)
-    if (this.arranged) return;
+    // -- playtest (nov 18) -- arranged boards too (they had kept attackers in their rows with an arrow to the defender: the user preferred
+    // the cards pushed toward whom they attack, as at a real table); and an attack still being planned in the declare-attackers prompt
+    // (game/rules/attackDraft.ts) already slides out toward its defender, a little less far than a declared one
     const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
-    const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
+    const planned = livePlan(view);
+    const groups = new Map<string, { a: Seat; d: Seat; ids: string[]; plan: boolean }>();
     for (const card of Object.values(view.cards)) {
-      if (!card.attacking || !card.zone.endsWith(":battlefield")) continue;
+      const plan = planned[`a:${card.id}`]?.slice(2);
+      const at = card.attacking ?? (plan ? { kind: view.players.some((p) => p.id === plan) ? "player" : "card", id: plan } : undefined);
+      if (!at || !card.zone.endsWith(":battlefield")) continue;
       const a = seatOf(card.controller);
-      const d = seatOf(card.attacking.kind === "player" ? card.attacking.id : view.cards[card.attacking.id]?.controller);
+      const d = seatOf(at.kind === "player" ? at.id : view.cards[at.id]?.controller);
       if (!a || !d || a === d) continue;
-      const key = `${a.player}>${d.player}`;
-      const g = groups.get(key) ?? { a, d, ids: [] };
+      const key = `${a.player}>${d.player}${card.attacking ? "" : "?"}`;
+      const g = groups.get(key) ?? { a, d, ids: [], plan: !card.attacking };
       g.ids.push(card.id);
       groups.set(key, g);
     }
-    const blockers = Object.values(view.cards).filter((b) => b.blocking && b.zone.endsWith(":battlefield"));
-    for (const { a, d, ids } of groups.values()) {
-      const dx = d.x - a.x;
-      const dz = d.z - a.z;
-      const len = Math.hypot(dx, dz) || 1;
-      const [ux, uz] = [dx / len, dz / len];
-      const [px, pz] = [-uz, ux];
-      const out = MAT_D / 2 + 1.4; // just past the attacker's mat edge, into the open wood
-      ids.forEach((id, i) => {
-        const c = this.cards.get(id);
-        if (!c) return;
-        const off = (i - (ids.length - 1) / 2) * CARD_H * 1.15; // tapped attackers lie sideways
-        const x = a.x + ux * out + px * off;
-        const z = a.z + uz * out + pz * off;
-        c.target.set(x, c.target.y + 0.04, z);
-        blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
-          const bc = this.cards.get(b.id);
-          if (!bc) return;
-          const side = (j - (all.length - 1) / 2) * CARD_W * 1.1;
-          bc.target.set(x + ux * CARD_H * 1.3 + px * side, bc.target.y + 0.04, z + uz * CARD_H * 1.3 + pz * side);
-          bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+    // (with the blocks planned in my declare-blockers prompt, game/rules/blockDraft.ts: each stands in front of its first attacker too)
+    const plannedBlocks = liveBlocks(view);
+    const blockers = Object.values(view.cards).filter((b) => (b.blocking || plannedBlocks[`b:${b.id}`]?.length) && b.zone.endsWith(":battlefield"));
+    const blocksFirst = (b: GameCard) => b.blocking ?? plannedBlocks[`b:${b.id}`]?.[0]?.slice(2);
+    // -- playtest (nov 18) -- one line per attacking player, just past the front edge of their own mat (pushed forward, as at a real
+    // table), the creatures attacking each defender side by side, ordered and nudged toward where that defender sits; a long line
+    // closes up (cards overlap) rather than run off the mat's width. Each blocker stands right in front of the attacker it blocks.
+    const bySeat = new Map<Seat, { a: Seat; d: Seat; ids: string[]; plan: boolean }[]>();
+    for (const g of groups.values()) bySeat.set(g.a, [...(bySeat.get(g.a) ?? []), g]);
+    for (const [a, list] of bySeat) {
+      const fl = Math.hypot(a.x, a.z) || 1;
+      const [fx, fz] = [-a.x / fl, -a.z / fl]; // toward the middle of the table
+      const [px, pz] = [-fz, fx];
+      const lat = (d: Seat) => (d.x - a.x) * px + (d.z - a.z) * pz;
+      list.sort((g, h) => lat(g.d) - lat(h.d));
+      const scale = Math.max(1, ...list.flatMap((g) => g.ids.map((id) => this.cards.get(id)?.scale ?? 1)));
+      const n = list.reduce((k, g) => k + g.ids.length, 0);
+      const gap = CARD_H * 0.6 * scale;
+      let step = CARD_H * 1.15 * scale; // (tapped attackers lie sideways)
+      const room = MAT_W * 0.92 - gap * (list.length - 1);
+      if (n * step > room) step = Math.max(CARD_W * 0.35, room / n);
+      const total = n * step + gap * (list.length - 1);
+      const mean = list.reduce((k, g) => k + lat(g.d) * g.ids.length, 0) / Math.max(1, n);
+      const bias = Math.max(-MAT_W * 0.2, Math.min(MAT_W * 0.2, mean * 0.25));
+      let off = bias - total / 2 + step / 2;
+      for (const { d, ids, plan } of list) {
+        let out = MAT_D / 2 + (plan ? 0.9 : 1.4) * scale; // just past the attacker's mat edge, into the open wood
+        // -- playtest (nov 18) -- facing mats with little wood between them (two players): no further than the defender's front edge,
+        // so the attackers never lie on the creatures that would block them (drag-to-block picks those up: game/rules/blockDraft.ts)
+        const ahead = (d.x - a.x) * fx + (d.z - a.z) * fz;
+        if (ahead > 0.8 * Math.hypot(d.x - a.x, d.z - a.z)) out = Math.min(out, ahead - MAT_D / 2 - CARD_H * 0.55 * scale);
+        ids.forEach((id) => {
+          const c = this.cards.get(id);
+          const at = off;
+          off += step;
+          if (!c) return;
+          const x = a.x + fx * out + px * at;
+          const z = a.z + fz * out + pz * at;
+          c.target.set(x, c.target.y + 0.04, z);
+          blockers.filter((b) => blocksFirst(b) === id).forEach((b, j, all) => {
+            const bc = this.cards.get(b.id);
+            if (!bc) return;
+            const side = (j - (all.length - 1) / 2) * CARD_W * 1.1 * (bc.scale ?? 1);
+            const ahead = CARD_H * 1.3 * Math.max(scale, bc.scale ?? 1);
+            bc.target.set(x + fx * ahead + px * side, bc.target.y + 0.04, z + fz * ahead + pz * side);
+            bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+          });
         });
-      });
+        off += gap;
+      }
     }
   }
 
@@ -1737,14 +2051,23 @@ export class TableScene {
       const b = edge(to, a) ?? b0;
       if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
-    for (const c of Object.values(view.cards)) {
-      if (c.attacking && (c.attacking.kind !== "player" || this.arranged)) add(c.id, c.attacking.id, ATTACK_RED, true);
-      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
+    // -- playtest (nov 18) -- combat reads from where the cards are (attackers pushed toward their defender, each blocker in front of its
+    // attacker) and from their badges; an arrow shows only for the attacker or blocker hovered or selected (or its partner in the block)
+    const lit = new Set([this.hovered, ...useGame.getState().selection].filter((x): x is string => !!x));
+    const plannedArrows = liveBlocks(view);
+    if (lit.size) for (const c of Object.values(view.cards)) {
+      if (c.attacking && lit.has(c.id)) add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) if (lit.has(c.id) || lit.has(t)) add(c.id, t, "#5fa8ff", true);
+      for (const t of plannedArrows[`b:${c.id}`] ?? []) if (lit.has(c.id) || lit.has(t.slice(2))) add(c.id, t.slice(2), "#5fa8ff", true);
     }
     // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
     const beams = this.beams;
     if (beams) for (const t of beams.targets) add(beams.source && this.cards.has(beams.source) ? beams.source : MY_HAND, t, this.plane.ui.accent2);
+    // -- stack readability -- a stack object's target arrows only while it is pointed at (its card here or its row in the stack list)
+    const onStack = new Set(view.stack);
+    const sf = onStack.size ? stackFocus(view, useGame.getState().hover) : null;
     for (const ar of view.arrows ?? []) {
+      if (onStack.has(ar.source) && !sf?.ids.has(ar.source)) continue;
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
     }
@@ -1929,6 +2252,7 @@ export class TableScene {
   }
 
   private updateCameraGoal(): void {
+    this.wake();
     const mine = this.seatList.find((s) => s.player === this.me) ?? this.seatList[0];
     if (!mine) return;
     const preset = this.preset;
@@ -2113,15 +2437,15 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string; planar?: boolean } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
-    const targets: THREE.Object3D[] = [...this.props.targets()];
-    for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
+    const targets: THREE.Object3D[] = [...this.props.targets(), ...this.planar.targets()];
+    for (const c of this.cards.values()) if (c.group.visible && !this.drag?.ids.includes(c.id)) targets.push(c.face);
     for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string; planar?: boolean };
     // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
     if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
@@ -2198,6 +2522,7 @@ export class TableScene {
     if (id) s.setHover(id);
     else if (s.hover) s.setHover(null);
     this.syncTethers();
+    if (this.view && !this.beams) this.syncArrows(this.view); // (combat arrows show for the hovered attacker or blocker)
     if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";
   }
@@ -2240,6 +2565,10 @@ export class TableScene {
       void send({ type: "commander_tax", commander: hit.tax, delta: 2 }); // cast once more: +2
       return;
     }
+    if (hit?.planar) {
+      showPlanarText(); // -- planechase -- the plane on the table: the plaque opens its full text
+      return;
+    }
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
       runSeatAction(hit.seatButton, 1, this.me, { x: e.clientX, y: e.clientY });
@@ -2264,12 +2593,12 @@ export class TableScene {
       pickClick(id);
       return;
     }
-    if (legalClass(store.view, id, this.me) === "rules-target" && answerByClick(store.view, id, this.me)) return;
+    if (clickAnswer(store.view, id, this.me, legalClass(store.view, id, this.me))) return; // a target, or a highlighted land to pay
     const now = performance.now();
     if (this.lastClick.id === id && now - this.lastClick.at < 320) {
       this.lastClick = { id: "", at: 0 };
       const card = store.view?.cards[id];
-      if (card?.zone.endsWith(":battlefield")) tapGesture(targetsFor(id), (x) => void tapCards(x));
+      if (card?.zone.endsWith(":battlefield")) doubleClickGesture(targetsFor(id), e, (x) => void tapCards(x)); // (-- playtest nov 17 -- as the 2D table)
       return;
     }
     this.lastClick = { id, at: now };
@@ -2277,7 +2606,8 @@ export class TableScene {
       store.select([id], "toggle");
       return;
     }
-    if (!store.selection.includes(id)) store.select([id]);
+    // (a click on the one selected card selects it afresh: its action bar, closed when the stack moved on, opens again: Hud.tsx SelectionBar)
+    if (!store.selection.includes(id) || store.selection.length === 1) store.select([id]);
     const ids = targetsFor(id);
     const grab = this.tablePoint(e.clientX, e.clientY) ?? new THREE.Vector3();
     const offsets = new Map<string, THREE.Vector3>();
@@ -2330,6 +2660,16 @@ export class TableScene {
         const off = d.offsets.get(cid);
         if (c && off) c.target.set(p.x + off.x, LIFT, p.z + off.z);
       }
+      // declaring attackers: what letting go here does ("Attack Bob"), by the pointer
+      if (myAttackDecision(this.view)) {
+        const h = attackHint(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids));
+        useAttackDraft.setState({ hint: h ? { ...h, x: e.clientX, y: e.clientY } : null });
+      }
+      // declaring blockers: "Block Serra Angel", "Can't block Serra Angel: flying"
+      if (myBlockDecision(this.view)) {
+        const h = blockHint(d.ids, this.blockSpot(e.clientX, e.clientY, d.ids), e.shiftKey);
+        useBlockDraft.setState({ hint: h ? { ...h, x: e.clientX, y: e.clientY } : null });
+      }
       return;
     }
     const hit = this.pick(e.clientX, e.clientY);
@@ -2343,7 +2683,7 @@ export class TableScene {
     const tip = taxOf ? `${taxSentence(taxOf.tax)}\n${taxOf.name}: click +2, right-click −2${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life${this.lifeLocked() ? "" : ": click − to lose 1 or + to gain 1, right-click for 5, or the wheel"}` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax || hit?.planar ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -2375,11 +2715,24 @@ export class TableScene {
     if (!d) return;
     document.body.classList.remove("dragging");
     if (!d.active) return;
+    // -- playtest (nov 18) -- declaring attackers: a creature dragged toward an opponent attacks them, dragged back home it doesn't
+    // (game/rules/attackDraft.ts); nothing moves on the table: the formation shows the plan
+    if (useAttackDraft.getState().hint) useAttackDraft.setState({ hint: null });
+    if (attackDrop(d.ids, this.attackSpot(e.clientX, e.clientY, d.ids))) {
+      this.syncCards();
+      return;
+    }
+    // -- playtest (nov 18) -- declaring blockers: onto an attacker it blocks it (Shift: as well), back on my mat it doesn't
+    if (useBlockDraft.getState().hint) useBlockDraft.setState({ hint: null });
+    if (blockDrop(d.ids, this.blockSpot(e.clientX, e.clientY, d.ids), e.shiftKey)) {
+      this.syncCards();
+      return;
+    }
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
     if (target && this.flick(d, e.timeStamp)) return;
     if (target && this.arrangedDrop(d.ids, d.anchor, target.zone)) return;
-    if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
+    if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey, at: { clientX: e.clientX, clientY: e.clientY } });
     else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
   }
@@ -2405,6 +2758,7 @@ export class TableScene {
     const view = this.view;
     const seat = this.seatList.find((s) => s.player === this.me);
     if (!view || !seat || !ids.length) return false;
+    if (ids.some((id) => guests(view).has(id))) return false; // -- attached elsewhere -- it lies on another mat: an exact drop (game/drop.ts)
     if (this.arranged) return this.flickArranged(ids, vx, vz);
     const now = performance.now();
     const d = { ids };
@@ -2456,6 +2810,7 @@ export class TableScene {
     const c = this.cards.get(anchor);
     const mat = this.boards.mats.get(zone.split(":")[0]!);
     if (!this.arranged || !view || !c || !mat || mat.zone !== zone || !ids.every((id) => view.cards[id]?.zone === zone)) return false;
+    if (ids.some((id) => guests(view).has(id))) return false; // -- attached elsewhere -- pulled home: game/drop.ts detaches it
     const [lx, lz] = toLocal(mat.frame, c.target.x, c.target.z);
     const order = reorderMat(mat, ids, lx, lz);
     if (order) {
@@ -2596,7 +2951,7 @@ export class TableScene {
   // ------------------------------------------------------------------ frame loop
 
   /** One card's body and contact shadow into the instanced draws (a fading stand-in keeps only its shadow). */
-  private writeBody(obj: THREE.Object3D, n: number, opacity = 1): number {
+  private writeBody(obj: THREE.Object3D, n: number, opacity = 1, shadow = true): number {
     if (n >= 1024) return n;
     obj.updateMatrix();
     this.bodies.setMatrixAt(n, opacity >= 0.99 ? obj.matrix : NO_BODY);
@@ -2608,7 +2963,7 @@ export class TableScene {
     shadowScale.set(spread, 1, spread * (obj.scale.z / (obj.scale.x || 1)));
     shadowM.compose(shadowPos, shadowQ, shadowScale);
     this.shadows.setMatrixAt(n, shadowM);
-    const strength = opacity / (1 + lift * 2.5);
+    const strength = shadow ? opacity / (1 + lift * 2.5) : 0;
     shadowColor.setRGB(strength, strength, strength);
     this.shadows.setColorAt(n, shadowColor);
     return n + 1;
@@ -2617,8 +2972,24 @@ export class TableScene {
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     const started = performance.now();
+    // -- idle -- at rest with nothing moving or changed: no frame (the DOM plates still check the page's chrome now and then)
+    if (texChanges !== this.texSeen) {
+      this.texSeen = texChanges;
+      this.wake();
+    }
+    const ambient = !document.body.classList.contains("reduced-motion") && !this.still; // (candles, dust: always moving)
+    if (!ambient && --this.awakeFrames < 0 && started > this.awakeUntil && !this.grabs.length && !this.afterFrame.length
+      && !this.motion.active && !this.dayNight.active && !this.planar.active && !this.end.active && !this.sliding && !this.drag) {
+      this.clock.update(); // (so the first frame on waking doesn't jump)
+      if (started - this.idleAt > 250) {
+        this.idleAt = started;
+        this.onFrame?.();
+      }
+      return;
+    }
+    this.clock.update();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
-    const t = this.clock.elapsedTime;
+    const t = this.clock.getElapsed();
     const reduced = document.body.classList.contains("reduced-motion");
     // empty pile outlines stay faint until a drag needs them as drop targets
     const anyDrag = document.body.classList.contains("dragging");
@@ -2659,7 +3030,9 @@ export class TableScene {
     let n = 0;
     // table motion (motion3d.ts): flights, riffles, numbers; nothing to do while idle
     const moving = this.motion.active;
+    if (this.dayNight.active) this.dayNight.update(started, reduced);
     if (moving) this.motion.update(started, reduced);
+    this.planar.update(started); // -- planechase -- a planeswalk or chaos playing (idle: nothing)
     for (const c of this.cards.values()) {
       if (c.fresh) {
         // new to the table with no flight to bring it: it is simply where it belongs (never glides in from the middle)
@@ -2688,8 +3061,13 @@ export class TableScene {
       const sq = c.squash ?? 1;
       c.sq = c.sq === undefined || Math.abs(sq - c.sq) < 1e-3 ? sq : c.sq + (sq - c.sq) * k;
       if (c.sq !== 1) c.group.scale.z = c.group.scale.x * c.sq;
-      n = this.writeBody(c.group, n);
+      // -- token piles -- a card lying wholly under its cover draws nothing; either one moving off (a flight, a drag, an attack,
+      // the easing after a change) shows it meanwhile
+      const cover = c.cover ? this.cards.get(c.cover) : undefined;
+      c.group.visible = !cover || !!cover.flying || !!cover.fresh || !!c.flying || !lyingOn(c.group, cover.group);
+      if (c.group.visible) n = this.writeBody(c.group, n, 1, !(c.tile && this.placed.get(c.id)?.under));
     }
+    this.sizeBadges();
     if (moving) {
       this.bodyN = n;
       this.motion.standIns(this.pushStandIn);
@@ -2700,8 +3078,8 @@ export class TableScene {
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
-    this.dice.update(performance.now(), reduced, speed);
-    this.cannon?.update(performance.now(), speed);
+    const diceMoving = this.dice.update(performance.now(), reduced, speed);
+    if (this.cannon?.update(performance.now(), speed) || diceMoving) this.wake();
     this.props.tick(t, this.camera, reduced);
     this.tickFans(ease(dt, 9 * speed, reduced));
     const kc = ease(dt, 5 * speed, reduced);
@@ -2711,7 +3089,7 @@ export class TableScene {
     if (this.camPos.distanceToSquared(this.camGoalPos) < 1e-8 && this.camLook.distanceToSquared(this.camGoalLook) < 1e-8) {
       this.camPos.copy(this.camGoalPos);
       this.camLook.copy(this.camGoalLook);
-    }
+    } else this.wake(); // (still on its way)
     this.camera.position.copy(this.camPos);
     if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
@@ -2724,6 +3102,7 @@ export class TableScene {
     if (this.cursors.group.visible) {
       this.camera.updateMatrixWorld();
       this.cursors.update(dt, started, reduced, this.camera, this.camera.view?.fullHeight ?? this.canvas.clientHeight);
+      if (this.cursors.group.children.some((o) => o.visible)) this.wake(); // (another player's cursor gliding or fading)
     }
     if (!reduced && !this.still) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome
@@ -2755,7 +3134,7 @@ export class TableScene {
     this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {
-      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100 };
+      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100, textures: this.renderer.info.memory.textures };
       this.frames = 0;
       this.frameTime = 0;
       this.fpsAt = t;

@@ -255,3 +255,6 @@ body.perf-low .ps-empty::before { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .pod-table tbody tr { transition: none; }
 }
+
+/* a recorded bot: its name once, with a small bot mark (the history keeps "Bot (bot)") */
+.ps-bot { display: inline-flex; vertical-align: -1px; margin-left: 5px; color: var(--text-faint); font-style: normal; }

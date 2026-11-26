@@ -85,8 +85,10 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
     can = shares(plan, top, ctx.get("source_card"))
     decide(plan, player=me, kind="choose_cards",
            prompt=f"{plan.state.cards[top].name or 'The card'} is on top of your library. Reveal it?",
+           # (playtest nov 18: the card is shown either way, an answer only when it shares a type — top_library's looked-at cards)
            options=[DecisionOption(id=top, label=plan.state.cards[top].name or "Card", card_id=top)] if can else [],
-           min_choices=0, max_choices=1 if can else 0, resume={"step": "kinship_reveal", "ctx": ctx, "e": e, "top": top})
+           min_choices=0, max_choices=1 if can else 0, resume={"step": "kinship_reveal", "ctx": ctx, "e": e, "top": top},
+           display={"kind": "looked", "cards": [top], "ineligible": "shares no creature type", **({"take": "Reveal it"} if can else {})})
 
 
 def resume_reveal(plan: Plan, d: Any, chosen: list[str]) -> None:

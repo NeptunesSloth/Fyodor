@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.game import actions as A
+from app.game.control import controller_of
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
@@ -58,6 +59,10 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics, in
         return f"{ch.name} can't attack after attacking during its controller's last turn"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Prahv
+
+    if (plane := planar_more.attack_problem(state, card, info)) is not None:
+        return plane
     if state.rules is not None and state.rules.combat_tag == "only_land" and not ch.is_land:  # -- as long as (wave 100K) -- Bumi's combat phase
         return f"{ch.name} isn't a land creature: only land creatures can attack during this combat phase"
     if state.rules is not None and state.rules.combat_tag.startswith("only:") and state.rules.object_id(card.id) not in state.rules.combat_tag[5:].split(","):
@@ -348,19 +353,20 @@ def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | No
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
     """Opponents, planeswalkers they control, and battles they protect (506.2, 508.1b; 310.9b: a
     Siege can be attacked by its own controller, never by its protector)."""
-    from app.rules import battles
+    from app.rules import battles, read_pass
     from app.rules.layers import derive
 
     out = [p for p in live_players(state) if p != attacker]
     defenders = list(out)
-    for pid in defenders:
-        for cid in state.zones.get(zone_key(pid, "battlefield"), []):
-            card = state.cards[cid]
-            current = derive(state, card, chars.of(card, info), info)
-            if card.controller == pid and "Planeswalker" in current.types and "cant_be_attacked" not in scripts.statics(current):
-                out.append(cid)
-    out += [cid for cid in battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
-            if "cant_be_attacked" not in scripts.statics(derive(state, state.cards[cid], chars.of(state.cards[cid], info), info))]
+    with read_pass.adopted(state, info):  # -- big boards (step scans) -- read-only: each permanent derived once, not from scratch
+        for pid in defenders:
+            for cid in state.zones.get(zone_key(pid, "battlefield"), []):
+                card = state.cards[cid]
+                current = derive(state, card, chars.of(card, info), info)
+                if card.controller == pid and "Planeswalker" in current.types and "cant_be_attacked" not in scripts.statics(current):
+                    out.append(cid)
+        out += [cid for cid in battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
+                if "cant_be_attacked" not in scripts.statics(derive(state, state.cards[cid], chars.of(state.cards[cid], info), info))]
     return out
 
 
@@ -390,8 +396,9 @@ def start_declare_attackers(plan: Plan) -> None:
     r.blockers_pending = []
     r.combat_round = ""
     ap = plan.active
-    eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
-                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
+                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
     targets = attack_targets(plan.state, ap, plan.info)
     if r.could_attack_turn110g != plan.state.turn.number:  # -- wave 110G -- 508.1a: who could attack this turn ("creatures that couldn't attack")
         r.could_attack110g, r.could_attack_turn110g = [], plan.state.turn.number
@@ -403,12 +410,25 @@ def start_declare_attackers(plan: Plan) -> None:
         delayed.at_step(plan, "declare_attackers")  # (wave 110I) nobody can attack: the step's delayed triggers still trigger
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
+    with plan.reading():  # -- big boards (Kiki end step) -- the guide only reads: each creature derived once, not once per check
+        display = {**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets),
+                   "stats": {cid: combat_stats(plan, plan.state.cards[cid]) for cid in eligible}}  # -- playtest (nov 18) -- P/T, keywords
+        labels = {cid: face_name(plan, plan.state.cards[cid], "Creature") for cid in eligible}
+    prefs = r.prefs.get(controller_of(plan.state, ap))
+    if who is None and not display["must_attack"] and prefs is not None and prefs.pass_until == "next_turn"             and prefs.pass_mark == str(plan.state.turn.number):
+        # -- END TURN -- pressed in their own turn: they attack with nothing (as Arena's End turn), unless a creature must attack (508.1d)
+        r.no_attackers = True
+        plan.note(f"{plan.name(ap)} doesn't attack")
+        from app.rules import delayed
+
+        delayed.at_step(plan, "declare_attackers")
+        return
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
-           options=[DecisionOption(id=f"a:{cid}", label=plan.state.cards[cid].name or "Creature", card_id=cid) for cid in eligible]
+           options=[DecisionOption(id=f"a:{cid}", label=labels[cid], card_id=cid) for cid in eligible]
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)
               for t in targets],
            min_choices=0, max_choices=len(eligible), resume={"step": "declare_attackers"},
-           display={**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets)})
+           display=display)
 
 
 # -- attack guide (soak gaps) -- what the declaration offers each creature: the server's own checks, read before anything is declared
@@ -492,55 +512,56 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
             token_stacks.keep(plan, decl.card_id, decl.count)
     seen: set[str] = set()
-    for decl in a.attackers:
-        card = plan.state.cards.get(decl.card_id)
-        if decl.card_id not in eligible or card is None:
-            raise ActionError("That creature can't attack now")
-        problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
-        if problem:
-            raise ActionError(problem)
-        if decl.target not in targets or decl.target not in current_targets:
-            raise ActionError(f"{card.name} can't attack that")
-        if (problem := target_problem(plan, card, decl.target)) is not None:  # 508.1c (the decision's guide reads the same checks)
-            raise ActionError(problem)
-        if decl.card_id in seen:
-            raise ActionError(f"{card.name} can only attack once")
-        seen.add(decl.card_id)
-        if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
-            raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
-    # -- combat (wave 5C) -- 508.1c: "No more than two creatures can attack you each combat"
-    from app.rules import combat_rules
+    with plan.reading():  # -- big boards (Kiki end step) -- the checks of the declaration only read: each creature derived once
+        for decl in a.attackers:
+            card = plan.state.cards.get(decl.card_id)
+            if decl.card_id not in eligible or card is None:
+                raise ActionError("That creature can't attack now")
+            problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
+            if problem:
+                raise ActionError(problem)
+            if decl.target not in targets or decl.target not in current_targets:
+                raise ActionError(f"{card.name} can't attack that")
+            if (problem := target_problem(plan, card, decl.target)) is not None:  # 508.1c (the decision's guide reads the same checks)
+                raise ActionError(problem)
+            if decl.card_id in seen:
+                raise ActionError(f"{card.name} can only attack once")
+            seen.add(decl.card_id)
+            if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
+                raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
+        # -- combat (wave 5C) -- 508.1c: "No more than two creatures can attack you each combat"
+        from app.rules import combat_rules
 
-    declared = [(x.card_id, x.target) for x in a.attackers]
-    from app.rules import declaration_groups
+        declared = [(x.card_id, x.target) for x in a.attackers]
+        from app.rules import declaration_groups
 
-    grouped = declaration_groups.relevant(plan, eligible, 'attack')
-    if grouped and not declaration_groups.legal(plan, seen, 'attack'):
-        raise ActionError('The attacking creatures do not satisfy their companion restrictions')
-    caps = combat_rules.limits(plan)
-    limit = combat_rules.limit_problem(plan, declared, caps)
-    if limit:
-        raise ActionError(limit)
-    if grouped:
-        problem = declaration_groups.attack_requirements(plan, eligible, targets, dict(declared), caps)
-        if problem:
-            raise ActionError(problem)
-    elif "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
-        problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets, dict(declared)),
-                                                    {x.card_id: x.target for x in a.attackers}, caps)
-        if problem:
-            raise ActionError(problem)
-    else:
-        # 508.1d: a creature that "attacks each combat if able" must attack when it can
-        for cid in eligible - seen:
-            card = plan.state.cards.get(cid)
-            if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                    attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
-                    any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
-                raise ActionError(f"{card.name} attacks each combat if able")
-        goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
-        if goad_problem:  # -- keyword actions & face-down (wave 3F) --
-            raise ActionError(goad_problem)
+        grouped = declaration_groups.relevant(plan, eligible, 'attack')
+        if grouped and not declaration_groups.legal(plan, seen, 'attack'):
+            raise ActionError('The attacking creatures do not satisfy their companion restrictions')
+        caps = combat_rules.limits(plan)
+        limit = combat_rules.limit_problem(plan, declared, caps)
+        if limit:
+            raise ActionError(limit)
+        if grouped:
+            problem = declaration_groups.attack_requirements(plan, eligible, targets, dict(declared), caps)
+            if problem:
+                raise ActionError(problem)
+        elif "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
+            problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets, dict(declared)),
+                                                        {x.card_id: x.target for x in a.attackers}, caps)
+            if problem:
+                raise ActionError(problem)
+        else:
+            # 508.1d: a creature that "attacks each combat if able" must attack when it can
+            for cid in eligible - seen:
+                card = plan.state.cards.get(cid)
+                if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
+                        attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
+                        any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
+                    raise ActionError(f"{card.name} attacks each combat if able")
+            goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
+            if goad_problem:  # -- keyword actions & face-down (wave 3F) --
+                raise ActionError(goad_problem)
     banding.validate(plan, a, locked=paying)
     from app.game.rules_state import DeclarationCostReservation
     from app.rules import nonmana_combat_costs
@@ -933,6 +954,26 @@ def blocks_declared(plan: Plan) -> None:
     triggers.unblocked(plan, [c for c in attackers_on(plan.state) if c.id not in plan.rules.blocked])
 
 
+# -- playtest (nov 17) -- what the blockers prompt shows beside each name: the keywords a block is decided on (702.9 flying, 702.17 reach,
+# 702.7 first strike, 702.4 double strike, 702.2 deathtouch, 702.110 menace, 702.19 trample, 702.15 lifelink, 702.12 indestructible)
+COMBAT_KEYWORDS = ("flying", "reach", "first strike", "double strike", "deathtouch", "menace", "trample", "lifelink", "indestructible")
+
+
+def combat_stats(plan: Plan, card: CardInstance) -> dict[str, Any]:
+    """A creature's power/toughness now (counters included) and its combat keywords, for the blockers prompt (public: both are on the
+    battlefield)."""
+    ch = plan.ch(card)
+    p, t = power(card, ch), toughness(card, ch)
+    return {"pt": f"{'*' if p is None else p}/{'*' if t is None else t}", "keywords": [k for k in COMBAT_KEYWORDS if k in ch.keywords]}
+
+
+def face_name(plan: Plan, card: CardInstance, fallback: str) -> str:
+    """-- playtest (nov 18) -- the name a combat prompt lists a creature by: the face that is up (712.8: a transformed Tovolar is "Tovolar, the
+    Midnight Scourge", never "Tovolar, Dire Overlord // Tovolar, the Midnight Scourge"); a face-down one keeps the label it had."""
+    ch = plan.ch(card)
+    return (ch.name if ch.name and not ch.face_down else card.name) or fallback
+
+
 def ask_next_blocker(plan: Plan) -> None:
     r = plan.rules
     state = plan.state
@@ -951,8 +992,12 @@ def ask_next_blocker(plan: Plan) -> None:
             return
         who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
         decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
-               options=[DecisionOption(id=f"b:{c.id}", label=c.name or "Creature", card_id=c.id) for c in blockers]
-               + [DecisionOption(id=f"a:{c.id}", label=c.name or "Attacker", card_id=c.id) for c in attackers],
+               display={"kind": "blockers", "stats": {c.id: combat_stats(plan, c) for c in [*attackers, *blockers]},
+                        # -- sweep B (nov 18) -- 509.1a: how many attackers each creature may block, where it's more than one (Palace Guard: all
+                        # of them), so the prompt offers "+ also blocks…" only on those (it was on every row)
+                        "limits": {c.id: min(n, len(attackers)) for c in blockers if (n := block_limit(plan, plan.ch(c))) > 1}},
+               options=[DecisionOption(id=f"b:{c.id}", label=face_name(plan, c, "Creature"), card_id=c.id) for c in blockers]
+               + [DecisionOption(id=f"a:{c.id}", label=face_name(plan, c, "Attacker"), card_id=c.id) for c in attackers],
                min_choices=0, max_choices=len(blockers), resume={"step": "declare_blockers"})
         return
 
@@ -1448,16 +1493,20 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     if todo:
         a, blockers, need = todo[0]
         tgt, free = a.attacking, None
-        options = [DecisionOption(id=t.id, label=t.name or "Blocker", card_id=t.id) for t in blockers]
+        options = [DecisionOption(id=t.id, label=face_name(plan, t, "Blocker"), card_id=t.id) for t in blockers]
         if "trample" in plan.ch(a).keywords and tgt is not None and (tgt.id in plan.state.players or tgt.id in plan.state.cards):
             free = len(options)
             options.append(DecisionOption(id=tgt.id, label=plan.state.players[tgt.id].name if tgt.id in plan.state.players
                                           else plan.state.cards[tgt.id].name or "Planeswalker"))
         p = _assigns(a, plan.ch(a)) or 0
         lethal = need if free is not None else []
-        decide(plan, player=banding.damage_chooser(plan, a, blockers), kind="divide", prompt=f"Divide {a.name}'s {p} combat damage among the creatures blocking it"
+        decide(plan, player=banding.damage_chooser(plan, a, blockers), kind="divide", prompt=f"Divide {face_name(plan, a, 'the attacker')}'s {p} combat damage among the creatures blocking it"
                + (" and what it attacks" if free is not None else ""), options=options, min_choices=len(options), max_choices=len(options),
-               display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal},
+               display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal,
+                        # -- playtest (nov 18) -- the prompt's rows: each blocker's lethal damage now (702.2c deathtouch: 1; damage already
+                        # marked counted), its power/toughness and marked damage, and which row is what it attacks (702.19b trample)
+                        "need": need, "deathtouch": "deathtouch" in plan.ch(a).keywords, "free": free,
+                        "stats": {t.id: {**combat_stats(plan, t), "damage": t.damage} for t in blockers}},
                resume={"step": "block_split", "round": rnd, "then": then, "creature": a.id, "total": p, "least": 0,
                        "lethal": lethal, "free": free})
         return True
@@ -1469,7 +1518,7 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
         if len(targets) < 2 or bp is None or bp <= 0 or not _deals(bch, rnd):
             continue
         decide(plan, player=banding.damage_chooser(plan, b, targets), kind="divide", prompt=f"Divide {b.name}'s {bp} combat damage among the creatures it blocks",
-               options=[DecisionOption(id=t.id, label=t.name or "Attacker", card_id=t.id) for t in targets],
+               options=[DecisionOption(id=t.id, label=face_name(plan, t, "Attacker"), card_id=t.id) for t in targets],
                min_choices=len(targets), max_choices=len(targets), display={"kind": "divide", "total": bp, "what": "damage", "least": 0},
                resume={"step": "block_split", "round": rnd, "then": then, "creature": b.id, "total": bp, "least": 0})
         return True
@@ -1553,6 +1602,11 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
 
 
 def after_damage(plan: Plan, dealt: list[tuple[str, str, int]]) -> None:
+    from app.rules import (
+        dive,  # -- dive (wave DV) -- "until it deals combat damage while attacking" ends as it does (611.2a)
+    )
+
+    dive.combat_damage_dealt(plan, dealt)
     hit_players = [plan.state.cards[src] for src, tgt, n in dealt
                    if tgt in plan.state.players and n > 0 and src in plan.state.cards]
     if hit_players:

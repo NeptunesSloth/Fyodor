@@ -26,7 +26,8 @@ def enabled(state: GameState) -> bool:
 
 def _others(state: GameState, actor: str) -> list[str]:
     turn = state.turn.number
-    return [p for p in state.seat_order if p != actor and state.auto_pass.get(p) != turn]
+    # (-- target dummy -- it never responds: nobody waits for it)
+    return [p for p in state.seat_order if p != actor and state.auto_pass.get(p) != turn and not state.players[p].dummy]
 
 
 def _just_passed(state: GameState) -> bool:

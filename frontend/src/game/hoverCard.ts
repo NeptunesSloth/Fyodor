@@ -144,6 +144,29 @@ export function placePreview(o: { vw: number; vh: number; w: number; minH: numbe
     const slot = freeSlot(x, o.w, o.top, bottom, o.minH, o.obstacles);
     if (slot && !covers(x, slot)) return { side: "left", left: x, top: slot.top, maxH: slot.height };
   }
-  // nowhere clear (a crowded small window): the right dock, as tall as the window allows
-  return right ? { side: "right", left: rightX, top: right.top, maxH: right.height } : { side: "right", left: rightX, top: o.top, maxH: bottom - o.top };
+  if (right) return { side: "right", left: rightX, top: right.top, maxH: right.height };
+  // -- playtest (nov 17) -- nowhere with the room it wants (a small window: 1600x1000 at 125%): the right column's tallest free stretch,
+  // its picture shrunk and its words scrolling, rather than the whole window's height behind the turn dial ("I can't read cards with
+  // the prio clock"); only a column with no stretch at all left falls back to that
+  const tall = tallestSlot(rightX, o.w, o.top, bottom, o.obstacles);
+  if (tall && tall.height >= PREVIEW_SQUEEZED) return { side: "right", left: rightX, top: tall.top, maxH: tall.height };
+  return { side: "right", left: rightX, top: o.top, maxH: bottom - o.top };
+}
+
+/** The least room the preview takes in a crowded window (its picture at its smallest, a few lines of text scrolling). */
+export const PREVIEW_SQUEEZED = 160;
+
+/** The tallest free stretch of the column x..x+w between `top` and `bottom`, whatever its height (null: the column is full). */
+export function tallestSlot(x: number, w: number, top: number, bottom: number, obstacles: Box[]): { top: number; height: number } | null {
+  const col = obstacles.filter((o) => o.left < x + w && o.right > x && o.bottom > top && o.top < bottom).sort((a, b) => a.top - b.top);
+  let y = top;
+  let best: { top: number; height: number } | null = null;
+  const take = (end: number) => { if (end - y > (best?.height ?? 0)) best = { top: y, height: end - y }; };
+  for (const o of col) {
+    if (o.bottom <= y) continue;
+    take(o.top - GAP);
+    y = Math.max(y, o.bottom + GAP);
+  }
+  take(bottom);
+  return best;
 }

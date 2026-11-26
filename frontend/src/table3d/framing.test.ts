@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, seatPoints, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
+import { depthStep, fitCamera, ndcBox, nearFarFor, offDice, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, seatPoints, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
 import { FAN_MAX, fanCorners, handFan } from "./handFan";
 import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, OWN_EDGE, seatCamera, seats, STRIP_X, tableSize, COIN, nameplateSpot, plateDepth, taxSpot, toWorld, type Seat } from "./layout";
 
@@ -377,5 +377,27 @@ describe("other players' hands, held up as fans of backs, in the seat view", () 
       const without = matOnScreen(bare, mine, w, h);
       expect(now.w / without.w, `${n} seats at ${w}×${h}`).toBeGreaterThan(0.95);
     }
+  });
+});
+
+describe("a seat plate keeps clear of the dice at rest (offDice)", () => {
+  const plate = { x: 300, y: 300, w: 140, h: 60 };
+  it("steps past a die it would cover, away from its mat, and stays put where it covers none", () => {
+    // mat above the plate: it steps down, below the die
+    expect(offDice(plate, [{ x: 320, y: 290, r: 20 }], true)).toBe(290 + 20 + 30 + 4);
+    // mat below: up, above it
+    expect(offDice(plate, [{ x: 320, y: 310, r: 20 }], false)).toBe(310 - 20 - 30 - 4);
+    // a die off to the side, or just clear of a corner, isn't covered
+    expect(offDice(plate, [{ x: 500, y: 300, r: 20 }], true)).toBe(300);
+    expect(offDice(plate, [{ x: 385, y: 345, r: 20 }], true)).toBe(300);
+    expect(offDice(plate, [], true)).toBe(300);
+  });
+
+  it("steps on past a die it would land on, never back toward its mat", () => {
+    const dice = [{ x: 300, y: 300, r: 16 }, { x: 330, y: 360, r: 16 }];
+    const y = offDice(plate, dice, true);
+    expect(y).toBe(360 + 16 + 30 + 4);
+    for (const d of dice) expect(y - plate.h / 2 >= d.y + d.r || y + plate.h / 2 <= d.y - d.r).toBe(true);
+    expect(offDice(plate, dice, false)).toBeLessThanOrEqual(plate.y);
   });
 });

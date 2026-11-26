@@ -12,6 +12,9 @@ import { usePrefs } from "../state/prefs";
 import { isVisible } from "../types/game";
 import { applyOrder, arrangeBoard, arrangeCard, boardOrder, type BoardLayout } from "./arrange";
 import { publishBoard, useBoardOrderTick } from "./arrangeDrop";
+import { hiddenUnderPiles, liftedIds } from "./boardCovers";
+import { useLitCards } from "./combatFilter";
+import { boardCards, guestSpot } from "./attachments";
 import "./board.css";
 
 interface Props {
@@ -31,12 +34,14 @@ export const HAND_OVERLAP = 22;
 export function Battlefield({ player, me, mirrored, color }: Props) {
   const playmat = usePlaymat(player);
   const key = `${player}:battlefield`;
-  const ids = useZoneIds(key) ?? [];
+  const zoneIds = useZoneIds(key);
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 300 });
   const pending = useGame((s) => s.pendingPositions);
   const cards = useGame((s) => s.view?.cards);
   const over = useDrag((s) => s.drag?.overZone === key);
+  const dragging = useDrag((s) => s.drag?.ids);
+  const selection = useGame((s) => s.selection);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
   useEffect(() => {
@@ -51,6 +56,8 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
 
   const typeData = useCardCache((s) => s.cards); // type lines arrive after the first render
   const view = useGame((s) => s.view);
+  // -- attached elsewhere -- my Aura on your creature is drawn here, tucked under it (game/attachments.ts boardCards)
+  const ids = useMemo(() => (view ? boardCards(view, key) : zoneIds ?? []), [view, key, zoneIds]);
   const arranged = usePrefs((s) => s.boardLayout) !== "free";
   useBoardBodyClass(arranged);
   const mine = player === me;
@@ -76,6 +83,15 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
     [sig, size.w, size.h, mirrored, mine, keepOut]);
   useEffect(() => publishBoard(key, layout, size.w, size.h, mirrored), [key, layout, size.w, size.h, mirrored]);
   const piles = useMemo(() => (view && !arranged ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData, arranged]);
+  // -- token piles -- a card wholly under an identical one isn't rendered (game/boardCovers.ts); the ×N on the top one counts it
+  const hidden = useMemo(() => {
+    if (!view) return new Set<string>();
+    const lifted = liftedIds(view, ids, me, { selection, pending, dragging });
+    for (const id of ids) if (view.cards[id]?.zone !== key) lifted.add(id); // (a guest's own position is on another mat)
+    return hiddenUnderPiles(view, ids, lifted, pending, layout);
+  }, [view, ids, key, me, selection, pending, dragging, layout]);
+  // -- combat filter -- what the filter dims (game/combatFilter.ts); null: nothing
+  const lit = useLitCards(me);
   const cardW = layout ? layout.w : battlefieldCardWidth(size.w, size.h, true);
   const cardH = layout ? layout.h : cardW * CARD_RATIO;
 
@@ -136,19 +152,22 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       {layout && <MatBands layout={layout} />}
       {layout && ids.map((id) => {
         const at = layout.place.get(id);
-        if (!at) return null;
-        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} tile />;
+        if (!at || hidden.has(id)) return null;
+        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} dim={!!lit && !lit.has(id)} tile board={player} front={mirrored ? "bottom" : "top"}
+          room={mirrored ? size.h - at.top - layout.h : at.top} />;
       })}
       {!layout && ids.map((id, i) => {
         const c = cards?.[id];
-        if (!c) return null;
-        const [vx, vy] = pending[id] ?? [c.x ?? 0, c.y ?? 0];
+        if (!c || hidden.has(id)) return null;
+        const guest = c.zone !== key && view ? guestSpot(view, id, (h) => pending[h] ?? (cards?.[h] ? [cards[h]!.x ?? 0, cards[h]!.y ?? 0] : null)) : null;
+        const [vx, vy] = guest ?? pending[id] ?? [c.x ?? 0, c.y ?? 0];
         const [rawLeft, raw] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
         // a wide, short mat makes cards taller than the room below their row: keep them on the felt (display only)
         const top = size.h > cardH + 8 ? Math.max(4, Math.min(size.h - cardH - 4, raw)) : raw;
         // small mats draw cards larger than their share (readable): the right-most stay on the felt too
         const left = Math.max(0, Math.min(size.w - cardW - 2, rawLeft));
-        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} />;
+        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} dim={!!lit && !lit.has(id)} board={player} front={mirrored ? "bottom" : "top"}
+          room={mirrored ? size.h - top - cardH : top} />;
       })}
       {marquee && (
         <div

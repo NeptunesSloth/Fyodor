@@ -97,6 +97,9 @@ def test_deck_checks_use_the_same_identity():
     assert not any("Taiga" in m for m in msgs)
     assert any("Banned Card is on the Commander banned list" in m for m in msgs)
     assert any("Silver Border isn't legal in Commander" in m for m in msgs)
+    deck, data = _deck([wort], [card("Banned Card", "Artifact", cost="{1}", legal="banned"), card("Silver Border", "Artifact", cost="{1}", legal="not_legal")])
+    levels = {w.message.split(" ")[0]: w.level for w in validate(deck, None, data) if w.card}  # type: ignore[arg-type]
+    assert levels["Banned"] == "warning" and levels["Silver"] == "info"  # banned is a deck problem; not-legal stays a note
     bears = card("Grizzly Bears", "Creature — Bear", cost="{1}{G}")
     assert any("can't be a commander" in m for m in messages([bears], []))
 

@@ -4,8 +4,14 @@ import type { GameView, MulliganPolicy, PregameSeat } from "../types/game";
 import { send } from "./actions";
 import { GameCardFace } from "./GameCardFace";
 import { useHoverCard } from "./hoverCard";
+import { useCardCache } from "../state/cardCache";
+import { openingCheck } from "./openingCheck";
+import "./ease.css";
 
 const toBottom = (policy: MulliganPolicy, mulligans: number) => (policy.keep_bottom ?? 0) + Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
+
+/** "Click the card to put on the bottom" / "Click the 2 cards to put on the bottom" (playtest: "Click the 1 cards"). */
+const clickBottom = (n: number) => (n === 1 ? "Click the card to put on the bottom" : `Click the ${n} cards to put on the bottom`);
 
 const nameOf = (card: GameView["cards"][string] | undefined): string => (card && "name" in card && card.name ? card.name : "Exile hand");
 
@@ -23,7 +29,7 @@ export function MulliganOverlay() {
   const view = useGame((s) => s.view);
   const actingAs = useGame((s) => s.actingAs);
   const [collapsed, setCollapsed] = useState(false);
-  if (!view?.pregame || view.pregame.finished) return null;
+  if (!view?.pregame || view.pregame.finished || view.game.result_id) return null; // (a game ended during opening hands: nothing to keep)
   const policy = view.game.settings.mulligan;
   if (!policy) return null;
   const me = perspective(view, actingAs);
@@ -52,7 +58,8 @@ export function MulliganOverlay() {
         <div className="mull-seats">
           {view.seat_order.map((pid) => {
             const seat = view.pregame!.seats[pid];
-            if (!seat) return null;
+            // (-- sweep B -- a target dummy has no deck and no hand: "Kept 0" said nothing; it isn't listed)
+            if (!seat || view.players.find((p) => p.id === pid)?.dummy) return null;
             return (
               <div key={pid} className={`mull-seat ${seat.status}`} data-testid={`mull-seat-${pid}`}>
                 <b>{playerName(view, pid)}{pid === me ? " (you)" : ""}</b>
@@ -71,6 +78,32 @@ export function MulliganOverlay() {
           </footer>
         )}
       </div>
+    </div>
+  );
+}
+
+/** -- mulligan helper -- my hand's lands, a mini curve and the colour check (openingCheck.ts): my own cards only. */
+function HandCheck({ view, hand }: { view: GameView; hand: string[] }) {
+  const cache = useCardCache((s) => s.cards);
+  const cards = hand.map((id) => view.cards[id]).map((c) => (c && "card_id" in c && c.card_id ? cache[c.card_id] : undefined));
+  if (!hand.length || cards.some((c) => !c)) return null; // (card data still loading)
+  const { lands, curve, colors } = openingCheck(cards as NonNullable<(typeof cards)[number]>[]);
+  const top = Math.max(1, ...curve);
+  return (
+    <div className="mull-check" data-testid="mull-check">
+      <span className="mc-lands"><b>{lands}</b> {lands === 1 ? "land" : "lands"}</span>
+      <span className="mc-curve" role="img" aria-label={`Spells by mana value: ${curve.map((n, i) => (n ? `${n} at ${i === 7 ? "7 or more" : i}` : "")).filter(Boolean).join(", ") || "none"}`}>
+        {curve.map((n, i) => (
+          <span key={i} className="mc-bar" title={`${n} spell${n === 1 ? "" : "s"} at mana value ${i === 7 ? "7+" : i}`}>
+            {n > 0 && <small>{n}</small>}<i style={{ height: `${(n / top) * 18}px` }} />{i === 7 ? "7+" : i}
+          </span>
+        ))}
+      </span>
+      {colors.length > 0 && (
+        <span className="mc-colors" aria-label={`Colours your spells need: ${colors.map((c) => `${c.color} ${c.ok ? "made by a land in hand" : "no land in hand makes it"}`).join(", ")}`}>
+          {colors.map((c) => <span key={c.color}>{c.color} <span className={c.ok ? "mc-ok" : "mc-no"}>{c.ok ? "✓" : "✗"}</span></span>)}
+        </span>
+      )}
     </div>
   );
 }
@@ -113,13 +146,14 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
         {bottoming ? (
           <>Choose <b>exactly {need}</b> card{need > 1 ? "s" : ""} to put on the bottom of your library. The last one you pick goes to the very bottom.</>
         ) : seat.mulligans === 0 ? (
-          keepNow < hand.length ? <>Click the {hand.length - keepNow} cards to put on the bottom, then keep the other {keepNow}. Or take a mulligan.</>
+          keepNow < hand.length ? <>{clickBottom(hand.length - keepNow)}, then keep the other {keepNow}. Or take a mulligan.</>
           : <>Keep these {hand.length} or take a mulligan.</>
         ) : (
-          <>Mulligan #{seat.mulligans}. {hand.length === keepNow ? `Keep ${hand.length}` : `Click the ${hand.length - keepNow} cards to put on the bottom, then keep`}, or go again.</>
+          <>Mulligan #{seat.mulligans}. {hand.length === keepNow ? `Keep ${hand.length}` : `${clickBottom(hand.length - keepNow)}, then keep`}, or go again.</>
         )}
         {!bottoming && policy.partial_hand_selection && <> Select cards to send back only those.</>}
       </p>
+      <HandCheck view={view} hand={hand} />
       <div className="mull-hand">
         {hand.map((id) => {
           const card = view.cards[id];
@@ -168,7 +202,7 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
             ))}
             <span className="spacer" />
             {bottomFirst && <span className={`mull-count ${picked.length === hand.length - keepNow ? "ok" : ""}`}>Bottom {picked.length} / {hand.length - keepNow}</span>}
-            <button className="tt-btn brass" data-testid="mull-keep" disabled={busy || (bottomFirst ? picked.length !== hand.length - keepNow : picked.length > 0)}
+            <button className="tt-btn brass" data-testid="mull-keep" autoFocus /* (-- sweep B2 -- the keyboard starts here, not ~25 Tab stops away) */ disabled={busy || (bottomFirst ? picked.length !== hand.length - keepNow : picked.length > 0)}
               onClick={() => void (async () => {
                 const chosen = picked;
                 await act({ type: "mulligan_keep" });

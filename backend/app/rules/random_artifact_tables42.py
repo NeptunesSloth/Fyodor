@@ -45,7 +45,8 @@ def consume(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
     if kind == 'deck_return':
         pool = sorted(plan.state.zones.get(ctx['controller'] + ':graveyard', []))
         if pool:
-            selected = (plan.rng or secrets.SystemRandom()).choice(pool)
+            from app.rules import randomness  # -- random choices (wave MBC-D) --
+            selected = randomness.choice(plan, plan.rng or secrets.SystemRandom(), pool, kind='card', player=ctx['controller'])
             context.bind_objects(plan, ctx, 'r42_deck_return', [selected])
             coin_recipes.insert(ctx, [{'do': 'return_card', 'who': 'ref:r42_deck_return', 'to': 'hand'}])
     elif kind == 'deck_enter':

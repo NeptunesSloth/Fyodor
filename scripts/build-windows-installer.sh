@@ -37,12 +37,8 @@ if ! command -v makensis >/dev/null; then
 fi
 
 SRC="$ROOT/dist/Fyodor"
-# A Chromium snapshot carries programs a player never runs (its UI test suite alone is 375 MB, plus installers) and 200+ language packs:
-# only the window and English stay
-prune_browser() {
-  find "$1" -maxdepth 1 -type f \( -name '*_tests.exe' -o -name 'setup.exe' -o -name 'mini_installer.exe' -o -name 'chromedriver.exe' \) -delete
-  find "$1/locales" -type f ! -name 'en-US.pak' ! -name 'en-US.pak.info' -delete 2>/dev/null || true
-}
+# only the window and English stay of a Chromium (scripts/prune-browser.sh, shared with the portable build)
+prune_browser() { "$ROOT/scripts/prune-browser.sh" "$1"; }
 rm -rf "$SRC/browser" "$SRC/browser-legacy" "$SRC/seed"
 if [ -n "${BROWSER_DIR:-}" ]; then
   [ -f "$BROWSER_DIR/chrome.exe" ] || { echo "BROWSER_DIR has no chrome.exe: $BROWSER_DIR" >&2; exit 1; }

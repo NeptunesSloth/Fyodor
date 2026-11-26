@@ -27,7 +27,7 @@ def reveal_tops(plan: Plan, ctx: Context, counts: dict[str, int]) -> dict[str, l
     for pid in plan.apnap():
         top = plan.state.zones.get(zone_key(pid, "library"), [])[: max(0, counts.get(pid, 0))]
         if top:
-            plan.do({"type": "reveal_top", "player": pid, "count": len(top)}, actor=ctx["controller"])
+            plan.do({"type": "reveal_top", "player": pid, "count": len(top), **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=ctx["controller"])
         out[pid] = list(top)
     context.bind_objects(plan, ctx, REVEALED, [c for p in out for c in out[p]])
     return out

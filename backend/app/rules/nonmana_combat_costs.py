@@ -43,6 +43,11 @@ def parse(text: str) -> dict[str, Any] | None:
 
 
 def parts(plan: Plan, declared: set[str], mode: str) -> list[Part]:
+    with plan.reading():  # -- big boards (Kiki end step) -- read-only: each permanent derived once
+        return _parts(plan, declared, mode)
+
+
+def _parts(plan: Plan, declared: set[str], mode: str) -> list[Part]:
     from dataclasses import replace
 
     from app.rules import scripts

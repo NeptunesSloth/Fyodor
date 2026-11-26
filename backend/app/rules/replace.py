@@ -174,6 +174,7 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     they apply while their source is there; a face-down permanent has none; a card taken out of
     automation is left to the players)."""
     events = (event,) if isinstance(event, str) else event
+    from app.rules import planar_statics
     from app.rules.layers import timestamp  # (layers → plan: type hints only)
 
     out: list[Candidate] = []
@@ -184,17 +185,18 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
         )
 
         gy110d = c.zone.endswith(":graveyard") and not c.is_token and "counters" in events and wave110d_enter.in_graveyard(c, plan.ch(c))
-        if not (c.zone.endswith(":battlefield") or emblem or gy110d) or c.face_down or not plan.in_game(c) or plan.manual(c):
+        plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's replacement statics (311.4)
+        if not (c.zone.endswith(":battlefield") or emblem or gy110d or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
-        if "damage" in events and not gy110d:
+        if "damage" in events and not gy110d and not plane:
             from app.rules import absorb
 
             out += absorb.candidates(plan, c, ch)
         defs = scripts.definitions(ch)
         wanted = [(i, d) for i, d in defs.items() if d["kind"] == "static" and d.get("static") == "replace"
                   and d.get("event") in events and (not emblem or d.get("event") in ("life_loss", "damage"))
-                  and bool(d.get("gy110d")) == gy110d]
+                  and bool(d.get("gy110d")) == gy110d and (not plane or planar_statics.read(d))]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
         skip = conditional_lines(ch)
@@ -929,7 +931,7 @@ def _stack_formation(plan: Plan, pid: str, ev: Event, picks: list[dict[str, str]
         return True
     if left > token_stacks.INDIVIDUAL_LIMIT:
         name = str(ev["token"].get("name") or "token")
-        raise ActionError(f"This would create {left:,} {name} tokens. That many can only be one stack, and the rules engine can't treat a "
+        raise ActionError(f"This would create {left:,} {name} tokens. That many would have to be one stack, and the rules engine can't treat a "
                           f"stack exactly here ({why}). Pause automation and make them by hand as one card ×{left:,} (Create tokens, or a card's "
                           f"Create copy → Several copies…).")
     return False
@@ -961,6 +963,7 @@ def _make_tokens_now(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list
     diverted_ids: set[str] = set()
     pick_index = 0
     stack_of = _stack_formation(plan, pid, ev, picks, left, individual)  # -- engine token stacks -- one object for N (docs/TOKEN_STACKS.md)
+    spot: dict[str, Any] = {}  # -- token piles -- the later table steps of one creation land where the first one did (one pile, not several)
     while left > 0:
         k = 1 if individual else min(left, MAX_TOKENS_STEP)
         if stack_of:
@@ -979,7 +982,10 @@ def _make_tokens_now(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list
                            **({'quantity': k} if stack_of else {}),
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
                            'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
-                           'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)
+                           'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {}),
+                           **(spot if not diverted else {})}, actor=pid)
+        if not spot and not diverted and not individual and getattr(created, 'x', None) is not None and getattr(created, 'y', None) is not None:
+            spot = {'x': created.x, 'y': created.y}
         new_ids = getattr(created, 'r', None)
         ids = list(new_ids.ids) if new_ids is not None else []
         made += ids
@@ -1692,6 +1698,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             r.replace_step_draws[pid] = r.replace_step_draws.get(pid, 0) + drawn
         if drawn < k and pid not in r.drew_from_empty:
             r.drew_from_empty.append(pid)  # 704.5b at the next check
+            from app.rules import loss_sources
+
+            loss_sources.drew_from_empty(plan, pid)  # -- loss sources -- the spell or ability that made them draw
 
     for before, out in actions:
         if [f for f in out if f["kind"] != "draw" or f["player"] != before["player"]] or len(out) != 1:
@@ -1733,9 +1742,13 @@ def _win(plan: Plan, pid: str) -> None:
     if game_result.cannot_win(plan, pid):
         plan.note(f"{plan.name(pid)} would win the game, but can't")
         return
+    from app.rules import loss_sources
+
+    source = loss_sources.of_card(plan, plan.effect_source)  # -- loss sources -- the effect that won (Thassa's Oracle, Felidar Sovereign)
     for other in plan.live():
         if other != pid:
             r.lost[other] = f"{plan.name(pid)} won the game"
+            loss_sources.lost(plan, other, source)
     r.winner = pid
     r.priority = pid
     plan.note(f"{plan.name(pid)} wins the game")
@@ -1770,6 +1783,8 @@ def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who, mine = c.match.get("who"), ev["player"] == c.controller
     if who == "you" and not mine or who == "opponent" and mine:
         return False
+    if who == "enchanted" and ((src := plan.state.cards.get(c.source_card or "")) is None or src.attached_player != ev["player"]):
+        return False  # -- Mystery Booster Commander (wave MBC-B) -- Selenia's Curse: "If enchanted player would lose life" (the player it's attached to, 303.4c)
     if c.match.get("damage") and not ev.get("damage"):
         return False  # -- life floor (wave 35C) -- "damage that would reduce your life total": the life damage makes a player lose (120.3a), not other loss
     if c.op["do"] == "floor":  # the loss would take them below 1 life from 1 or more (a player already below 1 is dealt damage as normal)
@@ -2208,6 +2223,8 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):
         return False
     if spec.get("types") and not set(spec["types"]) & set(src.get("types") or ()):
+        return False
+    if spec.get("named_pdk") and spec["named_pdk"] not in (src.get("names") or ()):  # -- planechase deck (wave D) -- "planes named Mount Keralia"
         return False
     if spec.get("not_types") and set(spec["not_types"]) & set(src.get("types") or ()):
         return False

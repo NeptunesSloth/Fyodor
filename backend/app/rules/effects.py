@@ -18,6 +18,7 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 from __future__ import annotations
 
 import contextlib
+import copy
 import itertools
 import json
 import re
@@ -101,7 +102,7 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "you":
         return [me]
     if who == "left110e":  # -- left opponent (wave 110E) -- "the opponent to your left"/"that player" of Barroom Brawl: the next live player in turn order
-        return [plan.after(me)]
+        return [plan.left(me)]  # (wave E1: the seat to the left, not the turn order: Plan.left)
     if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
         return player_relative.players_in(plan, ctx, int(who[len(player_relative.TP):]))
     if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
@@ -283,6 +284,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
+        if src is not None and src.id.startswith("planar-") and plan.oid(src) == ctx.get("source_object"):  # (wave A: planar_statics.py)
+            from app.rules import (
+                planar_statics,  # -- planechase -- the face-up plane is "this plane" (Aretopolis's scroll counters, 311.4)
+            )
+
+            return [src.id] if planar_statics.functions(plan.state, src) else []
         return []  # the source left: "it" is gone (a new object isn't affected)
     if who.startswith("obj:"):  # -- granted from object (wave 18F) -- the granting object, while it is still that object here
         obj = plan.state.cards.get(who[4:].rsplit(".", 1)[0])
@@ -950,7 +957,7 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
                           power=p, toughness=t, duration=duration,
                           label=f"{_stat_label(p)}/{_stat_label(t)} {when} ({ctx.get('name', '')})")
-        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text=when)
+        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text=when, actor=ctx["controller"])
     return True
 
 
@@ -992,7 +999,7 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
-              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"), actor=ctx["controller"])
     return True
 
 
@@ -1080,16 +1087,17 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             made.until_object = plan.oid(cards[0])
     if cards and duration != "their_turn":  # (-- attack restrictions (wave 32B) -- a player's next turn: no marker on the creatures there now, the group is the player's)
         _mark(plan, cards, ", ".join(_restriction_label(plan, r) for r in e["rules"]),
-              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"), actor=ctx["controller"])
     return True
 
 
-def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn") -> None:
-    """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
+def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn", actor: str | None = None) -> None:
+    """The visible table marker for an engine effect (it goes away at cleanup with the effect). ``actor``: the effect's controller, whom the
+    log names ("Opponent gave +3/+3 to …"; otherwise the player whose pass resolved it)."""
     # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
     value = value if value is not None else label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text}, actor=actor)
 
 
 def _can_regenerate(ctx: Context) -> bool:
@@ -2089,7 +2097,7 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         explored(0)
         return not me or replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid, then={"do": "continue", "ctx": ctx})
     top = library[0]
-    plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
+    plan.do({"type": "reveal_top", "player": pid, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=pid)
     card = plan.state.cards[top]
     explored(1 if chars.of(card, plan.info).is_land else 2)
     if chars.of(card, plan.info).is_land:
@@ -2715,10 +2723,15 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # table picks (the recorded move says which, so replay is the same) and they are discarded at once (101.4)
         import secrets
 
+        from app.rules import (
+            randomness,  # -- random choices (wave MBC-D) -- each discarding player discards at random (Chira, All In)
+        )
+
         rng = plan.rng or secrets.SystemRandom()
         want = _amount(plan, ctx, e["n"])
-        picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
-                                                           min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
+        picked = [c for pid in order for c in randomness.sample(plan, rng, sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
+                                                                  min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))),
+                                                                  kind="discard", player=pid)]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"), e.get('to', 'graveyard'), link=bool(e.get('link')), face_down=bool(e.get('face_down')), blind=bool(e.get('blind')))
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
@@ -3278,8 +3291,9 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         else:
             top = library[: _amount(plan, ctx, e["n"])]
         if top and e.get("reveal"):
-            if len(top) <= 100:
-                plan.do({"type": "reveal_top", "player": pid, "count": len(top)}, actor=ctx["controller"])
+            if len(top) <= 100:  # (-- public reveals -- the table's notice names the source and, revealing until, the card found)
+                plan.do({"type": "reveal_top", "player": pid, "count": len(top), **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {}),
+                         **({"until": True, "found": at is not None} if e.get("until") else {})}, actor=ctx["controller"])
             else:
                 # The table top-N action is bounded, but a rules instruction may reveal an entire large library.
                 for offset in range(0, len(top), 250):
@@ -3383,10 +3397,43 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     choosers = _players(plan, ctx, e["chooser"]) if e.get("chooser") else [pid]
     if not choosers:
         return True
-    decide(plan, player=choosers[0], kind="choose_cards", prompt=e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
+    prompt, display = _looked_shown(plan, ctx, e, choosers[0], looked, options, which)
+    decide(plan, player=choosers[0], kind="choose_cards", prompt=prompt or e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})
+           min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e}, display=display)
     return False
+
+
+def _looked_shown(plan: Plan, ctx: Context, e: dict[str, Any], chooser: str, looked: list[str], options: list[str],
+                  which: str | None) -> tuple[str | None, dict[str, Any] | None]:
+    """-- the looked-at cards, shown (playtest nov 18) -- A pick with a filter ("If it's a land card, you may …", "reveal a creature card
+    from among them") shows every card the chooser looked at, in library order (``display["cards"]``, the chooser's alone): the options
+    stay the cards that qualify (engine.choose refuses any other), the rest are shown with why. Only cards the chooser already sees
+    (701.20e: they looked) — a pick made by someone else shows only its answers. The one-card gate (top_library.private_gate) is worded
+    from the card. (prompt or None, display or None)"""
+    from app.game.visibility import can_see
+    from app.rules import top_library
+
+    filtered = e.get("sel") is not None or bool(e.get("sels")) or bool(e.get("types_cast110m"))
+    if not filtered or which in ("that", "all"):
+        return None, None
+    seen = [c for c in looked if c in options or can_see(plan.state, plan.state.cards[c], chooser)]
+    gate = bool(e.get("gate") or e.get("prompt") == top_library.GATE_PROMPT) and len(seen) == 1
+    if seen == options and not gate:
+        return None, None
+    what = top_library.describe(e.get("sel")) if not e.get("sels") and not e.get("types_cast110m") else None
+    display: dict[str, Any] = {"kind": "looked", "cards": seen, "ineligible": f"not {what}" if what else "doesn't qualify"}
+    prompt = None
+    if gate:
+        card = plan.state.cards[seen[0]]
+        ok = seen[0] in options
+        goes = top_library.otherwise(ctx["effects"][ctx["next"]:], e.get("did"))
+        prompt = top_library.gate_prompt(ctx.get("name"), card.name or "a card", what, ok, e["to"], bool(e.get("reveal")), goes)
+        if ok and (doing := top_library.act(e["to"], bool(e.get("reveal")))):
+            display["take"] = doing[0].upper() + doing[1:]
+        if goes:
+            display["otherwise"] = goes[0].upper() + goes[1:]
+    return prompt, display
 
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -4121,6 +4168,14 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if entry.optional and entry.effects and barred_search(plan, ctx, entry.effects[0]):
         finish(plan, ctx)  # (-- prohibitions (wave 24D) -- "you may search …" can't be chosen: nothing is asked, nothing shuffled)
         return
+    if entry.optional and entry.effects and entry.effects[0]["do"] == "action_gate":
+        from app.rules import restrictions
+
+        gate = entry.effects[0]
+        if restrictions.uses(plan.rules, gate["object"], int(gate["index"]), plan.state.turn.number):
+            action_gate(plan, ctx, gate)  # -- playtest (nov 18) -- 603.2h: already done this turn: nothing to ask (Terrasymbiosis asked again)
+            finish(plan, ctx)
+            return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
@@ -4131,7 +4186,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                 finish(plan, ctx)
                 return
         else:
-            summary = describe(entry.effects)
+            summary = describe(entry.effects, amount=lambda v: _foreseen(plan, ctx, v))
             decide(plan, player=entry.controller, kind="confirm", prompt=f"{entry.name}: {summary}?",
                    options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
                    resume={"step": "may", "ctx": ctx}, memory_key=key)
@@ -4146,6 +4201,8 @@ def may_key(entry: StackEntry) -> str:
     import hashlib
     import json
 
+    if entry.ability_index is not None:  # (a triggered ability: the source's ability itself, whatever one trigger of it carries)
+        return f"may:{(entry.source_card or entry.name)[:90]}:{entry.ability_index}"
     what = hashlib.sha1(json.dumps(entry.effects, sort_keys=True, default=str).encode()).hexdigest()[:12]
     return f"may:{(entry.source_card or entry.name)[:90]}:{what}"  # (a Yield key is at most 120 characters)
 
@@ -4177,10 +4234,12 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 
 def _run_body(plan: Plan, ctx: Context) -> bool:
     before110g, plan.cause110g = plan.cause110g, ctx.get("controller")  # -- wave 110G -- stamps the zone changes this body causes
+    source_before, plan.effect_source = plan.effect_source, ctx.get("source_card")  # -- loss sources -- what harm this body does comes from
     try:
         return _run_effects(plan, ctx)
     finally:
         plan.cause110g = before110g
+        plan.effect_source = source_before
 
 
 def _run_effects(plan: Plan, ctx: Context) -> bool:
@@ -4304,7 +4363,9 @@ def _said(e: dict[str, Any]) -> str | None:
     return None
 
 
-def describe(effects: list[dict[str, Any]]) -> str:
+def describe(effects: list[dict[str, Any]], amount: Callable[[Any], int] | None = None) -> str:
+    """The words of a "you may" question. ``amount`` works out an amount the first instruction reads ("draw that many cards": "Draw 3 card(s)",
+    not "Draw X card(s)"); a later instruction's amount stays X (what comes before it may change it)."""
     if said := next((e["say110n"] for e in effects if e.get("say110n")), None):  # -- (wave 110N) -- an effect that words its own question (Vislor Turlough)
         return str(said).capitalize()
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
@@ -4317,14 +4378,38 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "remove_counters": "remove {n} {kind} counter(s)",  # (pod deck audit: Arixmethes asked "Remove_counters?")
              "replace_vat_pool": "return each other card exiled with it to its owner's graveyard",  # (pod deck audit: Mimic Vat)
              "gain_control": "gain control of it"}  # (pod deck audit: Roil Elemental asked "Until, gain_control?")
-    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
+    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data, unless ``amount`` works it out)
+    worded = _worded(effects)
+    first = worded[0] if worded else None
     parts = [_said(e) or (("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else _pay_words(e) if e["do"] == "optional_payment"  # (pod deck audit: the Go-Shintai end-step triggers read "Optional_payment")
-             else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()})) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "fold_check", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             else words.get(e["do"], e["do"]).format(**{k: _said_amount(v, amount if e is first else None) if isinstance(v, (dict, list)) else v for k, v in e.items()}))
+             for e in worded]
     said = ", ".join(parts) or "do it"
     return said[:1].upper() + said[1:]  # (pod deck audit: not str.capitalize, which made "Draw X card(s)" "Draw x card(s)" and "{G}" "{g}")
+
+
+def _foreseen(plan: Plan, ctx: Context, v: Any) -> int:
+    """An amount read for the question only: on a copy of the context, its log lines unsaid (they are said as it resolves)."""
+    plan.note = lambda *_a, **_k: None  # type: ignore[method-assign]
+    try:
+        return values.evaluate(plan, copy.deepcopy(ctx), v)
+    finally:
+        del plan.note
+
+
+def _said_amount(v: Any, amount: Callable[[Any], int] | None) -> Any:
+    if amount is None or not isinstance(v, dict):
+        return "X"
+    try:
+        return amount(v)
+    except Exception:  # noqa: BLE001 (not every value expression can be worked out before it resolves: X it stays)
+        return "X"
+
+
+def _worded(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [e for e in effects if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "fold_check", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
 
 
 # -- delayed triggered abilities (603.7) and durations (611.2): app/rules/delayed.py (agent J) ------
@@ -4378,7 +4463,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, plan.after(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
+        mine = _controlled(plan, key, plan.left(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
                            ctx["controller"] if "dealt_combat_damage_you" in key else None, e.get("zone"))  # (wave 53A: a zone of that player)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), pid if e.get("any_by_chooser") else ctx["controller"], ctx.get("source_card"))
@@ -4436,7 +4521,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         if by != pid:
             prompt += f" for {plan.name(pid)}"
         if e.get("left"):
-            prompt += f" among {plan.name(plan.after(pid))}'s permanents"  # (wave 53D: the player to their left)
+            prompt += f" among {plan.name(plan.left(pid))}'s permanents"  # (wave 53D: the player to their left)
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=by, kind="choose_cards", prompt=prompt,
@@ -5335,7 +5420,9 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pool = found[-1:] if e.get("top") else sorted(found)
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
-        picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
+        from app.rules import randomness  # -- random choices (wave MBC-D) --
+
+        picked = randomness.sample(plan, plan.rng or secrets.SystemRandom(), pool, min(want, len(pool)), kind="card", player=ctx["controller"])
         return _return_cards(plan, ctx, e, picked)
     most = min(want, len(pool))
     least = 0 if e.get("upto") else most

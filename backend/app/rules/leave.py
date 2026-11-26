@@ -26,6 +26,10 @@ from app.rules.plan import Plan
 def leave_game(plan: Plan, player: str) -> None:
     state = plan.state
     r = plan.rules
+    # -- leaving the game (wave MBC-D) -- the event, with what they controlled as it last existed (800.4a)
+    from app.rules import left_game
+
+    left_game.departing(plan, player)
     # The leaver's permanents (wherever they are) leave the game with them: their "until ~ leaves
     # the battlefield" links end (610.3). Captured before anything moves.
     leaving = {plan.oid(c) for c in state.cards.values() if c.owner == player and c.zone.endswith(":battlefield")}

@@ -79,7 +79,7 @@ def source_present(plan: Plan, ref: ObjectRef, control: str | None = None, while
 
 
 def _alive(plan: Plan, p: PhaseLifetime) -> bool:
-    return p.roll_max110f is not None or source_present(plan, p.source, p.control, p.while_tapped)  # (wave 110F: a roll packet outlasts its source)
+    return p.roll_max110f is not None or p.until_walk_e1 or source_present(plan, p.source, p.control, p.while_tapped)  # (wave 110F: a roll packet outlasts its source)
 
 
 def held(plan: Plan, card_id: str) -> bool:

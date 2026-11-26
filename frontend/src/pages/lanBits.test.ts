@@ -3,6 +3,9 @@ import type { GameSummary } from "../types/game";
 import type { BroughtLibrary, MyDeck } from "../services/games";
 import {
   firstOpenLobby,
+  friendAddress,
+  friendFolder,
+  listCount,
   ownDecks,
   joinLink,
   nearbyRows,
@@ -142,5 +145,22 @@ describe("the decks a player brings to a seat", () => {
     expect(own.brought).toBe(false);
     expect(own.decks[0]).toEqual({ key: "m1", name: "Saved here", commanders: ["Atraxa, Praetors' Voice"], cover: "a1", body: mine.body });
     expect(ownDecks(null, [])).toBeNull();
+  });
+});
+
+describe("friends' decks", () => {
+  it("reads a typed address", () => {
+    expect(friendAddress("192.168.1.20:8123")).toBe("http://192.168.1.20:8123");
+    expect(friendAddress(" http://10.0.0.5:8000/ ")).toBe("http://10.0.0.5:8000");
+    expect(friendAddress("10.0.0.5")).toBe("http://10.0.0.5:8000");
+    expect(friendAddress("localhost:8766")).toBe("http://127.0.0.1:8766");
+    expect(friendAddress("https://example.com")).toBeNull();
+    expect(friendAddress("")).toBeNull();
+  });
+
+  it("counts a list and names the folder", () => {
+    expect(listCount("Commander\n1 Krenko, Mob Boss\nDeck\n12 Mountain\n2x Shock\n")).toBe(15);
+    expect(friendFolder("DANA-PC")).toBe("From DANA-PC");
+    expect(friendFolder(" ")).toBe("From a friend");
   });
 });

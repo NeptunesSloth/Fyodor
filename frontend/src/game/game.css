@@ -15,9 +15,10 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   color: var(--text-dim); font-size: 18px; border-radius: 50%;
 }
 .game-top .brand:hover { background: rgba(255, 255, 255, 0.06); color: var(--accent-2); }
-.game-title { display: flex; align-items: center; gap: 12px; line-height: 1.15; min-width: 0; max-width: 360px; }
+/* a crowded bar (bots, their levels) squeezes the table's name first, then clips: the room code never runs under the next chip */
+.game-title { display: flex; align-items: center; gap: 12px; line-height: 1.15; min-width: 0; max-width: 360px; overflow: hidden; }
 .game-title b {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font: 600 16px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
 }
 /* the room code beside the table's name: a small brass-lettered plate (its own styles: the lobby's room code is a button) */
@@ -46,6 +47,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 @media (max-width: 1180px) {
   .game-top .auto-pill[data-testid="resp-mode"] { display: none; }
   .game-top .seat-switch { font-size: 0; gap: 0; } /* "View" still names the select for assistive tech */
+}
+/* -- sweep B (nov 18) -- two bots' level switches at 1600px pushed More and End game off the screen (1770px of bar): the responses
+   setting goes first there too (it stays in the Automation panel) */
+@media (max-width: 1700px) {
+  .game-top:has(.bot-levels + .bot-levels) .auto-pill[data-testid="resp-mode"] { display: none; }
+  .game-top:has(.bot-levels + .bot-levels) .tt-btn { padding: 0 8px; } /* (and room for the result chip once it's over) */
 }
 .game-top .auto-hud .tt-btn[data-testid="concede-yes"] { color: #ffb4ad; }
 .daynight.day { color: #f5d77a; }
@@ -132,6 +139,9 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .table-card.selected { box-shadow: 0 0 0 2px var(--accent-2), 0 0 14px rgba(240, 195, 109, 0.55); }
 .table-card.attacking { box-shadow: 0 0 0 2px #e0645c, 0 0 16px rgba(224, 100, 92, 0.7); }
 .table-card.blocking { box-shadow: 0 0 0 2px #6aa7e8, 0 0 14px rgba(106, 167, 232, 0.6); }
+/* -- combat filter -- (game/combatFilter.ts) dimmed, never hidden or locked: hover, selection and every click still work */
+.table-card.combat-dim { filter: brightness(0.38) saturate(0.55); }
+.table-card.combat-dim:hover, .table-card.combat-dim.selected { filter: none; }
 .card-marks { position: absolute; top: 4%; right: 4%; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; pointer-events: none; }
 .mark {
   font-size: 9.5px; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: rgba(10, 10, 12, 0.82);
@@ -162,6 +172,8 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .stat-badge i { font-style: normal; font-size: 10px; opacity: 0.9; }
 .stat-badge.up { background: #1e5a36; border-color: #3fae6c; }
 .stat-badge.down { background: #6a1f1f; border-color: #c24a4a; }
+/* -- playtest (nov 16) -- a creature's counters ride over its P/T badge, not under it ("+58/+" ran under "61/61") */
+.table-card:not([data-tile]):has(.stat-badge) .counters { bottom: calc(3% + 22px); }
 .counter.kind-loyalty { background: #2b2b35; border-color: #b9b9d6; }
 .face-down-known { position: relative; }
 .peek-badge { position: absolute; top: 6%; left: 6%; font-size: 11px; background: rgba(0,0,0,0.7); border-radius: 4px; padding: 0 3px; }
@@ -196,6 +208,32 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .hand.compact .hand-cards { --overlap: 8px; }
 .hand.compact .hand-card { width: 22px; box-shadow: none; }
 .hand.compact .hand-card:hover { transform: none; }
+/* a long strip: a hairline edge instead of a soft shadow on each of its 77–200 cards (a blur per card is what scrolling repaints) */
+.hand .hand-cards[data-mode="strip"] > .hand-card:not(:hover):not(:focus-within):not(.selected):not(.fresh-draw) { box-shadow: -1px 0 0 rgba(0, 0, 0, 0.85); }
+/* an opponent's big hand: a few backs and the count (Hand.tsx COMPACT_MAX) */
+.hand.compact .hand-count {
+  flex: none; align-self: center; margin-left: 6px; padding: 0 6px; border-radius: 9px; font: 700 12px/18px var(--font-ui, inherit);
+  color: var(--text); background: rgba(16, 14, 12, 0.92); box-shadow: 0 0 0 1px var(--frame, #6b5a3a);
+}
+/* my hand's tools, just left of it: "Hand N" opens the whole hand as a grid (Shift+H); a strip's ‹ 1–23 › scrolls it */
+.hand-tools {
+  position: absolute; right: calc(100% - var(--x0) + 10px); bottom: 50px; z-index: 4; /* (over the hand-sort pill, bottom left) */
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px; pointer-events: auto;
+}
+.hand-browse, .hand-scroll {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 5px; font: 600 12.5px var(--font-ui, inherit);
+  color: var(--text); background: var(--hud-surface, rgba(16, 14, 12, 0.92)); border: 1px solid var(--frame, #6b5a3a);
+  border-top-color: var(--frame-hi, #c9a25c); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
+.hand-browse { cursor: pointer; }
+.hand-browse b { font: 700 14px var(--font-display, inherit); color: var(--accent-2, #e0b860); }
+.hand-browse:hover, .hand-browse[aria-pressed="true"] { border-color: var(--frame-hi, #c9a25c); }
+.hand-browse:focus-visible, .hand-scroll-btn:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.hand-scroll { padding: 2px 4px; gap: 2px; }
+.hand-scroll-btn { min-width: 26px; min-height: 26px; border: 0; background: transparent; color: var(--text); font-size: 17px; line-height: 1; cursor: pointer; border-radius: 3px; }
+.hand-scroll-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+.hand-scroll-btn:disabled { color: var(--text-dim); opacity: 0.45; cursor: default; }
+.hand-range { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 12px; }
 
 /* ---------- piles & command zone ---------- */
 .piles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -214,6 +252,14 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
   background: rgba(212, 168, 82, 0.06); border: 1px solid rgba(212, 168, 82, 0.25); position: relative;
 }
 .command-zone > .pile-label { position: static; margin: auto; }
+/* its name opens the zone browser, as the piles' names do (a button: reachable by keyboard) */
+.command-zone > .command-label {
+  flex: 1 0 100%; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 10.5px; line-height: 14px;
+  color: var(--text-dim); cursor: pointer; border-radius: 3px;
+}
+.command-zone > .command-label:hover { color: var(--text); }
+.command-zone > .command-label:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 1px; }
+.command-zone { cursor: pointer; }
 .command-card { width: 58px; position: relative; cursor: grab; touch-action: none; }
 .tax-badge { position: absolute; bottom: 2px; right: 2px; background: #6b4a0f; color: #ffe0a6; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 5px; }
 .player-area.compact .piles { gap: 4px; }
@@ -339,7 +385,9 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .chain-thumb { width: 40px; flex: none; }
 .chain-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; line-height: 1.3; }
 .chain-next { font-size: 11px; font-weight: 600; color: var(--accent-2); }
-.chain-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.chain-name { overflow: hidden; color: var(--text); }
+/* -- sweep B2 -- a long name wraps to a second line ("Smothering Tit…" said nothing); the whole of it is the tooltip */
+.chain-name:not(.chain-name-batch) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .chain-who, .chain-text { font-size: 11.5px; color: var(--text-dim); }
 .chain-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .chain-tgt { font-size: 11.5px; color: var(--select); }
@@ -353,7 +401,7 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .chain-batch-item { min-width: 4ch; padding: 1px 4px; text-align: center; border-radius: 2px; font: 600 11px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dim); background: rgba(255, 236, 200, 0.05); }
 .chain-batch-item.first { color: #231605; background: #d8ae62; }
 .chain-batch > li:not(.chain-batch-item) { flex-basis: 100%; }
-.chain-name-batch { display: flex; min-width: 0; }
+.chain-name-batch { display: flex; min-width: 0; white-space: nowrap; }
 .chain-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .chain-batch-count { flex: none; margin-left: 0.3em; color: var(--accent-2); font-variant-numeric: tabular-nums; }
 .chain-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
@@ -395,6 +443,14 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .drag-layer { position: fixed; z-index: 3000; pointer-events: none; }
 .drag-layer .ghost { position: absolute; inset: 0 auto auto 0; width: 100%; opacity: 0.92; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.6)); }
 .drag-count { position: absolute; top: -10px; right: -10px; background: var(--accent); color: #1a1408; font-weight: 800; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+/* what letting go will do (game/handDrop.ts): a small plate over the dragged card, brass for a play, steel for by hand */
+.drop-caption {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; /* (above the card: the layer has no height) */
+  padding: 2px 9px; border-radius: 4px; font: 700 12px/1.5 var(--font-ui); letter-spacing: 0.02em;
+  background: var(--hud-surface, #17120d); color: var(--room-brass-hi, #efc77c); border: 1px solid color-mix(in srgb, var(--room-brass-hi, #efc77c) 55%, transparent);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+}
+.drop-caption.move, .drop-caption.many { color: #e7e1d6; border-color: rgba(231, 225, 214, 0.35); }
 .combat-arrows { position: fixed; inset: 0; pointer-events: none; z-index: 40; width: 100vw; height: 100vh; }
 .combat-arrows line { stroke: #6aa7e8; stroke-width: 3; stroke-dasharray: 6 4; opacity: 0.85; }
 .conn-banner { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); background: #5a3a12; color: #ffe0a6; padding: 6px 14px; border-radius: 8px; z-index: 1500; box-shadow: var(--shadow); }
@@ -592,6 +648,20 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .card-marks .mark.lock { background: transparent; }
 /* owner gem: someone else's card, in their seat colour, with their initial (never colour alone) */
 .card-marks .mark.owner { background: var(--owner); color: #0e0b08; font-weight: 800; border-radius: 50%; min-width: 16px; text-align: center; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.6); }
+/* -- attached elsewhere -- (game/attachments.ts guests) another player's Aura or Equipment tucked under a permanent here: a frame
+   in its controller's seat colour, and their initial on a tab in the corner that peeks out from under the host (right edge, the
+   edge toward the middle of the table), so whose it is never rests on colour alone */
+.table-card.guest::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--guest); pointer-events: none; z-index: 3; }
+.guest-tab {
+  position: absolute; right: 0; z-index: 4; pointer-events: auto;
+  width: clamp(11px, calc(var(--tw, 90px) * 0.115), 16px); height: clamp(14px, calc(var(--tw, 90px) * 0.165), 22px);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--guest); color: #0e0b08; font: 800 clamp(8.5px, calc(var(--tw, 90px) * 0.1), 11px)/1 var(--font-ui, system-ui, sans-serif);
+  box-shadow: 0 0 0 1.5px rgba(14, 11, 8, 0.75);
+}
+.guest-tab.top { top: 0; border-radius: 0 4px 0 3px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); }
+.guest-tab.bottom { bottom: 0; border-radius: 3px 0 4px 0; clip-path: polygon(0 16%, 50% 0, 100% 16%, 100% 100%, 0 100%); }
+.table-card.peek { box-shadow: 0 0 0 2px var(--accent-2), 0 0 14px rgba(240, 195, 109, 0.55); }
 .combat-arrows .arrow line { stroke-width: 2; opacity: 0.55; stroke-linecap: round; }
 .combat-arrows .arrow.block line { stroke: #6aa7e8; }
 .combat-arrows .arrow.target line { stroke: #d9b36a; stroke-dasharray: 6 4; }
@@ -765,15 +835,16 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
    (game/seatIcons.ts, the same pictures as the 3D table's buttons) */
 .seat-buttons { display: flex; justify-content: space-between; gap: 2px; padding: 2px 0 0; }
 .seat-btn {
-  position: relative; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 22%; cursor: pointer; flex: none; background: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
-  transition: transform calc(90ms * var(--anim-scale, 1)) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), filter var(--dur-hover) var(--ease-out);
+  /* a round coloured chip (game/seatChips.ts): the face is an image, the rim's shadow and the hover light follow the circle */
+  position: relative; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; flex: none; background: none;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transition: transform calc(120ms * var(--anim-scale, 1)) var(--ease-out), box-shadow calc(var(--dur-hover) * var(--anim-scale, 1)) var(--ease-out), filter calc(var(--dur-hover) * var(--anim-scale, 1)) var(--ease-out);
 }
-.seat-btn img { width: 100%; height: 100%; display: block; pointer-events: none; }
-/* hovered: the ivory catches the candlelight; pressed: pushed into the rail */
-.seat-btn:hover { filter: brightness(1.16); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
-.seat-btn:active { transform: translateY(1px) scale(0.9); filter: brightness(0.78) saturate(0.85); box-shadow: 0 0 1px rgba(0, 0, 0, 0.9); }
-/* brass, the room's metal (over the table's blue ring for buttons, theme.css) */
+.seat-btn img { width: 100%; height: 100%; display: block; border-radius: 50%; pointer-events: none; }
+/* hovered: the chip rises a hair and catches the candlelight; pressed: pushed into the rail */
+.seat-btn:hover { transform: translateY(-1px); filter: brightness(1.14) saturate(1.08); box-shadow: 0 3px 5px rgba(0, 0, 0, 0.7), 0 0 8px 1px var(--accent-glow); }
+.seat-btn:active { transform: translateY(1px) scale(0.94); filter: brightness(0.8) saturate(0.9); box-shadow: 0 0 1px rgba(0, 0, 0, 0.9); }
+/* brass, the room's metal (over the table's blue ring for buttons, theme.css): a ring round the chip */
 .game-screen .seat-btn.seat-btn:focus-visible, .seat-btn:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 2px; }
 .seat-typed {
   position: absolute; top: -9px; right: -7px; min-width: 18px; padding: 1px 4px; border-radius: 9px; font: 800 11px/1.3 var(--font-ui); font-variant-numeric: tabular-nums;
@@ -791,7 +862,7 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 .selection-bar .sel-ability .mana { width: 14px; height: 14px; }
 .selection-bar .sel-ability:disabled { opacity: 0.45; }
 .sel-ab-what { color: var(--text-dim); }
-.selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; background: transparent; border-color: transparent; box-shadow: none; }
+.selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; white-space: nowrap; background: transparent; border-color: transparent; box-shadow: none; }
 .selection-bar .tt-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: transparent; }
 /* the shortcut, printed where the action is (Arena-quiet: small, dim, never the loudest thing on the bar) */
 /* Arena-style ×N on the top card of a pile of identical lands (display only) */
@@ -804,7 +875,7 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 .sel-ping { font-size: 11.5px; color: var(--room-bone-dim); white-space: nowrap; margin: 0 2px 0 4px; }
 .sel-ping .key-chip { margin: 0 3px 0 0; }
 /* attached to its card: placed by game/anchors.ts (hidden until placed), with a notch pointing at the card */
-.selection-bar.anchored { left: 0; top: 0; bottom: auto; transform: none; visibility: hidden; max-width: min(560px, calc(100vw - 16px)); flex-wrap: nowrap; }
+.selection-bar.anchored { left: 0; top: 0; bottom: auto; transform: none; visibility: hidden; max-width: min(560px, calc(100vw - 16px)); flex-wrap: wrap; row-gap: 2px; }
 .selection-bar.anchored::after {
   content: ""; position: absolute; left: var(--notch-x, 50%); width: 10px; height: 10px; margin-left: -5px;
   background: var(--hud-surface); border: 1px solid var(--hud-edge); transform: rotate(45deg);
@@ -813,7 +884,7 @@ main.table > .zone-browser { position: absolute; z-index: 60; }
 .selection-bar.anchored[data-side="below"]::after { top: -6px; border-bottom: 0; border-right: 0; }
 body.dragging .selection-bar.anchored { display: none; }
 .sel-count {
-  margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--line); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--line); max-width: 180px; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);
 }
 
@@ -830,6 +901,9 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 .history-item:hover { background: rgba(255, 255, 255, 0.03); }
 .history-item.on { border-left-color: var(--room-brass); background: rgba(179, 148, 88, 0.1); }
 .history-item.undone { opacity: 0.5; }
+.history-row { display: flex; flex-direction: column; }
+.history-head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 2px; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--room-brass); border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.history-head .tt-btn { margin-left: auto; padding: 1px 8px; font-size: 11.5px; text-transform: none; letter-spacing: 0; }
 .history-state { font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
 .history-player .hint { font-size: 12px; }
 

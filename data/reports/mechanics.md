@@ -12,19 +12,19 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.7 | Create | keyword action | 0 | supported |
 | 701.8 | Destroy | keyword action | 0 | supported |
 | 701.9 | Discard | keyword action | 0 | supported |
-| 701.10 | Double | keyword action | 131 | missing |
+| 701.10 | Double | keyword action | 132 | missing |
 | 701.11 | Triple | keyword action | 5 | missing |
 | 701.12 | Exchange | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.13 | Exile | keyword action | 0 | supported |
 | 701.14 | Fight | keyword action | 143 | missing |
-| 701.15 | Goad | keyword action | 80 | supported |
+| 701.15 | Goad | keyword action | 82 | supported |
 | 701.16 | Investigate | keyword action | 134 | supported |
-| 701.17 | Mill | keyword action | 580 | supported |
+| 701.17 | Mill | keyword action | 583 | supported |
 | 701.18 | Play | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.19 | Regenerate | keyword action | 271 | supported |
 | 701.20 | Reveal | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.21 | Sacrifice | keyword action | 0 | supported |
-| 701.22 | Scry | keyword action | 424 | supported |
+| 701.22 | Scry | keyword action | 425 | supported |
 | 701.23 | Search | keyword action | 0 | supported |
 | 701.24 | Shuffle | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.25 | Surveil | keyword action | 252 | supported |
@@ -42,7 +42,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.37 | Monstrosity | keyword action | 36 | supported |
 | 701.38 | Vote | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.39 | Bolster | keyword action | 23 | supported |
-| 701.40 | Manifest | keyword action | 58 | supported |
+| 701.40 | Manifest | keyword action | 59 | supported |
 | 701.41 | Support | keyword action | 19 | supported |
 | 701.42 | Meld | keyword action | 7 | missing |
 | 701.43 | Exert | keyword action | 36 | missing |
@@ -59,11 +59,11 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.54 | The Ring Tempts You | keyword action | 0 | supported |
 | 701.55 | Face a Villainous Choice | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.56 | Time Travel | keyword action | 9 | missing |
-| 701.57 | Discover | keyword action | 30 | missing |
+| 701.57 | Discover | keyword action | 31 | missing |
 | 701.58 | Cloak | keyword action | 9 | supported |
 | 701.59 | Collect Evidence | keyword action | 22 | missing |
 | 701.60 | Suspect | keyword action | 19 | supported |
-| 701.61 | Forage | keyword action | 7 | missing |
+| 701.61 | Forage | keyword action | 8 | missing |
 | 701.62 | Manifest Dread | keyword action | 30 | supported |
 | 701.63 | Endure | keyword action | 10 | missing |
 | 701.64 | Harness | keyword action | 0 | ignore (no Commander-legal cards) |
@@ -74,25 +74,25 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.69 | Heal | keyword action | 33 | missing |
 | 701.70 | Recruit | keyword action | 10 | missing |
 | 701.71 | Empower Jace | keyword action | 35 | missing |
-| 702.2 | Deathtouch | keyword ability | 327 | supported |
+| 702.2 | Deathtouch | keyword ability | 328 | supported |
 | 702.3 | Defender | keyword ability | 308 | supported |
-| 702.4 | Double Strike | keyword ability | 119 | supported |
+| 702.4 | Double Strike | keyword ability | 120 | supported |
 | 702.5 | Enchant | keyword ability | 1241 | missing |
-| 702.6 | Equip | keyword ability | 601 | missing |
+| 702.6 | Equip | keyword ability | 603 | missing |
 | 702.7 | First Strike | keyword ability | 374 | supported |
 | 702.8 | Flash | keyword ability | 608 | supported |
-| 702.9 | Flying | keyword ability | 3163 | supported |
+| 702.9 | Flying | keyword ability | 3169 | supported |
 | 702.10 | Haste | keyword ability | 639 | supported |
-| 702.11 | Hexproof | keyword ability | 91 | supported |
-| 702.12 | Indestructible | keyword ability | 110 | supported |
+| 702.11 | Hexproof | keyword ability | 93 | supported |
+| 702.12 | Indestructible | keyword ability | 112 | supported |
 | 702.13 | Intimidate | keyword ability | 23 | supported |
 | 702.14 | Landwalk | keyword ability | 128 | missing |
-| 702.15 | Lifelink | keyword ability | 360 | supported |
-| 702.16 | Protection | keyword ability | 190 | missing |
+| 702.15 | Lifelink | keyword ability | 362 | supported |
+| 702.16 | Protection | keyword ability | 192 | missing |
 | 702.17 | Reach | keyword ability | 423 | supported |
 | 702.18 | Shroud | keyword ability | 35 | supported |
-| 702.19 | Trample | keyword ability | 993 | supported |
-| 702.20 | Vigilance | keyword ability | 725 | supported |
+| 702.19 | Trample | keyword ability | 997 | supported |
+| 702.20 | Vigilance | keyword ability | 726 | supported |
 | 702.21 | Ward | keyword ability | 191 | missing |
 | 702.22 | Banding | keyword ability | 24 | supported |
 | 702.23 | Rampage | keyword ability | 12 | missing |
@@ -100,8 +100,8 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.25 | Flanking | keyword ability | 29 | supported |
 | 702.26 | Phasing | keyword ability | 12 | supported |
 | 702.27 | Buyback | keyword ability | 39 | missing |
-| 702.28 | Shadow | keyword ability | 36 | supported |
-| 702.29 | Cycling | keyword ability | 394 | missing |
+| 702.28 | Shadow | keyword ability | 39 | supported |
+| 702.29 | Cycling | keyword ability | 395 | missing |
 | 702.30 | Echo | keyword ability | 50 | missing |
 | 702.31 | Horsemanship | keyword ability | 28 | supported |
 | 702.32 | Fading | keyword ability | 17 | missing |
@@ -180,10 +180,10 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.105 | Dethrone | keyword ability | 9 | missing |
 | 702.106 | Hidden Agenda | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.107 | Outlast | keyword ability | 12 | missing |
-| 702.108 | Prowess | keyword ability | 93 | supported |
+| 702.108 | Prowess | keyword ability | 94 | supported |
 | 702.109 | Dash | keyword ability | 22 | missing |
 | 702.110 | Exploit | keyword ability | 23 | missing |
-| 702.111 | Menace | keyword ability | 381 | supported |
+| 702.111 | Menace | keyword ability | 383 | supported |
 | 702.112 | Renown | keyword ability | 20 | missing |
 | 702.113 | Awaken | keyword ability | 15 | supported |
 | 702.114 | Devoid | keyword ability | 132 | supported |
@@ -194,7 +194,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.119 | Emerge | keyword ability | 15 | missing |
 | 702.120 | Escalate | keyword ability | 9 | supported |
 | 702.121 | Melee | keyword ability | 12 | missing |
-| 702.122 | Crew | keyword ability | 181 | missing |
+| 702.122 | Crew | keyword ability | 182 | missing |
 | 702.123 | Fabricate | keyword ability | 16 | missing |
 | 702.124 | Partner | keyword ability | 129 | missing |
 | 702.125 | Undaunted | keyword ability | 5 | supported |
@@ -230,7 +230,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.155 | Read Ahead | keyword ability | 10 | supported |
 | 702.156 | Ravenous | keyword ability | 12 | missing |
 | 702.157 | Squad | keyword ability | 15 | missing |
-| 702.158 | Space Sculptor | keyword ability | 0 | ignore (no Commander-legal cards) |
+| 702.158 | Space Sculptor | keyword ability | 0 | supported |
 | 702.159 | Visit | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.160 | Prototype | keyword ability | 19 | missing |
 | 702.161 | Living Metal | keyword ability | 13 | missing |
@@ -241,7 +241,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.166 | Bargain | keyword ability | 20 | missing |
 | 702.167 | Craft | keyword ability | 24 | missing |
 | 702.168 | Disguise | keyword ability | 43 | missing |
-| 702.169 | Solved | keyword ability | 13 | missing |
+| 702.169 | Solved | keyword ability | 14 | missing |
 | 702.170 | Plot | keyword ability | 39 | missing |
 | 702.171 | Saddle | keyword ability | 30 | missing |
 | 702.172 | Spree | keyword ability | 21 | missing |
@@ -250,8 +250,8 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.175 | Offspring | keyword ability | 20 | missing |
 | 702.176 | Impending | keyword ability | 5 | missing |
 | 702.177 | Exhaust | keyword ability | 36 | missing |
-| 702.178 | Max Speed | keyword ability | 34 | missing |
-| 702.179 | Start Your Engines! | keyword ability | 40 | supported |
+| 702.178 | Max Speed | keyword ability | 35 | missing |
+| 702.179 | Start Your Engines! | keyword ability | 41 | supported |
 | 702.180 | Harmonize | keyword ability | 11 | missing |
 | 702.181 | Mobilize | keyword ability | 13 | missing |
 | 702.182 | Job Select | keyword ability | 19 | missing |

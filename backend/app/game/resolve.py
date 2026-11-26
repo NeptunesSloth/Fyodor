@@ -16,7 +16,7 @@ from app.game import actions as A
 from app.game import placement
 from app.game.errors import ActionError
 from app.game.handlers import response
-from app.game.state import STACK, GameState, TokenDef, zone_key
+from app.game.state import STACK, BattlefieldRow, GameState, TokenDef, zone_key
 from app.game.views import resolve_placeholder
 
 if TYPE_CHECKING:
@@ -57,7 +57,9 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
             trusted: bool = False, shuffle_retained: tuple[ObjectRef, ...] = ()) -> A.Action:
     """Return a copy of ``action`` with server-owned fields filled in."""
     info = cards or NoCardInfo()
-    a = action.model_copy(deep=True)
+    # (-- big boards (playtest B3) -- the rules engine's own rules_sync carries a fresh dump of the rules state that nothing else holds:
+    # copying it deep again cost as much as the intent's own work on a big table)
+    a = action.model_copy() if trusted and action.type == "rules_sync" else action.model_copy(deep=True)
     a.actor = actor
     a.ts = time.time()
     _resolve_placeholders(state, a, actor)
@@ -67,6 +69,10 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.opening = None
     if hasattr(a, "keep_ids") and not trusted:
         a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
+    if isinstance(a, A.CreateToken) and not trusted:  # -- engine token art -- a picture passed on is the engine's (a token copy's), never a client's
+        _clear_art(a.token)
+    if isinstance(a, A.RevealTop) and not trusted:  # -- public reveals -- the notice's words (the source, "until … found") are the engine's only
+        a.source, a.until, a.found = None, False, False  # (a manual reveal is plain: no client text reaches the log or the notice)
     if isinstance(a, A.CopyCard) and a.saved_stack is not None and not trusted:
         raise ActionError("Only the rules engine can copy a preserved spell")
     if isinstance(a, A.ResponseOpen):
@@ -145,7 +151,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         if not a.stacked and a.count > A.MAX_SEPARATE_TOKENS:  # -- big token counts -- more than that is one card ×N
             raise ActionError(_too_many(state, f"{a.count:,} tokens", A.MAX_SEPARATE_TOKENS))
         a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
-        a.resolved_token = _token_def(a.token, info)
+        a.resolved_token = _token_def(a.token, info, _source_printing(state, a.source_id, actor))
         if a.x is None or a.y is None:
             pid = a.player or actor
             a.x, a.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(a.resolved_token.type_line))
@@ -203,6 +209,22 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         if not state.bag.chits:
             raise ActionError("The draw bag is empty")
         a.r = A.BagDrawData(index=_rng_int(rng, 0, len(state.bag.chits) - 1))
+    elif isinstance(a, A.PlanarRollAction):  # -- planechase -- the planar die's face (app/game/handlers/planechase.py)
+        from app.game.handlers import planechase
+
+        if (why := planechase.roll_refusal(state, actor)) is not None:
+            raise ActionError(why)
+        a.r = A.PlanarRollData(face=planechase.face_of(_rng_int(rng, 1, planechase.DIE_FACES)))
+    elif isinstance(a, A.PlanarStart):  # -- planechase -- a new planar deck, dealt from the card database's planes
+        from app.game.handlers import planechase
+
+        a.r = A.PlanarDeckData(cards=planechase.deal(planechase.pool_of(info), a.count, a.phenomena, rng))
+    elif isinstance(a, A.PlanarDeckOp) and a.r is None:  # -- planechase deck (wave D) -- a random order, decided here (app/rules/planar_deck.py)
+        pc = state.planechase
+        size = len(a.random) if a.op == "arrange" else max(0, len(pc.deck) - pc.face_count) if a.op == "shuffle" and pc is not None else 0
+        perm = list(range(size))
+        rng.shuffle(perm)
+        a.r = A.PlanarDeckOpData(perm=perm)
     elif isinstance(a, A.Merge | A.Meld):
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):
@@ -212,11 +234,13 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.faces = max(1, faces or 2)
     elif isinstance(a, A.Move):
         a.r = _resolve_move(state, a, actor, info)
+    elif isinstance(a, A.SetPosition):
+        a.learned_rows = _learned_rows(state, a, actor, info) or None
     elif isinstance(a, A.ResolveTop):
-        a.r = _resolve_top(state, info, a.card_id)
+        a.r = _resolve_top(state, info, a.card_id, (a.x, a.y) if a.x is not None and a.y is not None else None)
     elif isinstance(a, A.RevealUntil | A.Cascade):
         a.r = _dig(state, a, actor, info)
-    elif isinstance(a, A.LoadDeck):
+    elif isinstance(a, A.LoadDeck | A.AddBot):  # (-- test opponent -- its deck, as LoadDeck's)
         # a fresh id for every card, and the library's shuffle (over the main deck's cards)
         main = sum(c.quantity for c in a.cards if c.section == "main")
         perm = list(range(main))
@@ -232,7 +256,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         inner = A.Move(card_ids=[found], to=A.ZoneRef(zone=a.to, player=pid if a.to == "battlefield" else None), actor=actor, ts=a.ts)
         if a.to == "battlefield":
             card = state.cards[found]
-            inner.x, inner.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(_face_type(info.get(card.card_id) if card.card_id else None, 0)))
+            inner.x, inner.y = placement.free_spot(state, zone_key(pid, "battlefield"),
+                                                   placement.entry_row(state, pid, card, _face_type(info.get(card.card_id) if card.card_id else None, 0)))
         inner.r = _resolve_move(state, inner, actor, info)
         a.r = A.FetchData(move=inner, shuffle=shuffle_data(len(library_ids) - 1, rng))
     elif isinstance(a, A.DiscardRandom):
@@ -258,6 +283,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.verified = powder_ok(data)
     if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
         a.opening = _opening_steps(state, a, info, rng)
+    if isinstance(a, A.RestartGame) and a.first is None:  # (Karn Liberated's restart is an engine step: its own plan goes on, 727)
+        a.opening = _first_turn_steps(state, a, info, rng)
     return response.wrap(state, a)
 
 
@@ -314,6 +341,23 @@ def _opening_steps(state: GameState, a: A.MulliganKeep | A.MulliganBottom | A.Mu
     return compile_opening(sim, a.actor, info, rng)
 
 
+def _first_turn_steps(state: GameState, a: A.RestartGame, info: CardInfo, rng: Any) -> list[dict[str, Any]] | None:
+    """-- first turn (S7) -- a restart (Start over) with the rules on and no mulligans: the steps that carry the new game past its first
+    untap step (502.4: no priority there), compiled against the table as the restart leaves it (app/rules/engine.py compile_first_turn).
+    A restart that deals opening hands again leaves a pregame: its end does it instead (opening_hand.finish)."""
+    if state.rules is None or state.settings.automation == "off":
+        return None
+    from app.game.engine import apply
+    from app.rules.engine import compile_first_turn
+
+    sim = state.model_copy(deep=True)
+    try:
+        apply(sim, a)
+    except ActionError:
+        return None  # (the real application raises the same error)
+    return compile_first_turn(sim, info, rng)
+
+
 def _out_of_the_game(state: GameState, actor: str) -> bool:
     """With rules automation on, whether ``actor`` conceded or lost (a dormant rules state doesn't count)."""
     r = state.rules
@@ -338,7 +382,40 @@ def _rng_int(rng: Any, lo: int, hi: int) -> int:
     return int(rng.randint(lo, hi))
 
 
-def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
+def _source_printing(state: GameState, source_id: str | None, actor: str) -> str | None:
+    """-- engine token art -- the printing of the card that made a token (its Scryfall related tokens picture it first), when every
+    player can see that card (a face-down or hidden source's printing would show through the picture chosen)."""
+    if not source_id:
+        return None
+    from app.game import ops
+
+    source = state.cards.get(resolve_placeholder(state, source_id, actor))
+    return source.card_id if source is not None and not source.face_down and ops.visible_to_all_players(state, source) else None
+
+
+def _clear_art(spec: A.TokenSpec) -> None:
+    while spec is not None:
+        spec.art_id, spec.art_face = None, 0
+        spec = spec.back
+
+
+def _token_art(spec: A.TokenSpec, info: CardInfo, source_printing: str | None) -> dict[str, Any]:
+    """-- engine token art -- a described token's picture: the matching token printing (app/cards/token_match.py), looked up once
+    here so the recorded action keeps it (replays, undo and saves show the same picture whatever the card database says later). A
+    picture the engine passes on (a token copy of a pictured token: the copied token's own, ``spec.art_id``) comes first."""
+    if spec.art_id and info.get(spec.art_id) is not None:
+        return {"art_id": spec.art_id, "art_face": spec.art_face}
+    find = getattr(info, "token_art", None)
+    if find is None:
+        return {}
+    try:
+        found = find(source_printing, spec.name, spec.type_line, spec.power, spec.toughness, list(spec.colors))
+    except Exception:  # noqa: BLE001 - a picture is a nicety: no card database (or a broken one) leaves the token's proxy
+        return {}
+    return {"art_id": found[0], "art_face": found[1]} if found else {}
+
+
+def _token_def(spec: A.TokenSpec, info: CardInfo, source_printing: str | None = None) -> TokenDef:
     if spec.card_id:
         data = info.get(spec.card_id)
         if data is None:
@@ -362,7 +439,8 @@ def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
         type_line=spec.type_line,
         text=spec.text,
         mana_cost=spec.mana_cost,  # (wave 49D)
-        back=_token_def(spec.back, info) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
+        back=_token_def(spec.back, info, source_printing) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
+        **_token_art(spec, info, source_printing),
     )
 
 
@@ -383,13 +461,39 @@ def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.
         if card.zone == key:
             continue
         type_line = card.token.type_line if card.token else _face_type(info.get(card.card_id) if card.card_id else None, 0)
-        spot = placement.free_spot(state, key, placement.row_for(type_line), taken)
+        spot = placement.free_spot(state, key, placement.entry_row(state, pid, card, type_line, face_down=bool(a.face_down)), taken)
         taken.append(spot)
         data.positions[cid] = spot
     return data
 
 
-def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -> A.MoveData:
+def _learned_rows(state: GameState, a: A.SetPosition, actor: str, info: CardInfo) -> dict[str, BattlefieldRow | None]:
+    """-- saved rows -- a player who drags their own permanent from one row into another (a mana rock into the lands, a
+    creature-land among the lands) teaches its deck where that card goes: decided here, where card data is at hand, and recorded
+    on the action so replay never needs it. Back in its type's row, the lesson is forgotten. Nudges within a row teach nothing,
+    and neither does a batch of lands alone: "Tidy my lands" (frontend game/tidy.ts) piles them upward from the near edge, and
+    a big mana base's upper piles reach the creature row's height without anyone choosing that row for them."""
+    learned: dict[str, BattlefieldRow | None] = {}
+    key = zone_key(actor, "battlefield")
+    if len(a.moves) > 1 and all((c := state.cards.get(cid)) is not None and placement.row_for(
+            _face_type(info.get(c.card_id) if c.card_id else None, c.face)) == "land" for cid, _x, _y in a.moves):
+        return learned
+    rows = state.players[actor].row_overrides if actor in state.players else {}
+    for cid, _x, y in a.moves:
+        card = state.cards.get(cid)
+        if card is None or card.zone != key or card.owner != actor or card.attached_to or not placement.learns_row(card):
+            continue
+        row = placement.row_at(y)
+        if row == placement.row_at(card.y):
+            continue
+        default = placement.row_for(_face_type(info.get(card.card_id) if card.card_id else None, 0))
+        want = None if row == default else row
+        if rows.get(card.name) != want:
+            learned[card.name] = want
+    return learned
+
+
+def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None, at: tuple[float, float] | None = None) -> A.MoveData:
     stack = state.zones.get(STACK, [])
     data = A.MoveData()
     if not stack:
@@ -406,7 +510,7 @@ def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -
     else:
         key = zone_key(top.controller, "battlefield")
         data.destinations[top.id] = key
-        data.positions[top.id] = placement.free_spot(state, key, placement.row_for(type_line))
+        data.positions[top.id] = at if at is not None else placement.free_spot(state, key, placement.entry_row(state, top.controller, top, type_line))
     return data
 
 

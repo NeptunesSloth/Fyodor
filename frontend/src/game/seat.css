@@ -99,6 +99,16 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
   display: inline-flex; align-items: center; gap: 3px; padding: 0 4px; color: #efe2c2;
   font: 600 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
 }
+/* -- attached elsewhere -- (SeatPlate AttachedElsewhere) this player's Auras/Equipment tucked under other players' permanents: a card
+   (solid, in the seat colour) over a dashed one, and the count; hover lights them on the table, a click selects them */
+.seat-elsewhere {
+  display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 6px 0 4px; flex: none; cursor: pointer;
+  color: #efe2c2; background: rgba(0, 0, 0, 0.35); border: 1px solid color-mix(in srgb, var(--player-color, #d7ae63) 70%, transparent);
+  border-radius: 11px; font: 700 12.5px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.seat-elsewhere-glyph { width: 14px; height: 14px; color: var(--player-color, #d7ae63); flex: none; }
+.seat-elsewhere:hover, .seat-elsewhere:focus-visible { background: rgba(0, 0, 0, 0.55); border-color: var(--accent-2, #f0c36d); }
+.seat-elsewhere:focus-visible { outline: 2px solid var(--accent-2, #f0c36d); outline-offset: 1px; }
 /* the hand count's cards: the icon set's fanned pair, in the plaque's brass */
 .seat-hand .icon { color: #d7ae63; flex: none; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)); }
 /* + : add a counter that isn't on the plaque yet (zeros stay off it). A brass-ringed stud; it waits, like the steppers,
@@ -183,6 +193,10 @@ body.hud-minimal .seat-add { display: none; }
 /* on the 3D table the steppers sit at the plaque's right end (the heart is the usual way: click, right-click, wheel) */
 .t3d-seat:not(.seat-2d) .seat-steps { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); }
 .seat-presence { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+/* -- bot levels -- a seat the server plays for: a small "Bot" badge before its level */
+.seat-bot-badge { display: inline-block; padding: 0 5px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--accent-ink, #1a1208); background: var(--accent); }
+.seat-presence.connected:has(.seat-bot-badge)::before { content: none; }
 .seat-presence.connected::before { content: "● "; color: var(--ok); }
 .seat-presence.reconnecting::before, .seat-presence.disconnected::before { content: "● "; color: var(--danger); }
 .t3d-seat-panel.down { bottom: auto; top: calc(100% + 8px); }
@@ -225,3 +239,19 @@ body.hud-minimal .seat-add { display: none; }
 .seat-hand-chip:hover .seat-hand-glyph { transform: translateY(-1px); }
 .seat-hand-chip:focus-visible { outline: 2px solid var(--player-color); outline-offset: 3px; border-radius: 6px; }
 .t3d-chip.active .seat-hand-n { color: #fff; }
+/* -- playtest (nov 17) -- the 3D chip's bot tag: the 2D plaque's Bot badge and level, on a dark plate so it reads over the wood */
+.t3d-bot-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 600; color: var(--room-bone, #e8dfcc); background: rgba(10, 11, 13, 0.82); border: 1px solid var(--player-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+/* a bot's robot glyph in a round portrait or chip, where a person's initial goes */
+.player-bot-glyph { display: block; margin: auto; }
+/* -- playtest (nov 17) -- a player who lost or conceded (800.4a): an "Out" tab in words (the reason on hover), the plaque dimmed and
+   desaturated; it stays readable as the record of the game (life, counters, hand) */
+.t3d-flag.out {
+  color: #f3e6e2; background: linear-gradient(180deg, #6e5853, #4d3c38 55%, #3a2d2a);
+  box-shadow: inset 0 0 0 1px #8f7a74, inset 0 -1px 0 rgba(0, 0, 0, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  cursor: help;
+}
+.t3d-seat.seat-gone > .t3d-seat-main { filter: grayscale(0.85); opacity: 0.62; }
+.t3d-seat.seat-gone .t3d-flag.out { opacity: 1; }
+.t3d-chip.seat-gone .t3d-flag.out { border-radius: 3px; padding: 2px 6px 1px; font-size: 10px; }

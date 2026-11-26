@@ -1,4 +1,4 @@
-import { tapGesture } from "./rules/intents";
+import { automationOn, tapAbilities, tapGesture } from "./rules/intents";
 /** Context-menu contents for a card, depending on the zone it is in. */
 import { macrosFor } from "../state/macros";
 import { usePrefs } from "../state/prefs";
@@ -12,6 +12,8 @@ import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startA
 import { rulesMenu } from "./rules/rulesMenu";
 import { attackSomeItem, stackSize, tokenStackItems } from "./tokenStacks";
 import { cardEditRefusal } from "./cardPermissions";
+import { zonePiles } from "./piles";
+import { spreadPileMoves } from "./spread";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
   const items: MenuItem[] = [];
@@ -54,8 +56,12 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   const players = view.players;
 
   if (zone === "battlefield") {
-    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
+    // (-- playtest nov 17 -- with automation on a double-click activates a "{T}: …" ability: Tap here and T tap it by hand)
+    const tapsByHand = !card.tapped && automationOn(view) && card.controller === me && tapAbilities(card.id, view).length > 0;
+    items.push({ label: card.tapped ? "Untap" : tapsByHand ? "Tap (by hand)" : "Tap", hint: tapsByHand ? "T" : "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
     items.push(...tokenStackItems(card, view, me, ids)); // split a "Goblin ×10" stack, or stack identical tokens
+    const spread = multi ? null : spreadItem(card, view);
+    if (spread) items.push(spread);
     items.push({
       label: "Add counter",
       submenu: [
@@ -366,6 +372,18 @@ function keptMenu(card: GameCard, me: string, ids: string[], why: string): MenuI
   }
   if (one) out.push({ label: "View card", hint: "hover", onClick: () => useGame.getState().setInspect(card.id) });
   return out;
+}
+
+/** "Spread pile" on the top card of a pile of identical tokens or lands (the ×N: game/piles.ts), free placement only (game/spread.ts). */
+function spreadItem(card: GameCard, view: GameView): MenuItem | null {
+  if (usePrefs.getState().boardLayout !== "free") return null;
+  const pile = zonePiles(view, card.zone).find((run) => run[run.length - 1]!.id === card.id);
+  if (!pile) return null;
+  return {
+    label: `Spread pile (${pile.length})`,
+    hint: "lay it out in rows · Undo piles it back",
+    onClick: () => void send({ type: "set_position", moves: spreadPileMoves(pile) }),
+  };
 }
 
 function attackableCards(view: GameView, me: string) {

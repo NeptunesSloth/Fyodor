@@ -64,8 +64,10 @@ def fetch_art(origin: str, repo: CardRepository, store: ImageStore, printing_ids
         def one(job: tuple[str, int, bool]) -> str | None:
             pid, face, is_token = job
             try:
-                with client.stream("GET", f"{origin}/api/images/{pid}", params={"face": face, "size": "normal"}) as res:
-                    if res.status_code != 200 or not res.headers.get("content-type", "").startswith("image/jpeg"):
+                with client.stream("GET", f"{origin}/api/images/{pid}", params={"face": face, "size": "normal", "fallback": 0}) as res:
+                    # the printing's own picture only: never another printing's (-- same-card art --) kept as this one's
+                    if (res.status_code != 200 or not res.headers.get("content-type", "").startswith("image/jpeg")
+                            or res.headers.get("x-fyodor-art")):
                         return None
                     data = bytearray()
                     for chunk in res.iter_bytes():

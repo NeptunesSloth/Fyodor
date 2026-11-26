@@ -158,10 +158,38 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE decks ADD COLUMN folder TEXT NOT NULL DEFAULT '';
     """,
+    # 11: -- saved rows -- card name -> the battlefield row its owner moved it to by hand (JSON object), learned at the table
+    """
+    ALTER TABLE decks ADD COLUMN row_overrides TEXT NOT NULL DEFAULT '{}';
+    """,
+    # 12: -- Teach Fyodor -- mechanics and card lines the host taught the engine from pieces (app/rules/taught.py): the entry is data
+    # (pieces and values from the vocabulary), never code; a keyword's name and a card line are unique
+    """
+    CREATE TABLE taught (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        oracle_id TEXT,
+        line TEXT,
+        match_key TEXT NOT NULL UNIQUE,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        entry TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    """,
+    # 13: -- deck sharing -- the owner marked this deck to show to friends on the network (app/decks/sharing.py; off by default)
+    """
+    ALTER TABLE decks ADD COLUMN shared INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
 def open_app_db(path: Path | str) -> sqlite3.Connection:
     conn = connect(path)
-    migrate(conn, MIGRATIONS, name="app")
+    try:
+        migrate(conn, MIGRATIONS, name="app")
+    except BaseException:
+        conn.close()  # a damaged file gets moved aside next: Windows can't move a file this process still holds open
+        raise
     return conn

@@ -85,11 +85,15 @@ OPEN = frozenset({
     "remove_arrow", "chat", "roll", "coin",
     # -- table toys -- the table's dice cannon and draw bag (app/game/handlers/toys.py): no player's cards
     "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",
+    # -- planechase -- the table's planar deck and die (app/game/handlers/planechase.py): no player's cards
+    "planar_start", "planar_end", "planar_roll", "planeswalk",
     # player counters, not cards
     "life", "set_life", "resource", "set_resource", "commander_damage", "commander_tax", "set_monarch", "set_initiative",
     "city_blessing", "add_mana", "clear_mana",
     # table settings and seats (host-only where it matters: games.HOST_ONLY_ACTIONS), your own look, your own ability object
     "configure", "set_day_night", "set_appearance", "set_table_playmat", "rename_player", "remove_player", "create_ability",
+    "add_dummy", "reset_dummy", "set_dummy",  # -- target dummy -- (host-only: games.HOST_ONLY_ACTIONS)
+    "set_bot_level",  # -- bot levels -- (host-only: games.HOST_ONLY_ACTIONS)
 })
 
 

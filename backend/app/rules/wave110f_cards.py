@@ -891,12 +891,19 @@ _FLAME_TEXT = "Black and/or red permanents and spells are colorless sources of d
 
 def damage_colors(plan: Any, ch: Any) -> Any:
     """``ch`` as the source of damage: colorless if Ghostly Flame is on the battlefield and it is black and/or red."""
+    from contextlib import nullcontext
     from dataclasses import replace
 
     from app.rules import scripts
 
-    if ch is None or not ch.colors & {"B", "R"} or not any(
-            FLAME in scripts.statics(plan.ch(c)) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")):
+    if ch is None or not ch.colors & {"B", "R"}:
+        return ch
+    # -- late-game speed -- the scan only reads: in a read pass (kept while the table is as it was), each permanent is derived once for
+    # every red or black source of the combat damage step, not once per source (21 Elementals attacking: ~4 s of derivations)
+    reading = getattr(plan, "reading", None)
+    with reading() if reading is not None else nullcontext():
+        flame = any(FLAME in scripts.statics(plan.ch(c)) for c in plan.state.cards.values() if c.zone.endswith(":battlefield"))
+    if not flame:
         return ch
     return replace(ch, colors=frozenset())
 

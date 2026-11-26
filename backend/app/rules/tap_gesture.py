@@ -6,9 +6,9 @@ printed mana ability, or a pain land. The gesture is sent as ``tap_for_mana`` an
 in their cost that can be activated now (605.1a, 605.3a):
 
 * one ability: that one (as before);
-* several, outside a payment: the player picks the mana — one option per (ability, mana) pair, an ability whose activation does anything
-  more than tap for mana (a pain land's damage, a spending restriction, a sacrifice …) named in its option; identical mana from abilities
-  that do nothing else is offered once;
+* several, outside a payment: the player picks the mana — one option per (ability, mana) pair, each naming the ability it comes from in
+  short form (``option_label``: a pain land's damage, a spending restriction, a sacrifice … show; reminder text and a met "Activate only
+  if …" don't); identical mana from abilities that do nothing but tap for mana is offered once;
 * several while a "tap your mana" prompt is open: when they all do nothing but tap for mana, the one whose mana helps the payment most is
   used (the engine already picks the color of an "any color" ability that way); otherwise (a pain land's damage is the player's call) the
   same question is nested in the payment prompt (``payment_outer``, as app/rules/casting.py nests a mana ability's own choices), which
@@ -19,6 +19,7 @@ The question can be cancelled: nothing is tapped.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -54,6 +55,28 @@ def _intent(a: A.ActivateAbility, index: int, option: tuple[str, ...] | None) ->
     return a.model_copy(update={"ability": index, "tap_for_mana": False, "mana_choice": _choice(option) if option is not None else a.mana_choice})
 
 
+# -- mana choice labels -- every option of the question names the ability it comes from, in short form ("{W} ({T}: Add {W} or {B})"): its
+# words without reminder text or an "Activate only if …" condition (the option is only offered while it holds), ``NOTE_MAX`` characters at most
+NOTE_MAX = 80
+
+
+def ability_note(text: str) -> str:
+    """The short form of a mana ability's text, for an option's note."""
+    from app.rules.oracle import strip_reminders
+
+    body = " ".join(strip_reminders(text).split())
+    kept = [s.rstrip(".").strip() for s in re.split(r"(?<=\.)\s+", body) if s.strip() and not s.startswith("Activate only if ")]
+    note = ". ".join(k for k in kept if k) or body.rstrip(".")
+    return note if len(note) <= NOTE_MAX else note[: NOTE_MAX - 1].rstrip() + "…"
+
+
+def option_label(option: tuple[str, ...], text: str) -> str:
+    """An option's label: its mana and the ability it comes from ("{C} ({T}: Add {C})")."""
+    symbols = M.symbols(_count(option))
+    note = ability_note(text) if text else ""
+    return (f"{symbols} ({note})" if note else symbols)[:200]
+
+
 def _count(option: tuple[str, ...]) -> dict[str, int]:
     out: dict[str, int] = {}
     for m in option:
@@ -84,20 +107,19 @@ def resolve(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
     for i, parsed, text in found:
         if parsed.chooses or parsed.reveal_hand is not None or parsed.count:
             # its mana (or its cost) is chosen as it's activated: one option, the ability's own question follows
-            options.append(DecisionOption(id=f"{i}:", label=text))
+            options.append(DecisionOption(id=f"{i}:", label=ability_note(text) or text[:200]))
             continue
         for k, o in enumerate(parsed.options):
-            label = M.symbols(_count(o))
-            if not _plain(parsed):
-                label = f"{label} ({text})"
-            elif label in seen:
-                continue
-            seen.add(label)
-            options.append(DecisionOption(id=f"{i}:{k}", label=label))
+            symbols = M.symbols(_count(o))
+            if _plain(parsed):  # (identical mana from abilities that do nothing else is offered once)
+                if symbols in seen:
+                    continue
+                seen.add(symbols)
+            options.append(DecisionOption(id=f"{i}:{k}", label=option_label(o, text)))
     if len(options) == 1:
-        i, _, k = options[0].id.partition(":")
-        only = next(p for j, p, _ in found if j == int(i))
-        return _intent(a, int(i), only.options[int(k)] if k else None)
+        si, _, sk = options[0].id.partition(":")
+        only = next(p for j, p, _ in found if j == int(si))
+        return _intent(a, int(si), only.options[int(sk)] if sk else None)
     options.append(DecisionOption(id="cancel", label="Cancel"))
     if paying:  # nested in the payment prompt, which comes back afterwards (app/rules/engine.py: resume_outer)
         plan.rules.payment_outer, plan.rules.decision = plan.rules.decision, None

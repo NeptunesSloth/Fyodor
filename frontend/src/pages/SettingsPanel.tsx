@@ -6,6 +6,7 @@ import { play } from "../game/sound";
 import { DICE_LOOKS } from "../game/dice";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
+import { deckSharing, setDeckSharing, type Sharing } from "../services/decks";
 import { myDecks } from "../services/games";
 import { CardDataSection } from "./CardDataPanel";
 import { HAND_SORTS, HAND_SORT_LABEL } from "../game/handSort";
@@ -15,6 +16,7 @@ import { usePrefs, type Prefs } from "../state/prefs";
 import { PLANES, type PlaneTheme } from "../theme/planes";
 import { activeSection, keyCaps, keyWords, settingsSections } from "./settingsBits";
 import { SettingsSection } from "./SettingsSection";
+import { UpdateSection } from "./UpdateSection";
 import "./settings.css";
 
 /** A tiny painting of a plane for its tile: sky, glow and table surface. */
@@ -68,28 +70,52 @@ function ToggleRow({ title, hint, checked, onChange, testId }: { title: ReactNod
 /** The side index on wide screens: every section, the one being read marked. */
 function SectionIndex({ ids, titles }: { ids: string[]; titles: Record<string, string> }) {
   const [active, setActive] = useState(ids[0] ?? "");
+  /** A section picked in the index stays marked while the page glides to it (it may stop short of the line). */
+  const picked = useRef<string | null>(null);
   const key = ids.join(" ");
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
     const order = key.split(" ");
-    const visible = new Set<string>();
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) visible.add(e.target.id);
-        else visible.delete(e.target.id);
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const h = window.innerHeight;
+      const els = order.map((id) => document.getElementById(id));
+      const tops = els.map((el) => (el ? el.getBoundingClientRect().top : null));
+      const last = [...els].reverse().find((el) => el != null);
+      const atBottom = last != null && last.getBoundingClientRect().bottom <= h + 2;
+      const pin = picked.current;
+      if (pin) {
+        const el = document.getElementById(pin);
+        const top = el?.getBoundingClientRect().top;
+        if (top != null && top >= -2 && top < h) return setActive(pin);
       }
-      setActive((cur) => activeSection(order, visible, cur));
-    }, { rootMargin: "-12% 0px -62% 0px" });
-    for (const id of order) {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    }
-    return () => io.disconnect();
+      setActive(activeSection(order, tops, h * 0.25, atBottom));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    const release = () => { picked.current = null; };
+    // capture: the settings page may scroll inside a container rather than the window
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchstart", release, { passive: true });
+    window.addEventListener("keydown", release);
+    measure();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchstart", release);
+      window.removeEventListener("keydown", release);
+    };
   }, [key]);
   const go = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
     const still = document.body.classList.contains("reduced-motion") || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    picked.current = id;
     el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
     setActive(id);
   };
@@ -221,6 +247,12 @@ export function SettingsPanel() {
                   {HAND_SORTS.map((m) => <option key={m} value={m}>{HAND_SORT_LABEL[m][0]!.toUpperCase() + HAND_SORT_LABEL[m].slice(1)}</option>)}
                 </select>
               )} />
+              <Row title="Show what I draw" hint="The cards you draw, shown to you only for a moment above your hand (as in MTG Arena), and marked in your hand until you look at them."
+                control={(id, hintId) => (
+                  <select id={id} aria-describedby={hintId} value={p.drawNotice} data-testid="pref-draw-notice" onChange={(e) => set({ drawNotice: e.target.value as Prefs["drawNotice"] })}>
+                    <option value="all">All draws</option><option value="effects">Effects only</option><option value="off">Off</option>
+                  </select>
+                )} />
               <Row title="Collapse identical tokens above" hint="One card shows ×N; right-click it to split. With rules automation on, every token stays its own card."
                 control={(id, hintId) => (
                   <select id={id} aria-describedby={hintId} value={p.tokenCollapse} onChange={(e) => set({ tokenCollapse: Number(e.target.value) as Prefs["tokenCollapse"] })}>
@@ -257,6 +289,8 @@ export function SettingsPanel() {
               <ToggleRow title="Show pings from other players" hint="A ping points at something for everyone: G, or Alt+click." checked={p.pings} onChange={(v) => set({ pings: v })} testId="pref-pings" />
               <ToggleRow title="Show other players' cursors" hint="Their pointers over the 3D table, in their seat colour, with their name." checked={p.cursors} onChange={(v) => set({ cursors: v })} testId="pref-cursors" />
               <ToggleRow title="Flash this tab and chime" hint="When the table waits on you while Fyodor is in a background tab." checked={p.turnAlert} onChange={(v) => set({ turnAlert: v })} testId="pref-turn-alert" />
+              <ToggleRow title="Hot-seat hand-off" hint="Players sharing this computer: when it's another player's turn to act, cover the table with “Pass to …” and switch to their view on a click." checked={p.hotseatHandoff} onChange={(v) => set({ hotseatHandoff: v })} testId="pref-hotseat-handoff" />
+              <ToggleRow title="Turn recap" hint="After other players' turns, a short summary beside the turn dial of what they did since your turn (from the public log)." checked={p.turnRecap} onChange={(v) => set({ turnRecap: v })} testId="pref-turn-recap" />
               <ToggleRow title="Show spectators' reactions" hint="Reactions from people watching the table and players who are out." checked={p.reactions} onChange={(v) => set({ reactions: v })} />
             </div>
           </SettingsSection>
@@ -385,10 +419,38 @@ export function SettingsPanel() {
           <KeysSection />
           <CardDataSection />
           <BackupSection />
+          {host && <ShareDecksSection />}
+          {host && <UpdateSection />}
           {host && <DiagnosticsSection />}
         </div>
       </div>
     </div>
+  );
+}
+
+/** -- deck sharing -- friends on this network may browse and copy your decks (Decks → Friends' decks). Off by default. */
+function ShareDecksSection() {
+  const [s, setS] = useState<Sharing | null>(null);
+  useEffect(() => void deckSharing().then(setS, () => undefined), []);
+  if (!s) return null;
+  const save = (next: Sharing) => {
+    setS(next); // (the switch moves at once; a refusal puts it back)
+    setDeckSharing(next).then(setS, (e) => { setS(s); toastError(e); });
+  };
+  return (
+    <SettingsSection id="st-share" testId="share-decks">
+      <div className="st-plate">
+        <ToggleRow title="Share my decks on the network" testId="share-decks-toggle" checked={s.enabled} onChange={(on) => void save({ ...s, enabled: on })}
+          hint="Friends running Fyodor on this network can see your shared decks' names, commanders and card lists, and copy them. Never your notes." />
+        {s.enabled && (
+          <Row title="Which decks" hint="Mark a deck on the Decks page: its ··· menu → Share with friends." control={(id, hintId) => (
+            <select id={id} aria-describedby={hintId} value={s.all ? "all" : "marked"} data-testid="share-which" onChange={(e) => void save({ ...s, all: e.target.value === "all" })}>
+              <option value="marked">Only the decks I mark Shared</option><option value="all">All my decks</option>
+            </select>
+          )} />
+        )}
+      </div>
+    </SettingsSection>
   );
 }
 
@@ -570,8 +632,9 @@ function BackupSection() {
           <p className="st-note" data-testid="move-computers">
             <b>Taking your decks to another computer</b> (an offline one too): <i>Back up Fyodor now</i> here, copy the file
             it saves onto a USB stick, then on the other computer open Settings → <i>Restore from a file…</i>, choose it, and
-            click <i>Restart Fyodor now</i>. Decks, saved games, pod stats and this browser's <i>My decks</i> all come along.
-            (Automatic backups include the <i>My decks</i> of the browser on this computer.)
+            click <i>Restart Fyodor now</i>. Decks, saved games, pod stats and this browser's <i>My decks</i> all come along,
+            and so does the card art your decks use, so they look right offline. (Automatic backups include the{" "}
+            <i>My decks</i> of the browser on this computer, but no art.)
           </p>
           {restartNeeded && (
             <p className="warn st-restart" data-testid="restore-restart">

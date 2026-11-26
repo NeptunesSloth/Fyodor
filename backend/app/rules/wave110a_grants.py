@@ -145,23 +145,42 @@ def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> An
     a granted replicate is no longer added here: wave111r3_replicate pays each instance on its own.)"""
     from dataclasses import replace
 
-    from app.rules import cast_limits
     from app.rules.oracle import parse_abilities
-    from app.rules.permissions import spell_matches
 
     if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
         return ch
-    from app.rules import (
-        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- replicate grants are their own instances, paid in CastSpell.replicate
-    )
-
-    hits = [d for src, d in cast_limits._statics(state, info, "spell_replicate110a")
-            if src.controller == player and not wave111r3_replicate.is_replicate(d) and spell_matches(state, player, card, ch, d["filter"], info, src.id)
-            and not (d.get("kw") and {"offspring", "kicker", "multikicker"} & set(ch.keywords))]  # (a printed kicker would share the one paid-cost slot: manual)
+    # (-- granted replicate (wave 111R3) -- replicate grants are their own instances, paid in CastSpell.replicate: _grants leaves them out)
+    hits = [d for _src, d in _grants(state, player, card, ch, info)]
     if not hits:
         return ch
     extra = parse_abilities(hits[0].get("kw", f"Replicate {ch.mana_cost}") + ".")
     return replace(ch, abilities=(*ch.abilities, *(replace(a, index=GRANTED_AT + i) for i, a in enumerate(extra))))
+
+
+def _grants(state: Any, player: str, card: Any, ch: Any, info: Any) -> list[tuple[Any, dict[str, Any]]]:
+    """The caster's statics that give this spell an ability as it is cast (Zinnia's offspring), as (source, definition)."""
+    from app.rules import cast_limits, wave111r3_replicate
+    from app.rules.permissions import spell_matches
+
+    return [(src, d) for src, d in cast_limits._statics(state, info, "spell_replicate110a")
+            if src.controller == player and not wave111r3_replicate.is_replicate(d) and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+            and not (d.get("kw") and {"offspring", "kicker", "multikicker"} & set(ch.keywords))]  # (a printed kicker would share the one paid-cost slot: manual)
+
+
+def offspring_hint(state: Any, player: str, card: Any, info: Any) -> str | None:
+    """-- round 6 (cast choosers) -- the view's ``offspring110a`` hint of a castable card: the offspring a permanent gives it as it is cast,
+    with the permanent's name ("Offspring {2} (Zinnia, Valley's Voice)"), paid as ``CastSpell.kicker`` 1 (702.175a); None without one."""
+    from app.rules import characteristics as chars
+
+    ch = chars.of(card, info)
+    if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
+        return None  # (the cases with_replicate leaves alone)
+    for src, d in _grants(state, player, card, ch, info):
+        kw = str(d.get("kw") or "")
+        if kw.lower().startswith("offspring "):
+            return f"{kw} ({src.name})" if src.name else kw
+        return None  # (with_replicate adds the first grant only)
+    return None
 
 
 GRANTED_AT = 1000  # index of the first ability a spell was given as it was cast

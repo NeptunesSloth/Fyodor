@@ -12,6 +12,7 @@ import json
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -100,6 +101,16 @@ def pod(tmp_path):
         yield host, friend
 
 
+def peer(server: TestClient, address: tuple[str, int]) -> TestClient:
+    """Another device's requests to ``server``, run on that server's own event loop (as a real server serves every client
+    from one loop). A bare ``TestClient(app)`` would run each request on a fresh loop of its own, while the app's background
+    tasks and state belong to the server's loop: on Windows that cross-loop use now and then loses a wake-up and the
+    teardown waits forever."""
+    other = TestClient(server.app, client=address)
+    other.portal = server.portal
+    return other
+
+
 def wire(monkeypatch, host: TestClient, friend: TestClient) -> None:
     """The LAN between them: the friend's server reaches the host's at 192.168.1.7:8000; the host reaches back at 192.168.1.20."""
     to_host = TestClient(host.app, client=("192.168.1.20", 50000))
@@ -117,7 +128,9 @@ def wire(monkeypatch, host: TestClient, friend: TestClient) -> None:
     def friend_transport() -> httpx.MockTransport:
         def handle(req: httpx.Request) -> httpx.Response:
             assert req.url.host == "192.168.1.20"
-            res = friend.get(req.url.path, params=dict(req.url.params))
+            # asked from the host's worker thread: a loop of its own for each request (the image route keeps no loop state),
+            # never a blocking call into the friend's main loop from another thread while both servers are busy
+            res = TestClient(friend.app).get(req.url.path, params=dict(req.url.params))
             return httpx.Response(res.status_code, content=res.content, headers={"content-type": res.headers.get("content-type", "")})
         return httpx.MockTransport(handle)
 
@@ -137,7 +150,7 @@ def test_offline_join_brings_unknown_cards_and_their_art(pod, monkeypatch):
     assert sent.status_code == 200, sent.text
     assert sent.json()["cards"] == 1  # only what the host lacked travelled
 
-    dana = TestClient(host.app, client=("192.168.1.20", 50000))
+    dana = peer(host, ("192.168.1.20", 50000))
     seat = dana.post("/api/join", json={"code": code, "name": "Dana", "handoff": sent.json()["token"]}).json()["token"]
     assert host.app.state.services.cards.resolve("Zephyr of the New Set")["id"] == NEW["id"]  # added on the join
     brought = dana.get(f"/api/games/{gid}/lobby/brought", headers=h(seat)).json()
@@ -173,7 +186,7 @@ def test_a_host_without_the_card_lookup_still_gets_the_decks(pod, monkeypatch):
     sent = friend.post("/api/lan/send-decks", json={"url": "http://192.168.1.7:8000"}).json()
     assert sent["cards"] == 0 and sent["decks"] == 1
     lobby = host.post("/api/games", json={"mode": "lan", "lobby": True, "name": "Night", "players": [{"name": "Alice"}]}).json()
-    dana = TestClient(host.app, client=("192.168.1.20", 50000))
+    dana = peer(host, ("192.168.1.20", 50000))
     seat = dana.post("/api/join", json={"code": lobby["game"]["code"], "name": "Dana", "handoff": sent["token"]}).json()["token"]
     res = dana.post(f"/api/games/{lobby['game']['id']}/lobby/deck", json={"text": "Commander\n1 Zephyr of the New Set (NWS) 7\nDeck\n10 Mountain\n"},
                     headers=h(seat))
@@ -195,11 +208,11 @@ def test_rejected_card_data_is_named_with_the_reason(pod, monkeypatch):
 
 def test_the_missing_lookup_is_for_the_network_only(pod):
     host, _ = pod
-    lan = TestClient(host.app, client=("192.168.1.20", 50000))
+    lan = peer(host, ("192.168.1.20", 50000))
     ids = [NEW["id"], host.app.state.services.cards.resolve("Sol Ring")["id"]]
     res = lan.post("/api/lan/handoff/missing", json={"ids": ids})
     assert res.status_code == 200 and res.json() == {"missing": [NEW["id"]]}
-    assert TestClient(host.app, client=("8.8.8.8", 1)).post("/api/lan/handoff/missing", json={"ids": ids}).status_code == 403
+    assert peer(host, ("8.8.8.8", 1)).post("/api/lan/handoff/missing", json={"ids": ids}).status_code == 403
     assert lan.post("/api/lan/handoff/missing", json={"ids": ["x"] * 20_001}).status_code == 422
 
 
@@ -238,13 +251,16 @@ def test_art_is_fetched_with_caps_and_only_real_jpegs(tmp_path, cards):
 @pytest.fixture()
 def keeper_client(tmp_path, card_db, monkeypatch):
     calls: list[list[str]] = []
-    outcome = {"offline": False}
+    outcome: dict[str, Any] = {"offline": False, "fail": 0}
 
     def fake_fetch(self, printing_ids, progress, *, tokens=True):
         if outcome["offline"]:
             raise httpx.ConnectError("no internet")
         calls.append(list(printing_ids))
-        return SimpleNamespace(requested=len(printing_ids), downloaded=len(printing_ids), skipped=0, failed=0)
+        if "during" in outcome:
+            outcome.pop("during")()
+        failed = min(outcome["fail"], len(printing_ids))
+        return SimpleNamespace(requested=len(printing_ids), downloaded=len(printing_ids) - failed, skipped=0, failed=failed)
 
     from app.services import Services
 
@@ -264,6 +280,30 @@ def test_saving_a_deck_keeps_its_art_for_offline_play(keeper_client):
     assert len(calls) == 1 and len(calls[0]) == 3  # the deck's own printings and Krenko's Goblin token, quietly
     status = client.get("/api/decks/art-keeper").json()
     assert status["enabled"] is True and status["pending"] == 0
+
+
+def test_a_deck_whose_art_came_only_in_part_is_tried_again(keeper_client):
+    """One image timing out mustn't leave that card a text proxy for good: the deck stays on the list for the next try."""
+    client, keeper, calls, outcome = keeper_client
+    outcome["fail"] = 1
+    client.post("/api/decks", json={"name": "Goblins", "text": "1 Krenko, Mob Boss\n1 Sol Ring\n"})
+    assert len(calls) == 1 and client.get("/api/decks/art-keeper").json()["pending"] == 1
+    outcome["fail"] = 0
+    keeper.kick()
+    assert len(calls) == 2 and client.get("/api/decks/art-keeper").json()["pending"] == 0
+
+
+def test_decks_saved_while_the_keeper_works_join_the_same_pass(keeper_client):
+    """Adding several precons saves them one after another while the first one's art downloads: none waits for the retry timer."""
+    client, keeper, calls, outcome = keeper_client
+    outcome["offline"] = True  # both decks wait on the list
+    first = client.post("/api/decks", json={"name": "A", "text": "1 Sol Ring\n"}).json()["id"]
+    second = client.post("/api/decks", json={"name": "B", "text": "1 Krenko, Mob Boss\n"}).json()["id"]
+    outcome["offline"] = False
+    keeper.pending = [first]
+    outcome["during"] = lambda: keeper.pending.append(second)  # saved while the first deck's art downloads
+    keeper.kick()
+    assert len(calls) == 2 and keeper.pending == []
 
 
 def test_offline_the_keeper_waits_and_retries_when_back_online(keeper_client):

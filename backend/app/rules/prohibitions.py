@@ -144,6 +144,12 @@ def _label(src: CardInstance) -> str:
 
 def cant_enter(plan: Plan, card: CardInstance, controller: str) -> tuple[str, bool] | None:
     """(the permanent saying so, whether the card is in a public zone) if ``card`` can't enter the battlefield now (614.17)."""
+    from app.rules import (
+        planar_events,  # -- planechase events (wave E2) -- Bad Wolf Bay: "cards can't enter from exile this turn"
+    )
+
+    if (from_exile := planar_events.cant_enter(plan, card)) is not None:
+        return from_exile
     found = _statics(plan, "cant_enter")
     if not found:
         return None

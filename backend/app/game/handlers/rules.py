@@ -37,6 +37,10 @@ def replay_steps(state: GameState, steps: list[dict[str, Any]]) -> None:
             raise ActionError("Invalid rules step")
         before = capture(state) if step.type != "renumber" else None  # (a renumbered card is no zone change)
         HANDLERS[step.type](state, step)
+        if state.planechase is not None:  # -- planechase automation -- as Plan.do did: the face-up card's object (handlers.planechase.sync)
+            from app.game.handlers import planechase
+
+            planechase.sync(state)
         track(state, before, actor=step.actor or None, group=getattr(step, "group", 0), put_by=wither_put_by(step))  # (5H, 7C, 17D)
         state.renames().clear()
 

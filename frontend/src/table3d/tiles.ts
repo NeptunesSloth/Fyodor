@@ -15,7 +15,7 @@ import { proxyFontsReady, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 import { countText } from "../game/piles";
 import { keywordCode } from "../game/counters";
-import type { CardOverlay } from "./textures";
+import { drawCombatChip, drawGuestMark, type CardOverlay } from "./textures";
 
 /** Tile canvas width (px); its height is 1.12 times that (game/arrange.ts TILE_RATIO). */
 export const TILE_PX = 320;
@@ -41,6 +41,8 @@ export interface TileSpec {
   commander: boolean;
   /** How its name is drawn for the view it's seen in (FLAT_LOOK when left out). */
   look?: TileLook;
+  /** A stack member under its top card: art and frame only (its peeking edge would show a cut-off name: "M M Mountain"). */
+  bare?: boolean;
 }
 
 function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
@@ -177,6 +179,46 @@ function ptPlate(g: CanvasRenderingContext2D, W: number, text: string, ink: stri
   }
 }
 
+/** The name bar's crown or token ring and the name, and the P/T plate. */
+function drawTileName(g: CanvasRenderingContext2D, W: number, spec: TileSpec, p: ReturnType<typeof proxyFace>, look: TileLook, cy: number, s: number): void {
+  let x = W * 0.055;
+  if (spec.commander) {
+    // the crown, as tall as a capital (drawn tall with the name)
+    const k = (W * look.em * 0.95) / 24;
+    g.save();
+    g.translate(x - 2 * k, cy - 13 * k * s);
+    g.scale(k, k * s);
+    g.fillStyle = BRASS;
+    g.fill(path(CROWN));
+    g.restore();
+    x += W * look.em * 0.95;
+  } else if (spec.token) {
+    const rr = W * look.em * 0.36;
+    g.beginPath();
+    g.ellipse(x + rr, cy, rr, rr * s, 0, 0, Math.PI * 2);
+    g.lineWidth = Math.max(2, W * 0.012);
+    g.strokeStyle = "#d9d0bd";
+    g.stroke();
+    x += rr * 2 + W * 0.03;
+  }
+  const name = fitName(g, p.name || spec.name, W - x - W * 0.045, W, (px) => `${spec.token ? "italic " : ""}650 ${px}px ${UI}`, look);
+  g.fillStyle = NAME_INK;
+  g.textAlign = "left";
+  g.textBaseline = "alphabetic";
+  g.shadowColor = "rgba(0, 0, 0, 0.8)";
+  g.shadowOffsetY = 1;
+  // drawn tall: the table is seen at a slant, so it reads upright (as the pile labels do)
+  g.save();
+  g.translate(x, name.base);
+  g.scale(1, s);
+  g.fillText(name.line, 0, 0);
+  g.restore();
+  g.shadowColor = "transparent";
+  g.shadowOffsetY = 0;
+  // power and toughness on a parchment plate, as on the proxy card
+  if (p.stat?.kind === "pt") ptPlate(g, W, p.stat.text, INK, "#2a2219");
+}
+
 /** Draw a tile (with the art when `img` has loaded). */
 function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | null): void {
   const g = c.getContext("2d")!;
@@ -235,43 +277,7 @@ function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | 
   g.globalAlpha = spec.commander ? 1 : 0.6;
   g.fillRect(0, bar, W, Math.max(2, W * 0.008));
   g.globalAlpha = 1;
-  let x = W * 0.055;
-  const cy = top + inner / 2;
-  if (spec.commander) {
-    // the crown, as tall as a capital (drawn tall with the name)
-    const k = (W * look.em * 0.95) / 24;
-    g.save();
-    g.translate(x - 2 * k, cy - 13 * k * s);
-    g.scale(k, k * s);
-    g.fillStyle = BRASS;
-    g.fill(path(CROWN));
-    g.restore();
-    x += W * look.em * 0.95;
-  } else if (spec.token) {
-    const rr = W * look.em * 0.36;
-    g.beginPath();
-    g.ellipse(x + rr, cy, rr, rr * s, 0, 0, Math.PI * 2);
-    g.lineWidth = Math.max(2, W * 0.012);
-    g.strokeStyle = "#d9d0bd";
-    g.stroke();
-    x += rr * 2 + W * 0.03;
-  }
-  const name = fitName(g, p.name || spec.name, W - x - W * 0.045, W, (px) => `${spec.token ? "italic " : ""}650 ${px}px ${UI}`, look);
-  g.fillStyle = NAME_INK;
-  g.textAlign = "left";
-  g.textBaseline = "alphabetic";
-  g.shadowColor = "rgba(0, 0, 0, 0.8)";
-  g.shadowOffsetY = 1;
-  // drawn tall: the table is seen at a slant, so it reads upright (as the pile labels do)
-  g.save();
-  g.translate(x, name.base);
-  g.scale(1, s);
-  g.fillText(name.line, 0, 0);
-  g.restore();
-  g.shadowColor = "transparent";
-  g.shadowOffsetY = 0;
-  // power and toughness on a parchment plate, as on the proxy card
-  if (p.stat?.kind === "pt") ptPlate(g, W, p.stat.text, INK, "#2a2219");
+  if (!spec.bare) drawTileName(g, W, spec, p, look, top + inner / 2, s);
   g.restore();
   // the frame: a dark edge and the card's colour inked inside it (a commander: a brass rim outside its colour)
   const ring = Math.max(3, W * 0.03);
@@ -375,7 +381,9 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
     g.fillStyle = "#0e0b08";
     g.font = `800 ${Math.round(W * 0.09)}px ${UI}`;
     g.fillText(o.owner.initial, W * 0.04 + rr, left + rr + 1);
+    left += rr * 2 + W * 0.03;
   }
+  if (o.combat) drawCombatChip(g, W * 0.04, left, W * 0.17, o.combat); // -- playtest (nov 18) -- whom it attacks / how many it blocks
   // other counters, top right under the name bar (as many as fit above the P/T plate)
   const room = Math.max(1, Math.floor((pt.y - bar - W * 0.04) / (W * 0.185)));
   o.counters.slice(0, Math.min(3, room)).forEach(({ label, n }, i) => {
@@ -432,5 +440,6 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLA
     g.font = `800 ${Math.round(R * 0.85)}px ${UI}`;
     g.fillText(`+${kw.length - shown.length}`, cx, cy + 1);
   }
+  if (o.guest) drawGuestMark(g, W, H, o.guest);
   return c;
 }

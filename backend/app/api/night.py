@@ -22,13 +22,16 @@ from pydantic import BaseModel, Field
 from app.api.deps import is_local_request
 from app.api.games import ServicesDep, _room, authorize, record_game_result
 from app.game.factory import PlayerSetup, new_game
+from app.game.mulligan import PRESETS
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
 from app.game.visibility import publicly_visible
+from app.multiplayer import response_call
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
-from app.multiplayer.night import Night, Proposal
+from app.multiplayer.night import Night, Proposal, bot_seat, rematch_missing
+from app.rules import commander as commander_rules
 from app.services import Services
 
 router = APIRouter(tags=["game night"])
@@ -137,11 +140,11 @@ def _settle_proposal(services: Services, room: Room) -> None:
         # -- rules result -- recorded as the engine's result once every player in the game at the end confirmed it (a seat
         # nobody has taken can't answer, so it isn't waited for); one person runs a hot-seat table: their click settles it
         state = room.session.state
-        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left
+        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left and not bot_seat(room, pid)
                   and (room.mode == "local" or (pid in room.seats and room.seats[pid].token))}
         if room.mode == "local" or needed <= p.agreed:
             record_game_result(services, room, p.result_type, p.winners, rules=p.rules)
-    elif p is not None and set(remaining(room.session.state)) <= p.agreed:
+    elif p is not None and {pid for pid in remaining(room.session.state) if not bot_seat(room, pid)} <= p.agreed:  # (-- LAN bots -- a bot agrees)
         record_game_result(services, room, p.result_type, p.winners, agreed=True)
 
 
@@ -159,8 +162,11 @@ async def vote(game_id: str, body: VoteIn, request: Request, services: ServicesD
             decision: str | None = body.choice
         else:
             actor = _actor(room, request, x_seat_token, body.as_player)
+            if body.choice == "rematch" and (missing := rematch_missing(room)):  # (-- restart rematch -- refused before it counts)
+                raise HTTPException(409, f"The decks for {', '.join(missing)} aren't known here; return to the lobby instead")
             night.votes[actor] = body.choice
-            voters = [pid for pid in room.session.state.seat_order if room.mode == "local" or room.seats[pid].token]
+            voters = [pid for pid in room.session.state.seat_order if room.mode == "local" or room.seats[pid].token
+                      and not bot_seat(room, pid)]  # -- LAN bots -- a bot never holds up the rematch vote
             # one person runs a hot-seat table: their choice decides
             if room.mode == "local" or body.choice == "lobby":
                 decision = body.choice
@@ -191,11 +197,12 @@ def rematch(services: Services, room: Room) -> None:
     order, source, rolls = Night.plan(seats, winner)
     settings = old.settings.model_copy(deep=True)
     state = new_game([night.setups[pid] for pid in order], name=old.name, format=old.format, settings=settings,
-                     shuffle=True, first_player=0, related_tokens=services.related_tokens)
+                     shuffle=True, first_player=0, related_tokens=services.related_tokens, deck_rows=services.decks.row_overrides)
     state.id = room.game_id  # the table keeps its address for the whole night
     if settings.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
+    session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
     night.number += 1
     night.order_source, night.rolls, night.previous_winner = source, rolls, winner
     night.proposal, night.result, night.votes = None, None, {}
@@ -209,14 +216,30 @@ def rematch(services: Services, room: Room) -> None:
     services.autosave(room)
 
 
-def _info_from_setup(setup: PlayerSetup | None, player: PlayerState) -> LobbySeatInfo:
-    info = LobbySeatInfo(name=player.name, color=player.color)
+def _info_from_setup(setup: PlayerSetup | None, player: PlayerState, services: Services) -> LobbySeatInfo:
+    # (-- LAN bots -- after a restart the setups are gone: the bot keeps its level from the seat it played, not the default)
+    level = setup.bot_level if setup is not None else player.bot_level if player.bot is not None else None
+    info = LobbySeatInfo(name=player.name, color=player.color, bot=level)
     if setup is not None and setup.cards:
+        # (the commander's art and colour identity on the seat card, as when the deck was brought)
+        ids = [c.printing_id for c in setup.cards if c.section == "commander" and c.printing_id]
+        identity = list(commander_rules.deck_identity(list(services.cards.get_many(ids).values()))) if ids and services.cards.available else []
         info.deck = SubmittedDeck(
-            name=setup.deck_name or "Deck", cards=list(setup.cards),
-            commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=[],
+            name=setup.deck_name or "Deck", cards=list(setup.cards), deck_id=setup.deck_id, commander_ids=ids,
+            commanders=[c.name for c in setup.cards if c.section == "commander"], color_identity=identity,
             card_count=sum(c.quantity for c in setup.cards if c.section != "maybeboard"), collection=list(setup.collection))
     return info
+
+
+def _settings_of(old: GameState) -> LobbySettings:
+    """The lobby settings for the next game from the game just played (the lobby's own record is lost when the server restarted
+    during the game)."""
+    s = old.settings
+    rule = "none" if s.mulligan is None else s.mulligan.id if s.mulligan.id in PRESETS else None
+    return LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order), starting_life=s.starting_life,
+                         deck_privacy=s.deck_privacy, auto_untap=s.auto_untap, automation=s.automation,
+                         planechase=s.planechase, planar_deck_size=s.planar_deck_size, planar_phenomena=s.planar_phenomena,
+                         **({"mulligan_rule": rule} if rule is not None else {}))
 
 
 def to_lobby(services: Services, room: Room) -> None:
@@ -225,11 +248,11 @@ def to_lobby(services: Services, room: Room) -> None:
     night = room.night
     infos: dict[str, LobbySeatInfo] = {}
     for pid in old.seat_order:
-        info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid])
-        info.ready = False
+        info = night.infos.get(pid) or _info_from_setup(night.setups.get(pid), old.players[pid], services)
+        info.ready = pid in room.seats and room.seats[pid].bot and info.deck is not None  # (-- LAN bots -- a bot is always ready)
         infos[pid] = info
-    if room.lobby is None:
-        room.lobby = LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order))
+    if room.lobby is None:  # (after a restart: the table settings the game was played with, not the defaults, Automation Off among them)
+        room.lobby = _settings_of(old)
     # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
     room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
                                                "card_permissions": old.settings.card_permissions})
@@ -279,7 +302,7 @@ PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
 
 
 class SignalIn(BaseModel):
-    kind: Literal["nudge", "react", "ping"]
+    kind: Literal["nudge", "react", "ping", "flip"]
     emoji: str | None = Field(default=None, max_length=16)
     as_player: str | None = Field(default=None, max_length=8)
     # a ping points at a card everyone can see, or at a spot on someone's battlefield (virtual units, as card x/y)
@@ -341,6 +364,15 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
             raise HTTPException(422, "Point at a card or at a spot on a battlefield")
         last[f"ping:{actor}"] = now
         await _to_everyone(services, room, ping)
+        return {"sent": True}
+    if body.kind == "flip":  # -- flip the table -- (╯°□°)╯︵ ┻━┻ for fun: cosmetic, your own side only, once in a while
+        if actor is None or actor not in state.players:
+            raise HTTPException(403, "Only a player at the table can flip it")
+        if not room.night.reactions:
+            raise HTTPException(409, "The host has turned reactions off at this table")
+        if (wait := response_call.flip_wait(room, actor)) > 0:
+            raise HTTPException(429, f"The table needs a moment: flip it again in {int(wait) + 1} s")
+        response_call.flip(services.hub, room, actor, concede=False)
         return {"sent": True}
     # reactions: from spectators and players already out of the game; emotes (fixed table talk): from anyone at the table
     emote = body.emoji in EMOTES

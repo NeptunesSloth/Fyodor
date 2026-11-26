@@ -339,13 +339,16 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
                 ch = ch if ch is not None else plan.ch(probe)
                 if selectors.matches(plan, selectors.from_key(key), probe, ch, record["controller"], record.get("source_card")):
                     return True
+    from app.rules import planar_statics
+
     for src in plan.state.cards.values():
-        if src.id == card.id or not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) \
+        plane = planar_statics.functions(plan.state, src)  # (wave A: planar_statics.py) the face-up plane's (311.4)
+        if src.id == card.id or not (src.zone.endswith(":battlefield") or plane) or src.face_down or not plan.in_game(src) \
                 or plan.manual(src):
             continue
         src_ch = plan.ch(src)
         for i, d in scripts.definitions(src_ch).items():
-            if d["kind"] != "static" or d.get("static") != static:
+            if d["kind"] != "static" or d.get("static") != static or (plane and not planar_statics.read(d)):
                 continue
             if d.get("cast110e") and card.zone != "stack":
                 continue  # -- wave 110E -- "Creatures played by your opponents": only a cast spell entering (Uphill Battle)
@@ -1422,13 +1425,53 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
     """The permanents on the battlefield whose static abilities replace this card's trip to the
     graveyard ("If a creature an opponent controls would die, exile it instead.", "If a card or
     token would be put into a graveyard from anywhere, exile it instead."), with the definition that applies."""
+    with plan.reading():  # -- big boards (playtest B4) -- read-only: each permanent derived once, not once per card that moves
+        return _static_exile_all_now(plan, card)
+
+
+_EXILE_STATICS = ("exile_instead", "hand_instead")
+
+
+def _exile_static_sources(plan: Plan) -> Any:
+    """-- big boards (Kiki end step) -- the cards ``_static_exile_all_now`` reads the current characteristics of. Every card, unless no
+    ability on the table can be gained or rewritten: no static ability of a permanent, a graveyard card or an emblem in the statics
+    table at all (layers.statics), no resolved effect that gives abilities (layer 6) or changes text (layer 3), no global word
+    change, no sticker, nothing attached, no Torrent of Lava on the stack. Then a permanent's abilities are its copiable ones (613.2)
+    or fewer (a "loses all abilities" only takes them away), so only a card whose copiable values have an "exile it instead" /
+    "return it to its owner's hand instead" static can have one now: just those are derived (the same answer: the rest have none).
+    Each token leaving a big board derived the whole board again only to find no such ability (200 Kiki-Jiki copies' end-step
+    sacrifices, playtest B4). The face-up plane (311.4) is always read."""
+    state, r = plan.state, plan.rules
+    cards = state.cards.values()
+    if r is None or plan.info is None or r.color_words71 or any(
+            e.layer == "3" or (e.layer == "6" and e.add_abilities) for e in r.effects):
+        return cards
+    if any((c.stickers101 or c.attached_to) and c.zone.endswith(":battlefield") or c.name == "Torrent of Lava" and c.zone == "stack"
+           for c in cards):
+        return cards
+    from app.rules import layers
+
+    if any(True for _ in layers.statics(state, plan.info)):
+        return cards
+    return [c for c in cards if c.id.startswith("planar-") or (
+        c.zone.endswith(":battlefield") and not c.face_down
+        and any(d["kind"] == "static" and d.get("static") in _EXILE_STATICS
+                for d in scripts.definitions(layers.copiable(state, c, plan.info)).values()))]
+
+
+def _static_exile_all_now(plan: Plan, card: CardInstance) -> list[tuple[CardInstance, dict[str, Any]]]:
+    from app.rules import planar_statics
+
     frm = _from_zone(card)
     found: list[tuple[CardInstance, dict[str, Any]]] = []
-    for src in plan.state.cards.values():
-        if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
+    for src in _exile_static_sources(plan):
+        plane = planar_statics.functions(plan.state, src)  # -- planechase more (wave E1) -- the face-up plane's (311.4: The Doctor's Tomb)
+        if not (src.zone.endswith(":battlefield") or plane) or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
         for d in scripts.definitions(plan.ch(src)).values():
             if d["kind"] != "static" or d.get("static") not in ("exile_instead", "hand_instead"):  # (wave 100K: hand_instead, Necromancer's Magemark)
+                continue
+            if plane and not planar_statics.read(d):
                 continue
             if d.get("from") == "battlefield" and frm != "battlefield":
                 continue
@@ -1543,6 +1586,11 @@ def _self_shuffle_instead(plan: Plan, card: CardInstance) -> bool:
 def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> list[Cand]:
     """The replacement effects that apply to ``card`` going to ``dest`` now (a graveyard, or for a permanent anywhere but
     exile: "if it would leave the battlefield, exile it instead"), in no particular order."""
+    with plan.reading():  # -- big boards (Kiki end step) -- read-only: the card derived once for its own replacements, not once per kind
+        return _zone_candidates(plan, card, dest)
+
+
+def _zone_candidates(plan: Plan, card: CardInstance, dest: str) -> list[Cand]:
     frm = _from_zone(card)
     out: list[Cand] = []
     if frm == "battlefield" and dest not in ("exile", "battlefield"):
@@ -1587,6 +1635,9 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
+        if d.get("loses_e1"):  # -- planechase more (wave E1) -- The Doctor's Tomb: "and that creature's controller loses 2 life" (614.1a, one event)
+            rider = {"source": src.id, "controller": src.controller, "reflexive": False,
+                     "effects": [{"do": "lose_life", "who": f"player:{card.controller}", "n": int(d["loses_e1"])}]}
         if rider is not None and rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: its +1/+1 counters equal the power the creature had as it died (LKI, 608.2h)
             rider["n"] = max(0, int((plan.ch(card).pt or (0, 0))[0]))
         out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
@@ -2179,11 +2230,16 @@ DamageEvent = dict[str, Any]  # {"source_card", "source_oid", "target" (player i
 
 
 def _static_records(plan: Plan) -> list[dict[str, Any]]:
+    from app.rules import planar_statics
+
     out = []
     for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        plane = planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane's prevention statics (311.4)
+        if not (c.zone.endswith(":battlefield") or plane) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
+            if plane and not planar_statics.read(d):
+                continue
             if d["kind"] == "static" and d.get("static") == "prevent" and statics.static_if_holds(plan, d, c):  # (wave 35D: "As long as …", 611.3a)
                 out.append({"kind": "prevent", "controller": c.controller, "source": plan.oid(c), "source_card": c.id,
                             "scope": d["scope"]})
@@ -2325,5 +2381,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                     "source_card": ctx.get("source_card"), "scope": scope,
                                     **({"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}),
                                     **({"until": "end_of_combat"} if e.get("duration") == "end_of_combat" else {}),  # (-- wave 110B -- "this combat", 500.5)
+                                    **({"until": "game"} if e.get("duration") == "game" else {}),  # (-- planechase deck (wave D) -- "this game": Mount Keralia)
                                     **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

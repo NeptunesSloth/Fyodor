@@ -3,11 +3,14 @@ import { createPortal } from "react-dom";
 import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
-import { isOut } from "./outOfGame";
+import { isOut, seatGone } from "./outOfGame";
+import { botLevel, botLevelName, seatName } from "./botSeat";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { Icon } from "../components/Icon";
 import type { PlayerView } from "../types/game";
 import "./seat.css";
+import { PlayerInitial } from "./PlayerInitial";
+import { guestsOf } from "./attachments";
 
 /**
  * Taps on a counter gathered into one change: three quick clicks send "−3" once (one log line, one undo step),
@@ -139,6 +142,32 @@ function addCounterItems(p: PlayerView, sources: { key: string; name: string; ow
   return items;
 }
 
+/**
+ * -- attached elsewhere -- how many of this player's Auras and Equipment are drawn on other players' boards, under what they're
+ * attached to (game/attachments.ts guests). Hover or focus lights them (and their lines) on the table; a click selects them.
+ */
+function AttachedElsewhere({ player, name }: { player: string; name: string }) {
+  const key = useGame((s) => (s.view ? guestsOf(s.view, player).join(",") : "")); // (a string: a stable snapshot)
+  if (!key) return null;
+  const ids = key.split(",");
+  const n = ids.length;
+  const say = `${n} of ${name}'s ${n === 1 ? "Aura or Equipment is" : "Auras and Equipment are"} attached to other players' permanents`;
+  const peek = (on: boolean) => useGame.getState().setPeek(on ? ids : []);
+  return (
+    <button className="seat-elsewhere" data-testid={`elsewhere-${player}`} aria-label={`${say}. Select them`}
+      title={`${say}, tucked under them with ${name}'s initial. Hover to light them, click to select them`}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerEnter={() => peek(true)} onPointerLeave={() => peek(false)} onFocus={() => peek(true)} onBlur={() => peek(false)}
+      onClick={(e) => { e.stopPropagation(); useGame.getState().select(ids); }}>
+      <svg viewBox="0 0 16 16" aria-hidden className="seat-elsewhere-glyph">
+        <rect x="2.5" y="1.5" width="8" height="11" rx="1.3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2 1.6" />
+        <rect x="6" y="4" width="8" height="11" rx="1.3" fill="currentColor" />
+      </svg>
+      <span>{n}</span>
+    </button>
+  );
+}
+
 /** A hand holding a fan of cards (the Oops table's hand marker), in the seat's colour (currentColor). */
 function HandGlyph() {
   return (
@@ -167,15 +196,20 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const monarch = useGame((s) => s.view?.table.monarch === player);
   const seat = useGame((s) => (s.view?.game.mode === "lan" ? s.view.game.seats[player] : undefined));
   const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- the counters read as values to a player who left
+  // -- playtest (nov 17) -- this seat's player lost or conceded (800.4a): its plaque says so (a bot at -38 life looked still in the game)
+  const gone = useGame((s) => seatGone(s.view, player));
   const plate = useRef<HTMLDivElement>(null);
+  const elsewhere = useGame((s) => !!s.view && guestsOf(s.view, player).length > 0);
   if (!p) return null;
   const flat = variant === "2d";
   const poison = p.resources.poison ?? 0;
   const sources = (players ?? []).filter((o) => o.id !== player).flatMap((o) => o.commanders.map((c) => ({ ...c, owner: o })));
-  const presence = seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null;
+  const presence = p.dummy || p.bot ? null : seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null; // (-- test opponent -- nobody sits at a dummy or opponent: no presence)
   // the turn and priority, said in words (never by colour alone)
-  const flags = (active || priority) && (
+  const outTag = gone && <span className="t3d-flag out" data-testid={`seat-out-${player}`} title={gone}>Out</span>;
+  const flags = (active || priority || gone) && (
     <span className="t3d-seat-flags" aria-live="polite">
+      {outTag}
       {active && <span className="t3d-flag turn">Turn</span>}
       {priority && <span className="t3d-flag prio">Priority</span>}
     </span>
@@ -195,6 +229,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
           testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
       ))}
+      <AttachedElsewhere player={player} name={p.name} />
       <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
         <Icon name="cards" size={14} />{p.hand_count}
       </span>
@@ -207,22 +242,26 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       )}
       {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
       {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
+      {flat && (p.dummy || p.bot) && <span className="seat-presence connected" data-testid={`presence-${player}`}>{p.bot ? <><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</> : "Target dummy"}</span>}
     </span>
   );
   if (!flat) {
     // -- the 3D table -- no name box (the user's call): beside the heart, a hand of cards in the seat's colour with the
     // hand count, as on the Oops table; clicking it opens the player's panel (commander damage, poison, counters). Only
     // the counters that are something show beside it.
-    const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0);
+    const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0) || elsewhere;
     return (
-      <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+      <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""} ${gone ? "seat-gone" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
         <div className="t3d-seat-main">
           <button className="seat-who seat-hand-chip" onClick={onToggle} data-testid={`seat-${player}`} aria-expanded={open}
             aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.hand_count} cards in hand, ${p.life} life${active ? ", their turn" : ""}. Open player panel`}
-            title={`${p.name}${player === me ? " (you)" : ""}${monarch ? " ♚ (the monarch)" : ""}: ${p.hand_count} cards in hand. Click for commander damage and counters`}>
+            title={`${seatName(p)}${player === me ? " (you)" : ""}${monarch ? " ♚ (the monarch)" : ""}: ${p.hand_count} cards in hand. Click for commander damage and counters`}>
             <HandGlyph />
             <span className="seat-hand-n">{p.hand_count}</span>
           </button>
+          {/* -- playtest (nov 17) -- a bot's seat says so on the 3D table too, with its level (as the 2D plaque's badge) */}
+          {p.bot && <span className="t3d-bot-tag" data-testid={`bot-badge-${player}`} title={seatName(p)}><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</span>}
+          {outTag}
           {counters && <span className="seat-side">{trackers}</span>}
         </div>
         {open && (
@@ -234,12 +273,13 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
     );
   }
   return (
-    <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+    <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""} ${gone ? "seat-gone" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {flat && flags}
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
-          <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
-          <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
+          <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}><PlayerInitial p={p} size={20} /></span>
+          {/* (a bot's level is on its Bot badge below: the name alone fits the plaque, the full "Opponent (Advanced)" on hover) */}
+          <span className="t3d-seat-name" title={p.bot ? seatName(p) : undefined}>{p.bot ? p.name : seatName(p)}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}

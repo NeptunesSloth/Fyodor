@@ -15,6 +15,18 @@ export function isOut(view: GameView | null | undefined, me: string | null | und
   return !!view && !!me && view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost);
 }
 
+/**
+ * -- playtest (nov 17) -- why the player in `seat` is out of the game, as their plaque says it ("Lost: 0 or less life", "Conceded"), or
+ * null while they are still in it. Anyone's seat, for anyone watching (a bot at -38 life looked like it was still playing).
+ */
+export function seatGone(view: GameView | null | undefined, seat: string): string | null {
+  const r = view?.rules;
+  if (!r) return null;
+  if (r.conceded.includes(seat)) return "Conceded";
+  const why = r.lost[seat];
+  return why === undefined ? null : `Lost: ${why}`;
+}
+
 /** The server's own words (app/game/out_of_game.py), or null while `me` is still in the game. */
 export function outReason(view: GameView | null | undefined, me: string | null | undefined): string | null {
   if (!isOut(view, me)) return null;
@@ -27,11 +39,13 @@ export function outReason(view: GameView | null | undefined, me: string | null |
 const RULES_INTENTS = [
   "play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority", "choose", "concede", "set_stops",
   "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door", "miracle_reveal", "end_effect", "pay_deferred",
+  "roll_planar_die", // -- planechase -- (the engine refuses it from a player who is out: not the active player)
 ];
 const OUT_MAY = new Set([
   ...RULES_INTENTS, "chat", "roll", "coin", "rename_player", "set_appearance", "end_view", "response_pass", "response_auto", "configure",
   "remove_player", "set_table_playmat", "restart_game", "mulligan_finish",
   "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty", // -- table toys -- like the dice (not the Bag of Extras)
+  "planar_start", "planar_end", // -- planechase -- the host's planar deck (rolling and planeswalking: not theirs)
 ]);
 
 /** Why the server would refuse this action from `actor` (the seat it is sent as), or null: it may be sent. */

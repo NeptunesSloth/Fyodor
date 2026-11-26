@@ -38,6 +38,11 @@ def parse(text: str) -> dict[str, Any] | None:
 
 def total(plan: Plan, creatures: list[str], *, mode: str = 'attack', defenders: dict[str, str] | None = None, destination_only: bool = False) -> M.ManaCost:
     """Read each real static ability once per declared creature, after ability granting/removal."""
+    with plan.reading():  # -- big boards (Kiki end step) -- read-only: each permanent derived once
+        return _total(plan, creatures, mode=mode, defenders=defenders, destination_only=destination_only)
+
+
+def _total(plan: Plan, creatures: list[str], *, mode: str, defenders: dict[str, str] | None, destination_only: bool) -> M.ManaCost:
     from app.rules import scripts, values
 
     selected = set(creatures)

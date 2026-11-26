@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import pickle
 import secrets
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -63,6 +64,16 @@ class DepartureBefore(BaseModel):
     types: dict[str, list[str]] = Field(default_factory=dict)
 
 
+
+def scratch_copy(state: GameState) -> GameState:
+    """An independent copy of the table for an intent to work on (what ``model_copy(deep=True)`` makes). -- big boards (playtest B3/B4) --
+    a pickle round trip makes the same copy (every field, the private attributes, shared references kept shared) in about half the time
+    of a deep copy, which every intent paid in full: a table of 200 tokens holds a megabyte of rules state."""
+    try:
+        return pickle.loads(pickle.dumps(state, protocol=pickle.HIGHEST_PROTOCOL))
+    except Exception:  # (anything a pickle can't carry: the deep copy, as before)
+        return state.model_copy(deep=True)
+
 class Plan:
     """A scratch copy of the table plus the table actions carried out on it so far."""
 
@@ -96,7 +107,7 @@ class Plan:
     delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
-        self.state = state.model_copy(deep=True)
+        self.state = scratch_copy(state)
         self.actor = actor
         self.info = info
         self.rng = rng
@@ -117,6 +128,7 @@ class Plan:
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     probe_stickers101: list[tuple[str, str, list[str]]] | None = None
+    effect_source: str | None = None  # -- loss sources -- the source card of the spell or ability whose effects are being carried out (effects._run_body)
     world_depth80: int = 0
     world_candidates80: tuple[tuple, tuple[str, ...]] | None = None
 
@@ -124,6 +136,7 @@ class Plan:
     shuffle_retained: tuple[ObjectRef, ...] = ()  # Same look instruction only; never a general shuffle immunity.
 
     began: dict[str, bool] | None = None
+    chain: Any = None  # -- runaway chains -- the objects this action resolved (engine._Chain, engine.loop_pause)
 
     def renumber_face_down(self) -> bool:
         """406.3, 708.5: at the end of the intent (so nothing that is still working with the old ids breaks), the cards that became face
@@ -174,6 +187,12 @@ class Plan:
         )
 
         token_stacks.guard(self, payload)
+        if payload.get("type") in ("tap", "rules_mana") and self.state.rules is not None and self.state.rules.planar_more3_f2.get("ood"):
+            from app.rules import (
+                planar_more3,  # -- planechase more 3 (wave F2) -- Ood Sphere: "can't become tapped unless they're being declared as attackers"
+            )
+
+            payload = planar_more3.tap_guard(self, payload)
         if payload.get("type") in ("tap", "rules_mana") and (payload.get("tapped") is not False or payload.get("type") == "rules_mana"):  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of becoming tapped
             from app.rules import wave110i_cards
 
@@ -197,6 +216,10 @@ class Plan:
             payload = kept_counters(self, graveyard_order.unordered(self, replace_move(self, payload, actor)))
         if payload.get("type") in ("move", "mill", "put_top_face_down"):
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
+        if payload.get("type") == "move":  # (the log: a creature put into a graveyard from the battlefield "dies", 700.4)
+            died = [cid for cid in payload.get("card_ids") or [] if (c := self.state.cards.get(cid)) is not None
+                    and c.zone.endswith(":battlefield") and self.ch(c).is_creature]
+            payload = {**payload, "died": died} if died else payload
         if payload.get("type") == "rules_sync" and self.renumber_face_down():
             payload = {**payload, "rules": self.rules.model_dump(mode="json")}  # (the ids changed)
         from app.rules import payment_card_facts, stickers101
@@ -228,7 +251,16 @@ class Plan:
         from app.rules import world_durations80
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
+        from app.rules import loss_sources
+
+        harmed = loss_sources.before(self) if resolved.type in loss_sources.HARM_STEPS and self.state.rules is not None else None
         HANDLERS[resolved.type](self.state, resolved)
+        if harmed is not None:  # -- loss sources -- who lowered a life total or gave poison counters
+            loss_sources.after(self, resolved, harmed)
+        if self.state.planechase is not None:  # -- planechase automation -- the face-up card's object follows the planar controller (311.5)
+            from app.game.handlers import planechase
+
+            planechase.sync(self.state)
         if resolved.type in token_stacks.NEW_OBJECT_STEPS and getattr(self, "stack_watch", False):
             token_stacks.check_new(self)  # -- engine token stacks -- an object that may see a stack appeared, or control changed
         if resolved.type not in UNREAD_STEPS:
@@ -477,6 +509,19 @@ class Plan:
                 return p
         return player
 
+    def left(self, player: str) -> str:
+        """-- planechase more (wave E1) -- The next live player seated to ``player``'s left: the default turn order proceeds clockwise
+        (103.1, 101.4: "usually the player seated to the active player's left"), so the seats in order — a reversed turn order (Aeon Engine,
+        Time Distortion) doesn't move anyone's seat."""
+        order = list(self.state.seat_order)
+        live = set(self.live())
+        start = order.index(player) if player in order else -1
+        for i in range(1, len(order) + 1):
+            p = order[(start + i) % len(order)]
+            if p in live:
+                return p
+        return player
+
 
 _R = TypeVar("_R")
 
@@ -519,6 +564,11 @@ def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[Dec
            blind: bool = False) -> None:
     from app.game.ops import shown  # (review 18F: a granter is read as its name)
 
+    if source is None and isinstance(ctx := resume.get("ctx"), dict) and isinstance(sid := ctx.get("stack_id"), str):
+        # -- second pass S5 -- a choice made while a spell or ability resolves (Delirium Skeins: "Discard three cards") is about that object,
+        # still on the stack (608.2): the decision names it, so the prompt can show its card (display only)
+        held = plan.state.cards.get(sid)
+        source = held if held is not None and held.zone == "stack" else None
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
     options = [o.model_copy(update={"label": shown(plan.state, o.label)}) if "‹" in o.label else o for o in options]
     plan.rules.decision = Decision(

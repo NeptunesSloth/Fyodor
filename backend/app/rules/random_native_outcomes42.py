@@ -60,7 +60,8 @@ def consume(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         raise ValueError('Unknown native random receipt')
     cards = sorted(plan.state.zones.get(ctx['controller'] + ':graveyard', []))
     count = max(0, effects._amount(plan, ctx, {'x': 1}))
-    picked = cards if count >= len(cards) else (plan.rng or secrets.SystemRandom()).sample(cards, count) if count else []
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    picked = cards if count >= len(cards) else randomness.sample(plan, plan.rng or secrets.SystemRandom(), cards, count, kind='card', player=ctx['controller']) if count else []
     context.bind_objects(plan, ctx, 'r42_reap', picked)
     coin_recipes.insert(ctx, [{'do': 'return_card', 'who': 'ref:r42_reap', 'to': 'hand'}])
     return True

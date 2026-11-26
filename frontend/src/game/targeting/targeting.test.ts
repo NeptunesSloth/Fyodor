@@ -75,6 +75,8 @@ describe("targeting: which decisions the table answers", () => {
     expect(t.source).toBe("grind");
     expect(t.instruction).toBe("Choose up to two target creatures");
     expect(progress(1, t)).toBe("1 of 2 chosen");
+    expect(progress(1, { min: 3, max: 3, exactly: 3 })).toBe("1 of 3 chosen · 2 more needed"); // (what Done still waits for)
+    expect(progress(0, { min: 1, max: 2, exactly: undefined })).toBe("0 of 2 chosen · 1 more needed");
   });
 
   it("players: their plaques are the candidates, in the words of the rules; with creatures it is either", () => {
@@ -84,6 +86,13 @@ describe("targeting: which decisions the table answers", () => {
     expect(players.sourceName).toBe("Contagion Engine");
     const any = targetingOf(table({ kind: "choose_one", prompt: "Choose a target for Lightning Bolt", options: opts("bear", "p2") }), "p1")!;
     expect(any.instruction).toBe("Choose target creature or player");
+  });
+
+  it("the same target for every identical trigger: the board picks one, the bar offers \"Bob — same for all 68\" (playtest B3)", () => {
+    const same = [{ id: "all:p2", label: "Bob — same for all 68", card_id: null, group: null }, { id: "all:p3", label: "Carol — same for all 68", card_id: null, group: null }];
+    const t = targetingOf(table({ kind: "choose_one", prompt: "Blood Artist: choose a target", options: [...opts("p2", "p3"), ...same] }), "p1")!;
+    expect(t.candidates.map((c) => c.ref)).toEqual(["p2", "p3"]);
+    expect(t.others.map((o) => o.label)).toEqual(["Bob — same for all 68", "Carol — same for all 68"]);
   });
 
   it("a card in a graveyard, and a sacrifice (a choice that isn't a target)", () => {
@@ -160,5 +169,20 @@ describe("targeting: choosing several", () => {
     expect(s().picked.map((p) => p.ref)).toEqual(["c"]);
     s().toggle("d2", { opt: "x", ref: "x" }, 3); // a new decision starts empty
     expect(s().picked.map((p) => p.ref)).toEqual(["x"]);
+  });
+
+  it("Shift+click chooses the run since the last click, and Select all the first ones allowed (sweep B2: discard 30)", () => {
+    const s = useTargeting.getState;
+    s().setOrder(["a", "b", "c", "d", "e", "f"].map((r) => ({ opt: r, ref: r })));
+    s().toggle("d1", { opt: "b", ref: "b" }, 4);
+    s().range("d1", { opt: "e", ref: "e" }, 4);
+    expect(s().picked.map((p) => p.ref)).toEqual(["b", "c", "d", "e"]);
+    s().fill("d1", 0);
+    expect(s().picked).toEqual([]);
+    s().toggle("d1", { opt: "f", ref: "f" }, 3);
+    s().range("d1", { opt: "a", ref: "a" }, 3); // backwards, capped at the most allowed
+    expect(s().picked.map((p) => p.ref)).toEqual(["f", "a", "b"]);
+    s().fill("d1", 5);
+    expect(s().picked.map((p) => p.ref)).toEqual(["a", "b", "c", "d", "e"]);
   });
 });

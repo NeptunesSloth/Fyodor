@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import contextlib
 from typing import Annotated, Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_services, require_local
 from app.cards import updater
+from app.cards.art_folders import ArtFolderError
 from app.cards.downloader import DownloadError
-from app.cards.images import IMAGE_SIZES, InvalidImageRequest
+from app.cards.images import IMAGE_SIZES, InvalidImageRequest, media_type
+from app.cards.repository import CardDatabaseUnavailable
 from app.jobs import ProgressFn
 from app.services import Services
 
@@ -39,6 +42,17 @@ def search_cards(
 @router.get("/cards/autocomplete")
 def autocomplete(services: ServicesDep, q: Annotated[str, Query(max_length=100)] = "") -> list[str]:
     return services.cards.autocomplete(q)
+
+
+@router.get("/cards/glossary")
+def card_glossary(services: ServicesDep, response: Response) -> dict[str, Any]:
+    """-- keyword help -- every keyword and ability word with a short reminder (the card text tooltips)."""
+    try:
+        terms = services.cards.glossary()
+    except CardDatabaseUnavailable:
+        terms = {}
+    response.headers["Cache-Control"] = "max-age=3600"
+    return {"terms": terms}
 
 
 class BatchRequest(BaseModel):
@@ -102,22 +116,76 @@ def get_symbol(code: str, services: ServicesDep) -> FileResponse:
     return FileResponse(path, media_type="image/svg+xml", headers=SVG_HEADERS)
 
 
+IMAGE_HEADERS = {"Cache-Control": "public, max-age=604800"}
+# -- same-card art -- another printing's picture stands in for this one's: browsers re-ask every time (a 304 while unchanged), so
+# the printing's own picture shows as soon as it arrives; and a friend's Fyodor never keeps it as this printing's (lan_art.py)
+BORROWED_HEADERS = {"Cache-Control": "no-cache", "X-Fyodor-Art": "another-printing"}
+
+
 @router.get("/images/{card_id}", response_class=FileResponse)
 def get_image(
     card_id: str,
     services: ServicesDep,
     face: Annotated[int, Query(ge=0, le=3)] = 0,
     size: Annotated[str, Query(pattern="^(" + "|".join(IMAGE_SIZES) + ")$")] = "normal",
+    fallback: Annotated[int, Query(ge=0, le=1)] = 1,
 ) -> FileResponse:
+    """A printing's picture: its own (the cache, then the installer's seed/images); a token's fetched now while online; else
+    -- same-card art -- another printing's of the same card (not with ``fallback=0``: the LAN art fetch wants exact art)."""
     try:
         path = services.images.find(card_id, face=face, size=size)
     except InvalidImageRequest as exc:
         raise HTTPException(400, str(exc)) from exc
     if path is None and size != "art_crop":
         path = services.token_art.fetch(card_id, face)  # a token nobody has shown yet: linked from Scryfall now, cached
+    if path is not None:
+        return FileResponse(path, media_type=media_type(path), headers=IMAGE_HEADERS)
+    if fallback:
+        with contextlib.suppress(CardDatabaseUnavailable):
+            path = services.cards.borrowed_art(card_id, face=face, size=size)
     if path is None:
         raise HTTPException(404, "Image not cached")
-    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+    return FileResponse(path, media_type=media_type(path), headers=BORROWED_HEADERS)
+
+
+# ---------------------------------------------------------------------------- ART FOLDERS (host only)
+# -- art folders -- more folders of card pictures, read in place after the cache (app/cards/art_folders.py, docs/OFFLINE.md)
+
+
+class ArtFolderIn(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+
+
+@router.get("/art-folders")
+def list_art_folders(request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    return {"folders": services.art_folders.listing()}
+
+
+@router.post("/art-folders")
+def add_art_folder(body: ArtFolderIn, request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    try:
+        added = services.art_folders.add(body.path)
+    except ArtFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"added": added, "folders": services.art_folders.listing()}
+
+
+@router.delete("/art-folders")
+def remove_art_folder(request: Request, services: ServicesDep, path: Annotated[str, Query(min_length=1, max_length=1000)]) -> dict[str, Any]:
+    require_local(request)
+    try:
+        services.art_folders.remove(path)
+    except ArtFolderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"folders": services.art_folders.listing()}
+
+
+@router.post("/art-folders/rescan")
+def rescan_art_folders(request: Request, services: ServicesDep) -> dict[str, Any]:
+    require_local(request)
+    return {"folders": services.art_folders.rescan()}
 
 
 # ---------------------------------------------------------------------------- UPDATE CARD DATABASE (host only)

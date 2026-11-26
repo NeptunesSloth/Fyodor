@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
@@ -12,8 +12,12 @@ export { deckSize, deckTitle };
  * Choose a seat's deck from the library by its commander: each deck shows its commander's art, the commander and the deck's
  * name, its colours and size, and whose seat already has it. "No deck" leaves the seat with an empty library.
  */
-export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose }: {
+export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose, extra, noEmpty }: {
   decks: DeckSummary[];
+  /** -- bot decks -- more ways to give the seat a deck, under the library's (a bot's: random, precon, generated) */
+  extra?: ReactNode;
+  /** no "No deck" choice (a bot needs a deck) */
+  noEmpty?: boolean;
   value: string | null;
   seat: string;
   /** deck id → the other seats' names that already use it */
@@ -39,11 +43,13 @@ export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose }: {
     <Modal wide title={`Choose a deck for ${seat}`} onClose={onClose}
       footer={<><a className="dp-library" href="#/decks"><Icon name="cards" size={15} />Import or edit decks in the Deck library</a><span className="spacer" /><button className="tt-btn" onClick={onClose}>Cancel</button></>}>
       <div className="deck-picker" ref={root}>
+        {extra}
         {decks.length > 5 && (
           <input type="search" className="dp-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a deck or a commander"
             aria-label="Find a deck or a commander" autoFocus />
         )}
-        {decks.length === 0 && <p className="dp-none-yet">Your deck library is empty. Import a list or an Archidekt link in the Deck library, or play this seat with an empty library.</p>}
+        {decks.length === 0 && <p className="dp-none-yet">{noEmpty ? "Your deck library is empty: import a list in the Deck library, or choose one below."
+          : "Your deck library is empty. Import a list or an Archidekt link in the Deck library, or play this seat with an empty library."}</p>}
         <ul className="dp-grid">
           {shown.map((d) => {
             const on = d.id === value;
@@ -69,7 +75,7 @@ export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose }: {
               </li>
             );
           })}
-          {!q && (
+          {!q && !noEmpty && (
             <li>
               <button className={`dp-deck dp-empty ${value === null ? "on" : ""}`} aria-pressed={value === null} onClick={() => onPick(null)}>
                 <span className="dp-art"><CommanderArt back /></span>

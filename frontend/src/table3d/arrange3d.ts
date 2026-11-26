@@ -8,9 +8,11 @@
  * Display only: the server's positions are untouched (free placement and saves use them). Pure (no three.js), so it
  * is unit-tested.
  */
+import { boardCards } from "../game/attachments";
 import { applyOrder, arrangeBoard, arrangeCard, reorderOnDrop, TILE_RATIO, type BoardLayout } from "../game/arrange";
 import { isVisible, type GameView } from "../types/game";
 import type { CardData } from "../types/cards";
+import { arrangedCovers } from "./covers";
 import { CARD_H, CARD_W, MAT_D, MAT_W, toWorld, type Seat } from "./layout";
 
 /** Arrange units (the 2D layout's px) per world unit. */
@@ -39,6 +41,10 @@ export interface Spot {
   index: number;
   /** ×N on a stack's top card. */
   pile?: number;
+  /** A stack member beneath its top card: it casts no contact shadow (80 soft shadows on one spot add up to a black slab). */
+  under?: true;
+  /** A pile's buried card (past the edges it shows): the card it lies wholly under, which hides it (table3d/covers.ts). */
+  cover?: string;
   player: string;
 }
 
@@ -53,26 +59,44 @@ export interface Mat {
   zone: string;
 }
 
+/** The arranged layout's z for one line (game/arrange.ts: (lines - r) * 10000 + slot * 100 + …). */
+const LINE_Z = 10000;
+
 /** A tile's group scale for its width: uniform on x (and y), squashed on z by TILE_SQUASH. */
 export function tileScale(w: number): number {
   return w / CARD_W;
 }
 
 /** Lay out one mat: placements in its frame (world units, tile centres) and the 2D layout they came from. */
-export function arrangeMat(cards: Parameters<typeof arrangeBoard>[0], mirrored: boolean, keepOut: KeepOut | null = null): { layout: BoardLayout; spots: Map<string, { lx: number; lz: number; w: number; rank: number; pile?: number }> } {
+export function arrangeMat(cards: Parameters<typeof arrangeBoard>[0], mirrored: boolean, keepOut: KeepOut | null = null): { layout: BoardLayout; spots: Map<string, MatSpot> } {
   const layout = arrangeBoard(cards, { width: MAT_W * AU, height: MAT_D * AU, mirrored, maxW: TILE_MAX * AU, minW: TILE_MIN * AU, keepOut });
-  const spots = new Map<string, { lx: number; lz: number; w: number; rank: number; pile?: number }>();
-  [...layout.place.entries()].sort((a, b) => a[1].z - b[1].z).forEach(([id, p], rank) => {
+  const spots = new Map<string, MatSpot>();
+  const covers = arrangedCovers(layout);
+  // a stack's buried cards share one height: a pile of 80 tokens lies as low as a pile of 5
+  // -- playtest (nov 16) -- and each line counts its own ranks from the felt (lines never overlap): counted across the whole mat, 300
+  // permanents lifted the front creature rows a full unit off the table, and they rose over the mat's gold edge as the camera saw them
+  let rank = -1;
+  let prevBuried = false;
+  let line = NaN;
+  [...layout.place.entries()].sort((a, b) => a[1].z - b[1].z).forEach(([id, p]) => {
+    const at = Math.floor(p.z / LINE_Z);
+    if (at !== line) { line = at; rank = -1; prevBuried = false; }
+    if (!(p.buried && prevBuried)) rank++;
+    prevBuried = !!p.buried;
     spots.set(id, {
       lx: (p.left + layout.w / 2) / AU - MAT_W / 2,
       lz: (p.top + layout.h / 2) / AU - MAT_D / 2,
       w: layout.w / AU,
       rank,
       ...(p.pile ? { pile: p.pile } : {}),
+      ...(p.under ? { under: true as const } : {}),
+      ...(covers.has(id) ? { cover: covers.get(id)! } : {}),
     });
   });
   return { layout, spots };
 }
+
+type MatSpot = { lx: number; lz: number; w: number; rank: number; pile?: number; under?: true; cover?: string };
 
 /** A point on a mat (its frame, world units) → the arranged layout's units, as the top-left of a tile there. */
 export function toArrange(layout: BoardLayout, lx: number, lz: number): [number, number] {
@@ -150,7 +174,8 @@ export class ArrangedBoards {
     const stats = view.rules?.stats;
     for (const seat of seats) {
       const zone = `${seat.player}:battlefield`;
-      const ids = (view.zones[zone] as string[] | undefined) ?? [];
+      // -- attached elsewhere -- another player's Aura on a permanent here is laid out here, tucked under it (game/attachments.ts)
+      const ids = boardCards(view, zone);
       const order = src.order(zone);
       // a mat across the table faces me: its front (the creatures) is toward me, the bottom of the mat as I see it
       const mirrored = seat.side !== mine.side;
@@ -183,7 +208,7 @@ export class ArrangedBoards {
         const piles = new Map<string, number>();
         for (const [id, s] of local) {
           const [x, z] = toWorld(frame, s.lx, s.lz);
-          spots.set(id, { lx: s.lx, lz: s.lz, w: s.w, rank: s.rank, ...(s.pile ? { pile: s.pile } : {}), x, z, rot: mine.rot, index: index.get(id) ?? 0, player: seat.player });
+          spots.set(id, { lx: s.lx, lz: s.lz, w: s.w, rank: s.rank, ...(s.pile ? { pile: s.pile } : {}), ...(s.under ? { under: s.under } : {}), ...(s.cover ? { cover: s.cover } : {}), x, z, rot: mine.rot, index: index.get(id) ?? 0, player: seat.player });
           if (s.pile) piles.set(id, s.pile);
         }
         m = { ids, refs, order, version: src.version, keep, frame: frameKey, sig, layout, mat: { layout, frame, mirrored, zone }, spots, piles };

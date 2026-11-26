@@ -79,7 +79,7 @@ def bound_legacy(plan: Plan) -> None:
 
 def maximum(plan: Plan, player: str, *, warn_legacy: bool = False) -> int | None:
     """Apply setting/no-maximum/delta effects in timestamp order (402.2,613.10)."""
-    from app.rules import chosen, scripts, statics, values
+    from app.rules import chosen, planar_statics, scripts, statics, values
     from app.rules.layers import timestamp
     from app.rules.replace import conditional_lines
 
@@ -88,24 +88,26 @@ def maximum(plan: Plan, player: str, *, warn_legacy: bool = False) -> int | None
     legacy = player in plan.rules.no_max_hand and player not in plan.rules.no_max_hand_at
     bound = plan.rules.no_max_hand_legacy_bound.get(player, plan.rules.next_object)
     ambiguous = False
-    for c in plan.state.cards.values():
-        emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"
-        if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
-            continue
-        ch = plan.ch(c)
-        skip = conditional_lines(ch)
-        for i, d in scripts.definitions(ch).items():
-            if i in skip or d.get("kind") != "static" or d.get("static") not in (NO_MAXIMUM, MODIFIES):
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        for c in plan.state.cards.values():
+            emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"
+            emblem = emblem or planar_statics.functions(plan.state, c)  # (wave A: planar_statics.py) the face-up plane (311.4)
+            if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
                 continue
-            applies = chosen.player_of(plan, c.id) == player if d.get('who') == 'chosen' else _applies(d, c.controller, player)
-            if not applies or not statics.static_if_holds(plan, d, c):
-                continue
-            stamp = timestamp(plan.state, c.id)
-            if legacy and stamp <= bound and 'set' in d:
-                ambiguous = True
-            if 'set' in d and isinstance(d['set'], dict):
-                d = {**d, 'set': values.evaluate(plan, {'controller': c.controller, 'source_card': c.id, 'source_object': plan.oid(c)}, d['set'])}
-            entries.append(((stamp, 0, i), d))
+            ch = plan.ch(c)
+            skip = conditional_lines(ch)
+            for i, d in scripts.definitions(ch).items():
+                if i in skip or d.get("kind") != "static" or d.get("static") not in (NO_MAXIMUM, MODIFIES):
+                    continue
+                applies = chosen.player_of(plan, c.id) == player if d.get('who') == 'chosen' else _applies(d, c.controller, player)
+                if not applies or not statics.static_if_holds(plan, d, c):
+                    continue
+                stamp = timestamp(plan.state, c.id)
+                if legacy and stamp <= bound and 'set' in d:
+                    ambiguous = True
+                if 'set' in d and isinstance(d['set'], dict):
+                    d = {**d, 'set': values.evaluate(plan, {'controller': c.controller, 'source_card': c.id, 'source_object': plan.oid(c)}, d['set'])}
+                entries.append(((stamp, 0, i), d))
     if player in plan.rules.no_max_hand_at:
         seq, at = plan.rules.no_max_hand_at[player]
         entries.append(((seq, 1, at), {'static': NO_MAXIMUM}))

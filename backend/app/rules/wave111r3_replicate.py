@@ -130,7 +130,7 @@ def cast_triggers(plan: Any, card: Any, ch: Any, announced: list[tuple[str, int]
         left.remove(source)
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=INDEX + i,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
-                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": n}]})
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": n, "label": "Replicate"}]})
 
 
 def tags(announced: list[tuple[str, int]] | None) -> list[str]:

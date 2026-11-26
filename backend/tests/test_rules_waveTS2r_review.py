@@ -106,7 +106,7 @@ def test_fold_survives_save_load_at_the_order_decision(cards):
     for _ in range(20):
         d = s.state.rules.decision
         if d is not None and d.kind == "order":
-            assert sorted(o.label for o in d.options) == ["Rampaging Baloths (×2)", "Scute Swarm (×3)"]
+            assert sorted(o.label.split(" — ")[0] for o in d.options) == ["Rampaging Baloths (×2)", "Scute Swarm (×3)"]  # (then what each says)
             check(s)
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
             ordered = True

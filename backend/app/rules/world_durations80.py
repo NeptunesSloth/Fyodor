@@ -31,15 +31,27 @@ def profile(plan: Plan) -> dict[str, str]:
     # serialised in one call: the same values (each token, copy and merged part serialised as its model; the rest as JSON values, which
     # tell apart at least what the tuples of the old signature did), so it is equal exactly when the old one was or finer
     live = set(plan.live())
-    cards = [c for c in plan.state.cards.values() if c.zone.endswith((':battlefield', ':phased')) and c.owner in live and c.controller in live]
+    # -- big boards (Kiki end step) -- the cards' part read once per table action (``Plan.writes``: the cards and their object numbers
+    # change only through ``Plan.do``, read_pass.card_fact); the copy effects as tuples holding their recipes (a recipe is never changed
+    # once an effect holds it: the same object, or one equal to it, is the same recipe). The same signature, compared exactly as before;
+    # serialising every card and every recipe around each table action was a tenth of each step on a board of 200 copy tokens.
+    seen = (id(plan.state), getattr(plan, 'writes', None), tuple(sorted(live)), len(plan.state.cards))
+    kept = getattr(plan, 'world_cards80', None)
+    if kept is not None and kept[0] == seen and seen[1] is not None:
+        cards, cards_json = kept[1], kept[2]
+    else:
+        cards = [c for c in plan.state.cards.values() if c.zone.endswith((':battlefield', ':phased')) and c.owner in live and c.controller in live]
+        cards_json = to_json([(plan.oid(c), c.card_id, c.face, c.face_down, c.flipped, c.token, c.copy_of, c.merged, str(c.melded)) for c in cards])
+        setattr(plan, 'world_cards80', (seen, cards, cards_json))  # noqa: B010 (a cache of the Plan's own, like world_candidates80)
     added = any('World' in e.add_supertypes for e in plan.rules.effects)
     signature = (
-        to_json([(plan.oid(c), c.card_id, c.face, c.face_down, c.flipped, c.token, c.copy_of, c.merged, str(c.melded)) for c in cards]),
-        to_json([(e.id, e.timestamp, e.affected, e.copy_recipe)
-                 for e in plan.rules.effects if e.layer == '1' and e.copy_recipe is not None]), added)
+        cards_json,
+        tuple((e.id, e.timestamp, tuple(e.affected), e.copy_recipe)
+              for e in plan.rules.effects if e.layer == '1' and e.copy_recipe is not None), added)
     cached = plan.world_candidates80
     if cached is None or cached[0] != signature:
-        candidates = tuple(c.id for c in cards if added or 'World' in layers.copiable(plan.state, c, plan.info).supertypes)
+        with plan.reading():  # (big boards: in a pass each copy token's copy effect is looked up in the effects on it, not in all of them)
+            candidates = tuple(c.id for c in cards if added or 'World' in layers.copiable(plan.state, c, plan.info).supertypes)
         plan.world_candidates80 = signature, candidates
     else:
         candidates = cached[1]

@@ -433,7 +433,8 @@ def random_pick(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     pool = effects._looked(plan, ctx)[1]
-    chosen = (plan.rng or secrets.SystemRandom()).sample(pool, min(4, len(pool)))
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    chosen = randomness.sample(plan, plan.rng or secrets.SystemRandom(), pool, min(4, len(pool)), kind='card', player=ctx['controller'])
     return effects._picked(plan, ctx, pick(e, to="exile"), chosen)
 
 

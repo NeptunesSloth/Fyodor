@@ -311,7 +311,8 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
 }
 SUPPORTED_KEYWORD_ACTIONS.update({"clash", "detain", "suspect"})  # -- clash, detain, suspect (wave 12A) -- app/rules/clash.py, test_rules_wave12a_counters_keywords.py
 SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
-SUPPORTED_KEYWORD_ACTIONS.update({"open an attraction", "roll to visit your attractions"})  # -- Attractions (wave 100L) -- test_rules_wave100l_attractions.py
+SUPPORTED_KEYWORD_ACTIONS.update({"open an attraction", "roll to visit your attractions"})
+SUPPORTED_KEYWORD_ACTIONS.add("dive")  # -- dive (wave DV) -- app/rules/dive.py, tests/test_rules_dive.py  # -- Attractions (wave 100L) -- test_rules_wave100l_attractions.py
 
 
 # -- refusals (agent T) ------------------------------------------------------------------------------
@@ -720,9 +721,18 @@ def features_of(ch: Characteristics) -> list[Feature]:
     def add(fid: str, label: str, ok: bool | None = None) -> None:
         out.append(Feature(fid, label, fid in SUPPORTED if ok is None else ok))
 
+    from app.rules import (
+        planar,  # -- planechase automation -- a plane or phenomenon is never cast: it works face up in the command zone
+    )
+
+    is_planar = planar.planar(ch)
+    if is_planar:  # 311.4 / 312.5 / 901.7: only the abilities the engine reads on the face-up card (planar.ability_ok)
+        defs = templates.definitions(ch)
+        templated = {i for i in templated if planar.ability_ok(defs.get(i))}
+        add("planar", "Face up in the command zone (311.4, 901.7)", True)
     if ch.is_land:
         add("play:land", "Play it as your land for the turn")
-    elif ch.types:
+    elif ch.types and not is_planar:
         add("cast:spell", "Cast it (timing, costs, the stack)")
     if ch.is_creature:
         add("combat", "Attack and block")
@@ -777,6 +787,12 @@ def features_of(ch: Characteristics) -> list[Feature]:
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
     # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
+    if is_planar:  # -- planechase automation -- a keyword, mana or scripted ability of the face-up plane: no collector reads it there yet
+        from app.rules import (
+            planar_more2,  # -- planechase more 2 (wave F1) -- a plane's keyword a collector reads (ascend: designations.ascend_permanent_due)
+        )
+
+        out = [Feature(f.id, f.label, f.supported and (not f.id.startswith(("keyword:", "mana:", "script:")) or planar_more2.keyword_ok(f.id))) for f in out]
     return out
 
 

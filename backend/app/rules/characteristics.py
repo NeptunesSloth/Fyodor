@@ -132,7 +132,8 @@ def parse_type_line(type_line: str) -> tuple[frozenset[str], frozenset[str], fro
     left, _, right = (type_line or "").partition("—")
     words = left.replace("Token", " ").split()
     supertypes = frozenset(w for w in words if w in SUPERTYPES)
-    types = frozenset(w for w in words if w in CARD_TYPES)
+    types = frozenset(w if w in CARD_TYPES else w.capitalize() for w in words
+                      if w in CARD_TYPES or w.lower() in ("plane", "phenomenon"))  # (wave F2: "pLAnE — sECreT LaIR", sAnS mERcY: a Plane in any case)
     # CR 205.3m lists Time Lord as one creature type, including on mixed lines
     # such as "Time Lord Doctor". All other printed subtypes are single words.
     subtypes = frozenset(re.findall(r"Time Lord|\S+", right)) if right else frozenset()
@@ -404,7 +405,7 @@ def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) 
 
 def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
     """Characteristics of a card-database entry (cached per printing and face)."""
-    key = (str(data.get("id")), face)
+    key = (str(data.get("id")) + (f"#{data['_taught']}" if data.get("_taught") else ""), face)  # (-- Teach Fyodor -- its taught text, rules/taught.py)
     hit = _printed_cache.get(key)
     if hit is None:
         if len(_printed_cache) > _CACHE_MAX:
@@ -435,7 +436,7 @@ def flippable(card: CardInstance, info: CardInfo, printing: str | None = None) -
 
 def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
     """One half of a split card / adventure (its own name, cost, type and text), cached."""
-    key = (str(data.get("id")) + "#half", face)
+    key = (str(data.get("id")) + "#half" + (f"#{data['_taught']}" if data.get("_taught") else ""), face)
     hit = _printed_cache.get(key)
     if hit is None:
         hit = _printed_cache[key] = _from_card_data(data, face, half=True)

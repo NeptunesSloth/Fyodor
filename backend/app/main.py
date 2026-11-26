@@ -17,8 +17,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api import assets, backups, cards, decks, games, health, macros, night, pod, practice, rules, tools
+from app.api import bot as bot_api  # -- test opponent --
+from app.api import shortcut as shortcut  # -- desktop shortcut --
+from app.api import updates as updates  # -- install update --
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
+from app.api.teach import router as teach_router  # -- Teach Fyodor --
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
@@ -73,14 +77,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(cards.router, prefix="/api")
     app.include_router(decks.router, prefix="/api")
     app.include_router(games.router, prefix="/api")
+    app.include_router(bot_api.router, prefix="/api")  # -- test opponent --
     app.include_router(night.router, prefix="/api")
     app.include_router(practice.router, prefix="/api")
     app.include_router(spectate_router, prefix="/api")  # (spectator activities)
     app.include_router(pod.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
     app.include_router(macros.router, prefix="/api")
+    app.include_router(teach_router, prefix="/api")  # -- Teach Fyodor -- (app/api/teach.py)
     app.include_router(tools.router, prefix="/api")
     app.include_router(backups.router, prefix="/api")
+    app.include_router(shortcut.router, prefix="/api")  # -- desktop shortcut -- (app/api/shortcut.py)
+    app.include_router(updates.router, prefix="/api")  # -- install update -- (app/api/updates.py)
     app.include_router(rules.router, prefix="/api")
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
@@ -106,7 +114,9 @@ def _mount_frontend(app: FastAPI, settings: Settings) -> None:
     if (dist / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
+    # the page itself is asked for again on every load (the hashed assets it names can be kept): a window kept from an older
+    # build otherwise opened that build's page against the new server
     @app.get("/", include_in_schema=False)
     def spa_index() -> FileResponse:
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 

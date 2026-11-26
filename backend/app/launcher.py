@@ -123,6 +123,7 @@ def _running_fyodor(url: str) -> bool:
         return False
 
 
+EXIT_FOR_UPDATE = threading.Event()  # set when Settings → Install update ends this program for the updater (serve() exits)
 PAGE_SEEN = threading.Event()  # set when a window has asked this server for the table's page (serve() watches)
 WINDOW_WAIT = 45.0  # seconds before the console says what to do if the window still shows nothing
 MODERN = 111  # Chrome/Edge from this version draw everything the table uses
@@ -158,13 +159,50 @@ def windows_to_try() -> list[tuple[str, Path]]:
     return installed_browsers() + ([("Fyodor's own window", own)] if own else [])
 
 
+# what a window's profile keeps of the page between starts (Chromium's layout under the profile folder)
+_PAGE_CACHES = ("Cache", "Code Cache", "GPUCache", "Service Worker")
+
+
+def forget_old_page(profile: Path, settings: Settings) -> bool:
+    """A window kept from an older build could open that build's page against this server (its saved copy, sent before
+    the page was served no-cache): when the built page differs from the one this profile last opened, its caches go.
+    Returns whether they were cleared. Logins, settings and anything else in the profile stay."""
+    dist = settings.frontend_dist
+    index = dist / "index.html" if dist is not None else None
+    if index is None or not index.is_file():
+        return False
+    stamp = profile / "fyodor-page"
+    page = index.read_bytes()
+    with contextlib.suppress(OSError):
+        if stamp.read_bytes() == page:
+            return False
+    cleared = False
+    for root in (profile, profile / "Default"):
+        for name in _PAGE_CACHES:
+            target = root / name
+            if target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+                cleared = True
+    with contextlib.suppress(OSError):
+        profile.mkdir(parents=True, exist_ok=True)
+        stamp.write_bytes(page)
+    return cleared
+
+
 def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Popen[bytes] | None:
-    profile = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}")  # its own profile
+    own = name.startswith("Fyodor")
+    profile = settings.data_dir / ("window" if own else f"window-{name.lower()}")  # its own profile
+    forget_old_page(profile, settings)
+    # Chromium's network service runs in an AppContainer, which can only read a program folder that grants
+    # ALL APPLICATION PACKAGES (Program Files does). A portable copy unpacked under the user's profile
+    # (Desktop, Downloads) doesn't: the network service dies and the window never asks for the page.
+    # Fyodor's own window only opens this computer's server, so it runs that service unboxed.
+    features = "Translate,MediaRouter" + (",NetworkServiceSandbox" if own else "")
     try:
         return subprocess.Popen(  # noqa: S603 - a browser opening our own local address
             [str(exe), f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
              "--disable-background-networking", "--disable-component-update", "--disable-sync",
-             "--disable-features=Translate,MediaRouter", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
+             f"--disable-features={features}", "--enable-unsafe-swiftshader",  # 3D even without a graphics driver
              "--enable-logging", f"--log-file={profile / 'browser.log'}",  # why, if it ever shows nothing
              "--start-maximized"],
             close_fds=True,
@@ -218,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     args.lan = not args.local
     if args.lan:
         env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - explicit opt-in for LAN play
-    if args.port:
+    if args.port is not None:  # --port 0: any free port (the tests use it so a busy 8000 never matters)
         env["FYODOR_PORT"] = str(args.port)
     settings = load_settings(env)
 
@@ -294,6 +332,14 @@ def serve(settings: Settings) -> None:
 
         app.state.request_restart = request_restart
 
+        def request_exit(server: uvicorn.Server = server) -> None:
+            """-- install update -- stop the server and end this program (the shutdown saves every table), so the updater can replace
+            Fyodor.exe and _internal (app/api/updates.py); it starts Fyodor again."""
+            EXIT_FOR_UPDATE.set()
+            server.should_exit = True
+
+        app.state.request_exit = request_exit
+
         @app.middleware("http")
         async def note_the_page(request, call_next):  # type: ignore[no-untyped-def]
             if request.url.path == "/" or request.url.path.startswith("/assets/"):
@@ -301,6 +347,13 @@ def serve(settings: Settings) -> None:
             return await call_next(request)
 
         server.run()
+        if EXIT_FOR_UPDATE.is_set():
+            # (the server has shut down and saved; a thread left behind must not keep Fyodor.exe running and locked)
+            print("\nFyodor is closing to install an update; it starts again by itself.\n", flush=True)
+            for stream in (sys.stdout, sys.stderr):
+                with contextlib.suppress(Exception):
+                    stream.flush()
+            os._exit(0)
         if not again.is_set():
             return
         print("\nRestarting Fyodor…\n")

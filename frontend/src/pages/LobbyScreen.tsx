@@ -14,6 +14,7 @@ import {
   clearLobbyDeck,
   forgetMyDeck,
   kickFromLobby,
+  addLobbyBot,
   leaveLobby,
   myDecks,
   importPersonalDeck,
@@ -39,6 +40,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
+import { PlanechaseSetting } from "./PlanechaseSetting";
 import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
@@ -47,6 +49,9 @@ import { SessionRecap } from "./SessionRecap";
 import { TURN_ORDER_LABEL, canNudge, miniSeats, moveSeat, nudgeSeat, previewLine, previewParts, type TurnOrderMode } from "./seating";
 import "./lobby.css";
 import { Icon } from "../components/Icon";
+import { BOT_LEVELS, DEFAULT_BOT_LEVEL, botLevelName } from "../game/botSeat";
+import { BotDeckSources } from "./BotDeckSources";
+import type { BotLevel } from "../types/game";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
   private: "Private",
@@ -98,6 +103,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   }, [gameId, seated, me?.id]);
   const own = useMemo(() => (seated ? ownDecks(brought, myDecks()) : null), [seated, brought, savedVersion]);
 
+  const [addingBot, setAddingBot] = useState<string | null>(null); // -- LAN bots -- the open seat the host is seating a bot in
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     try {
@@ -176,12 +182,14 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               arranging={arrangingFor(seat)}
               own={seat.id === lobby.viewer ? own : null}
               onPick={(d) => void run(() => bringDeck(gameId, d.body, { remember: !own?.brought }).finally(() => setSavedVersion((v) => v + 1)))}
+              onBotDeck={() => setAddingBot(seat.id)}
             />
           ))}
           {open.length > 0 && (
             <div className="open-seats">
               {open.map((seat) => (
-                <OpenSeat key={seat.id} seat={seat} lobby={lobby} busy={busy} onRun={run} invite={invite} arranging={arrangingFor(seat)} />
+                <OpenSeat key={seat.id} seat={seat} lobby={lobby} busy={busy} onRun={run} invite={invite} arranging={arrangingFor(seat)}
+                  onAddBot={() => setAddingBot(seat.id)} />
               ))}
             </div>
           )}
@@ -199,7 +207,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
             <ul className="rail-seats" aria-label="Who is ready">
               {claimed.map((x) => (
                 <li key={x.id} className={x.ready ? "ready" : ""} title={`${x.name}: ${x.ready ? "ready" : x.deck ? "not ready" : "choosing a deck"}`}>
-                  <SeatChip seat={x} text={x.name.slice(0, 1).toUpperCase()} />
+                  <SeatChip seat={x} text={chipText(x)} />
                   {x.ready && <span className="rail-check"><Icon name="check" size={11} /></span>}
                 </li>
               ))}
@@ -232,10 +240,10 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               data-testid="ready"
               aria-pressed={me.ready}
               disabled={busy || !me.deck}
-              title={!me.deck ? "Choose a deck first" : me.ready ? "You're ready. Press again if you need more time." : undefined}
+              title={!me.deck ? "Choose a deck first" : me.ready ? "You're ready. Press again if you need more time." : me.deck.warning_count ? "Your deck has warnings: ready to play it as it is" : undefined}
               onClick={() => void run(() => setLobbyReady(gameId, !me.ready))}
             >
-              {me.ready ? <><Icon name="check" size={17} />Ready</> : me.deck?.warning_count ? "Play anyway" : "Ready"}
+              {me.ready ? <><Icon name="check" size={17} />Ready</> : me.deck?.warning_count ? "Ready anyway" : "Ready"}
             </button>
           )}
           {lobby.is_host && (
@@ -253,6 +261,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
           onDone={(l) => { setLobby(l); setChoosing(false); setSavedVersion((v) => v + 1); }} />
       )}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
+      {addingBot && <AddBotDialog lobby={lobby} seat={addingBot} bot={lobby.seats.find((s) => s.id === addingBot && s.bot) ?? null} onClose={() => setAddingBot(null)}
+        onDone={(l) => { setLobby(l); setAddingBot(null); }} />}
     </div>
   );
 }
@@ -268,8 +278,13 @@ function inkOn(color: string): string {
   }
 }
 
+/** -- playtest (nov 17) -- a seat chip's mark: the initial, or a bot's robot glyph (Bob and the bot both showed "B"). */
+function chipText(x: LobbySeat): React.ReactNode {
+  return x.bot ? <Icon name="bot" size={12} label="Bot" /> : x.name.slice(0, 1).toUpperCase();
+}
+
 /** A seat's chip: its colour (the player's identity at the table) with its number or initial, never colour alone. */
-function SeatChip({ seat, text, mine, onColor }: { seat: LobbySeat; text: string; mine?: boolean; onColor?: (color: string) => void }) {
+function SeatChip({ seat, text, mine, onColor }: { seat: LobbySeat; text: React.ReactNode; mine?: boolean; onColor?: (color: string) => void }) {
   const ink = inkOn(seat.color);
   // a mid-tone colour reaches neither ink at 4.5:1: the number keeps a thin edge in the other one
   const style = {
@@ -442,7 +457,7 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
                 <ol className="nx-seq" aria-hidden>
                   {parts.order.map((id) => {
                     const x = seat(id);
-                    return x ? <li key={id}><SeatChip seat={x} text={x.name.slice(0, 1).toUpperCase()} />{x.name}</li> : null;
+                    return x ? <li key={id}><SeatChip seat={x} text={chipText(x)} />{x.name}</li> : null;
                   })}
                 </ol>
               )}
@@ -519,7 +534,8 @@ function MiniTable({ lobby, order, first, d20 }: { lobby: LobbyView; order: stri
           <g key={p.id} className={`mt-seat ${p.id === lobby.viewer ? "me" : ""}`}>
             {p.id === first && <circle cx={cx} cy={cy} r={15} className="mt-first" />}
             <circle cx={cx} cy={cy} r={11.5} fill={x.color} className="mt-chip" />
-            <text x={cx} y={cy + 4.2} fill={inkOn(x.color)}>{x.name.slice(0, 1).toUpperCase()}</text>
+            {x.bot ? <g transform={`translate(${cx - 7} ${cy - 7})`} color={inkOn(x.color)}><Icon name="bot" size={14} /></g>
+              : <text x={cx} y={cy + 4.2} fill={inkOn(x.color)}>{x.name.slice(0, 1).toUpperCase()}</text>}
           </g>
         );
       })}
@@ -560,7 +576,7 @@ function dropProps(arranging: Arranging | null) {
 }
 
 /** A taken seat: the player's name plate, their commander on the felt (lit once they're ready) and their deck. */
-function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, onPick }: {
+function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, onPick, onBotDeck }: {
   seat: LobbySeat;
   mine: boolean;
   lobby: LobbyView;
@@ -571,8 +587,11 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
   /** the decks this player brought (their own seat only), one click each */
   own: OwnDecks | null;
   onPick: (deck: OwnDeck) => void;
+  /** -- LAN bots -- the host picks (or changes) the deck of the bot in this seat */
+  onBotDeck: () => void;
 }) {
   const gameId = lobby.game.id;
+  const hostsBot = !!seat.bot && lobby.is_host;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(seat.name);
   const deck = seat.deck;
@@ -610,7 +629,8 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
             <span>Seat {number}</span>
             {seat.host && <span>Host</span>}
             {mine && <span className="you">You</span>}
-            {!seat.connected && <span className="away">Not connected</span>}
+            {seat.bot && <span className="bot" data-testid={`seat-bot-${seat.id}`}>Bot · {botLevelName(seat.bot)}</span>}
+            {!seat.connected && !seat.bot && <span className="away">Not connected</span>}
           </span>
         </div>
         {seat.connected && <span className="presence on" role="img" aria-label="Connected" title="Connected" />}
@@ -642,6 +662,15 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
         )}
       </header>
 
+      {seat.bot && lobby.is_host && ( // -- LAN bots -- how well it plays (the host's)
+        <span className="lobby-bot-levels" role="radiogroup" aria-label={`${seat.name}: level`}>
+          {BOT_LEVELS.map((l) => (
+            <button key={l.id} className={seat.bot === l.id ? "on" : ""} aria-pressed={seat.bot === l.id} title={l.hint} disabled={busy}
+              data-testid={`seat-bot-level-${seat.id}-${l.id}`}
+              onClick={() => seat.bot !== l.id && void onRun(() => addLobbyBot(gameId, { seat: seat.id, level: l.id }))}>{l.label}</button>
+          ))}
+        </span>
+      )}
       <div className={`pl-art ${deck ? "" : "empty"}`}>
         {cmdId ? <CommanderArt id={cmdId} /> : deck ? <CommanderArt back /> : (
           <span className={`pl-slot ${mine ? "pl-slot-mine" : ""}`}>
@@ -658,7 +687,7 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
         )}
         {!(mine && !deck) && ( // (my own empty seat: Choose deck and the footer already say there's no deck)
           <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
-            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
+            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine || seat.bot ? "No deck yet" : "Choosing a deck…"}
           </span>
         )}
       </div>
@@ -709,13 +738,20 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
           </>
         ) : (
           mine && own ? <OwnDeckPicks own={own} busy={busy} onPick={onPick} onMore={onChoose} /> : (
-            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.` : `${seat.name} is choosing a deck.`}</p>
+            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.`
+              : seat.bot ? (lobby.is_host ? `${seat.name} needs a deck: choose one from this computer's library.` : `${seat.name} needs a deck: the host chooses it.`)
+              : `${seat.name} is choosing a deck.`}</p>
           )
         )}
       </div>
 
-      {(mine && deck) || (!mine && deck?.list) ? (
+      {(mine && deck) || (!mine && deck?.list) || hostsBot ? (
         <div className="pl-actions">
+          {hostsBot && ( // (-- LAN bots -- a bot back from a restart may have no deck; the host gives it one here, no kick needed)
+            <button className={`tt-btn ${deck ? "" : "brass"}`} disabled={busy} onClick={onBotDeck} data-testid={`bot-deck-${seat.id}`}>
+              <Icon name="cards" size={14} />{deck ? "Change bot deck" : "Choose bot deck"}
+            </button>
+          )}
           {mine && deck && (
             <>
               <button className="tt-btn" disabled={busy} onClick={onChoose} data-testid="choose-deck">Change deck</button>
@@ -755,13 +791,15 @@ function OwnDeckPicks({ own, busy, onPick, onMore }: { own: OwnDecks; busy: bool
 }
 
 /** An open seat: an empty chair at the table, with the way to fill it from where you are. */
-function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
+function OpenSeat({ seat, lobby, busy, onRun, invite, arranging, onAddBot }: {
   seat: LobbySeat;
   lobby: LobbyView;
   busy: boolean;
   onRun: (fn: () => Promise<unknown>) => Promise<void>;
   invite: string | null;
   arranging: Arranging | null;
+  /** -- LAN bots -- the host seats a bot here */
+  onAddBot: () => void;
 }) {
   const gameId = lobby.game.id;
   const iAmSeated = lobby.seats.some((s) => s.id === lobby.viewer);
@@ -775,9 +813,13 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         <b>Seat {number}</b>
         <span>{watcher ? "Open: take it to play" : lobby.is_host ? "Open seat" : "Waiting for a player"}</span>
       </span>
-      {(lobby.is_host && invite) || iAmSeated || watcher ? (
+      {(lobby.is_host && invite) || iAmSeated || watcher || lobby.is_host ? (
         <span className="os-actions">
           {lobby.is_host && invite && <CopyButton text={invite} label={<><LinkGlyph />Invite</>} done="Link copied" className="os-invite" />}
+          {lobby.is_host && (
+            <button className="tt-btn" disabled={busy} data-testid={`add-bot-${seat.id}`} title="Seat a bot the server plays for (a deck from this computer's library)"
+              onClick={onAddBot}><Icon name="cards" size={14} />Add bot</button>
+          )}
           {iAmSeated && (
             <button className="tt-btn" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
           )}
@@ -789,6 +831,63 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         </span>
       ) : null}
     </section>
+  );
+}
+
+/** -- LAN bots -- the host seats a bot: a deck from this computer's library and how well it plays (Full automation plays it). */
+function AddBotDialog({ lobby, seat, bot, onClose, onDone }: {
+  lobby: LobbyView; seat: string;
+  /** the bot already in this seat (the host is choosing its deck), null for a new bot */
+  bot: LobbySeat | null;
+  onClose: () => void; onDone: (l: LobbyView) => void;
+}) {
+  const [decks, setDecks] = useState<DeckSummary[] | null>(null);
+  const [level, setLevel] = useState<BotLevel>(bot?.bot ?? DEFAULT_BOT_LEVEL);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    listDecks().then(setDecks, (e) => {
+      if (!(e instanceof ApiError && e.status === 403)) toastError(e);
+      setDecks([]);
+    });
+  }, []);
+  const add = async (deckId: string) => {
+    setBusy(true);
+    try {
+      onDone(await addLobbyBot(lobby.game.id, { seat, deck_id: deckId, level }));
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={bot ? `Choose ${bot.name}'s deck` : `Add a bot to seat ${seat.slice(1)}`} onClose={onClose}>
+      <p className="hint">The server plays it, through the same rules as everyone (rules automation must be Full). It never sees your hands.</p>
+      {/* how well it plays, named and explained here (the hint was only a tooltip) */}
+      <div className="lobby-bot-level-row">
+        <span className="bds-head" id="add-bot-level">Plays</span>
+        <div className="lobby-bot-levels" role="radiogroup" aria-labelledby="add-bot-level">
+          {BOT_LEVELS.map((l) => (
+            <button key={l.id} className={level === l.id ? "on" : ""} aria-pressed={level === l.id} title={l.hint} onClick={() => setLevel(l.id)}
+              data-testid={`add-bot-level-${l.id}`}>{l.label}</button>
+          ))}
+        </div>
+      </div>
+      <p className="hint lobby-bot-level-hint">{BOT_LEVELS.find((l) => l.id === level)?.hint}.</p>
+      <BotDeckSources value={null} hasLibrary={!!decks?.length} busy={busy} onPick={(id) => void add(id)} />
+      <p className="bds-head lobby-bot-mine">Or one of your decks</p>
+      <div className="deck-pick-list" data-testid="add-bot-decks">
+        {decks === null && <p className="hint">Loading the decks…</p>}
+        {decks?.length === 0 && <p className="hint">No decks in this computer's library: import one on the Decks page (on the host computer), or choose one above.</p>}
+        {decks?.map((d) => (
+          <button key={d.id} className="deck-pick" disabled={busy} onClick={() => void add(d.id)}>
+            <b>{d.name}</b>
+            <span className="hint">{d.commanders.join(" & ") || d.format}</span>
+            <ColorPips colors={d.color_identity} />
+          </button>
+        ))}
+      </div>
+    </Modal>
   );
 }
 
@@ -847,6 +946,7 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
   const [companion, setCompanion] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
   const [saved, setSaved] = useState<MyDeck[]>(() => myDecks());
+  const [addOpen] = useState(() => saved.length === 0); // "Add decks to My decks" starts open only while there are none
   const [source, setSource] = useState<Source>(brought ? "brought" : saved.length ? "mine" : "paste");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -855,6 +955,13 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [keepBrought, setKeepBrought] = useState(false);
+  const tabList = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // focus lands on the chosen source's tab (unless that source's own field took it), also when the table's decks arriving
+    // switch the source away from a field that had it; arrows move between tabs
+    const at = document.activeElement;
+    if (!at || at === document.body || at.getAttribute("role") === "dialog") tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  }, [source]);
 
   useEffect(() => {
     // The host's library is offered only on the host computer (the server enforces this too).
@@ -898,6 +1005,7 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
     setFile({ name: f.name, body: isJson ? { json: content, name: base } : { text: content, name: base } });
   };
 
+  const companions = Array.from(new Map(saved.flatMap(d => d.companions ?? []).map(c => [c.name, c])).values());
   const tabs: [Source, string][] = [
     ...(brought ? ([["brought", `Your decks, from ${brought.from ?? "your computer"}`]] as [Source, string][]) : []),
     ...(hostDecks ? ([["table", "Table decks"]] as [Source, string][]) : []),
@@ -909,20 +1017,31 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
 
   return (
     <Modal title="Bring a deck" onClose={onClose} wide>
-      <div className="deck-src-tabs" role="tablist">
+      <div className="deck-src-tabs" role="tablist" aria-label="Where the deck comes from" ref={tabList}
+        onKeyDown={(e) => {
+          const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          const at = tabs.findIndex(([k]) => k === source);
+          const next = tabs[(at + step + tabs.length) % tabs.length]![0];
+          setSource(next);
+          requestAnimationFrame(() => tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+        }}>
         {tabs.map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={source === key} className={`tt-tab ${source === key ? "on" : ""}`} onClick={() => setSource(key)}>
+          <button key={key} role="tab" aria-selected={source === key} tabIndex={source === key ? 0 : -1} className={`tt-tab ${source === key ? "on" : ""}`} onClick={() => setSource(key)}>
             {label}
           </button>
         ))}
       </div>
-      <label className="field">Companion from My decks (optional)
-        <select value={companion} disabled={busy} onChange={e => setCompanion(e.target.value)}>
-          <option value="">Use the deck's companion, if any</option>
-          {Array.from(new Map(saved.flatMap(d => d.companions ?? []).map(c => [c.name, c])).values()).map(c =>
-            <option key={c.name} value={c.printing_id}>{c.name}</option>)}
-        </select>
-      </label>
+      {/* (a companion from My decks instead of the deck's own: offered only when My decks hold one; chosen before the deck) */}
+      {companions.length > 0 && (
+        <label className="field deck-src-companion">Companion from My decks (optional)
+          <select value={companion} disabled={busy} onChange={e => setCompanion(e.target.value)}>
+            <option value="">Use the deck's companion, if any</option>
+            {companions.map(c => <option key={c.name} value={c.printing_id}>{c.name}</option>)}
+          </select>
+        </label>
+      )}
       <div className="deck-src-body">
         {source === "brought" && brought && (
           <div className="deck-pick-list" data-testid="brought-decks">
@@ -960,11 +1079,17 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
         )}
         {source === "mine" && (
           <div className="deck-pick-list">
-            <p className="hint" data-testid="my-decks-address">
-              My decks are kept in this browser for <b>{window.location.host}</b>: another address (another host, or this one after its
-              address changes) has its own list. Export My decks to carry them there, and import the file at the new address.
-            </p>
-            <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
+            {/* the decks first; where they live and how they travel behind the "?" */}
+            <div className="my-decks-where">
+              <p className="hint" data-testid="my-decks-address">Saved in this browser for <b>{window.location.host}</b>.</p>
+              <details className="my-decks-help">
+                <summary aria-label="About My decks" title="About My decks">?</summary>
+                <div className="my-decks-help-text">
+                  <p>Import decks here while online: their lists are saved on this device and sent as your private collection when you choose one. Reusing them at a table needs no Internet.</p>
+                  <p>Another address (another host, or this one after its address changes) has its own list: Export My decks to carry them there, and import the file at the new address, offline.</p>
+                </div>
+              </details>
+            </div>
             {saved.length === 0 && <p className="hint">No personal decks saved yet.</p>}
             {saved.map((d) => (
               <div key={d.id} className="deck-pick-row">
@@ -972,9 +1097,13 @@ function ChooseDeck({ gameId, brought, onClose, onDone }: {
                   <b>{d.name}</b>
                   <span className="hint">{d.commanders.join(" & ") || (d.body.archidekt ? "Archidekt" : "Deck list")}</span>
                 </button>
-                <button className="tt-icon" title="Forget this deck" onClick={() => { forgetMyDeck(d.id); void savedChanged(); }}>✕</button>
+                <button className="tt-icon" title="Forget this deck" aria-label={`Forget ${d.name}`} onClick={() => { forgetMyDeck(d.id); void savedChanged(); }}>✕</button>
               </div>
             ))}
+            <details className="my-decks-add" open={addOpen}>
+              <summary>Add decks to My decks</summary>
+              <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
+            </details>
           </div>
         )}
         {source === "archidekt" && (
@@ -1110,6 +1239,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           <span className="hint">{draft.priority_helper === "simple" ? "Asks the table before resolving or moving on (with automation off)." : "Nobody is asked: play moves on."}</span>
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
+        <PlanechaseSetting value={draft} onChange={set} />
       </div>
       {configurable && draft.mulligan_policy && (
         <>

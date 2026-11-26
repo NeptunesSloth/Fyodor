@@ -1,0 +1,14 @@
+/* -- test opponent -- the top bar's bot speed (BotSpeed.tsx): a label, three pressed-or-not buttons, Next in Step mode */
+.bot-speed { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px; }
+.bot-speed-label { position: relative; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); padding-right: 2px; }
+.bot-speed-label.waiting { color: var(--text); }
+.bot-speed-dot { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
+.bot-speed .tt-split { margin: 0; }
+.bot-speed .bot-levels { margin-left: 4px; align-items: center; }
+.bot-speed .tt-btn[aria-pressed="true"] { color: var(--text); background: var(--frame-inner, var(--panel)); box-shadow: inset 0 -2px 0 var(--accent); }
+.bot-speed .tt-btn[aria-pressed="false"] { color: var(--text-dim, var(--text-faint)); }
+.bot-speed-next { min-width: 52px; }
+/* -- playtest (nov 17) -- which bot a level chooser is for: the robot glyph and its number (the name on hover) */
+.bot-level-who { display: inline-flex; align-items: center; gap: 1px; padding: 0 4px 0 2px; color: var(--text-faint); font-size: 12px; }
+.bot-level-who b { font-weight: 600; font-variant-numeric: lining-nums; }
+.bot-level-pick { height: 26px; padding: 0 4px; font-size: 12px; background: transparent; color: var(--text); border: 1px solid var(--line, rgba(255,255,255,0.14)); border-radius: 4px; }

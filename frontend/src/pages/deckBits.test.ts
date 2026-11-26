@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardData } from "../types/cards";
 import type { DeckEntry } from "../types/decks";
-import { checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, recordText } from "./deckBits";
+import { artFirst, checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, printingsShown, recordText, savedRows } from "./deckBits";
 
 const player = (deck_key: string | null, outcome: "win" | "loss" | "draw" | "none") => ({
   seat: "p1", player_id: "x", name: "X", deck_key, deck_name: null, commanders: [], outcome,
@@ -92,5 +92,32 @@ describe("deckFolders", () => {
     const { deckFolders } = await import("./deckBits");
     expect(deckFolders([{ folder: "Pod" }, { folder: "" }, { folder: "Pod" }, { folder: "alpha" }], ["New", "Pod"]))
       .toEqual([{ name: "alpha", count: 1 }, { name: "New", count: 0 }, { name: "Pod", count: 2 }]);
+  });
+});
+
+describe("saved rows", () => {
+  it("groups the learned rows lands first, names sorted, and shows nothing when there are none", () => {
+    expect(savedRows(undefined)).toEqual([]);
+    expect(savedRows({})).toEqual([]);
+    expect(savedRows({ "Sol Ring": "land", "Arcane Signet": "land", "Dryad Arbor": "other" })).toEqual([
+      { row: "land", label: "Land row", names: ["Arcane Signet", "Sol Ring"] },
+      { row: "other", label: "Back row", names: ["Dryad Arbor"] },
+    ]);
+  });
+});
+
+describe("the printing picker's order", () => {
+  it("puts printings with their own art here first and keeps release order otherwise", () => {
+    const p = (id: string, own: boolean) => ({ id, own_image: own, has_image: true }) as unknown as CardData;
+    const sorted = artFirst([p("new", false), p("mid", true), p("old", false), p("oldest", true)]);
+    expect(sorted.map((c) => c.id)).toEqual(["mid", "oldest", "new", "old"]);
+  });
+
+  it("keeps only printings with art here when asked, and always the chosen one", () => {
+    const p = (id: string, own: boolean) => ({ id, own_image: own, has_image: true }) as unknown as CardData;
+    const list = [p("new", false), p("mid", true), p("old", false)];
+    expect(printingsShown(list, "old", true).map((c) => c.id)).toEqual(["mid", "old"]);
+    expect(printingsShown(list, "mid", true).map((c) => c.id)).toEqual(["mid"]);
+    expect(printingsShown(list, "mid", false)).toHaveLength(3);
   });
 });

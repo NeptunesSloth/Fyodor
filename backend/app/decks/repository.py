@@ -79,6 +79,26 @@ class DeckRepository:
             if cur.rowcount == 0:
                 raise DeckNotFound(deck_id)
 
+    def set_shared(self, deck_id: str, shared: bool) -> None:
+        """-- deck sharing -- not an edit of the deck: ``updated_at`` stays."""
+        with self.lock, transaction(self.conn):
+            cur = self.conn.execute("UPDATE decks SET shared = ? WHERE id = ?", (1 if shared else 0, deck_id))
+            if cur.rowcount == 0:
+                raise DeckNotFound(deck_id)
+
+    def row_overrides(self, deck_id: str) -> dict[str, str]:
+        """-- saved rows -- the deck's remembered battlefield rows ({} for a deck that's gone)."""
+        with self.lock:
+            row = self.conn.execute("SELECT row_overrides FROM decks WHERE id = ?", (deck_id,)).fetchone()
+            return _rows(row["row_overrides"]) if row is not None else {}
+
+    def set_row_overrides(self, deck_id: str, rows: dict[str, str]) -> None:
+        """-- saved rows -- learned at the table (or reset): not an edit of the deck, so ``updated_at`` stays."""
+        with self.lock, transaction(self.conn):
+            cur = self.conn.execute("UPDATE decks SET row_overrides = ? WHERE id = ?", (json.dumps(rows, sort_keys=True), deck_id))
+            if cur.rowcount == 0:
+                raise DeckNotFound(deck_id)
+
     def rename_folder(self, old: str, new: str) -> int:
         """Rename a folder (or, with ``new`` '', empty it: its decks go back to the shelf). Returns the decks moved."""
         with self.lock, transaction(self.conn):
@@ -119,6 +139,8 @@ class DeckRepository:
             source_snapshot=[DeckEntry(**e) for e in json.loads(row["source_snapshot"])] if row["source_snapshot"] else None,
             entries=[_entry(c) for c in cards],
             folder=row["folder"],
+            row_overrides=_rows(row["row_overrides"]),
+            shared=bool(row["shared"]),
         )
 
 
@@ -137,6 +159,14 @@ def _entry(c: sqlite3.Row) -> DeckEntry:
         resolution=c["resolution"],
         requested=Requested.model_validate_json(c["requested"]) if c["requested"] else None,
     )
+
+
+def _rows(raw: str | None) -> dict[str, str]:
+    try:
+        rows = json.loads(raw or "{}")
+    except ValueError:
+        return {}
+    return {str(k): v for k, v in rows.items() if v in ("land", "creature", "other")} if isinstance(rows, dict) else {}
 
 
 def _categories_json(categories: list[DeckCategory]) -> str:

@@ -5,7 +5,8 @@
  * rules engine's stack, so both read the same way.
  */
 import { useState, type ReactNode } from "react";
-import { playerName } from "../state/gameStore";
+import { ManaText } from "../cards/ManaText";
+import { playerName, useGame } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
 import { isVisible, type GameCard, type GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
@@ -38,20 +39,37 @@ function kindOf(c: GameCard | undefined): string {
 export type ChainEntry = StackGroup;
 
 /**
- * Top first; consecutive abilities that read the same (same source, same text, same controller, nothing noted on them) share a row
- * (stackGroups.ts). Never grouped: spells, face-down objects, anything with a target, and the object a pending decision is about (a
- * player must see what they answer).
+ * Top first; consecutive abilities that read the same (same source, same text, same controller, nothing noted on them, the same targets)
+ * share a row (stackGroups.ts). Never grouped: spells, face-down objects, and the object a pending decision is about (a player must see
+ * what they answer). -- playtest B3 -- 68 Blood Artist triggers all targeting Bob are one row "×68 → Bob", not 68 rows.
  */
 export function chainEntries(view: GameView): ChainEntry[] {
-  const targeted = new Set((view.arrows ?? []).map((a) => a.source));
+  const targetsOf = new Map<string, string[]>();
+  for (const a of view.arrows ?? []) targetsOf.set(a.source, [...(targetsOf.get(a.source) ?? []), ...a.targets]);
   const asked = view.rules?.decision?.source_id ?? null;
   return groupStack(view.stack, (id) => {
     const c = view.cards[id];
-    if (!c || !isVisible(c) || !c.ability || targeted.has(id) || id === asked) return null;
+    if (!c || !isVisible(c) || !c.ability || id === asked) return null;
     const info = c.stack_info;
     const notes = info && (info.x != null || info.modes.length || info.tags.length) ? JSON.stringify(info) : "";
-    return abilityKey(c.ability.source_name, c.ability.text ?? "", c.controller, notes);
+    const targets = targetsOf.get(id);
+    return abilityKey(c.ability.source_name, c.ability.text ?? "", c.controller, targets ? `${notes}→${JSON.stringify(targets)}` : notes);
   });
+}
+
+/**
+ * -- stack readability -- the stack object pointed at (hovered or keyboard-focused, `hover`): its row's objects, the targets they
+ * point at, and the permanent an ability comes from. Its target arrows show only while it is (2D Overlays.CombatArrows, 3D
+ * TableScene.syncArrows), and the table marks its targets and source (StackFocusMarks, 3D glow). Null: not a stack object.
+ */
+export function stackFocus(view: GameView, hover: string | null | undefined): { ids: Set<string>; targets: string[]; source: string | null } | null {
+  if (!hover || !view.stack.includes(hover)) return null;
+  const entry = chainEntries(view).find((e) => e.ids.includes(hover));
+  const ids = new Set(entry?.ids ?? [hover]);
+  const targets = [...new Set((view.arrows ?? []).filter((a) => ids.has(a.source)).flatMap((a) => a.targets))];
+  const c = view.cards[hover];
+  const src = c && isVisible(c) ? c.ability?.source_id ?? null : null;
+  return { ids, targets, source: src && view.cards[src]?.zone.endsWith(":battlefield") ? src : null };
 }
 
 /** The first ROW_LIMIT rows, then a "Show N more" control: a stack of a thousand different objects stays quick to draw. */
@@ -80,11 +98,16 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
   const hover = useHoverCard();
   const [open, setOpen] = useState(false);
   const batch = count > 1 && visible && !!c.ability;
+  // -- stack readability -- keyboard focus points at it as the pointer does: the big card, its targets and source on the table
+  const setHover = useGame((s) => s.setHover);
   return (
     <li
       className={`chain-row ${top ? "top" : ""}`}
       data-testid="stack-entry"
       data-card-id={entry.id}
+      tabIndex={0}
+      onFocus={(e) => e.target === e.currentTarget && setHover(entry.id)}
+      onBlur={(e) => e.target === e.currentTarget && useGame.getState().hover === entry.id && setHover(null)}
       {...hover(entry.id)}
       {...rest}
     >
@@ -99,10 +122,11 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
             <span className="chain-batch-count">×{count.toLocaleString("en-US")}</span>
           </b>
         ) : (
-          <b className="chain-name">{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
+          <b className="chain-name" title={title(c)}>{count > 1 ? `${count}× ` : ""}{title(c)}{visible && c.copy_of ? " (copy)" : ""}</b>
         )}
         <span className="chain-who">{c ? playerName(view, c.controller) : ""}{kindOf(c) ? ` · ${kindOf(c)}` : ""}</span>
-        {visible && c.ability?.text && <span className="chain-text">{c.ability.text}</span>}
+        {/* -- sweep B2 -- an ability with no text of its own ("Smothering Tithe's ability") isn't said twice */}
+        {visible && c.ability?.text && c.ability.text.replace(/['’]s ability$/, " ability") !== title(c) && <span className="chain-text"><ManaText text={c.ability.text} keywords /></span>}
         {targets.length > 0 && <span className="chain-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
         {info && (info.x != null || info.tags.length > 0 || info.modes.length > 0) && (
           <span className="chain-notes">

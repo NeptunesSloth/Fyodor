@@ -75,11 +75,14 @@ from app.rules import (
     permissions,
     phasing,  # -- phasing (wave 13D) --
     piles_legacy,
+    planar_die,  # -- planechase -- 901.9
     player_control,  # -- controlling another player (wave 18H) --
+    progress,
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
     regeneration_choices,
     replacements,
+    response_call,  # -- I have a response --
     rooms,  # -- Rooms (wave 18G) --
     sba,
     scripts,
@@ -103,7 +106,7 @@ from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
-from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.plan import Plan, decide, require_no_decision, require_priority, scratch_copy
 from app.rules.targets import as_spell, still_legal
 
 MAIN_PHASES = ("main1", "main2")
@@ -115,7 +118,8 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred",
+                            "roll_planar_die"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -125,6 +129,11 @@ def automation_on(state: GameState) -> bool:
 def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
     """-- engine token stacks -- A step that would treat a token stack as one token (``token_stacks.StackGate``) stops the action: it
     runs again with every stack spread into separate tokens, or, when a stack is too big to spread, is refused (docs/TOKEN_STACKS.md)."""
+    with progress.compiling():  # -- resolving progress -- (only the outermost compile is the action's own)
+        return _compile_intent_spread(state, intent, actor=actor, info=info, rng=rng)
+
+
+def _compile_intent_spread(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
     from app.rules import token_stacks
 
     try:
@@ -170,6 +179,8 @@ def _compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Car
             raise ActionError(str(exc)) from None
     plan = Plan(state, actor, info, rng)
     from app.rules import text_global_word71
+
+    progress.adopt(plan)  # -- resolving progress -- the tables may watch this plan's resolutions as it goes
 
     if intent.type != 'concede' and text_global_word71.recover(plan, intent):
         plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
@@ -223,6 +234,24 @@ def compile_opening(state: GameState, actor: str, info: CardInfo, rng: Any) -> l
     return plan.steps
 
 
+def compile_first_turn(state: GameState, info: CardInfo, rng: Any) -> list[dict[str, Any]] | None:
+    """-- first turn (S7) -- 502.4: no player gets priority in the untap step. A new game with no pregame (no mulligans) begins in its
+    first untap step; the engine goes on at once to the first step that gives priority, as after the mulligans (opening_hand.finish:
+    priority none, then the priority loop). None when there is nothing to do (rules off, opening hands still to settle, not at an untap step)."""
+    r = state.rules
+    if not automation_on(state) or r is None or state.pregame is not None or r.decision is not None or r.draw_reason is not None:
+        return None
+    if state.turn.phase != "untap" or state.zones.get(STACK) or r.paused:
+        return None
+    plan = Plan(state, state.turn.active_player, info, rng)
+    plan.rules.priority, plan.rules.passed = None, []
+    advance(plan)  # (not settle: a table seated for one plays its turns too, test_solo_rules_table.py)
+    permissions.refresh_reveals(plan.state, plan.info)
+    plan.rules.engine_version = RULES_ENGINE_VERSION
+    plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+    return plan.steps
+
+
 def begin(plan: Plan) -> None:
     """Before an intent: take in what happened by hand since the engine last acted (a land put
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
@@ -236,6 +265,15 @@ def begin(plan: Plan) -> None:
     from app.rules import previous_own_turns
     previous_own_turns.begin(plan)
     absorb_manual_events(plan)
+    from app.rules import planar_chaos
+
+    # -- planechase chaos (wave B) -- a planeswalk made since (a table action): "until a player planeswalks" ends (611.2a)
+    planar_chaos.on_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch])
+    from app.rules import (
+        planar_more,  # -- planechase more (wave E1) -- Unyaro: a planeswalk by hand ends its phasing too
+    )
+
+    planar_more.on_walks(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch])
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
@@ -423,7 +461,7 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
         if _until_met(plan, a):
             reason = "the condition was reached"
             break
-        snapshot, mark = plan.state.model_copy(deep=True), len(plan.steps)
+        snapshot, mark = scratch_copy(plan.state), len(plan.steps)
         try:
             for i, payload in enumerate(seq):
                 if payload["type"] == "choose":  # the same answer to the same question, as the player gave it the first time
@@ -437,6 +475,7 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
                 elif plan.rules.decision is not None:
                     raise _Stop("it needed a choice")
                 intent = A.parse_action(payload)
+                plan.chain = None  # (-- runaway chains -- each repeated intent counts its own resolutions, as it would played by hand)
                 INTENTS[intent.type](plan, intent)
                 settle(plan)
                 if plan.rules.decision is not None and (i + 1 == len(seq) or seq[i + 1]["type"] != "choose"):
@@ -473,6 +512,8 @@ def pass_mark(plan: Plan, until: str) -> str:
         return str(r.actions)
     if until == "stack_changes":
         return stack_signature(plan)
+    if until == "own_triggers":
+        return f"{stack_signature(plan)}|0"
     if until in ("next_step", "combat"):
         return r.step or f"{plan.state.turn.number}:{plan.state.turn.phase}"
     return str(plan.state.turn.number)
@@ -486,17 +527,43 @@ def pass_until_met(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
         return r.actions > int(mark or 0) and r.last_actor not in (None, player)
     if until == "stack_changes":
         return stack_signature(plan) != mark
+    if until == "own_triggers":
+        return own_run_over(plan, player, prefs)
     if until == "stack_empty":
         return not state.zones.get(STACK)
     if until == "next_step":
         return r.step != mark
-    if until == "next_turn":
-        return str(state.turn.number) != mark
+    if until == "next_turn":  # -- END TURN -- or a spell or ability another player put on the stack (they may want to answer it)
+        me = controller_of(state, player)
+        return str(state.turn.number) != mark or any(
+            controller_of(state, o.controller if (o := r.stack.get(cid)) is not None else state.cards[cid].controller) != me
+            for cid in state.zones.get(STACK, []))
     if until == "my_turn":
         return plan.active == player and str(state.turn.number) != mark
     if until == "combat":
         return r.step != mark and state.turn.phase in ("begin_combat", "declare_attackers")
     return True
+
+
+OWN_RUN = 20  # -- smart resolve -- objects one RESOLVE press resolves at most (a run that keeps refilling stops here too)
+
+
+def own_run_over(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
+    """-- smart resolve -- RESOLVE (``own_triggers``): one press resolves the top object and goes on through the run of the player's own
+    triggered abilities under it (six landfall triggers, a ×N batch: one press, not six). It is over (the player gets priority, 117.3b)
+    as soon as the top is anything else (their own spell or activated ability, another player's object put on it), the stack is empty
+    (then the usual stops decide, as after RESOLVE ONE), or ``OWN_RUN`` objects resolved. A decision always comes to them, and a card
+    they drew meanwhile that they could cast now stops it (``new_response``): what they choose to pass over is what they saw."""
+    sig, _, n = prefs.pass_mark.partition("|")
+    now, count = stack_signature(plan), int(n or 0)
+    if now != sig:
+        count += 1
+        prefs.pass_mark = f"{now}|{count}"
+    stack = plan.state.zones.get(STACK)
+    if not stack or count >= OWN_RUN:
+        return True
+    top = plan.rules.stack.get(stack[-1])
+    return top is None or top.kind != "trigger" or controller_of(plan.state, top.controller) != controller_of(plan.state, player)
 
 
 def bluff_stop(state: GameState, player: str) -> bool:
@@ -522,6 +589,8 @@ def is_stop(plan: Plan, player: str) -> bool:
         return True  # they just kept priority (HOLD PRIORITY)
     if plan.state.turn.phase == "untap" and not plan.state.zones.get(STACK):
         return False  # no one gets priority in the untap step (502.4)
+    if player in r.responding:
+        return True  # -- I have a response -- they called for it: whatever they set, they get this priority (response_call.py)
     if prefs.force_stop:
         prefs.force_stop = False  # consumed
         return True
@@ -531,10 +600,17 @@ def is_stop(plan: Plan, player: str) -> bool:
             prefs.stop_after = None
             return True
     if prefs.pass_until is not None:
-        if not pass_until_met(plan, player, prefs):
+        met = pass_until_met(plan, player, prefs)
+        if not met and not new_response(plan, player, prefs):
             return False
-        prefs.pass_until, prefs.pass_mark = None, ""
-        return True
+        until = prefs.pass_until
+        prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
+        if plan.state.zones.get(STACK) or not (until in ("stack_changes", "own_triggers") or (until == "next_turn" and met)):
+            return True
+        # RESOLVE (the top object) emptied the stack: the usual stops decide, as after any pass (a lone spell resolves and play
+        # goes on with one press). With something still on the stack the player gets priority back (117.3b): one object a press.
+        # -- END TURN -- likewise once the next turn has begun with an empty stack: the usual stops decide (no "Your priority"
+        # at an opponent's upkeep with nothing on it; a spell or a trigger put on the stack is answered as usual).
     if prefs.full_control or not plan.options.auto_priority_pass or prefs.response == "on":
         return True
     phase = plan.state.turn.phase
@@ -549,6 +625,35 @@ def is_stop(plan: Plan, player: str) -> bool:
     return (mine and phase == "main1") or phase in prefs.stops(mine)
 
 
+def new_response(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
+    """-- runaway chains -- while a PASS UNTIL … passes for ``player``: did a card arrive in their hand since (drawn while a chain of
+    triggers resolved) that they could cast right now at instant speed? Then the passing stops and they get priority (117.3b): they
+    chose to pass over what they had, not over what they hadn't seen yet. Only the player's own hand is read (nothing is revealed:
+    the stop looks like any other)."""
+    hand = plan.state.zones.get(zone_key(player, "hand"), [])
+    if not hand:
+        return False
+    before = set(prefs.pass_hand)
+    fresh = [cid for cid in hand if cid not in before]
+    if not fresh:
+        return False
+    state, info = plan.state, plan.info
+    for cid in fresh:
+        card = state.cards.get(cid)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        if ch.is_land:
+            continue
+        instant = "Instant" in ch.types or ch.has_flash or casting._flash_granted(state, player, card, ch, info) \
+            or casting.flash_if(ch) is not None
+        if instant and (casting.castable(state, player, card, info, check_priority=False)
+                        or casting.free_castable(state, player, card, info, check_priority=False)
+                        or casting.alt_castable(state, player, card, info, check_priority=False)):
+            return True
+    return False
+
+
 def advance(plan: Plan, *, checked: bool = False) -> None:
     """Hand priority on until someone has a real decision to make: skip players without a stop
     in this step, resolve the stack when everyone passed, move to the next step when the stack
@@ -560,14 +665,12 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
         r = plan.rules
         if r.decision is not None or r.draw_reason is not None or (plan.state.pregame is not None and not plan.state.pregame.finished):  # (wave 110A: a restarted game's mulligans first)
             return
-        if r.restart_hold110a:  # -- wave 110A -- 727.4: the restarted game waits at its untap step like a new one
-            r.restart_hold110a = False
-            return
         # -- repeat speed -- after a check that left nothing to do, an automatic pass changes nothing it reads
         clean = checked or sba.check(plan)  # before anyone gets priority (rule 117.5)
         clean_at, checked = len(plan.steps), False
         if r.decision is not None:
             return
+        response_call.take_calls(plan)  # -- I have a response -- a hold called while this action is worked out (a long chain)
         stack_now = set(plan.state.zones.get(STACK, []))
         r.stack = {k: v for k, v in r.stack.items() if k in stack_now}  # (objects removed by hand)
         if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
@@ -575,6 +678,7 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
                 return
             continue
         players = plan.live()
+        response_call.prune(r, players)
         # game over (one player left of several, or nobody): the table stays a sandbox. A table seated for one from the start is
         # solo testing (goldfishing a deck), not a won game: its turns go on.
         if not players or (len(players) == 1 and len(plan.state.seat_order) > 1):
@@ -584,7 +688,9 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
             if plan.state.zones.get(STACK) and loop_pause(plan, players):
                 return
             if plan.state.zones.get(STACK):
+                _count_resolution(plan)
                 resolve_top_of_stack(plan)
+                progress.resolved(plan)  # -- resolving progress -- (read only: changes nothing the action does)
             else:
                 next_step(plan)
             continue
@@ -597,13 +703,16 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
         r.priority = holder
         if r.auto_pass is not None:  # -- core review -- the Arena-style pass after their own cast / activation (casting.py)
             auto, r.auto_pass = r.auto_pass, None
-            if auto == holder:
+            if auto == holder and holder not in r.responding:
                 r.passed.append(holder)
+                response_call.passed_for(r, holder)
                 checked = clean and clean_at == len(plan.steps)
                 continue
         if is_stop(plan, holder):
+            response_call.reached(plan, holder)
             return
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)
+        response_call.passed_for(r, holder)  # (-- I have a response -- a pass they never chose: a hold may take it back)
         checked = clean and clean_at == len(plan.steps)
 
 
@@ -613,10 +722,57 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
 # automatic passing stops between two resolutions and every player gets their choices back; each pass after that
 # carries on, and the pod can agree to a draw (End game → Propose).
 LOOP_PAUSE_SHARE = 0.6  # of plan.max_steps: past this, no further automatic resolution in this action
+# -- runaway chains -- a chain of mandatory triggers that keeps refilling the stack (Shabraz, the Skyshark and Marina Vendrell's Grimoire:
+# each draw gains life, each life gain draws) resolved dozens of objects in one action, passing for a player who had nothing to cast
+# yet, and showed nothing in between. At most this many objects resolve on automatic passes in one action once the stack has been
+# refilled (more resolved than were on it when the first one resolved: a tall stack of landfall triggers that only empties isn't a loop).
+LOOP_RESOLUTIONS = 20
+
+
+class _Chain:
+    """The objects resolved in this action (``Plan.chain``): how many, how tall the stack was before the first, and the cards each
+    player had drawn this turn by then (a public count)."""
+
+    __slots__ = ("base", "drew", "last", "n", "refills")
+
+    def __init__(self, base: int, drew: dict[str, int]) -> None:
+        self.base, self.drew, self.n = base, drew, 0
+        # -- playtest B4 -- the stack's height at the last resolution, and how many resolutions found it no lower than the one before
+        # (something was put on it in between): a loop refills it nearly every time, a big batch (a wipe's 150 death triggers, 200
+        # end-step sacrifices) only drains it
+        self.last, self.refills = base, 0
+
+
+def _count_resolution(plan: Plan) -> None:
+    chain = getattr(plan, "chain", None)
+    if chain is None:
+        from app.rules import history
+
+        chain = plan.chain = _Chain(len(plan.state.zones.get(STACK, [])), dict(history.log_for(plan).drew))
+    else:
+        height = len(plan.state.zones.get(STACK, []))
+        if height >= chain.last:
+            chain.refills += 1
+        chain.last = height
+    chain.n += 1
+
+
+def _repeating(chain: _Chain | None) -> bool:
+    """Does this action's chain keep refilling the stack (most resolutions put something new on it), as a loop does?"""
+    return chain is not None and chain.n > chain.base and chain.refills * 2 >= chain.n
+
+
+def runaway(plan: Plan) -> int:
+    """How many objects this action resolved, once that is a runaway chain (else 0)."""
+    chain = getattr(plan, "chain", None)
+    if chain is None or chain.n < LOOP_RESOLUTIONS or not _repeating(chain):
+        return 0
+    return chain.n
 
 
 def loop_pause(plan: Plan, players: list[str]) -> bool:
-    if not plan.max_steps or len(plan.steps) < plan.max_steps * LOOP_PAUSE_SHARE:
+    looping = runaway(plan)
+    if not looping and (not plan.max_steps or len(plan.steps) < plan.max_steps * LOOP_PAUSE_SHARE):
         return False
     r = plan.rules
     r.passed, r.auto_pass = [], None
@@ -624,9 +780,27 @@ def loop_pause(plan: Plan, players: list[str]) -> bool:
     for pid in players:
         prefs = plan.rules.prefs.get(pid)
         if prefs is not None:
-            prefs.pass_until, prefs.pass_mark = None, ""
-    plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
-              "the game is a draw (104.4b): propose one from End game.")
+            prefs.pass_until, prefs.pass_mark, prefs.pass_hand = None, "", []
+    if looping:
+        from app.rules import history
+
+        chain, drew = plan.chain, history.log_for(plan).drew
+        told = ", ".join(f"{plan.state.players[pid].name} drew {n}" for pid in plan.state.seat_order
+                         if (n := drew.get(pid, 0) - chain.drew.get(pid, 0)) > 0)
+        plan.chain = None  # (a pass after this one starts a new count)
+        plan.note(f"This keeps repeating: {looping} objects resolved in a row{f' ({told})' if told else ''}. Automatic passing stopped so "
+                  "you can respond. Resolve to go on one object at a time, or Resolve all for another round; if it can never end, "
+                  "the game is a draw (104.4b): propose one from End game.")
+        return True
+    if _repeating(getattr(plan, "chain", None)):  # (the stack keeps being refilled while it resolves: it may be repeating)
+        plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
+                  "the game is a draw (104.4b): propose one from End game.")
+        return True
+    # -- playtest B4 -- a big finite batch (200 "sacrifice it at the beginning of the next end step" triggers) only drains the stack: it
+    # used up this action's step budget without repeating anything, so it is no loop and says nothing about a draw
+    left = len(plan.state.zones.get(STACK, [])) + len(r.pending_triggers)
+    plan.note(f"Many objects to resolve: {left:,} left on the stack. Automatic passing stopped here so you can respond; "
+              "Resolve all carries on with the rest." if left else "Automatic passing stopped here so you can respond; pass to carry on.")
     return True
 
 
@@ -634,12 +808,15 @@ def pass_priority(plan: Plan, a: A.PassPriority) -> None:
     require_no_decision(plan)
     require_priority(plan)
     if a.until is not None:
-        if a.until in ("stack_changes", "stack_empty") and not plan.state.zones.get(STACK):
+        if a.until in ("stack_changes", "own_triggers", "stack_empty") and not plan.state.zones.get(STACK):
             raise ActionError("The stack is empty")
         prefs = plan.prefs(plan.actor)
         prefs.pass_until, prefs.pass_mark = a.until, pass_mark(plan, a.until)
+        prefs.pass_hand = list(plan.state.zones.get(zone_key(plan.actor, "hand"), []))  # (-- runaway chains -- new_response)
     if plan.actor not in plan.rules.passed:
         plan.rules.passed.append(plan.actor)
+    if plan.actor in plan.rules.auto_passed:  # (-- I have a response -- their own pass: it stands)
+        plan.rules.auto_passed.remove(plan.actor)
     plan.rules.priority = plan.after(plan.actor)
     advance(plan)
 
@@ -798,8 +975,10 @@ def start_next_turn(plan: Plan) -> None:
     if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
         skip_to = upcoming
     # -- (wave 110C) -- 500.1: as the turn begins, before anything untaps: "untapped lands they controlled at the beginning of this turn" (Power Surge)
-    plan.rules.began_lands110c = {(who := skip_to or upcoming): sum(
-        1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == who and not c.tapped and "Land" in plan.ch(c).types)}
+    with plan.reading():  # -- big boards (step scans) -- read-only: each permanent derived once
+        began = sum(1 for c in plan.state.cards.values()
+                    if c.zone.endswith(":battlefield") and c.controller == (skip_to or upcoming) and not c.tapped and "Land" in plan.ch(c).types)
+    plan.rules.began_lands110c = {skip_to or upcoming: began}
     plan.rules.began_untapped110j = [plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.tapped]  # -- (wave 110J) -- "started the turn untapped"
     stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
     if stay is None:  # -- phasing (wave 13D) -- 702.26a/m: before the untap step, unless it is skipped
@@ -819,6 +998,11 @@ def start_next_turn(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
     keep += wave110h_cards.untap_hold(plan, skip_to or upcoming, keep) if stay is None else []  # -- untap hold (wave 110H) --
+    from app.rules import (
+        planar_more,  # -- planechase more (wave E1) -- Edge of Malacol: counters instead of untapping (614.1a)
+    )
+
+    keep += planar_more.untap_instead(plan, skip_to or upcoming, keep) if stay is None else []
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -864,6 +1048,9 @@ def extra_untap_step(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
     keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
+    from app.rules import planar_more  # -- planechase more (wave E1) -- Edge of Malacol
+
+    keep += planar_more.untap_instead(plan, pid, keep) if stay is None else []
     previous = plan.rules.previous_turn or (plan.state.turn_order()[(plan.state.turn_order().index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
@@ -893,6 +1080,11 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
     if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
         effects._untap_riders.other_untap_step(plan)
         wave110a_teferi.untap_step(plan)  # -- wave 110A -- Teferi's emblem
+        from app.rules import (
+            planar_more,  # -- planechase more (wave E1) -- Edge of Malacol's counters, Horizon Boughs
+        )
+
+        planar_more.untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
@@ -1139,10 +1331,14 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     # controller's hand. A control change can enable or disable rebound.
     hand_player = (record.cast_from_player or record.controller) if record is not None else card.owner if was_rebound else None
     from_hand = record.cast_from == "hand" if record is not None else was_rebound
-    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Cast Through Time
+    from app.rules import (  # -- static permanents (wave 100D) -- Cast Through Time; (wave F1) Trail of the Mage-Rings
+        planar_more2,
+        static_perm100d,
+    )
 
     if not countered and from_hand and hand_player == controller and ("rebound" in plan.ch(card).keywords or (
-            plan.ch(card).is_instant_or_sorcery and static_perm100d.yours(plan, static_perm100d.REBOUND, controller))):
+            plan.ch(card).is_instant_or_sorcery and (static_perm100d.yours(plan, static_perm100d.REBOUND, controller)
+                                                     or planar_more2.rebound_all(plan)))):  # (wave F1: Trail of the Mage-Rings)
         from app.rules import (
             wave110b_cards,  # -- rebound vs hand (wave 110B) -- 616.1: its controller picks between the two replacements
         )
@@ -1200,6 +1396,9 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         return
     if card_id in stack:
         step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
+        spot = plan.rules.cast_spots.pop(oid, None)  # -- drag to cast -- the caster's drop spot, only on the caster's own battlefield
+        if spot is not None and not countered and card.controller == spot.player:
+            step.update(x=spot.x, y=spot.y)
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
             step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
         plan.do(step, actor=controller)
@@ -1701,13 +1900,19 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")
-    if a.remember is not None:
+    if a.remember == "always_order":  # -- trigger order memory -- (an order prompt has no memory key: no yield answers it)
+        triggers.remember_order(plan, d, chosen)
+    elif a.remember is not None:
         if d.memory_key is None:
             raise ActionError("This answer can't be remembered")
         prefs = plan.prefs(decider_of(plan.state, d))  # (-- controlling another player (wave 18H) -- the decider's own preference)
         prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
-        prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
-                                  turn=plan.state.turn.number))
+        # A yes-or-no question remembers the answer given: "Same answer this turn" after a No is a No this turn, and "Always" keeps
+        # whichever answer it was (603.5: each later "you may" of that ability is answered alike)
+        answer = chosen[0] if len(chosen) == 1 and chosen[0] in ("yes", "no") else ""
+        kind = ("no_this_turn" if answer == "no" else "yes_this_turn") if answer and a.remember in ("yes_this_turn", "no_this_turn") else a.remember
+        prefs.yields.append(Yield(kind=kind, key=d.memory_key, context=d.memory_context,
+                                  turn=plan.state.turn.number, answer=answer))
     effects.check_total_power(plan, d, chosen)  # -- per-player choices (wave 30K) -- "total power 4 or less" (Slaughter the Strong)
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
@@ -1751,9 +1956,13 @@ def concede(plan: Plan, _: A.Action) -> None:
 
     watchers = life_game_history.loss_watchers(plan)  # 603.10f: looked back to before the concession's 800.4a departure
     r.conceded.append(plan.actor)
+    if plan.actor in r.responding:
+        r.responding.remove(plan.actor)
     if r.declaration_cost_reserved and r.declaration_cost_reserved.payer == plan.actor:
         r.declaration_cost_reserved = None
     plan.note(f"{plan.name(plan.actor)} conceded")
+    if getattr(_, "flip", False):  # -- flip the table -- (the flip itself is cosmetic: app/multiplayer/response_call.py)
+        plan.note(f"{plan.name(plan.actor)} flipped the table (╯°□°)╯︵ ┻━┻")
     casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
@@ -1866,7 +2075,13 @@ def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
         if value is not None:
             setattr(prefs, key, list(value) if isinstance(value, list) else value)
     if a.cancel_pass:
-        prefs.pass_until, prefs.pass_mark, prefs.stop_after = None, "", None
+        prefs.pass_until, prefs.pass_mark, prefs.stop_after, prefs.pass_hand = None, "", None, []
+    if a.respond is not None:  # -- I have a response -- (public: said in the log, shown on every table)
+        response_call.call(plan, plan.actor, a.respond)
+    if a.forget_trigger_orders:  # -- trigger order memory --
+        prefs.trigger_orders = []
+    elif a.forget_trigger_order is not None and a.forget_trigger_order < len(prefs.trigger_orders):
+        del prefs.trigger_orders[a.forget_trigger_order]
     if a.stop_after is not None:
         card = plan.state.cards.get(a.stop_after)
         if card is None or card.zone != STACK:
@@ -1910,7 +2125,7 @@ def remembered(plan: Plan, player: str, key: str, context: str) -> str | None:
         if y.key != key or (y.context and y.context != context):
             continue
         if y.kind == "always_yield":
-            return "yield"
+            return y.answer or "yield"  # (the answer to a yes-or-no question; a yield to a priority stop has none)
         if y.turn == plan.state.turn.number:
             return "yes" if y.kind == "yes_this_turn" else "no"
     return None
@@ -1929,6 +2144,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "unlock_door": rooms.unlock_action,
     "pay_deferred": deferred_payment82.pay,
     "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
+    "roll_planar_die": planar_die.roll,  # -- planechase -- 901.9: the planar die, its {N} paid from the pool
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,

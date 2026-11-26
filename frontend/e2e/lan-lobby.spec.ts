@@ -35,7 +35,7 @@ test("LAN lobby: each player brings their own deck, readies up, host starts", as
   // Deck checks are advisory: Bob sees why his 14-card deck isn't Commander-legal and can play anyway;
   // Alice only learns how many checks there are, never the card-naming text.
   await expect(guest.page.getByTestId("deck-checks")).toContainText("you can play anyway");
-  await expect(guest.page.getByTestId("ready")).toHaveText("Play anyway");
+  await expect(guest.page.getByTestId("ready")).toHaveText("Ready anyway");
   await expect(host.page.getByTestId("seat-p2")).toContainText("deck check");
   await expect(host.page.getByTestId("seat-p2").getByTestId("deck-checks")).toHaveCount(0);
 

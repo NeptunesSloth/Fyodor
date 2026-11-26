@@ -130,6 +130,17 @@ button.pl-name:hover { color: var(--accent-2); }
 .pl-tags { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 12px; color: var(--text-dim); }
 .pl-tags .you { color: var(--accent-2); }
 .pl-tags .away { color: var(--warn); }
+/* -- LAN bots -- a seat the server plays: its tag, and the host's level chips (round, as the table's chips) */
+.pl-tags .bot { color: var(--accent); font-weight: 600; }
+.lobby-bot-levels { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.lobby-bot-levels button { padding: 2px 10px; border-radius: 999px; font-size: 12px; border: 1px solid color-mix(in srgb, var(--frame, #888) 55%, transparent);
+  background: rgba(0, 0, 0, 0.25); color: var(--text-dim); cursor: pointer; }
+.lobby-bot-levels button.on { color: var(--accent-ink, #1a1208); background: var(--accent); border-color: transparent; cursor: default; }
+.lobby-bot-levels button:disabled { opacity: 0.6; }
+.lobby-bot-level-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.lobby-bot-level-row .bds-head { margin: 0; }
+.lobby-bot-level-row .lobby-bot-levels { margin: 0; }
+.hint.lobby-bot-level-hint { margin: 4px 0 2px; }
 .lobby .presence { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #55595e; }
 .lobby .presence.on { background: #7cc48f; box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.4); }
 .pl-tools { display: inline-flex; align-items: center; gap: 2px; margin-right: -4px; }
@@ -140,13 +151,22 @@ button.pl-name:hover { color: var(--accent-2); }
 .seat-grip:active { cursor: grabbing; }
 .pl-kick { margin-left: 4px; }
 .pl-kick:hover { color: var(--danger); }
+.plinth > .lobby-bot-levels { margin: 0 10px 6px 12px; }
+/* Table settings: Planechase's line under its box ("PlanechaseOff: no planar deck." ran together) */
+.planechase-field > .hint { display: block; margin-top: 4px; }
+/* five or six seats on a laptop: the seat tools (move, grip, remove) take a row of their own under the name, which got "B…" beside them */
+.plinth { container-type: inline-size; }
+@container (max-width: 250px) {
+  .pl-plate { flex-wrap: wrap; row-gap: 0; }
+  .pl-tools { order: 3; flex: 1 0 100%; justify-content: flex-end; margin: -4px -4px -2px 0; }
+}
 
-/* a seat's chip: a clay poker chip in the seat colour, edge spots and all */
+/* a seat's chip: a round chip in the seat colour, a plain rim (no poker-chip edge spots) */
 .seat-chip {
   position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center;
   background:
     radial-gradient(circle, var(--seat) 0 56%, rgba(0, 0, 0, 0.28) 57% 61%, transparent 62%),
-    repeating-conic-gradient(var(--seat) 0 22deg, color-mix(in srgb, var(--seat) 45%, #f4ead8) 22deg 38deg);
+    linear-gradient(135deg, color-mix(in srgb, var(--seat) 70%, #f4ead8), var(--seat) 50%, color-mix(in srgb, var(--seat) 70%, #000));
   color: var(--seat-ink, #fff); font: 700 15px/1 var(--font-display); text-shadow: var(--seat-ink-edge, none);
   box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
@@ -517,6 +537,24 @@ button.pl-name:hover { color: var(--accent-2); }
 .deck-src-body { min-height: 240px; }
 .deck-pick-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
 .deck-pick-row { display: flex; gap: 6px; align-items: center; }
+/* My decks: one line on where they live, the rest behind a "?"; adding decks folds away once there are some */
+.my-decks-where { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.my-decks-where > .hint { margin: 0; }
+.my-decks-help { display: contents; }
+.my-decks-help > summary {
+  list-style: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  font: 700 12px/1 var(--font-ui); color: var(--text-dim); border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03);
+}
+.my-decks-help > summary::-webkit-details-marker { display: none; }
+.my-decks-help > summary:hover, .my-decks-help[open] > summary { color: var(--accent-2); border-color: var(--frame); }
+.my-decks-help > summary:focus-visible, .my-decks-add > summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.my-decks-help-text { flex: 1 1 100%; padding: 8px 12px; border-left: 2px solid var(--frame); background: rgba(0, 0, 0, 0.22); font-size: 13px; color: var(--text-dim); }
+.my-decks-help-text p { margin: 0; }
+.my-decks-help-text p + p { margin-top: 6px; }
+.my-decks-add { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.my-decks-add > summary { cursor: pointer; width: fit-content; font-size: 13.5px; color: var(--text-dim); padding: 2px 0; }
+.my-decks-add > summary:hover { color: var(--room-bone); }
+.my-decks-add[open] > summary { margin-bottom: 8px; }
 .deck-pick {
   flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left;
   background: var(--room-charcoal-2); border: 1px solid var(--room-edge); border-radius: var(--room-radius); cursor: pointer;

@@ -192,7 +192,7 @@ def flashback_costs(state: GameState, card: CardInstance, ch: Characteristics, i
     found: list[str] = []
     if info is not None:
         for src, d in _statics(state, info, "gy_flashback"):
-            if src.controller == card.owner and (not d["your_turn"] or state.turn.active_player == card.owner) and selectors.matches(
+            if (src.controller == card.owner or d.get("any_owner_f1")) and (not d["your_turn"] or state.turn.active_player == card.owner) and selectors.matches(  # (wave F1: Otaria, "in graveyards": each owner's)
                     Plan.view(state, card.owner, info), selectors.from_key(d["sel"]), card, ch, card.owner):
                 found.append(str(d.get("cost") or "mana_cost"))
     from app.rules import (  # -- wave 110E -- the card's own "as long as … and this card is in your graveyard, it has flashback"

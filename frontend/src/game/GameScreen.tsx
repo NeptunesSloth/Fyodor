@@ -8,15 +8,18 @@ import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
-import { AttachLines, CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { AttachLines, CombatArrows, DragLayer, PickLayer, StackFocusMarks } from "./Overlays";
+import { FirstGameGuide } from "./FirstGameGuide";
 import { FocusKeys2D } from "./focus2d";
-import { Hand } from "./Hand";
+import { Hand, toggleHandBrowser } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
 import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
 import { toast } from "../components/Toasts";
+import { CrashScreen } from "../components/CrashScreen";
+import { cycleCombatFilter } from "./combatFilter";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { outKeyBlocked } from "./outOfGame";
@@ -24,22 +27,40 @@ import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
 import { UndoRequestBar } from "./UndoRequestBar";
 import { AutomationErrorPanel, DecisionPanel, dialState, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
-import { passPriority } from "./rules/intents";
+import { passOrResolve, passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
+import { TestEnding } from "./TestEnding";
 import { MajorNotices } from "./MajorNotices";
 import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
+import { RevealNotice } from "./RevealNotice";
+import { DrawNotice } from "./DrawNotice";
 import { TableImporter } from "./TableImporter";
-import { ExileCastables } from "./ExileCastables";
+import { ExileCastables } from "./ExileCastablesRow";
 import { useTurnAlert } from "./turnAlert";
+import { HotSeatCover } from "./HotSeatCover";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
 import { BagDraws } from "./BagDraws";
+import { PlanechasePlaque } from "./PlanechasePlaque";
+import { DayNightLayer } from "./DayNightLayer";
+
+/**
+ * -- 3D fallback -- the 3D table couldn't start on this computer (no working WebGL, a graphics driver refusing it, its part of
+ * the page not loading): the table switches to 2D (a saved preference, Settings brings 3D back) instead of the whole page failing.
+ */
+function Fall2D() {
+  useEffect(() => {
+    usePrefs.getState().set({ renderer: "2d" });
+    toast("The 3D table couldn't start on this computer, so the table is in 2D. Settings can switch it back.", "error");
+  }, []);
+  return null;
+}
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -96,7 +117,9 @@ export function GameScreen() {
       <TurnDial />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
-          {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
+          {/* -- day and night -- first, so the 2D night tint lies over the felt and under every card */}
+          <DayNightLayer three={three} />
+          {three ? <CrashScreen quiet={<Fall2D />}><Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense></CrashScreen> : <TablePlaymat />}
           {!three && <FocusKeys others={others} me={me} />}
           {!three && <FocusKeys2D />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
@@ -123,8 +146,12 @@ export function GameScreen() {
       {!three && <Motion2D />}
       <BagDraws />
       <DigDialog me={me} />
+      <RevealNotice />
+      {canSeeMyHand && <DrawNotice />}
       <TableImporter />
       <StackWidget me={me} />
+      {/* -- planechase -- the face-up plane and the planar die (both tables: over the 3D view too) */}
+      <PlanechasePlaque me={me} compact={three} />
       <LogDrawer />
       <ToolTray />
       <SelectionBar />
@@ -140,10 +167,14 @@ export function GameScreen() {
       <DragLayer />
       {!three && <CombatArrows />}
       {!three && <AttachLines />}
+      <StackFocusMarks />
+      <FirstGameGuide me={me} />
       <PickLayer />
       {three && <CombatLanes />}
       <GameNight />
+      <TestEnding />
       <MajorNotices />
+      <HotSeatCover />
       <SignalLayer />
       <PingLayer />
     </div>
@@ -171,6 +202,8 @@ function useShortcuts() {
       if (outKeyBlocked(view, me, id)) return; // -- out of the game -- keys that would move it do nothing (the reason, once)
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
+      const myPriority = !!view.rules && !view.rules.controlled_by && !view.rules.decision
+        && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as));
       if (id.startsWith("cam_")) {
         // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys); the arrows pan the 3D view only
         // (elsewhere they keep scrolling what they scroll)
@@ -229,6 +262,7 @@ function useShortcuts() {
           if (view.my_views?.some((v) => v.kind === "look")) void send({ type: "end_view" });
           break;
         case "help":
+          e.preventDefault(); // -- sweep B2 -- the "?" isn't typed into the help's search box too (it filtered the list down to itself)
           s.openDialog("help");
           break;
         case "ping":
@@ -242,7 +276,7 @@ function useShortcuts() {
           break;
         }
         case "pass":
-          if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
+          if (myPriority) void passOrResolve(view.stack.length);
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
           // manual play: P does what the dial's big button says
           else if (!view.rules) void send(view.stack.length ? { type: "resolve_top" } : { type: "phase", to: "next" });
@@ -250,11 +284,16 @@ function useShortcuts() {
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });
           break;
+        case "hand_browse":
+          e.preventDefault(); // (the key mustn't land in the browser's filter box as it takes the focus)
+          if (view.viewer !== "__spectator__") toggleHandBrowser(me);
+          break;
         case "hud": {
           const prefs = usePrefs.getState();
           prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" });
           break;
         }
+        case "combat_filter": cycleCombatFilter(); break;
         case "dice":
           e.preventDefault();
           s.openDialog(s.dialog === "dice" ? null : "dice");
@@ -264,7 +303,9 @@ function useShortcuts() {
           s.openDialog(s.dialog === "token_math" ? null : "token_math");
           break;
         case "auto_pass":
-          void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
+          // rules automation: the dial's End turn (the response checks below are manual tables' only; hotkeyLabel says which)
+          if (view.rules) { if (myPriority && !view.stack.length) void passPriority("next_turn"); }
+          else void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;
       }
     };

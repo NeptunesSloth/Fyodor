@@ -143,6 +143,10 @@ def group(plan: Plan, ctx: dict[str, Any], coins: list[dict[str, Any]], *, face:
     for outcome in outcomes:
         if outcome['won'] is not None:
             emit(plan.state, 'designation', counter='coin_flip', player=outcome['player'], amount=int(outcome['won']), source=ctx.get('source_object'))
+    from app.rules import randomness
+
+    for flipper in dict.fromkeys(outcome['player'] for outcome in outcomes):  # -- random choices (wave MBC-D) -- each flipper flipped one or more coins
+        randomness.noted(plan, 'coin', flipper)  # (heads/tails flips too: 705.2 has no winner for them, but they are flips)
     if any(n['forced'] for n in frame['nodes']):
         plan.note('The first coin group comes up heads and its flipper wins (Edgar).')
     track(plan.state)  # Seal emitted kept-result facts before any following instruction can pause.

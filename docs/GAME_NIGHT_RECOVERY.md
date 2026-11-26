@@ -43,6 +43,12 @@ Settings → **Backup & restore** → *Back up Fyodor now* saves
 live tables, pod stats, macros, and custom sleeves/playmats. The card database is not included;
 it is rebuilt from card data (Settings → **Card database**). The last 12 backups made by hand are kept.
 
+A backup made by hand also carries the **card art your decks use** (the cached images of every
+saved deck's printings and the tokens they make, plus the card back and the mana symbols), so a
+restore on an offline computer plays them with their art. Only what the decks need, never the
+whole image cache: roughly 10 MB per deck. Art stops being added near the 2 GB backup limit.
+Automatic backups carry no art (a dozen of them are kept).
+
 **Automatic backups** work like a rotating autosave, so nobody has to remember. Fyodor writes
 `fyodor-autobackup-<date>-<time>.zip`:
 
@@ -59,7 +65,10 @@ reports it.
 **Restore:** pick a listed backup or upload a backup file, then restart Fyodor. The backup is
 checked first (only the expected files, a readable database, size limits); nothing in it is
 ever executed. At the next start the current database is copied to
-`data/backups/app-before-restore-<time>.sqlite` and the backup is swapped in.
+`data/backups/app-before-restore-<time>.sqlite` and the backup is swapped in. Card art in the
+backup must be named exactly as the image cache names it and be a real JPEG (or a plain SVG for
+a symbol), 3 MB at most; anything else is left out. It only fills gaps: art this computer
+already has is never replaced.
 
 Backups and restores are only available on the host computer.
 

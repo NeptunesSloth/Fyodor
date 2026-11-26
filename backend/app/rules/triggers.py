@@ -344,6 +344,9 @@ def collect(plan: Plan) -> None:
     history.note_events(plan, new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
+    from app.rules import left_game
+
+    left_game.on_events(plan, new)  # -- leaving the game (wave MBC-D) -- "when they lose the game" (603.7, 800.4a)
     # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
     from app.rules import sagas
 
@@ -352,6 +355,11 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.on_events(plan, new)
+    from app.rules import (
+        planar,  # -- planechase automation -- chaos, planeswalking to / away, encounters, the planeswalking ability
+    )
+
+    planar.on_events(plan, new)
     from app.rules import speed  # -- speed (wave 24B) -- 702.179d: the inherent speed trigger
 
     speed.on_events(plan, new)
@@ -538,7 +546,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind == "life_paid":  # -- life paid (wave 110D) -- 119.4: "Whenever you pay life"
         return [("pay_life", None, None, e.player, {"amount": e.amount})]
     if e.kind in ("life_gain", "life_loss"):
-        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {}), **({"cause110m": e.cause110m} if e.cause110m else {})})]  # (wave 110M)
+        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {}), **({"cause110m": e.cause110m} if e.cause110m else {}),
+                 **({"cause110g": e.cause110g} if e.kind == "life_loss" and e.cause110g else {})})]  # (wave 110M; wave MBC-B: whose effect made the loss)
     if e.kind == "spell_cast":
         spell = plan.state.cards.get(e.card or "")
         if spell is None:
@@ -587,7 +596,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
                     [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
     if e.kind == "drew":
-        return [("draw", None, None, e.player, {"amount": 1})]
+        # -- planechase more (wave E1) -- the card drawn, read only by Sea of Sand's "draws a land card" (its static reveals it: _cond_matches);
+        # never the event's object (a hidden card in a trigger's event would show it)
+        return [("draw", None, None, e.player, {"amount": 1, **({"drawn_e1": e.card} if e.card else {})})]
     if e.kind == "case_solved":
         got = _object_then(plan, e.card, e.object_id)
         return [("case_solved", got[0] if got is not None else None, got[1] if got is not None else None,
@@ -682,6 +693,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if card is None or plan.oid(card) != e.object_id:
             return []
         return [('echo_paid76', card, plan.ch(card), e.player, {'oid': e.object_id})]
+    if e.kind == "planar" and e.counter == "roll" and e.player and not e.manual:  # -- random choices (wave MBC-D) -- 706.7, 901.9d: rolling the
+        return [("random_choice", None, None, e.player, {"random_kind": "die", "actor": e.player})]  # planar die is rolling one or more dice
     if e.kind == "designation":  # -- counters & designations (wave 3E) --
         from app.rules import designations
 
@@ -777,7 +790,8 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
     if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
         return []
     return [(f"to_{to}", got[0], got[1], got[0].owner,
-             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone})]
+             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone,
+              "cause110g": e.cause110g})]  # (-- Mystery Booster Commander (wave MBC-C) -- the controller of the spell or ability that moved it)
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
@@ -862,6 +876,12 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return False
     if event == 'deal_combat_damage_player' and cond.get('combat_recipient') == 'opponent' and info.get('recipient') == you:
         return False
+    if cond.get("random_kinds") is not None and info.get("random_kind") not in cond["random_kinds"]:  # -- random choices (wave MBC-D) -- Chira
+        return False
+    if cond.get("recipient_lacks_counter_mbc"):  # -- (wave MBC-D) -- "to a player who doesn't have a contract counter" (Miss Highwater), as it happens
+        recipient = plan.state.players.get(info.get("recipient") or "")
+        if recipient is None or recipient.resources.get(cond["recipient_lacks_counter_mbc"], 0) > 0:
+            return False
     if cond.get('played_linked_name'):
         from app.rules import card_names, exiled_with
 
@@ -920,6 +940,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return False
         if event in ("dealt_damage", "targeted") and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
+        if event == "draw" and cond.get("obj"):  # -- planechase more (wave E1) -- Sea of Sand: the card drawn (revealed by its static)
+            drawn = plan.state.cards.get(info.get("drawn_e1") or "")
+            return drawn is not None and drawn.zone.endswith(":hand") and selectors.matches(
+                plan, selectors.from_key(cond["obj"]), drawn, plan.ch(drawn), you, watcher.id)
         if event == "cast":
             if cond.get("card110b") and (obj is None or obj.id != cond["card110b"]):  # -- (wave 110B) -- Havengul Lich: that one card
                 return False
@@ -1051,6 +1075,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     you = watcher.controller
     if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
         return False
+    if cond.get("exact_mbc") is not None and int(info.get("amount") or 0) != cond["exact_mbc"]:
+        return False  # -- Mystery Booster Commander (wave MBC-B) -- "dealt exactly 2 of that damage", "exactly 1 life": this event's own amount (120.3, 119.3)
+    if event == "lose_life" and cond.get("effect_you_mbc") and (not info.get("life_operation") or info.get("cause110g") != you):
+        return False  # -- (wave MBC-B) -- "a spell or ability you control causes you to lose life": an effect of yours, not damage's result (120.3a) or a cost
     if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
         return False
     if event == "attack" and cond.get("defender_lands_min"):
@@ -1146,6 +1174,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
         return False  # (wave 39B)
+    if cond.get("first_players_pce2"):  # -- planechase events (wave E2) -- Stensia: its first damage to a player this turn (603.2)
+        from app.rules import planar_events
+
+        if not planar_events.first_to_players(plan, info):
+            return False
     if cond.get("cause_spell110m") and not _caused_by_spell110m(plan, cond["cause_spell110m"], info.get("cause110m")):  # (wave 110M)
         return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
@@ -1397,6 +1430,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
                                                  or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):
         return False  # -- counters (wave 21D) -- "put into exile from your graveyard"
+    if event == "to_exile" and cond.get("cause_you_mbc") and (info.get("cause110g") != you or info.get("from_owner") in (None, you)):
+        return False  # -- Mystery Booster Commander (wave MBC-C) -- "a spell or ability you control causes … to be exiled from an opponent's library"
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False
@@ -1561,6 +1596,10 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
         from app.rules import wave110f_zev
 
         return wave110f_zev.targets_ok(plan, watcher, targets)
+    if want == "single_f1":  # -- planechase more 2 (wave F1) -- Glimmervoid Basin: "with a single target"
+        from app.rules import planar_more2
+
+        return planar_more2.single_target(targets)
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now
@@ -2054,7 +2093,7 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
             out += graveyard_abilities(plan, card, trigger)
             continue
-        if card.zone.endswith(":command") and not designations.emblem_card(card):  # (wave 25B: eminence; an emblem's own abilities are read below)
+        if card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card):  # (wave 25B: eminence; an emblem's own abilities are read below)
             out += command_zone_abilities(plan, card, trigger)
             continue
         if card.zone.endswith(":exile"):  # -- keywords (wave 50H) -- 702.55c: "When the creature it haunts dies" functions in exile
@@ -2068,9 +2107,14 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
                 ch = plan.ch(card)
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if (d.get("cond") or {}).get("event") == "phase_out"]
             continue
-        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
-            continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
+        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card) or _planar(card)) or not plan.in_game(card) or plan.manual(card):
+            continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone; -- planechase automation -- a plane's, 311.4)
         ch = plan.ch(card)
+        if _planar(card):  # -- planechase automation -- only the trigger kinds coverage claims for a plane (planar.ability_ok)
+            from app.rules import planar
+
+            out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if planar.ability_ok(d)]
+            continue
         out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d) or d.get("gy_bf110b")]  # (-- wave 110B -- Quakebringer: also from the battlefield)
     return out
 
@@ -2099,9 +2143,14 @@ COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
 COMMAND_IFS = (COMMAND_OR_BATTLEFIELD, {"object": "self", "test": "in_command"})
 
 
+def _planar(card: CardInstance) -> bool:
+    """-- planechase automation -- the face-up plane or phenomenon (app/rules/planar.py): its abilities work from the command zone (311.4, 113.6p)."""
+    return card.id.startswith("planar-") and card.zone.endswith(":command")
+
+
 def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     """The eminence abilities of a card in the command zone (not an emblem: 114.4) for this trigger."""
-    if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
+    if not card.zone.endswith(":command") or designations.emblem_card(card) or _planar(card) or not plan.in_game(card) or plan.manual(card):
         return []
     ch = plan.ch(card)
     return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") in COMMAND_IFS]
@@ -2253,6 +2302,15 @@ def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
                  definition=MONARCH_STEAL)
 
 
+@reads
+def _active_field(plan: Plan, *, emblems: bool = False) -> list[tuple[CardInstance, Characteristics]]:
+    """-- big boards (step scans) -- the active player's permanents (and with ``emblems``, their emblems) that aren't taken out of
+    automation, with their characteristics, read in one pass before the upkeep and end step scans add any trigger."""
+    return [(c, plan.ch(c)) for c in list(plan.state.cards.values())
+            if (c.zone.endswith(":battlefield") or emblems and (designations.emblem_card(c) or _planar(c))) and c.controller == plan.active
+            and not plan.manual(c)]
+
+
 def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
     # delayed triggers "at the beginning of the next end step / your next upkeep" (603.7): they join
@@ -2263,23 +2321,23 @@ def at_step(plan: Plan, trigger: str) -> None:
         _suspend(plan)
         _cumulative_upkeep(plan)
         _rebound(plan)
+    field = dict((card.id, ch) for card, ch in _active_field(plan, emblems=True))
     for card in list(plan.state.cards.values()):
         if card.zone.endswith(":graveyard") and card.owner == plan.active:  # -- refused zones/sized (wave 3R4) --
             for _, ch, i, d in graveyard_abilities(plan, card, trigger):
                 _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                      definition=d)
             continue
-        if card.zone.endswith(":command") and not designations.emblem_card(card) and card.controller == plan.active:  # (-- wave 25B -- eminence)
+        if card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card) and card.controller == plan.active:  # (-- wave 25B -- eminence)
             for _, ch, i, d in command_zone_abilities(plan, card, trigger):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
             continue
-        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or card.controller != plan.active or plan.manual(card):
+        if (now := field.get(card.id)) is None:
             continue
-        ch = plan.ch(card)
-        for i, d in abilities(plan, ch, trigger):
+        for i, d in abilities(plan, now, trigger):
             if graveyard_ability(d) and not d.get("gy_bf110b"):  # (-- wave 110B --)
                 continue  # (113.6m: it functions only in the graveyard)
-            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=now.name, index=i,
                  definition=d)
 
 
@@ -2290,13 +2348,25 @@ def at_step_generic(plan: Plan) -> None:
     prefix = f"step:{phase}:"
     prefixes = (prefix, "step:main:") if phase in ("main1", "main2") else (prefix,)  # -- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege)
     ap = plan.active
+    for card, ch, i, d in _step_abilities(plan, prefixes):
+        if _whose_step(plan, card, d["trigger"].rsplit(":", 1)[-1], ap):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=i, definition=d, event=_step_event(plan, card, d))
+
+
+@reads
+def _step_abilities(plan: Plan, prefixes: tuple[str, ...]) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    """-- big boards (step scans) -- at_step_generic's abilities for this step, read in one pass at the start of every step (each
+    permanent derived once, not from scratch); they are put on the waiting list after it, as _watchers' are."""
+    phase = plan.state.turn.phase
+    out = []
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
-        cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
+        cz = card.zone.endswith(":command") and not designations.emblem_card(card) and not _planar(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
         exiled = card.zone.endswith(":exile")
         if exiled and card.owner in plan.live() and not plan.manual(card) or gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or "") or cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
             pass
-        elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
+        elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card) or _planar(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
@@ -2308,9 +2378,10 @@ def at_step_generic(plan: Plan) -> None:
                 continue
             if d.get("first_step") and plan.rules.step_counts.get(phase, 0) != 1:
                 continue
-            if _whose_step(plan, card, d["trigger"].rsplit(":", 1)[-1], ap):
-                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                     index=i, definition=d, event=_step_event(plan, card, d))
+            if d.get("first_game_f2") and (plan.state.turn.number != 1 or plan.rules.step_counts.get(phase, 0) != 1):
+                continue  # -- planechase more 3 (wave F2) -- "at the beginning of the first upkeep of the game" (Two Streams Facility)
+            out.append((card, ch, i, d))
+    return out
 
 
 # -- sagas & attached-object triggers (wave 3S) --
@@ -2449,10 +2520,7 @@ def _cumulative_upkeep(plan: Plan) -> None:
     of the age counters)"""
     age = {"counters": "age", "on": "self"}
     sacrifice = [{"do": "sacrifice", "who": "self"}]
-    for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
-            continue
-        ch = plan.ch(card)
+    for card, ch in _active_field(plan):
         for k, (kind, cost) in enumerate(cumulative_costs(ch)):
             if kind == "mana":
                 pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
@@ -2542,10 +2610,7 @@ def _echo(plan: Plan) -> None:
     since the beginning of your last upkeep, sacrifice it unless you pay [cost]." Each permanent
     gets this once per controller (a new object, or a new controller, is due again)."""
     r = plan.rules
-    for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
-            continue
-        ch = plan.ch(card)
+    for card, ch in _active_field(plan):
         found = echo_cost(ch)
         key = f"{plan.oid(card)}:{card.controller}"
         if found is None or key in r.echo_done:
@@ -2958,11 +3023,17 @@ def flush(plan: Plan) -> bool:
         if not mine:
             continue
         if len(mine) > 1 and not all(t.ordered for t in mine) and not _identical(plan, player, mine):
-            decide(plan, player=player, kind="order",
-                   prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
-                   options=[DecisionOption(id=t.id, label=label) for t, label in zip(mine, order_labels(mine), strict=True)],
-                   min_choices=len(mine), max_choices=len(mine), resume={"step": "order_triggers"})
-            return True
+            saved = remembered_order(plan, player, mine)
+            if saved is None:
+                ask_order(plan, player, mine)
+                return True
+            # -- trigger order memory -- 603.3b: the order this player told us to use for this set of abilities ("always use this
+            # order for these cards", a choose answer in the history, so a replay orders them the same way)
+            mine = saved
+            for t in mine:
+                t.ordered = True
+            r.pending_triggers = [t for t in r.pending_triggers if t.controller != player] + mine
+            plan.note(f"{plan.name(player)} put their triggered abilities on the stack in their saved order", actor=player)
         for t in mine:
             if not put(plan, t):
                 return True  # waiting for a target choice
@@ -2976,28 +3047,150 @@ def flush(plan: Plan) -> bool:
     return True
 
 
-def order_labels(mine: list[Any]) -> list[str]:
-    """The trigger order prompt's labels: the source's name, and when two triggers share it (a spell's cascade and demonstrate, two
-    abilities of one permanent), what each one does ("Craw Wurm: cascade", "Craw Wurm: copy it, and an opponent copies it too")."""
-    from collections import Counter
+def order_labels(mine: list[Any], plan: Plan | None = None) -> list[str]:
+    """The trigger order prompt's labels: the source's name and what the ability says -- its printed words, shortened ("Scute Swarm —
+    Landfall: create a 1/1 green Insect creature token. If you control six or more lands, …"), else the keyword ("Craw Wurm — Cascade"),
+    else what it does in the engine's words ("Temporal Extortion — Copy it")."""
+    return [_order_label(t.name, ability_words(plan, t)[1]) for t in mine]
 
+
+def _order_label(name: str, short: str) -> str:
+    return f"{name} — {short}"[:200] if short else name[:200]
+
+
+_REMINDER = re.compile(r"\s*\([^()]*\)")
+_ABILITY_WORD = re.compile(r"^(?P<word>[A-Z][\w'’,\- ]{1,40}?) — (?P<rest>.+)$", re.S)
+_TRIGGER_CLAUSE = re.compile(r"^(?:When|Whenever|At)\b[^,]*,\s*(?P<effect>.+)$", re.S)
+_SYNTHETIC_INDEX = 2000  # (indices from here on are the rules' own triggers: exalted 2000, renown 4100, cipher 7400 …)
+
+
+def shorten_ability(text: str, limit: int = 110) -> str:
+    """A triggered ability's printed words for a list: reminder text dropped; after an ability word its trigger condition too, which the
+    word already names ("Landfall — Whenever a land you control enters, add one mana …" → "Landfall: add one mana …"); cut at a word
+    boundary past ``limit`` characters."""
+    said = " ".join(_REMINDER.sub("", text).split())
+    word = _ABILITY_WORD.match(said)
+    if word and (cut := _TRIGGER_CLAUSE.match(word["rest"])):
+        said = f"{word['word']}: {cut['effect']}"
+    if len(said) > limit:
+        said = said[:limit].rsplit(" ", 1)[0].rstrip(",;:.— ") + "…"
+    return said
+
+
+def _key_index(t: Any) -> int | None:
+    try:
+        return int(str(t.key).rsplit(":", 1)[1])
+    except (IndexError, ValueError):
+        return None
+
+
+def ability_words(plan: Plan | None, t: Any) -> tuple[str, str]:
+    """(the full printed text of a pending trigger's ability, its short form for a list): the source's ability with the trigger's index
+    (``key`` "Name:index"), as the source is now or as it last existed (603.10). A keyword's or the rules' own trigger has no text of its
+    own ("", the keyword's name); failing both, the effects in the engine's words."""
     from app.rules import effects
 
-    names = Counter(t.name for t in mine)
-    out = []
+    index = _key_index(t)
+    ability = t.ability or {}
+    if plan is not None and index is not None and index < _SYNTHETIC_INDEX and not ability.get("keyword"):
+        ch = _source_chars(plan, t)
+        ab = next((a for a in ch.abilities if a.index == index and a.kind == "triggered"), None) if ch is not None else None
+        if ab is not None and ab.text:
+            from app.game.ops import shown
+
+            full = shown(plan.state, ab.text.replace("~", ch.name or t.name))
+            return full, shorten_ability(full)
+    keyword = ability.get("keyword")
+    if isinstance(keyword, str) and keyword:
+        return "", keyword.replace("_", " ").capitalize()
+    what = effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else ""
+    raw = "_" in what or what.lower() in {str(e.get("do")) for e in ability.get("effects") or []}  # (a primitive's own name: no words for it)
+    word = ability.get("trigger") if index is not None and index >= _SYNTHETIC_INDEX else None
+    if isinstance(word, str) and word and (raw or not what or what == "Do it"):  # (the rules' own trigger whose effects have no words: exalted, renown …)
+        return "", word.replace("_", " ").capitalize()
+    return "", (what if what != "Do it" else "")
+
+
+def _source_chars(plan: Plan, t: Any) -> Characteristics | None:
+    card = plan.state.cards.get(t.source_card)
+    if card is not None and plan.oid(card) == t.source_object and not card.face_down:
+        return plan.ch(card)
+    snap = plan.rules.lki.get(t.source_object)
+    return _lki_characteristics(plan, snap) if snap is not None and not snap.face_down else None
+
+
+def trigger_groups(plan: Plan, player: str, mine: list[PendingTrigger]) -> list[list[PendingTrigger]]:
+    """603.3b: the triggers to order, the identical ones together (one source's ability, or the same printed ability of same-named
+    sources: one key) in the order they triggered; each its own group when the player turned AUTO ORDER IDENTICAL TRIGGERS off."""
+    if not plan.rules.prefs_for(player).auto_order_identical_triggers:
+        return [[t] for t in mine]
+    groups: dict[str, list[PendingTrigger]] = {}
     for t in mine:
-        if names[t.name] < 2:
-            out.append(t.name)
-            continue
-        ability = t.ability or {}
-        what = ability.get("keyword") or (effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else "")
-        out.append(f"{t.name}: {what[:80]}" if what and what != "Do it" else t.name)
-    return out
+        groups.setdefault(t.key or t.id, []).append(t)
+    return list(groups.values())
+
+
+def ask_order(plan: Plan, player: str, mine: list[PendingTrigger]) -> None:
+    """The order prompt: one option per trigger (its id; the answer lists them all, as before), and for the chooser's table the groups of
+    identical ones ("Scute Swarm ×3", ordered as a block) with each ability's words and its source (by id only while it is public)."""
+    from app.game.visibility import publicly_visible
+
+    rows: list[dict[str, Any]] = []
+    labels: dict[str, str] = {}
+    groups = trigger_groups(plan, player, mine)
+    for group in groups:
+        rep = group[0]
+        full, short = ability_words(plan, rep)
+        for t in group:
+            labels[t.id] = _order_label(t.name, short)
+        card = plan.state.cards.get(rep.source_card)
+        rows.append({"key": rep.key or rep.id, "ids": [t.id for t in group], "name": rep.name, "text": full[:600], "short": short,
+                     "count": len(group), "source": card.id if card is not None and publicly_visible(plan.state, card) else None})
+    decide(plan, player=player, kind="order",
+           prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
+           options=[DecisionOption(id=t.id, label=labels[t.id]) for t in mine],
+           min_choices=len(mine), max_choices=len(mine),
+           resume={"step": "order_triggers", "keys": {t.id: t.key or t.id for t in mine}},
+           display={"triggers": rows, "rememberable": len(groups) > 1})
+
+
+TRIGGER_ORDERS_KEPT = 20
+
+
+def remembered_order(plan: Plan, player: str, mine: list[PendingTrigger]) -> list[PendingTrigger] | None:
+    """-- trigger order memory -- the triggers in the order this player saved for exactly this set of abilities (their keys), or None."""
+    keys = {t.key or t.id for t in mine}
+    saved = next((o for o in reversed(plan.rules.prefs_for(player).trigger_orders) if set(o) == keys), None)
+    if saved is None:
+        return None
+    rank = {k: i for i, k in enumerate(saved)}
+    return sorted(mine, key=lambda t: rank[t.key or t.id])  # (stable: identical ones keep the order they triggered in)
+
+
+def remember_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- trigger order memory -- "Always use this order for these cards (this game)": the keys of the abilities ordered, first one first
+    (a later answer for the same set replaces it; the newest TRIGGER_ORDERS_KEPT are kept)."""
+    from app.game.errors import ActionError
+
+    keys_of = (d.resume or {}).get("keys") or {}
+    if d.kind != "order" or (d.resume or {}).get("step") != "order_triggers" or not keys_of:
+        raise ActionError("This answer can't be remembered")
+    order = list(dict.fromkeys(keys_of[c] for c in chosen if c in keys_of))
+    if len(order) < 2:
+        return
+    prefs = plan.prefs(d.player)  # (the triggers' controller's, where remembered_order reads it, whoever makes the choice for them: 723.5)
+    prefs.trigger_orders = [*[o for o in prefs.trigger_orders if set(o) != set(order)][-(TRIGGER_ORDERS_KEPT - 1):], order]
 
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
-    return plan.rules.prefs_for(player).auto_order_identical_triggers and len({t.key for t in mine}) == 1 \
-        and not any(t.ability.get("target") or t.ability.get("targets") for t in mine)
+    if not plan.rules.prefs_for(player).auto_order_identical_triggers or len({t.key for t in mine}) != 1:
+        return False
+    if not any(t.ability.get("target") or t.ability.get("targets") for t in mine):
+        return True
+    # -- second pass S3 -- one object's ability triggering again on the same event (Panharmonicon, Teysa Karlov: 603.2d) is the same
+    # ability twice: whichever goes first, each gets its own targets as it is put on the stack (603.3d), so there is no order to choose
+    return len({t.source_object for t in mine}) == 1 and len({t.event.model_dump_json() if t.event is not None else "" for t in mine}) == 1 \
+        and len({json.dumps(t.ability, sort_keys=True, default=str) for t in mine}) == 1
 
 
 # -- damage wordings (wave 6B) --
@@ -3040,6 +3233,11 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     from app.rules import exchange_choices92
 
     exchange_choices92.bind(plan, t)
+    from app.rules import (
+        planar_more2,  # -- planechase more 2 (wave F1) -- Grand Ossuary: "creatures they control" (the dead creature's controller)
+    )
+
+    planar_more2.bind(plan, t)
     raw = json.dumps(t.ability)
     if t.event is not None and t.event.kind == "reflexive" and f'\\"{EVENT_STAT}amount\\"' in raw:  # -- one-card wordings (wave 110H) -- Unleash the Inferno: the reflexive trigger's amount
         t.ability = json.loads(raw.replace(f'\\"{EVENT_STAT}amount\\"', str(t.event.amount or 0)))
@@ -3223,12 +3421,19 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                            resume={"step": "trigger_opp110d", "trigger": t.id})
                     return False
                 choice_player = picked or opponents[0]
-            if len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
+            if t.target_hint is not None and t.target_hint in legal and choice_player == t.controller:
+                target = t.target_hint  # -- same target for all (playtest B3) -- its controller chose it for the whole batch
+            elif len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
+                options = [DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal]
+                same = alike(plan, t) if choice_player == t.controller and 2 <= len(legal) <= SAME_FOR_ALL_MAX else []
+                if same:  # -- same target for all (playtest B3) -- after the plain answers: one answer for this trigger and its identical ones
+                    options += [DecisionOption(id=f"{SAME_FOR_ALL}{x}", label=f"{label(plan, x)} — same for all {len(same) + 1}")
+                                for x in legal]  # (no card id: the table's click on a card stays the plain answer; these are buttons)
                 decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
-                       options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-                       resume={"step": "trigger_target", "trigger": t.id})
+                       options=options, resume={"step": "trigger_target", "trigger": t.id})
                 return False
-            target = legal[0]
+            else:
+                target = legal[0]
         targets = [ref(plan, target)]
     if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
             and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
@@ -3244,7 +3449,7 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
-                                     event=t.event, x=cast_x(plan, t),
+                                     event=t.event, x=cast_x(plan, t), ability_index=_key_index(t),
                                      x_from_event_spell=(t.event is not None and t.event.kind == 'cast'
                                          and t.source_card in plan.state.cards
                                          and x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) == 'cast'), **extra)  # (x: wave 4J, 107.3m)
@@ -3393,8 +3598,34 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
-        put(plan, t, target=chosen[0])
+        target = chosen[0]
+        if target.startswith(SAME_FOR_ALL):  # -- same target for all (playtest B3) -- this one, and each identical trigger waiting with it
+            target = target[len(SAME_FOR_ALL):]
+            for other in alike(plan, t):
+                other.target_hint = target
+            plan.note(f"{plan.name(t.controller)} chose {label(plan, target)} as the target of each {t.name or 'triggered'} ability", actor=t.controller)
+        put(plan, t, target=target)
     flush(plan)
+
+
+# -- same target for all (playtest B3) -- a board wipe under Blood Artist and Falkenrath Noble (and Teysa Karlov) puts 136 "target player"
+# triggers on the stack, each asked on its own (603.3d: each trigger's target is chosen as it is put on the stack). Identical triggers —
+# the same ability of the same source object, controlled and targeted by the same player — may be given one answer for all of them:
+# each still takes the target only if it is legal for it as it is put on the stack, and is asked as usual otherwise.
+SAME_FOR_ALL = "all:"
+SAME_FOR_ALL_MAX = 8  # (a choice among a few targets: players, a handful of permanents)
+
+
+def alike(plan: Plan, t: PendingTrigger) -> list[PendingTrigger]:
+    """The other waiting triggers identical to ``t`` (same source object, same ability, same controller, a single target the same way)."""
+    if t.ability.get("targets") or t.ability.get("modes") or t.ability.get("target_choice") or not t.ability.get("target"):
+        return []
+    spec = json.dumps(t.ability.get("target"), sort_keys=True, default=str)
+    attacker = selectors.attacker_of(t.event)  # (each attack trigger's "defending player" is its own attacker's, 508.5a: not alike)
+    return [p for p in plan.rules.pending_triggers if p.id != t.id and p.controller == t.controller and p.source_object == t.source_object
+            and selectors.attacker_of(p.event) == attacker
+            and p.key == t.key and not p.ability.get("targets") and not p.ability.get("modes") and not p.ability.get("target_choice")
+            and json.dumps(p.ability.get("target"), sort_keys=True, default=str) == spec]
 
 
 def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:

@@ -90,7 +90,7 @@ def restore_listed(name: str, request: Request, services: ServicesDep) -> dict[s
     require_local(request)
     try:
         path = backup_path(services.settings.data_dir, name)
-        return stage_restore(services.settings.data_dir, path.read_bytes())
+        return stage_restore(services.settings.data_dir, path)  # (unpacked from disk: hand-made backups carry art)
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
 
@@ -98,17 +98,21 @@ def restore_listed(name: str, request: Request, services: ServicesDep) -> dict[s
 @router.post("/backups/restore")
 async def restore_upload(request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
-    chunks: list[bytes] = []
-    size = 0
-    async for chunk in request.stream():
-        size += len(chunk)
-        if size > MAX_BACKUP_BYTES:
-            raise HTTPException(413, "Backup is too large")
-        chunks.append(chunk)
+    # to a file, not memory: a backup made by hand carries the decks' card art (hundreds of megabytes)
+    upload = services.settings.data_dir / ".restore-upload.part"
     try:
-        return stage_restore(services.settings.data_dir, b"".join(chunks))
+        size = 0
+        with open(upload, "wb") as out:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > MAX_BACKUP_BYTES:
+                    raise HTTPException(413, "Backup is too large")
+                out.write(chunk)
+        return stage_restore(services.settings.data_dir, upload)
     except BackupError as exc:
         raise HTTPException(422, str(exc)) from exc
+    finally:
+        upload.unlink(missing_ok=True)
 
 
 @router.post("/restart", status_code=202)

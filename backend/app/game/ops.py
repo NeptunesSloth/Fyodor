@@ -23,6 +23,7 @@ from app.game.state import (
     LogPart,
     MergedPart,
     PlayerState,
+    RevealLog,
     split_zone,
     zone_key,
 )
@@ -39,6 +40,16 @@ def shown(state: GameState, text: str) -> str:
         return c.name if c is not None and not c.face_down and c.name else "it"
 
     return re.sub(r"‹granter(?:#(?P<oid>[^›]+))?›", name, text) if "‹" in text else text
+
+
+_INTERNAL_CHOICE = re.compile(r"^_|:|\d{2,3}[a-z]?$")
+
+
+def internal_choice(key: str) -> bool:
+    """A choice the rules engine keeps on a card for itself ("Engaged110j": the turn it last attacked or blocked; "_group_counter_choices";
+    "exchange_choices92:…"), not a label a player chose or reads: never logged, never shown on the card (the players' marks read
+    "Chosen color", "Named card")."""
+    return _INTERNAL_CHOICE.search(key) is not None
 
 
 def card(state: GameState, card_id: str) -> CardInstance:
@@ -284,10 +295,10 @@ def pname(state: GameState, player_id: str | None) -> LogPart:
 
 
 def log(state: GameState, actor: str | None, ts: float, parts: list[LogPart], kind: str = "action",
-        roll: DiceRollLog | None = None, dig: DigLog | None = None) -> None:
+        roll: DiceRollLog | None = None, dig: DigLog | None = None, reveal: RevealLog | None = None) -> None:
     state.log.append(
         LogEntry(seq=state.seq, ts=ts, turn=state.turn.number, phase=state.turn.phase, actor=actor, parts=parts, kind=kind,
-                 roll=roll, dig=dig)
+                 roll=roll, dig=dig, reveal=reveal)
     )
     if len(state.log) > LOG_LIMIT:
         del state.log[: len(state.log) - LOG_LIMIT]

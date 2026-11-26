@@ -63,6 +63,7 @@ PARSE_EFFECTS: tuple[Chain, ...] = (
     Chain(  # PARSE_EFFECTS[0]
         "assimilate.parse",  # -- Star Trek mechanics (wave 112T) -- assimilate (release notes)
         "trek112t.parse",  # -- Star Trek one-offs (wave 112T) -- All Good Things...
+        "mbc_a.parse",  # -- Mystery Booster Commander (wave MBC-A) -- "Create a Black Lotus token." (a named token)
         "wave111r1_grants.parse",  # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
         "wave111e_trek.parse",  # -- Star Trek (wave 111E) -- exact wordings
         "wave110e_kaya.join",  # -- exact wordings (wave 110E) -- one instruction exiling two targets (wave 110E) --
@@ -311,9 +312,24 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 )
 
 
-# scripts.define(ability, ch): 12 chains, 242 modules
+# scripts.define(ability, ch): 12 chains, 243 modules
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
+        "planar_deck.definition",  # -- planechase deck (wave D) -- planar-deck lines and Mount Keralia read by exact wording; planes only
+        "planar_walk.definition",  # -- planechase walk (wave C) -- planeswalk to / away / encounter lines read by exact wording; planes only
+        "planar_events.definition",  # -- planechase events (wave E2) -- roll triggers and event triggers read by exact wording; planes only
+        "planar.definition",  # -- planechase automation -- a plane's chaos / planeswalk / encounter triggers (311.7, 701.31d, 312.5); planes only
+        "planar_chaos.definition",  # -- planechase chaos (wave B) -- chaos abilities read by exact wording; planes only
+        "planar_statics.definition",  # -- planechase statics (wave A) -- a plane's statics read by exact wording; planes only
+        "planar_more.definition",  # -- planechase more (wave E1) -- a plane's leftover statics by exact wording; planes only
+        "planar_more2.definition",  # -- planechase more 2 (wave F1) -- a plane's remaining grants and triggers by exact wording; planes only
+        "planar_more3.definition",  # -- planechase more 3 (wave F2) -- a few planes' and phenomena's remaining lines by exact wording; planes only
+        "planar_more4.definition",  # -- planechase more 4 (wave G2) -- Deceptive Divination, Happy Yargle Day! by exact wording; planes only
+        "planar_playtest.definition",  # -- planechase playtest planes (wave G1) -- the defined lines of the playtest planes by exact wording; planes only
+        "mbc_c.definition",  # -- Mystery Booster Commander (wave MBC-C) -- exact wordings of a few MBC cards
+        "mbc_d.definition",  # -- Mystery Booster Commander (wave MBC-D) -- Miss Highwater, Chira, All In
+        "mbc_a.definition",  # -- Mystery Booster Commander (wave MBC-A) -- Rulebreaker, Werewolf Pack Leader, The Everforger, The Unluckiest Planeswalker
+        "mbc_b.definition",  # -- Mystery Booster Commander (wave MBC-B) -- Rikala, Balefang, Venser, Selenia, Flitwing, Meatsqueak, Ekthi, Elda, Jandor, Homer, Massimo, Matoc, Sahir
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
         "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
@@ -666,7 +682,7 @@ DEFINE_REPLACEMENT: tuple[Chain, ...] = (
 )
 
 
-# effects.py, at import: 40 runs of 523 module tables (register: "module.PRIMITIVES" / "module.RESUME")
+# effects.py, at import: 40 runs of 525 module tables (register: "module.PRIMITIVES" / "module.RESUME")
 RESOLUTION: tuple[tuple[str, ...], ...] = (
     (  # RESOLUTION[0]
         "graveyard_cost_grants57.PRIMITIVES",  # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py, which imports this module lazily) --
@@ -1273,5 +1289,26 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "assimilate.PRIMITIVES",  # -- Star Trek mechanics (wave 112T) --
         "assimilate.RESUME",  # -- Star Trek mechanics (wave 112T) --
         "trek112t.PRIMITIVES",  # -- Star Trek one-offs (wave 112T) --
+        "planar.PRIMITIVES",  # -- planechase automation -- 701.31 planeswalk
+        "planar_walk.PRIMITIVES",  # -- planechase walk (wave C) -- chaos ensues (311.7), Reality Shaping, The Pit
+        "planar_walk.RESUME",  # -- planechase walk (wave C) --
+        "planar_more.PRIMITIVES",  # -- planechase more (wave E1) -- Unyaro: phase out until a player planeswalks
+        "planar_more2.PRIMITIVES",  # -- planechase more 2 (wave F1) --
+        "planar_more2.RESUME",  # -- planechase more 2 (wave F1) --
+        "planar_more3.PRIMITIVES",  # -- planechase more 3 (wave F2) --
+        "planar_more3.RESUME",  # -- planechase more 3 (wave F2) --
+        "planar_more4.PRIMITIVES",  # -- planechase more 4 (wave G2) --
+        "planar_playtest.PRIMITIVES",  # -- planechase playtest planes (wave G1) --
+        "planar_playtest.RESUME",  # -- planechase playtest planes (wave G1) --
+        "mbc_c.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-C) --
+        "mbc_c.RESUME",  # -- Mystery Booster Commander (wave MBC-C) --
+        "mbc_a.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-A) --
+        "mbc_a.RESUME",  # -- Mystery Booster Commander (wave MBC-A) --
+        "mbc_b.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-B) --
+        "planar_events.PRIMITIVES",  # -- planechase events (wave E2) --
+        "planar_deck.PRIMITIVES",  # -- planechase deck (wave D) -- reveal / put back / planeswalk to revealed planes (planar_deck_op)
+        "planar_deck.RESUME",  # -- planechase deck (wave D) --
+        "left_game.PRIMITIVES",  # -- leaving the game (wave MBC-D) -- copies of what a player who left the game controlled (800.4a)
+        "mbc_d.PRIMITIVES",  # -- Mystery Booster Commander (wave MBC-D) --
     ),
 )

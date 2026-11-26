@@ -233,3 +233,20 @@ def test_coverage_of_krenko_and_token_makers(cards):
     assert krenko.level == "FULL"
     assert find(build(cards).state, "Krenko, Mob Boss", "p1") is not None
     assert zone(build(cards).state, "p1", "command")
+
+
+def test_tokens_made_together_lie_in_one_pile(cards):
+    """-- token piles -- the engine's tokens from one effect share one spot (the frontend's pile ×N, covers and "Spread pile");
+    the next effect's tokens find a free spot of their own."""
+    s = build(cards)
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:3]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"zone": "battlefield"})
+    src = token(s, "p1", "Druid", text="{1}: Create a 2/2 green Wolf creature token for each Forest you control.")
+    activate(s, src)
+    wolves = tokens(s, "Wolf")
+    assert len(wolves) == 3 and len({(w.x, w.y) for w in wolves}) == 1
+    activate(s, src)
+    again = [w for w in tokens(s, "Wolf") if w not in wolves]
+    assert len(again) == 3 and len({(w.x, w.y) for w in again}) == 1
+    assert (again[0].x, again[0].y) != (wolves[0].x, wolves[0].y)
+    replay_matches(s)

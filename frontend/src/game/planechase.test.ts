@@ -1,0 +1,123 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { useCardCache } from "../state/cardCache";
+import { useGame } from "../state/gameStore";
+import type { CardData } from "../types/cards";
+import { PlanechasePlaque } from "./PlanechasePlaque";
+import type { GameView, PlanechaseView } from "../types/game";
+import { canRollPlanar, costText, onShowPlanarText, planarFaces, planarNames, planarRollAction, planarRotation, planechaseCue, showPlanarText, splitPlaneText } from "./planechase";
+
+const pc = (over: Partial<PlanechaseView> = {}): PlanechaseView => ({
+  current: { printing_id: "a", name: "Llanowar", phenomenon: false },
+  count: 10, visited: [], visited_count: 0, walks: 0, cost: 0, rolls: 0, last_roll: null, ...over,
+});
+
+describe("planechase", () => {
+  it("splits a plane's text into its statics and its chaos ability", () => {
+    expect(splitPlaneText('All creatures have "{T}: Add {G}{G}."\nWhenever chaos ensues, untap all creatures you control.')).toEqual({
+      statics: ['All creatures have "{T}: Add {G}{G}."'], chaos: "Whenever chaos ensues, untap all creatures you control.",
+    });
+    expect(splitPlaneText("Whenever you roll {CHAOS}, draw a card.").chaos).toBe("Whenever you roll {CHAOS}, draw a card.");
+    expect(splitPlaneText("When you encounter Planewide Disaster, destroy all creatures.")).toEqual({
+      statics: ["When you encounter Planewide Disaster, destroy all creatures."], chaos: null,
+    });
+    expect(splitPlaneText(null)).toEqual({ statics: [], chaos: null });
+  });
+
+  it("shows the cost as mana and turns an upright scan to landscape", () => {
+    expect(costText(0)).toBe("{0}");
+    expect(costText(3)).toBe("{3}");
+    expect(planarRotation(488, 680)).toBe(90);
+    expect(planarRotation(680, 488)).toBe(0);
+    expect(planarRotation(0, 0)).toBe(0);
+  });
+
+  it("cues a planeswalk, a chaos roll and a plain roll, and nothing on first sight", () => {
+    const roll = (seq: number, face: "planeswalker" | "chaos" | "blank") => ({ player: "p1", face, cost: 0, seq });
+    expect(planechaseCue(null, pc())).toBeNull();
+    expect(planechaseCue(pc(), pc())).toBeNull();
+    expect(planechaseCue(pc(), pc({ walks: 1, last_roll: roll(4, "planeswalker") }))).toEqual({ walk: true, chaos: false, rolled: "planeswalker" });
+    expect(planechaseCue(pc({ last_roll: roll(4, "blank") }), pc({ last_roll: roll(6, "chaos") }))).toEqual({ walk: false, chaos: true, rolled: "chaos" });
+    expect(planechaseCue(pc({ last_roll: roll(4, "blank") }), pc({ last_roll: roll(4, "blank") }))).toBeNull();
+    expect(planechaseCue(pc({ walks: 2 }), pc({ walks: 3 }))).toEqual({ walk: true, chaos: false, rolled: null }); // "Done — planeswalk"
+  });
+
+  it("offers the die to the active player only, never on a phenomenon", () => {
+    const view = (p: PlanechaseView | null) => ({ planechase: p, turn: { active_player: "p1" }, players: [{ id: "p1" }, { id: "p2" }] }) as unknown as GameView;
+    expect(canRollPlanar(view(pc()), "p1")).toBe(true);
+    expect(canRollPlanar(view(pc()), "p2")).toBe(false);
+    expect(canRollPlanar(view(pc({ current: { printing_id: "x", name: "Chaotic Aether", phenomenon: true } })), "p1")).toBe(false);
+    expect(canRollPlanar(view(null), "p1")).toBe(false);
+  });
+
+  it("rolls through the rules engine (its cost charged) while automation runs, else the table's own roll (paid by hand)", () => {
+    expect(planarRollAction({ rules: { paused: false } } as unknown as GameView)).toEqual({ type: "roll_planar_die" });
+    expect(planarRollAction({ rules: { paused: true } } as unknown as GameView)).toEqual({ type: "planar_roll" });
+    expect(planarRollAction({ rules: null } as unknown as GameView)).toEqual({ type: "planar_roll" });
+  });
+
+  it("tells the plaque to open its text when the plane on the 3D table is clicked", () => {
+    let opened = 0;
+    const off = onShowPlanarText(() => void opened++);
+    showPlanarText();
+    off();
+    showPlanarText();
+    expect(opened).toBe(1);
+  });
+});
+
+describe("the planechase plaque", () => {
+  const render = (planechase: PlanechaseView | null, me = "p1", viewer = "p1", more: { compact?: boolean; rules?: unknown } = {}) => {
+    const view = { viewer, planechase, rules: more.rules ?? null, turn: { active_player: "p1" }, players: [{ id: "p1", name: "Alice", color: "#d4a852" }, { id: "p2", name: "Bob", color: "#5fa8d3" }] };
+    // (a static render reads the stores' initial state)
+    (useGame.getInitialState() as { view: unknown }).view = view;
+    useCardCache.getInitialState().cards.a = { id: "a", name: "Llanowar", type_line: "Plane — Dominaria", oracle_text: "x", faces: [] } as unknown as CardData;
+    useCardCache.getInitialState().cards.x = { id: "x", name: "Chaotic Aether", type_line: "Phenomenon", oracle_text: "y", faces: [] } as unknown as CardData;
+    return renderToStaticMarkup(createElement(PlanechasePlaque, { me, compact: more.compact }));
+  };
+
+  it("shows the face-up plane, landscape, and the die with its cost to the active player only", () => {
+    const html = render(pc({ cost: 2, last_roll: { player: "p1", face: "chaos", cost: 1, seq: 3 } }));
+    expect(html).toContain("Llanowar");
+    expect(html).toContain('data-testid="planar-roll"');
+    expect(html).toContain("/api/images/a?face=0&amp;size=normal");
+    expect(html).toContain("face-chaos");
+    const theirs = render(pc({ cost: 1 }), "p2", "p2");
+    expect(theirs).not.toContain('data-testid="planar-roll"');
+    expect(theirs).toContain("Alice may roll");
+    expect(render(pc(), "p1", "__spectator__")).not.toContain('data-testid="planar-roll"');
+  });
+
+  it("offers Done — planeswalk on a phenomenon, and is absent without a planar deck", () => {
+    const html = render(pc({ current: { printing_id: "x", name: "Chaotic Aether", phenomenon: true } }), "p2", "p2");
+    expect(html).toContain("Phenomenon");
+    expect(html).toContain('data-testid="planar-done"');
+    expect(html).not.toContain('data-testid="planar-roll"');
+    expect(render(null)).toBe("");
+  });
+
+  it("on the 3D table folds to the name and die, with a Text button (the plane itself lies on the table)", () => {
+    const html = render(pc(), "p1", "p1", { compact: true });
+    expect(html).toContain("in-3d");
+    expect(html).toContain('data-testid="planar-read"');
+    expect(render(pc())).not.toContain('data-testid="planar-read"');
+  });
+
+  it("says the die's cost is charged from the pool while automation runs, and paid by hand otherwise", () => {
+    const rules = { paused: false, conceded: [], lost: {} };
+    expect(render(pc({ cost: 1 }), "p1", "p1", { rules })).toContain("paid from your mana pool (tap your mana when asked)");
+    expect(render(pc({ cost: 1 }))).toContain("(pay it from your pool)");
+  });
+
+  it("names every face-up plane and the cards revealed from the planar deck (901.11c), an older view showing just the current one", () => {
+    expect(planarFaces(pc()).map((c) => c.name)).toEqual(["Llanowar"]);
+    const two = pc({ faces: [{ printing_id: "a", name: "Llanowar", phenomenon: false }, { printing_id: "k", name: "Mount Keralia", phenomenon: false }],
+      revealed: [{ printing_id: "x", name: "Chaotic Aether", phenomenon: true }] });
+    expect(planarNames(two)).toBe("Llanowar & Mount Keralia");
+    const html = render(two);
+    expect(html).toContain("Llanowar &amp; Mount Keralia");
+    expect(html).toContain("Also face up: Mount Keralia");
+    expect(html).toContain("Revealed: Chaotic Aether");
+  });
+});

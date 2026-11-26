@@ -830,8 +830,8 @@ def test_lukka_paid_with_life_enters_with_three_and_with_mana_with_five(cards):
 # ---- demonstrate (702.144a) -------------------------------------------------------------------------------------------------------------------
 def destroyers(s):
     """Who moved a permanent from the battlefield to a graveyard, in the order it happened (the log's actors)."""
-    lines = ["".join(p.t or "" for p in x.parts) for x in s.state.log]
-    return [line.split(" ", 1)[0] for line in lines if " moved " in line and "battlefield to" in line and "graveyard" in line]
+    lines = [(x.actor, "".join(p.t or "" for p in x.parts)) for x in s.state.log]  # (the line reads "B dies": the actor is the entry's)
+    return [s.state.players[actor].name for actor, line in lines if line.endswith((" dies", " die")) or " is put into " in line]
 
 
 def test_excavation_technique_demonstrated_is_copied_by_you_and_the_opponent_you_choose(cards):

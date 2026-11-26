@@ -18,6 +18,8 @@ import {
   arcHeight, arcLift, easeOut, flightMs, floaterAt, lungeAt, otherHandSpot, planMotion, riffleAt, standInOpacity, turnAt,
   type FlightPlan, type FloaterPlan, type Look, type Place, type StrikePlan,
 } from "./flights3d";
+import { endRifflePlay, playRiffle, poseRifflePlay, riffleClip, type RifflePlay } from "./riffleClip";
+import { FLIP_MS, TableFlip } from "./tableFlip";
 
 /** What motion needs of a card on the table (TableScene's card object). */
 export interface MotionCard {
@@ -96,7 +98,8 @@ interface Flight {
   skipped: boolean;
 }
 
-interface Riffle { zone: string; cards: StandIn[]; base: Xform; t0: number; dur: number; skipped: boolean }
+/** play: the Blender-authored clip (riffleClip.ts) rather than the drawn stand-ins. */
+interface Riffle { zone: string; cards: StandIn[]; base: Xform; t0: number; dur: number; skipped: boolean; play?: RifflePlay }
 interface Lunge { card: MotionCard; dir: THREE.Vector3; reach: number; t0: number; dur: number; applied: THREE.Vector3; skipped: boolean }
 interface Floater { sprite: THREE.Sprite; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; at: THREE.Vector3; key: string; size: number; t0: number; dur: number; busy: boolean }
 
@@ -146,18 +149,41 @@ export class TableMotion {
   /** Tests and screenshots: every motion shown at this many ms after it started (null: live). */
   private frozen: number | null = null;
 
+  /** -- flip the table -- one seat's cards thrown up and dropped back (tableFlip.ts); started by a ``fyodor:table-flip`` event. */
+  private flips = new TableFlip();
+  private onFlip = (e: Event) => this.flip(String((e as CustomEvent<{ player: string }>).detail?.player ?? ""));
+
   constructor(host: MotionHost) {
     this.host = host;
+    riffleClip(); // (starts loading the shuffle clip, so it's there by the first shuffle)
+    if (typeof window !== "undefined") window.addEventListener("fyodor:table-flip", this.onFlip);
+  }
+
+  /** -- flip the table -- (╯°□°)╯︵ ┻━┻: ``player``'s battlefield jolts up and settles back. Cosmetic; never with reduced motion. */
+  flip(player: string): void {
+    const view = this.host.view();
+    const seat = this.host.seat(player);
+    const reduced = motionPrefs().reduced || (typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+    if (!view || !seat || reduced || !motionOn()) return;
+    const zone = `${player}:battlefield`;
+    const cards: MotionCard[] = [];
+    const ids = view.zones[zone];
+    for (const id of Array.isArray(ids) ? ids : []) {
+      const c = this.host.card(id);
+      if (c) cards.push(c);
+    }
+    this.flips.start(cards, seat.rot, performance.now(), motionMs(FLIP_MS, false));
   }
 
   /** Anything to step this frame (the frame loop does nothing else for motion while this is false). */
   get active(): boolean {
-    return this.flights.length > 0 || this.riffles.length > 0 || this.lunges.length > 0 || this.floating > 0;
+    return this.flights.length > 0 || this.riffles.length > 0 || this.lunges.length > 0 || this.floating > 0 || this.flips.active;
   }
 
   /** What is running (tests and diagnostics). */
-  state(): { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number } {
-    return { busy: this.active, flights: this.flights.length, floaters: this.floating, riffles: this.riffles.length, lunges: this.lunges.length };
+  state(): { busy: boolean; flights: number; floaters: number; riffles: number; clips: number; lunges: number } {
+    return { busy: this.active, flights: this.flights.length, floaters: this.floating, riffles: this.riffles.length,
+      clips: this.riffles.filter((r) => r.play).length, lunges: this.lunges.length };
   }
 
   freeze(ms: number | null): void {
@@ -190,6 +216,7 @@ export class TableMotion {
     for (const f of this.flights) f.skipped = true;
     for (const r of this.riffles) r.skipped = true;
     for (const l of this.lunges) l.skipped = true;
+    this.flips.finish();
   }
 
   /** A new view of the same game: play what happened. */
@@ -434,6 +461,17 @@ export class TableMotion {
     base.pos.y -= 0.02;
     const owner = zoneOwner(zone) ?? this.host.me();
     const map = this.host.back(owner).map;
+    // the Blender riffle (bent cards, a bridge), unless motion is reduced: then the plain drawn one, shortened
+    const clip = motionPrefs().reduced || reducedNow() ? null : riffleClip();
+    if (clip) {
+      const play = playRiffle(clip, map);
+      play.group.position.copy(base.pos);
+      play.group.rotation.y = base.rot;
+      this.host.world.add(play.group);
+      // a riffle and a bridge take longer than the drawn riffle's quick split (still never waited on)
+      this.riffles.push({ zone, cards: [], base, t0: now, dur: Math.max(1, travelMs(MOTION.shuffle * 2)), skipped: false, play });
+      return;
+    }
     const cards: StandIn[] = [];
     for (let i = 0; i < Math.min(RIFFLE_CARDS, count); i++) {
       const s = this.take();
@@ -451,6 +489,10 @@ export class TableMotion {
   }
 
   private poseRiffle(r: Riffle, p: number): void {
+    if (r.play) {
+      poseRifflePlay(r.play, p);
+      return;
+    }
     const cos = Math.cos(r.base.rot);
     const sin = Math.sin(r.base.rot);
     for (let i = 0; i < r.cards.length; i++) {
@@ -584,6 +626,7 @@ export class TableMotion {
       if (p >= 1) {
         this.riffles.splice(i, 1);
         for (const s of r.cards) this.give(s);
+        if (r.play) endRifflePlay(r.play);
         continue;
       }
       this.poseRiffle(r, p);
@@ -599,12 +642,18 @@ export class TableMotion {
       }
       this.poseFloater(f, p, reduced);
     }
+    this.flips.update(now, this.frozen);
   }
 
   dispose(): void {
+    if (typeof window !== "undefined") window.removeEventListener("fyodor:table-flip", this.onFlip);
+    this.flips.end();
     for (const f of this.flights) this.land(f);
     this.flights = [];
-    for (const r of this.riffles) for (const s of r.cards) this.give(s);
+    for (const r of this.riffles) {
+      for (const s of r.cards) this.give(s);
+      if (r.play) endRifflePlay(r.play);
+    }
     this.riffles = [];
     for (const l of this.lunges) l.card.struck = false;
     this.lunges = [];

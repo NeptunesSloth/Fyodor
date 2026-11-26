@@ -31,7 +31,8 @@ commander damage and tax.
   on at the table: the **Sandbox** tag in the top bar (where the automation level shows) opens the automation settings.
 - On the Play page, **Sandbox** is where you test a deck on your own: one seat (yours), the deck you choose, and the
   automation level you pick (Off by default); **Start testing** deals it and puts you at the table at once, with no lobby,
-  room code or other seats. A LAN night's host can also switch its table to Sandbox in the lobby's **Table settings**
+  room code or other seats. Tick **Target dummy** to seat a practice opponent with no deck as well (it never takes a
+  turn, the server answers for it, and *Solo tools → Reset dummy* brings it back; see docs/MACROS_AND_SOLO.md). A LAN night's host can also switch its table to Sandbox in the lobby's **Table settings**
   (the lobby then says *Sandbox: free play*; changing it asks everyone to confirm Ready again). The Play page's table
   tiles show *Sandbox*.
 

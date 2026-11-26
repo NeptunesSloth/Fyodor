@@ -76,6 +76,10 @@ STEP_KINDS: dict[str, Shown] = {
     "reset_deck": "random", "restart_game": "random", "load_deck": "random",
     # -- table toys -- a dice cannon volley and a draw from the draw bag are random outcomes; showing a hidden chit is a reveal
     "cannon": "random", "bag_draw": "random", "bag_show": "reveal",
+    # -- planechase -- a planar die roll and a newly dealt planar deck are random outcomes (planeswalking is not: the deck's order is set)
+    "planar_roll": "random", "planar_start": "random", "planeswalk": "reveal",  # (planeswalking turns the next card face up)
+    # -- planechase deck (wave D) -- a rules effect revealing planar cards (and putting them back, at random too: always after its reveal)
+    "planar_deck_op": "reveal",
 }
 # These shuffle only when they carry a shuffle (``r``): ending a search with "shuffle", a mulligan's final shuffle.
 SHUFFLE_IF_RESOLVED = frozenset({"search_end", "mulligan_keep", "mulligan_bottom"})
@@ -341,5 +345,9 @@ def view_fields(session: GameSession, viewer: str, *, host: bool, others: list[s
     """The waiting request (public: who asks, what, what it showed, who still has to answer), and why this viewer's own
     undo would ask the table now (None: it undoes directly, or can't)."""
     req = pending(session)
+    h = session.history
+    at = h.cursor - session._glued(h.cursor) - 1  # (the dummy's answers / an opponent's plays go back with the action before them)
     return {"undo_request": req.public(session.state) if req is not None else None,
-            "undo_ask": ask(session, viewer if viewer in session.state.players else None, host=host, others=others)}
+            "undo_ask": ask(session, viewer if viewer in session.state.players else None, host=host, others=others),
+            # -- clearer undo -- what Undo takes back, in the request's words ("cast Lightning Bolt"; a hidden card is never named)
+            "undo_label": label(session.state, h.actions[at]) if at >= 0 else None}

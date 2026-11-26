@@ -17,6 +17,7 @@ def parse(text: str) -> dict[str, Any] | None:
 def answer(plan: Any, choice: dict[str, Any], player: str, card: str | None = None) -> str | None:
     if not choice.get('random'):
         return None
-    value = str((plan.rng or secrets.SystemRandom()).choice(choice['options']))
+    from app.rules import randomness  # -- random choices (wave MBC-D) --
+    value = str(randomness.choice(plan, plan.rng or secrets.SystemRandom(), choice['options'], kind='other', player=player))
     plan.note(f'Random entering choice: {value}', [card] if card else [], actor=player)
     return value

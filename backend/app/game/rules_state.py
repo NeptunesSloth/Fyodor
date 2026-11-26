@@ -13,7 +13,7 @@ without importing the rules engine.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -99,11 +99,29 @@ class PlayerControl(BaseModel):
     lands_only: bool = False
 
 
+class CastSpot(BaseModel):
+    """-- drag to cast -- where the caster dropped a permanent spell on their own battlefield (the cast intent's x, y): it enters there as it
+    resolves, if it enters that battlefield (app/rules/engine.py leave_stack); otherwise the table's usual free spot."""
+
+    player: str
+    x: float
+    y: float
+
+
 class TurnCount(BaseModel):
     """A per-player counter that is only meaningful during one turn (it resets itself)."""
 
     turn: int = 0
     count: int = 0
+
+
+class LossSource(BaseModel):
+    """-- loss sources -- the card that made a player lose the game (app/rules/loss_sources.py): public facts only, a card every player could
+    see as it acted (its name; its printing, None for a token). ``at``: for a harm mark only, the life total (or poison count) it left."""
+
+    name: str = Field(default="", max_length=200)
+    card_id: str | None = Field(default=None, max_length=64)
+    at: int | None = None
 
 
 class ControlMark(BaseModel):
@@ -167,7 +185,10 @@ Response = Literal["off", "auto", "on"]
 # is theirs (targets, blockers, discard…), and a forced stop always wins.
 PassUntil = Literal[
     "next_action",  # until another player does something (casts, activates, plays, attacks)
-    "stack_changes",  # until an object is added to or leaves the stack ("resolve one")
+    "stack_changes",  # until an object is added to or leaves the stack ("resolve": the top object; with the stack empty then, the usual stops)
+    # -- smart resolve -- RESOLVE: the top object, then on while the top is the player's own triggered ability (a landfall batch), at most
+    # OWN_RUN objects; stops as soon as anything else is on top (a spell, another player's object), as stack_changes when it empties
+    "own_triggers",
     "stack_empty",  # until the stack is empty ("resolve all until decision")
     "next_step",  # until the next step or phase
     "next_turn",  # until the next turn
@@ -190,6 +211,9 @@ class Yield(BaseModel):
     key: str = Field(max_length=120)
     context: str = Field(default="", max_length=200)
     turn: int = 0  # for the *_this_turn kinds
+    # The answer given ("yes" / "no") when the remembered prompt is a yes-or-no question ("Always", "Same answer this turn" on a
+    # "you may", 603.5); "" for a yield (a priority stop) and for records saved before answers were kept
+    answer: str = Field(default="", max_length=16)
 
 
 class PlayerPrefs(BaseModel):
@@ -208,6 +232,9 @@ class PlayerPrefs(BaseModel):
     mana_sources: dict[str, SourceProtection] = Field(default_factory=dict)  # card id -> PREFER / SAVE
     auto_resolve_own_triggers: TriggerAutoResolve = "safe"
     auto_order_identical_triggers: bool = True
+    # -- trigger order memory -- 603.3b: "always use this order for these cards (this game)": each entry the keys ("Name:index") of a
+    # set of triggered abilities, in the order they go on the stack (first: resolves last); applied when exactly that set triggers
+    trigger_orders: list[list[Annotated[str, Field(max_length=240)]]] = Field(default_factory=list, max_length=20)
     auto_target: bool = True  # a triggered ability with exactly one legal target takes it without asking (603.3d, 601.2c)
     # -- graveyard order (wave 40C) -- 404.3: ask me to arrange every batch of two or more cards put into my graveyard together, not only
     # when a card on the table reads a graveyard's order (it covers a reader in my hand or library, app/rules/graveyard_order.py)
@@ -218,6 +245,9 @@ class PlayerPrefs(BaseModel):
     force_stop: bool = False  # the next priority is a stop, whatever else is set (consumed)
     pass_until: PassUntil | None = None
     pass_mark: str = Field(default="", max_length=400)  # the situation when pass_until was set
+    # -- runaway chains -- the cards in hand when pass_until was set: a card that arrives while passing (drawn during a chain of triggers)
+    # and could be cast at instant speed ends the passing (engine.new_response). Private like the hand itself (never in a view)
+    pass_hand: list[str] = Field(default_factory=list)
     stop_after: str | None = None  # object id: stop once it has left the stack ("hold after this resolves")
     yields: list[Yield] = Field(default_factory=list, max_length=50)
 
@@ -401,6 +431,7 @@ class ObjectSnapshot(BaseModel):
 EventKind = Literal[
     "fought",  # CR 701.14: actual fight participants, independent of damage.
     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
+    "player_left_game",  # -- (wave MBC-D) -- 800.4a: ``player`` left the game; ``left_with`` the permanents they controlled, as they last existed
     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
     "library_shuffled",
     "zone_change",  # an object moved between zones (or ceased to exist: to_zone None)
@@ -446,6 +477,10 @@ EventKind = Literal[
     # ``by_card`` (``source``: its object as it was; a player: ``player``); an attachment that left the battlefield was unattached (603.10c)
     "attached",
     "unattached",
+    # -- planechase automation -- (app/game/handlers/planechase.py) ``counter``: "chaos" (311.7, 901.9b), "walk_roll" (901.8: the planeswalker
+    # symbol was rolled by ``player``), "from" / "to" (701.31d: the plane planeswalked away from / to), "encounter" (312.5); ``card`` the
+    # face-up card's object (``object_id``), ``printing`` its printing, ``player`` the planar controller (the roller for a roll)
+    "planar",
 ]
 
 
@@ -458,6 +493,7 @@ class Event(BaseModel):
     fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
+    left_with: list[ObjectSnapshot] = Field(default_factory=list)  # -- (wave MBC-D) -- player_left_game: their permanents just before 800.4a
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
     sticker101: dict[str, Any] | None = None  # Native placement receipt, absent in old saves.
@@ -465,6 +501,7 @@ class Event(BaseModel):
     played_snapshot: ObjectSnapshot | None = None  # Public land face as played, even if entering was diverted.
     step_phase: str | None = None
     active_player: str | None = None
+    printing: str | None = None  # -- planechase automation -- a "planar" event: the plane's printing (its object may be gone: 901.7a)
     counter_remaining: int | None = None  # after a counter change; remembers when a duration's last counter disappeared
     batch: int
     kind: EventKind
@@ -794,7 +831,8 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d",
+                      "planeswalk_pcb", "until_combat_damage_attacking", "until_combat_damage"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     created_step110d: int = 0  # -- (wave 110D) -- next_end_step110d: the step counter when it began (an end step already begun does not end it)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
@@ -898,6 +936,7 @@ class PhaseLifetime(BaseModel):
     while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
     roll_max110f: int | None = None  # -- wave 110F -- Ferris Wheel: held until ``roller110f`` rolls this or less while rolling to visit (the source does not matter)
     roller110f: str | None = None
+    until_walk_e1: bool = False  # -- planechase more (wave E1) -- Unyaro: held until a player planeswalks (the source does not matter; planar_more.on_events)
 
 
 class PhaseHold110K(BaseModel):
@@ -992,6 +1031,9 @@ class PendingTrigger(BaseModel):
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
     event: TriggerEvent | None = None  # what it triggered on
+    # -- same target for all (playtest B3) -- the target its controller chose for every identical trigger of this batch ("Bob — same for
+    # all 68"): used as it is put on the stack if it is still a legal target (603.3d), else it is asked as usual
+    target_hint: str | None = None
 
 
 class DeferredPaymentWindow(BaseModel):
@@ -1091,6 +1133,7 @@ class StackEntry(BaseModel):
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
     # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
     copy_of: str | None = None
+    ability_index: int | None = None  # a triggered ability: its index on the source (PendingTrigger.key), the remembered-answer key (603.5)
     chooser110i: str | None = None  # -- cards (wave 110I) -- 608.2b: a target chosen by this player (Necrotic Plague) must still be a creature they don't control
 
 
@@ -1268,7 +1311,7 @@ class Permission(BaseModel):
     player: str
     play: bool = False  # lands ("you may play …" covers both: 701.13 — "play" a land or cast a spell)
     cast: bool = False  # spells
-    zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
+    zone: Literal["hand", "graveyard", "exile", "library_top", "any", "foretell"] = "any"  # where the card must be (wave F2: "foretell", a foretold card: Singing Towers of Darillium)
     zone_owner: Literal["you", "any"] = "you"  # A broad graveyard permission may include other players' cards.
     hand_of110m: str | None = None  # (wave 110M) zone "hand": the cards of THIS player's hand (Sen Triplets: "from that player's hand"), not the holder's own
     # A specific object ("you may play that card this turn"): the permission follows the object,
@@ -1488,13 +1531,25 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
-    restart_hold110a: bool = False  # (wave 110A) a restart just happened: the priority loop stops once, at the new game's untap step (727.4)
+    restart_hold110a: bool = False  # (wave 110A) no longer read (S7: a restarted game doesn't wait at its untap step, 502.4); kept so older saves still load
     restart110a: dict[str, Any] | None = None  # (wave 110A) 727.4: a restart's kept cards [ids] and the starting player, until the pregame is over (opening_hand.finish)
     pin_collection110i: bool = False  # (wave 110I) a Pin Collection has had a sticker put on it: stickers101.continuous then looks for equipped creatures
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
     hand_reveal_turn110m: dict[str, int] = Field(default_factory=dict)  # (wave 110M) player -> the turn through which they play with their hand revealed
     reveal_ask110m: list[list[str]] = Field(default_factory=list)  # (wave 110M) [player, card, object] first draws of a turn whose "you may reveal" is still to be asked
     turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
+    # -- planechase walk (wave C) -- encounter effects that change the planar die (app/rules/planar_walk.py): {"kind": "blank_chaos"} (Chaotic
+    # Aether: until a player planeswalks away from a plane), {"kind": "fixed_point", "player", "turn"} (Fixed Point in Time: until that player's next turn)
+    planar_walk_pcw: list[dict[str, Any]] = Field(default_factory=list)
+    # -- planechase more (wave E1) -- app/rules/planar_more.py: {"malacol": [objects held tapped this untap step], "walked": [{"turn", "card", "player"}]
+    # (the plane the planar controller last planeswalked to, and the turn)}
+    planar_more_e1: dict[str, Any] = Field(default_factory=dict)
+    # -- planechase more 3 (wave F2) -- app/rules/planar_more3.py: {"streams": {"plane": object, "choices": {player: "anchor"|"waterfall"}}, "barn": [held phased-out
+    # objects: {"plane", "controller", "objects"}], "ood": [{"objects", "player", "turn"}] (can't become tapped unless attacking), ...}
+    planar_more3_f2: dict[str, Any] = Field(default_factory=dict)
+    # -- planechase more 2 (wave F1) -- app/rules/planar_more2.py: {"combat_damage": {"turn", "combat", "dealt": [[object, player], ...]}} (this combat's combat
+    # damage to players, Glen Elendra)
+    planar_more2_f1: dict[str, Any] = Field(default_factory=dict)
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
     eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter
@@ -1517,6 +1572,11 @@ class RulesState(BaseModel):
     # -- core review -- the player the engine passes for once, Arena-style, right after they cast a spell or activated an
     # ability: consumed by engine.advance once the triggers that cast caused are on the stack (117.3c, 603.3)
     auto_pass: str | None = None
+    # -- I have a response -- the players who called "wait, I have a response!" and haven't had priority since (public: everyone
+    # heard it), and the players in ``passed`` whose pass the engine made for them (an automatic pass, never shown: a hold takes it
+    # back, a pass of their own can't be). app/rules/response_call.py
+    responding: list[str] = Field(default_factory=list)
+    auto_passed: list[str] = Field(default_factory=list)
     decision: Decision | None = None
     # -- nested payment choices (wave 28D) -- 605.3a: the "tap your mana" / pay-or-sacrifice prompt a mana ability's own chosen cost
     # (Ashnod's Altar's creature, Phyrexian Altar's color) is nested in; it comes back once that choice is made or cancelled
@@ -1575,6 +1635,10 @@ class RulesState(BaseModel):
     named_combat_history_notice: bool = False
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
+    # -- loss sources -- player -> the card that made them lose (shown to everyone); "player:life|poison|draw" -> the last public source that lowered
+    # their life, gave them poison counters, or made them draw from an empty library (app/rules/loss_sources.py); old saves: none
+    lost_source: dict[str, LossSource] = Field(default_factory=dict)
+    harm_sources: dict[str, LossSource] = Field(default_factory=dict)
     winner: str | None = None
     draw_reason: str | None = None  # 104.4: explicit draw; old saves default to unfinished
     # -- casting extras (wave 18E) -- miracle (app/rules/miracle.py): the cards whose owner may reveal them now (never sent to anyone else),
@@ -1929,6 +1993,9 @@ class RulesState(BaseModel):
     # counter on it / it gains "…"" does as it enters ({"tapped": True, "counters": {"finality": 1}, "abilities": [text]}); the new object a card becomes
     # when it leaves the stack (400.7) never matches a stale entry
     cast_enters: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- drag to cast -- stack object -> the spot on its caster's battlefield the card was dropped on (a table position, public); used as it
+    # resolves into that battlefield, dropped once it leaves the stack (a copy of the spell, another object, has none); old saves: none
+    cast_spots: dict[str, CastSpot] = Field(default_factory=dict)
     # -- cast riders (wave 38C) -- 614.1a: stack object (an instant or sorcery spell) -> "exile it instead of putting it into your graveyard as it resolves" and
     # what follows when it was ({"bind", "then", "controller", "source_card", "source_object", "name"}); a countered spell never uses it (it doesn't resolve),
     # and the new object a card becomes (400.7) never matches a stale entry
@@ -1986,6 +2053,10 @@ def start_rules(state: GameState) -> RulesState:
         },
     )
     state.rules = rules
+    if state.planechase is not None:  # -- planechase automation -- the face-up card becomes a rules object (311.4, 901.7)
+        from app.game.handlers import planechase  # (the handler imports this module)
+
+        planechase.sync(state)
     return rules
 
 
@@ -2183,7 +2254,7 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules = state.rules
     if rules is None:
         return
-    if kind == "zone_change" and rules.cause110g is not None:
+    if kind in ("zone_change", "life_loss") and rules.cause110g is not None:  # (wave MBC-B: a life loss too, Sahir)
         fields.setdefault("cause110g", rules.cause110g)
     if kind == "zone_change" and rules.craft110b:
         fields.setdefault("craft110b", True)

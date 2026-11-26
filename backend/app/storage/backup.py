@@ -5,10 +5,20 @@
   ``app.sqlite`` (decks, saves, pod stats, macros, assets index, live tables) and the custom
   asset files (sleeves, playmats). The card database is not included: it is rebuilt from
   Scryfall data and would make every backup hundreds of megabytes.
+* A backup made by hand also carries the card art the saved decks need to be played offline
+  (``deck_art``: the cached images of their printings and of the tokens they make, every cached
+  face and size, plus the card back and the mana symbols) under ``images/``, laid out like the
+  image cache (``images/cards/<id[:2]>/<id>-<face>-<size>.jpg`` …). Only what the decks need,
+  never the whole cache; stored, not deflated (JPEGs don't shrink); art stops being added near
+  ``MAX_BACKUP_BYTES`` (the manifest counts what was left out). Automatic backups never carry
+  art: a dozen of them are kept.
 * ``stage_restore`` validates an uploaded or listed backup (only the expected file names, no
   paths, size limits, a readable SQLite database) and stages it; ``apply_pending_restore``
-  swaps it in on the next start, after backing up the current database. Nothing is ever
-  executed from a backup.
+  swaps it in on the next start, after backing up the current database. Art is checked name by
+  name against the image cache's own layout (a UUID with a known face and size, the card back's
+  id, a symbol code) and by content (a JPEG, a plain SVG, ``MAX_ART_BYTES`` each; anything else
+  is left out), and only fills gaps in the cache: art already there is never replaced. Nothing
+  is ever executed from a backup.
 * ``pre_migration_backup`` copies the database before a schema migration runs.
 * ``open_or_recover`` opens the app database; if it is damaged, the file is moved aside, a
   fresh database is created, and the app starts in *recovery mode* so the host can restore a
@@ -30,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from app import __version__
+from app.cards.images import CARD_BACK_ID, IMAGE_SIZES, MAX_FACES, SYMBOL_INDEX, UUID_RE, ImageStore
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +52,12 @@ SYNCED_BROWSER_DECKS = "browser-decks.json"  # the host browser's latest copy, s
 MAX_BROWSER_DECKS_BYTES = 32 * 1024 * 1024
 ASSET_NAME = re.compile(r"^assets/[0-9a-f]{64}\.(png|jpg|jpeg|webp)$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
+MAX_ART_BYTES = 3_000_000  # one image in a backup (like a deck's art sent over the LAN, app/multiplayer/lan_art.py)
+ART_HEADROOM = 16 * 1024 * 1024  # art stops this far below MAX_BACKUP_BYTES (the manifest, rounding)
+ART_NAME = re.compile(r"^images/(cards|tokens)/([0-9a-f]{2})/([0-9a-f-]{36})-(\d)-([a-z_]+)\.jpg$")
+SYMBOL_NAME = re.compile(r"^images/symbols/[A-Z0-9]{1,16}\.svg$")
+CARD_BACK_NAME = f"images/backs/{CARD_BACK_ID}-normal.jpg"
+SYMBOL_INDEX_NAME = f"images/symbols/{SYMBOL_INDEX}"
 KEEP_BACKUPS = 12  # backups the host made by hand
 KEEP_AUTO_RECENT = 8  # automatic ones: the newest few …
 KEEP_AUTO_DAYS = 7  # … plus the last one of each of the past week's days
@@ -131,11 +148,67 @@ def browser_decks_blob(decks: Any) -> bytes:
     return blob
 
 
+def is_art_name(name: str) -> bool:
+    """A name in a backup that may hold art: exactly the image cache's own layout (never a path, a stray name, or a
+    prefix folder that doesn't match the id, which ``ImageStore.find`` would never look in)."""
+    if name in (CARD_BACK_NAME, SYMBOL_INDEX_NAME) or SYMBOL_NAME.match(name):
+        return True
+    m = ART_NAME.match(name)
+    if not m:
+        return False
+    _kind, prefix, card_id, face, size = m.groups()
+    return bool(UUID_RE.match(card_id)) and prefix == card_id[:2] and int(face) < MAX_FACES and size in IMAGE_SIZES
+
+
+def _art_ok(name: str, body: bytes) -> bool:
+    """An art file's content: a JPEG, a plain SVG (nothing active), a symbol list that is a JSON object."""
+    from app.cards.linked import is_plain_svg  # (here: keeps the storage module light to import)
+
+    if len(body) > MAX_ART_BYTES:
+        return False
+    if name.endswith(".jpg"):
+        return body.startswith(b"\xff\xd8\xff")
+    if name.endswith(".svg"):
+        return is_plain_svg(body)
+    try:
+        return isinstance(json.loads(body), dict)
+    except (ValueError, UnicodeDecodeError):
+        return False
+
+
+def deck_art(images: ImageStore, printing_ids: list[str]) -> list[tuple[Path, str]]:
+    """The cached art for these printings (every cached face and size, either kind), the card back and the mana
+    symbols, as ``(file, name in the backup)``. Only the cache: the installer's bundled images are on every copy."""
+    root = images.root
+    out: list[tuple[Path, str]] = []
+    for card_id in dict.fromkeys(printing_ids):
+        if not UUID_RE.match(card_id):
+            continue
+        for kind in ("cards", "tokens"):
+            folder = root / kind / card_id[:2]
+            if folder.is_dir():
+                out += [(f, f"images/{kind}/{card_id[:2]}/{f.name}") for f in sorted(folder.glob(f"{card_id}-*.jpg"))
+                        if f.is_file() and is_art_name(f"images/{kind}/{card_id[:2]}/{f.name}")]
+    back = images.card_back()
+    if back is not None:
+        out.append((back, CARD_BACK_NAME))
+    codes = sorted({e["svg"] for e in images.symbol_index().values()})
+    if codes:
+        out.append((images.symbols_dir() / SYMBOL_INDEX, SYMBOL_INDEX_NAME))
+        for code in codes:
+            path = images.symbol_path(code)
+            if path.is_file():
+                out.append((path, f"images/symbols/{code}.svg"))
+    return out
+
+
 def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_dir: Path, *, reason: str | None = None,
-                  copy_dir: Path | None = None, browser_decks: list[Any] | None = None) -> dict[str, Any]:
+                  copy_dir: Path | None = None, browser_decks: list[Any] | None = None,
+                  art: list[tuple[Path, str]] | None = None) -> dict[str, Any]:
     """A backup made by hand, or an automatic one when ``reason`` says why ("start-up", "after a recorded game" …).
     ``browser_decks``: the "My decks" of the browser that asked for the backup (they live in browser storage, so the
-    database alone would leave them behind when the pod moves to another computer)."""
+    database alone would leave them behind when the pod moves to another computer). ``art``: ``deck_art(...)``, the
+    decks' card art for offline play (hand-made backups only), added while the backup stays under the size limit."""
     synced = data_dir / SYNCED_BROWSER_DECKS
     decks_blob = browser_decks_blob(browser_decks) if browser_decks is not None else synced.read_bytes() if synced.is_file() else None
     out_dir = backups_dir(data_dir)
@@ -145,25 +218,46 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
     with lock:
         copy_sqlite(conn, tmp_db)
     files = 0
+    art_files = art_bytes = art_left_out = 0
     try:
         with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.write(tmp_db, "app.sqlite")
+            total = tmp_db.stat().st_size
             if decks_blob is not None:
                 zf.writestr(BROWSER_DECKS, decks_blob)
+                total += len(decks_blob)
             if assets_dir.is_dir():
                 for f in sorted(assets_dir.iterdir()):
                     if f.is_file() and ASSET_NAME.match(f"assets/{f.name}"):
                         zf.write(f, f"assets/{f.name}")
+                        total += f.stat().st_size
                         files += 1
+            for f, name in art or []:  # (a restore checks the unpacked total, so that is what the limit counts)
+                try:
+                    size = f.stat().st_size
+                    if size > MAX_ART_BYTES or total + size > MAX_BACKUP_BYTES - ART_HEADROOM:
+                        art_left_out += 1
+                        continue
+                    zf.write(f, name, compress_type=zipfile.ZIP_STORED)
+                except OSError:  # gone meanwhile (an update replacing art): the rest still counts
+                    continue
+                total += size
+                art_files += 1
+                art_bytes += size
+            if art_left_out:
+                log.warning("Backup: %d art file(s) left out to stay under the size limit", art_left_out)
             manifest = {"format": "fyodor-backup", "version": 1, "app_version": __version__,
                         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "schema_version": schema_version(tmp_db),
-                        "assets": files, "browser_decks": len(json.loads(decks_blob)) if decks_blob else 0, **({"reason": reason} if reason else {})}
+                        "assets": files, "browser_decks": len(json.loads(decks_blob)) if decks_blob else 0,
+                        "art": art_files, "art_bytes": art_bytes, **({"art_left_out": art_left_out} if art_left_out else {}),
+                        **({"reason": reason} if reason else {})}
             zf.writestr("manifest.json", json.dumps(manifest, indent=2))
     finally:
         tmp_db.unlink(missing_ok=True)
     for name in prune(list_backups(data_dir)):
         (out_dir / name).unlink(missing_ok=True)
     made = describe(dest)
+    made.update(art=art_files, art_left_out=art_left_out)
     if copy_dir is not None:
         try:
             made["copied_to"] = copy_out(out_dir, copy_dir)
@@ -244,13 +338,15 @@ def _pending_dir(data_dir: Path) -> Path:
     return data_dir / "restore-pending"
 
 
-def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
-    """Validate a backup and stage it; it is applied when Fyodor starts next."""
-    if len(blob) > MAX_BACKUP_BYTES:
+def stage_restore(data_dir: Path, blob: bytes | Path) -> dict[str, Any]:
+    """Validate a backup (an upload, or a listed file read from disk as it unpacks) and stage it; it is applied when
+    Fyodor starts next."""
+    size = blob.stat().st_size if isinstance(blob, Path) else len(blob)
+    if size > MAX_BACKUP_BYTES:
         raise BackupError("Backup is too large")
     try:
-        zf = zipfile.ZipFile(io.BytesIO(blob))
-    except zipfile.BadZipFile as exc:
+        zf = zipfile.ZipFile(blob if isinstance(blob, Path) else io.BytesIO(blob))
+    except (zipfile.BadZipFile, OSError) as exc:
         raise BackupError("Not a zip file") from exc
     with zf:
         names = zf.namelist()
@@ -259,7 +355,8 @@ def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
         for info in zf.infolist():
             if info.is_dir():
                 continue
-            if info.filename not in ("manifest.json", "app.sqlite", BROWSER_DECKS) and not ASSET_NAME.match(info.filename):
+            if (info.filename not in ("manifest.json", "app.sqlite", BROWSER_DECKS) and not ASSET_NAME.match(info.filename)
+                    and not is_art_name(info.filename)):
                 raise BackupError(f"Unexpected file in backup: {info.filename[:80]}")
         if sum(i.file_size for i in zf.infolist()) > MAX_BACKUP_BYTES:
             raise BackupError("Backup is too large when unpacked")
@@ -273,12 +370,25 @@ def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
         if pending.exists():
             shutil.rmtree(pending)
         (pending / "assets").mkdir(parents=True)
+        art = skipped = 0
         for info in zf.infolist():
             if info.is_dir():
                 continue
             target = pending / info.filename  # names were checked against a strict allowlist above
+            if info.filename.startswith("images/"):
+                with zf.open(info) as src:
+                    body = src.read(MAX_ART_BYTES + 1)
+                if not _art_ok(info.filename, body):  # not what its name says: left out, the rest still restores
+                    skipped += 1
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(body)
+                art += 1
+                continue
             with zf.open(info) as src, open(target, "wb") as dst:
                 shutil.copyfileobj(src, dst)
+        if skipped:
+            log.warning("Restore: %d art file(s) in the backup were not images and were left out", skipped)
     db = pending / "app.sqlite"
     try:
         conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
@@ -301,7 +411,7 @@ def stage_restore(data_dir: Path, blob: bytes) -> dict[str, Any]:
             shutil.rmtree(pending, ignore_errors=True)
             raise BackupError("The decks list in this backup is damaged") from exc
     return {"staged": True, "created_at": manifest.get("created_at"), "app_version": manifest.get("app_version"),
-            "restart_required": True, "browser_decks": decks.is_file()}
+            "restart_required": True, "browser_decks": decks.is_file(), "art": art}
 
 
 def restore_pending(data_dir: Path) -> bool:
@@ -323,8 +433,9 @@ def take_restored_browser_decks(data_dir: Path, *, consume: bool) -> list[Any]:
     return decks if isinstance(decks, list) else []
 
 
-def apply_pending_restore(data_dir: Path, app_db: Path, assets_dir: Path) -> bool:
-    """On start: swap a staged backup in (the current database is backed up first)."""
+def apply_pending_restore(data_dir: Path, app_db: Path, assets_dir: Path, images_dir: Path | None = None) -> bool:
+    """On start: swap a staged backup in (the current database is backed up first). Its art goes into the image cache
+    (``images_dir``) only where the cache has none: newer art already on this computer stays."""
     pending = _pending_dir(data_dir)
     staged = pending / "app.sqlite"
     if not staged.is_file():
@@ -342,6 +453,17 @@ def apply_pending_restore(data_dir: Path, app_db: Path, assets_dir: Path) -> boo
     for f in (pending / "assets").iterdir():
         if f.is_file() and not (assets_dir / f.name).exists():
             shutil.move(str(f), assets_dir / f.name)
+    staged_art = pending / "images"
+    if images_dir is not None and staged_art.is_dir():
+        for f in staged_art.rglob("*"):
+            name = f.relative_to(pending).as_posix()
+            if not f.is_file() or f.is_symlink() or not is_art_name(name):
+                continue
+            target = images_dir / name.removeprefix("images/")
+            if target.exists():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(f), target)
     decks = pending / BROWSER_DECKS
     if decks.is_file():
         shutil.move(str(decks), data_dir / RESTORED_BROWSER_DECKS)

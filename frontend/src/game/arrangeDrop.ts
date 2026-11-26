@@ -7,6 +7,7 @@ import { useGame } from "../state/gameStore";
 import type { DropResult } from "./dnd";
 import { BF_H, BF_W } from "./geometry";
 import { reorderOnDrop, saveBoardOrder, type BoardLayout } from "./arrange";
+import { guests } from "./attachments";
 
 interface Board { layout: BoardLayout; width: number; height: number; mirrored: boolean }
 const boards = new Map<string, Board>();
@@ -23,8 +24,10 @@ export function publishBoard(zone: string, layout: BoardLayout | null, width: nu
 export function reorderArranged(ids: string[], from: string, target: DropResult | null): boolean {
   if (!target || target.zone !== from || target.x == null) return false;
   const board = boards.get(from);
-  const gameId = useGame.getState().view?.game.id;
-  if (!board || !gameId) return false;
+  const view = useGame.getState().view;
+  const gameId = view?.game.id;
+  if (!board || !view || !gameId) return false;
+  if (ids.some((id) => guests(view).has(id))) return false; // -- attached elsewhere -- pulled home: game/drop.ts detaches it
   // back from the drop's virtual units to this mat's px (an opponent's mat is mirrored: see dnd.findDropTarget)
   const y = target.y == null ? undefined : board.mirrored
     ? board.height - (target.y / BF_H) * board.height - board.layout.h

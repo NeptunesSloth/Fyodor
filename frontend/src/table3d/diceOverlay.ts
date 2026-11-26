@@ -12,6 +12,7 @@ import type { DiceShow } from "../game/dice";
 import { usePrefs } from "../state/prefs";
 import { DiceTray, type ThrowOptions } from "./dice";
 import { cannonEnv, cannonLaunch } from "./diceThrow";
+import { prewarmDiceWorker } from "./diceWorker";
 import { DiceHud } from "./diceHud";
 import type { DiceLook } from "./diceLook";
 import { rollerEnv } from "./diceEnv";
@@ -53,7 +54,7 @@ export class DiceOverlay {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // (PCFSoftShadowMap was removed in three: same result, no warning)
     try {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       const room = new RoomEnvironment();
@@ -64,6 +65,7 @@ export class DiceOverlay {
       this.env = null;
     }
     this.tray = new DiceTray({ look, envMap: this.env, shadows: true, envIntensity: 0.55 });
+    prewarmDiceWorker(); // (ready by the next throw: this first one is thrown here)
     this.hud = new DiceHud(document.body, (k) => this.dismiss(k), true);
     // the 3D table's light: a warm key from the top left and behind the viewer, a soft fill from the room
     const hemi = new THREE.HemisphereLight(0xfff1dc, 0x2a1d14, 0.55);

@@ -13,6 +13,7 @@
 import { useEffect, useRef } from "react";
 import { useGame } from "../state/gameStore";
 import type { CannonLog, LogEntryView } from "../types/game";
+import { DICE_SHOWN } from "./diceShown";
 
 /** ``ignored``: indexes into ``results`` of rolls the rules ignored (706.6: "roll one more die and ignore the lowest", Barbarian Class). */
 export interface DiceShow {
@@ -30,8 +31,8 @@ export const DICE_LOOKS: { id: DiceLook; label: string }[] = [
   { id: "gem", label: "Gemstone" },
 ];
 
-/** Dice drawn for one roll; a bigger roll shows these and its total. */
-export const DICE_SHOWN = 12;
+/** Dice drawn for one roll; a bigger roll shows these and its total (game/diceShown.ts). */
+export { DICE_SHOWN };
 /**
  * Tests and screenshots: freeze every throw at this many milliseconds after it started (null: live). Headless
  * software WebGL draws about a frame a second and a screenshot takes seconds, so wall-clock timing can't pin a frame.
@@ -96,7 +97,7 @@ export function useDiceFeed(onRoll: (r: DiceShow) => void): void {
     const seen = new Set((useGame.getState().view?.log ?? []).filter((e) => e.roll).map(keyOf));
     return useGame.subscribe((s, prev) => {
       const log = s.view?.log;
-      if (!log || log === prev.view?.log) return;
+      if (!log || log === prev.view?.log || s.interim) return; // (-- resolving progress -- an interim view's lines count with the action's own update)
       for (const e of log) {
         if (!e.roll || seen.has(keyOf(e))) continue;
         seen.add(keyOf(e));

@@ -8,8 +8,22 @@ from typing import Any
 from app.game import actions as A
 from app.game import eliminations
 from app.game.errors import ActionError
-from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
+from app.game.handlers import (
+    cards,
+    dummy,
+    marks,
+    mulligan,
+    objects,
+    planechase,
+    players,
+    response,
+    rules,
+    solo,
+    turn,
+    zones,
+)
 from app.game.handlers import toys as table_toys
+from app.game.handlers import bot_seat  # -- test opponent --
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
 from app.rules import stickers101, token_stacks
@@ -81,6 +95,12 @@ HANDLERS: dict[str, Handler] = {
     "load_deck": solo.load_deck,
     "reset_deck": solo.reset_deck,
     "restart_game": solo.restart_game,
+    # -- target dummy -- Sandbox's practice opponent (app/game/handlers/dummy.py)
+    "add_dummy": dummy.add_dummy,
+    "reset_dummy": dummy.reset_dummy,
+    "set_dummy": dummy.set_dummy,
+    "set_bot_level": bot_seat.set_bot_level,  # -- bot levels --
+    "add_bot": bot_seat.add_bot,  # -- test opponent -- (app/game/handlers/bot_seat.py)
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,
@@ -102,6 +122,12 @@ HANDLERS: dict[str, Handler] = {
     "bag_show": table_toys.bag_show,
     "bag_return": table_toys.bag_return,
     "bag_empty": table_toys.bag_empty,
+    # -- planechase -- the planar deck, the planar die and planeswalking (app/game/handlers/planechase.py)
+    "planar_start": planechase.start,
+    "planar_end": planechase.end,
+    "planar_roll": planechase.roll,
+    "planeswalk": planechase.planeswalk,
+    "planar_deck_op": planechase.deck_op,  # -- planechase deck (wave D) -- (server-built: app/rules/planar_deck.py)
     "chat": turn.chat,
     "phase": turn.phase,
     "next_turn": turn.next_turn,
@@ -147,6 +173,7 @@ NOT_OVERRIDES = A.INTENT_TYPES | A.SERVER_ONLY_TYPES | frozenset({
     "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_powder", "mulligan_finish", "response_open", "response_pass",
     "response_respond", "response_auto", "response_close", "restore_state", "end_view",
     "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",  # -- table toys -- like the dice
+    "planar_start", "planar_end", "planar_roll", "planeswalk",  # -- planechase -- the table's procedure, not a card's
 })
 
 
@@ -165,6 +192,8 @@ def apply(state: GameState, action: A.Action) -> None:
     before = capture(state) if action.type not in A.INTENT_TYPES and action.type != "configure" else None
     try:
         handler(state, action)
+        if state.planechase is not None:  # -- planechase automation -- the face-up card's object follows the planar controller (311.5)
+            planechase.sync(state)
     except ActionError:
         state.seq -= 1
         state.departures().clear()
@@ -175,6 +204,8 @@ def apply(state: GameState, action: A.Action) -> None:
     rules = state.rules
     if rules is not None:
         manual = action.type not in NOT_OVERRIDES
+        if action.type == "planar_roll" and state.settings.automation != "off" and not rules.paused:
+            manual = True  # -- planechase -- rolled by hand while automation runs: its {N} wasn't charged (roll_planar_die charges it)
         if manual and action.type in ('set_face', 'flip', 'face_down', 'merge'):
             # A manual loss/regain between intents has no native World timing
             # authority, even if its final copiable values match the old ones.

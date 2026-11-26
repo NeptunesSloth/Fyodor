@@ -4362,6 +4362,10 @@ def designation_instruction(text: str) -> tuple[Effects, Any] | None:
     m = _VENTURE.fullmatch(text)
     if m:
         return [{"do": "venture", "who": "you", "into": "undercity" if m["into"] == "Undercity" else "dungeon"}], None
+    if text == "planeswalk":  # -- planechase automation -- 701.31: the planar controller planeswalks (app/rules/planar.py; nothing outside Planechase)
+        return [{"do": "planeswalk901"}], None
+    if text == "chaos ensues":  # -- planechase walk (wave C) -- 311.7: the face-up plane's chaos ability triggers (app/rules/planar_walk.py)
+        return [{"do": "chaos_ensues_pcw"}], None
     if _RING.fullmatch(text):
         return [{"do": "ring_tempts", "who": "you"}], None
     if m := re.fullmatch(r"open (an|two) Attractions?", text):  # -- Attractions (wave 100L) -- 701.51, 701.52 (app/rules/attractions100l.py)

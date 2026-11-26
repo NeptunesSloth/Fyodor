@@ -17,8 +17,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from app.game.factory import PlayerSetup
-from app.game.state import GameState
+from app.game.factory import DeckCard, PlayerSetup
+from app.game.state import CollectionCard, GameState
 from app.multiplayer.lobby import LobbySeatInfo, SubmittedDeck, TurnOrder
 
 if TYPE_CHECKING:
@@ -171,10 +171,12 @@ class Night:
         }
 
     def meta(self) -> dict[str, Any]:
-        """Crash-recovery record (setups and lobby infos are rebuilt by the host if lost)."""
+        """Crash-recovery record (lobby infos are rebuilt from the setups if lost). -- restart rematch -- the setups are kept: a
+        same-decks rematch after a restart needs every seat's deck, the bot's among them (they stay on the host's computer)."""
         return {"number": self.number, "order_source": self.order_source, "rolls": self.rolls,
                 "previous_winner": self.previous_winner, "result": self.result, "votes": dict(self.votes),
-                "history": self.history, "last_winner_key": self.last_winner_key, "reactions": self.reactions}
+                "history": self.history, "last_winner_key": self.last_winner_key, "reactions": self.reactions,
+                "setups": {pid: setup_meta(s) for pid, s in self.setups.items()}}
 
     @classmethod
     def from_meta(cls, meta: dict[str, Any] | None) -> Night:
@@ -190,10 +192,46 @@ class Night:
         night.history = list(meta.get("history") or [])
         night.last_winner_key = meta.get("last_winner_key")
         night.reactions = bool(meta.get("reactions", True))
+        for pid, raw in (meta.get("setups") or {}).items():
+            try:
+                night.setups[pid] = setup_from_meta(raw)
+            except (KeyError, TypeError, ValueError):  # a damaged record: that seat's deck is unknown (the rematch says so)
+                log.warning("Could not restore the deck of seat %s", pid, exc_info=True)
         return night
 
 
+def setup_meta(s: PlayerSetup) -> dict[str, Any]:
+    """-- restart rematch -- a seat's setup as JSON for the crash-recovery record."""
+    return {"name": s.name, "deck_id": s.deck_id, "deck_name": s.deck_name, "color": s.color, "bot_level": s.bot_level,
+            "cards": [{"section": c.section, "quantity": c.quantity, "name": c.name, "printing_id": c.printing_id,
+                       "categories": list(c.categories)} for c in s.cards],
+            "collection": [c.model_dump(mode="json") for c in s.collection]}
+
+
+def setup_from_meta(raw: dict[str, Any]) -> PlayerSetup:
+    return PlayerSetup(name=str(raw["name"]), deck_id=raw.get("deck_id"), deck_name=raw.get("deck_name"), color=raw.get("color"),
+                       bot_level=raw.get("bot_level"),
+                       cards=[DeckCard(section=c["section"], quantity=int(c["quantity"]), name=c["name"], printing_id=c.get("printing_id"),
+                                       categories=list(c.get("categories") or [])) for c in raw.get("cards") or []],
+                       collection=[CollectionCard.model_validate(c) for c in raw.get("collection") or []])
+
+
 # --------------------------------------------------------------------------- rules result
+
+
+def rematch_missing(room: Room) -> list[str]:
+    """-- restart rematch -- the names of the seats whose decks this table doesn't know (a same-decks rematch can't start; a
+    record saved before the decks were kept). Public: only names, never a card."""
+    if room.game is None:
+        return []
+    state = room.game.state
+    return [room.seat_name(pid) for pid in state.seat_order if not state.players[pid].left and pid not in room.night.setups]
+
+
+def bot_seat(room: Room, pid: str) -> bool:
+    """-- LAN bots -- a seat the host gave a bot in the lobby (the server plays it; it never votes or holds a vote up)."""
+    seat = room.seats.get(pid)
+    return seat is not None and seat.bot
 
 
 def still_in(state: GameState) -> list[str]:
@@ -211,8 +249,20 @@ def rules_ending(state: GameState) -> tuple[str, ResultType, list[str]] | None:
     if r.winner is not None:
         return f"win:{r.winner}", "single", [r.winner]
     if r.draw_reason is not None:
+        from app.rules.dummy_ending import dummy_winners
+
+        if dummies := dummy_winners(state):  # -- target dummy -- only dummies were left: they win (app/rules/dummy_ending.py)
+            return f"win:{','.join(dummies)}", "multiple" if len(dummies) > 1 else "single", dummies
         return f"draw:{r.draw_reason}", "draw", []
     return None
+
+
+def _loss_reason(r: Any, pid: str) -> str:
+    """Why ``pid`` lost, for the rules result: -- playtest (nov 16) -- a loss "an effect" caused names the card (Final Fortune's delayed
+    trigger read "Alice lost (an effect)"; the rules keep the card that made the player lose, ``RulesState.lost_source``)."""
+    reason = r.lost[pid]
+    source = r.lost_source.get(pid)
+    return source.name if reason == "an effect" and source is not None and source.name else reason
 
 
 def _finalists(room: Room) -> list[str]:
@@ -252,17 +302,21 @@ def follow_rules(room: Room) -> None:
             session.notice("The game-ending action was taken back, so the rules result is withdrawn. The game goes on.")
     if ending is None or night.result is not None or room.result_id is not None or len(state.seat_order) < 2:
         return
+    if any(p.dummy or p.bot is not None and not bot_seat(room, pid) for pid, p in state.players.items()):
+        return  # -- target dummy -- (and -- test opponent --) a test table: the rules' ending shows at the table (Reset dummy goes on), no pod result to record
     _, result_type, winners = ending
     r = state.rules
     assert r is not None
     finalists = _finalists(room)
     # whoever conceded chose to leave: they don't confirm (the others do, the loser of the deciding action included)
     voters = [pid for pid in finalists if pid not in r.conceded] or still_in(state) or finalists
+    # -- LAN bots -- a bot never holds up a result (it agrees): the people confirm it, a player who conceded too when only bots are left
+    voters = [pid for pid in voters if not bot_seat(room, pid)] or [pid for pid in finalists if not bot_seat(room, pid)] or         [pid for pid in state.seat_order if not bot_seat(room, pid) and not state.players[pid].left]
     if result_type == "draw":
         reason = r.draw_reason or "The game is a draw"
         what = "a draw"
     else:
-        why = [f"{room.seat_name(pid)} conceded" if pid in r.conceded else f"{room.seat_name(pid)} lost ({r.lost[pid]})"
+        why = [f"{room.seat_name(pid)} conceded" if pid in r.conceded else f"{room.seat_name(pid)} lost ({_loss_reason(r, pid)})"
                for pid in finalists if pid in r.conceded or pid in r.lost]
         reason = "; ".join(why) or f"{room.seat_name(winners[0])} is the last player in the game"
         what = f"{room.seat_name(winners[0])} wins"

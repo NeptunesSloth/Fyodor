@@ -79,7 +79,7 @@ def reveal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         library = plan.state.zones.get(f"{pid}:library", [])
         if not library:
             continue
-        plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=ctx["controller"])
+        plan.do({"type": "reveal_top", "player": pid, "count": 1, **({"source": str(ctx["name"])[:200]} if ctx.get("name") else {})}, actor=ctx["controller"])
         counts["land" if "Land" in plan.ch(plan.state.cards[library[0]]).types else "nonland"] += 1
     ctx["parley"] = counts
     return True

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import sqlite3
 import threading
@@ -12,6 +14,7 @@ import httpx
 
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
+from app.cards.art_folders import ArtFolders
 from app.cards.art_keeper import ArtKeeper
 from app.cards.downloader import (
     ImageReport,
@@ -20,11 +23,11 @@ from app.cards.downloader import (
     image_jobs_from_rows,
     make_client,
 )
-from app.cards.images import ImageStore
+from app.cards.images import UUID_RE, ImageStore
 from app.cards.linked import LinkedAssets
 from app.cards.repository import CardDatabaseUnavailable, CardRepository
 from app.cards.token_art import TokenArt
-from app.config import Settings, bundled_images
+from app.config import Settings
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
 from app.game import engine
@@ -43,12 +46,14 @@ from app.storage.backup import (
     RecoveryInfo,
     apply_pending_restore,
     create_backup,
+    deck_art,
     list_backups,
     pre_migration_backup,
     quarantine_damaged,
 )
 from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
+from app.storage.taught import TaughtRepository
 from app.storage.saves import SaveRepository
 
 log = logging.getLogger(__name__)
@@ -86,15 +91,18 @@ class Services:
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)
-        self.images = ImageStore(settings.images_dir, bundled_images())  # (-- offline token art -- the installer's seed/images)
+        self.images = ImageStore(settings.images_dir)  # (its read-only art folders, the installer's seed/images first: art_folders below)
         self.cards = CardRepository(settings.cards_db_path, self.images)
+        # -- art folders -- more read-only folders of pictures (the installer's seed/images is the first): docs/OFFLINE.md
+        self.art_folders = ArtFolders(settings, self.images, on_change=self.cards.art.clear)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)
         self.macros = MacroRepository(self.app_db, self.app_db_lock)
+        self.taught = TaughtRepository(self.app_db, self.app_db_lock)  # -- Teach Fyodor -- (new games start with its enabled entries)
         self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
-                           journal=self.journal)
+                           journal=self.journal, decks=self.decks)
         self.handoffs = Handoffs()  # decks a joining player brought from their own computer (memory only)
         self.art_keeper = ArtKeeper(self)  # each saved deck's art, kept for offline play while online
         self.jobs = JobManager()
@@ -131,7 +139,7 @@ class Services:
                 self.journal.forget(live.game_id)
                 continue
             room = self.hub.restore(live.meta, session, live.client_actions)
-            session.notice("Fyodor restarted — the table was restored. Reconnect to take your seat again.")
+            session.notice("Fyodor restarted — the table was restored where it left off.")  # (every table reconnects on its own)
             self.autosave(room)  # a fresh checkpoint (compacts the journal)
             out.append({"game_id": room.id, "name": session.state.name, "replayed": replayed, "entries": len(live.entries)})
             log.info("Recovered table %s (%s): %d of %d journal entries replayed", room.id, session.state.name,
@@ -141,12 +149,16 @@ class Services:
     def _open_app_db(self) -> sqlite3.Connection:
         """Open app.sqlite: apply a staged restore, back up before migrating, recover if damaged."""
         path = self.settings.app_db_path
-        if apply_pending_restore(self.settings.data_dir, path, self.settings.assets_dir):
+        if apply_pending_restore(self.settings.data_dir, path, self.settings.assets_dir, self.settings.images_dir):
             log.warning("A backup was restored at start-up")
         pre_migration_backup(path, len(APP_MIGRATIONS))
         try:
             conn = open_app_db(path)
-            check = conn.execute("PRAGMA quick_check").fetchone()[0]
+            try:
+                check = conn.execute("PRAGMA quick_check").fetchone()[0]
+            except sqlite3.DatabaseError:
+                conn.close()  # closed before the file is moved aside (Windows can't move an open file)
+                raise
             if check != "ok":
                 conn.close()
                 raise sqlite3.DatabaseError(f"integrity check: {check}")
@@ -158,11 +170,32 @@ class Services:
                                          backups=[b["name"] for b in list_backups(self.settings.data_dir)])
             return open_app_db(path)
 
-    def backup(self, *, reason: str | None = None, browser_decks: list[Any] | None = None) -> dict[str, Any]:
+    def backup(self, *, reason: str | None = None, browser_decks: list[Any] | None = None,
+               art: bool | None = None) -> dict[str, Any]:
         """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set.
-        ``browser_decks``: the asking browser's "My decks", carried in the backup too."""
+        ``browser_decks``: the asking browser's "My decks", carried in the backup too. ``art`` (by default: hand-made
+        backups only): the cached card art the saved decks need offline, so a restore on an offline computer has it."""
+        want_art = reason is None if art is None else art
         return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
-                             copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks)
+                             copy_dir=self.settings.backup_copy_dir, browser_decks=browser_decks,
+                             art=deck_art(self.images, self._deck_printings(browser_decks)) if want_art else None)
+
+    def _deck_printings(self, browser_decks: list[Any] | None) -> list[str]:
+        """Every printing the saved decks (and the browser's My decks) use, plus the tokens they make (as the art keeper
+        keeps them, app/cards/art_keeper.py)."""
+        ids = [e.printing_id for d in self.decks.list_all() for e in d.entries if e.printing_id]
+        if browser_decks is None:  # the host browser's mirrored copy, as the backup itself carries it
+            with contextlib.suppress(OSError, ValueError):
+                browser_decks = json.loads((self.settings.data_dir / SYNCED_BROWSER_DECKS).read_bytes())
+        for deck in browser_decks if isinstance(browser_decks, list) else []:
+            entries = deck.get("entries") if isinstance(deck, dict) else None
+            for e in entries if isinstance(entries, list) else []:
+                if isinstance(e, dict) and isinstance(e.get("printing_id"), str):
+                    ids.append(e["printing_id"])
+        ids = [i for i in dict.fromkeys(ids) if UUID_RE.match(i)]
+        with contextlib.suppress(CardDatabaseUnavailable):
+            ids += [t["id"] for c in self.cards.get_many(ids).values() for t in c.get("related_tokens") or []]
+        return list(dict.fromkeys(ids))
 
     browser_decks_saved = 0  # times the host browser's My decks mirror was rewritten: a change automatic backups count
 

@@ -13,11 +13,12 @@ from typing import Any
 
 from app.game import ops
 from app.game.control import acting_as, controller_of, decider_of
+from app.game.errors import ActionError
 from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules import read_pass, wave110c_chorus
+from app.rules import loss_sources, read_pass, wave110c_chorus
 from app.rules.casting import (
     activatable,
     alt_castable,
@@ -26,12 +27,70 @@ from app.rules.casting import (
     can_use_tap_abilities,
     castable,
     free_castable,
+    mana_sources,
     optional_castable,
     summoning_sick,
 )
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
+
+
+def mana_now(state: GameState, viewer: str, info: CardInfo) -> int:
+    """-- sweep B2 -- about how much mana ``viewer``'s untapped sources make now, for the X prompt's estimate: each source's largest output,
+    less what a source with a mana cost takes from the others (Cabal Coffers with five Swamps: 5 − 2). The floating mana is not counted."""
+    best: dict[str, int] = {}
+    try:
+        sources = mana_sources(state, viewer, info)
+    except ActionError:  # (a saved ability with unknown producer choices: no estimate)
+        return 0
+    for src in sources:
+        a = src.activation
+        n = max((len(o) for o in src.options), default=0) - (a.generic + len(a.colored) + len(a.hybrid) + len(a.phyrexian) if a else 0)
+        best[src.card_id] = max(best.get(src.card_id, 0), n)
+    return sum(best.values())
+
+
+_ORDER = "WUBRGC"
+
+
+def mana_ready(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
+    """-- mana readout -- what ``viewer``'s untapped sources make now, for the line by the hand: ``count`` (``mana_now``) and one symbol per
+    mana: "G", a two-colour choice "G/W", "any" (three or more colours). Sources with a mana cost of their own (Cabal Coffers) are in the
+    count only. Public information (the viewer's own permanents)."""
+    try:
+        sources = mana_sources(state, viewer, info)
+    except ActionError:
+        return {"count": 0, "symbols": []}
+    out: list[str] = []
+    for src in sources:
+        if src.activation is not None:
+            continue
+        if len(src.options) > 1 and all(len(o) == 1 for o in src.options):
+            colors = sorted({o[0] for o in src.options}, key=_ORDER.find)
+            out.append(colors[0] if len(colors) == 1 else "/".join(colors) if len(colors) == 2 else "any")
+        else:
+            out.extend(max(src.options, key=len, default=()))
+    out.sort(key=lambda m: _ORDER.find(m) if len(m) == 1 else 4.5)  # (WUBRG, the choices, then colourless)
+    return {"count": mana_now(state, viewer, info), "symbols": out}
+
+
+def pay_preview(state: GameState, viewer: str, card_id: str, info: CardInfo) -> list[str] | None:
+    """-- pay preview -- the sources the automatic payer (``find_payment``) would tap to cast ``viewer``'s own hand card ``card_id`` now
+    (no X, no kicker, no targets), or None. Read-only: nothing on the table changes."""
+    from app.rules import casting
+
+    card = state.cards.get(card_id)
+    if card is None or card.zone != zone_key(viewer, "hand"):
+        return None  # (never about another player's card: what it costs is theirs to know)
+    ch = chars.of(card, info)
+    if not ch.mana_cost or "{X}" in ch.mana_cost:
+        return None
+    try:
+        cost = casting.spell_cost(state, card, ch, info=info, player=viewer)
+        return casting.find_payment(state, viewer, cost, info, purpose=casting.Purpose(spell=ch, zone=card.zone, player=viewer)).tapped
+    except Exception:  # noqa: BLE001 - a preview never breaks anything; the cast itself is checked when it's made
+        return None
 
 
 def cost_now(state: GameState, viewer: str, castable: list[str], with_x: set[str], info: CardInfo) -> dict[str, str]:
@@ -81,15 +140,19 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "paused": r.paused,
         "priority": r.priority,
         "passed": list(r.passed),
+        # -- I have a response -- who called "wait, I have a response!" and hasn't had priority since (public: they said it aloud;
+        # only while someone has)
+        **({"responding": [p for p in r.responding if p in live_players(state)]} if r.responding else {}),
         "attacking_bands": banding.live_bands(state),
         "conceded": list(r.conceded),
         "lost": dict(r.lost),
+        "lost_source": loss_sources.view(r),  # -- loss sources -- the card that made each player lose (public)
         "winner": r.winner,
         "draw_reason": r.draw_reason,
         "overrides": r.overrides,
         "decision": None,
         # Only your own preferences (your yields and payment settings are nobody else's business).
-        "prefs": prefs.model_dump(exclude={"pass_mark"}) if prefs else None,
+        "prefs": prefs.model_dump(exclude={"pass_mark", "pass_hand"}) if prefs else None,
         "reconcile": [i.model_dump() for i in r.reconcile],
         "card_modes": {cid: m for cid, m in r.card_modes.items()
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
@@ -363,8 +426,16 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
 
     if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
         out["replicate111r3"] = replicated
+    from app.rules import (
+        wave110a_grants,  # -- round 6 (cast choosers) -- card id → the offspring a permanent gives it (Zinnia), CastSpell.kicker 1
+    )
+
+    if offspring := {cid: label for cid in out["castable"] if (label := wave110a_grants.offspring_hint(state, viewer, state.cards[cid], info))}:
+        out["offspring110a"] = offspring
     if costs := cost_now(state, viewer, out["castable"], set(out.get("x_cast") or ()), info):
         out["cost_now"] = costs
+    if out["castable"]:  # (any castable card may open the X or the count prompt: natural replicate and multikicker are read client-side)
+        out["mana_now"] = mana_now(state, viewer, info)  # -- sweep B2 -- the X / count prompts' "≈ Max" (Cabal Coffers counts its Swamps)
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

@@ -88,8 +88,13 @@ def finish_loss(plan: Plan, ctx: dict[str, Any], todo: list[str], lost: list[str
     losers = lost
     if losers:
         life_game_history.loss_events(plan, losers)
+    from app.rules import loss_sources
+
+    source = loss_sources.of_card(plan, ctx.get("source_card")) if ctx.get("source_card") in plan.state.cards else (
+        loss_sources.LossSource(name=str(ctx["name"])[:200]) if ctx.get("source_card") and ctx.get("name") else None)  # (a token gone: its name)
     for pid in losers:
         r.lost[pid] = "an effect"
+        loss_sources.lost(plan, pid, source)  # -- loss sources -- the spell or ability that said so (Final Fortune's delayed trigger)
         plan.note(f"{plan.name(pid)} loses the game (an effect)")
     for pid in losers:
         leave_game(plan, pid)

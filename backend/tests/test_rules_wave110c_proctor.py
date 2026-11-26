@@ -30,7 +30,7 @@ def settle_asking(s, order=None, pay=None):
         d = s.state.rules.decision
         if d is not None:
             if d.kind == "order":
-                names = {o.id: o.label for o in d.options}
+                names = {o.id: o.label.split(" — ")[0] for o in d.options}  # (the source's name, then what its ability says)
                 ids = sorted(names, key=lambda i: order.index(names[i]))
             else:
                 ids = [pay]

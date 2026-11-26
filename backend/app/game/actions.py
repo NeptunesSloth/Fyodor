@@ -15,7 +15,16 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 
 from app.game.macros import MacroDef
 from app.game.rules_state import EntryCharacteristics, ObjectSnapshot
-from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
+from app.game.state import (
+    PHASES,
+    PLAYER_ZONES,
+    STACK,
+    AttackTarget,
+    BattlefieldRow,
+    PlanarCard,
+    Playmat,
+    TokenDef,
+)
 from app.textutil import clean_text
 
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
@@ -25,6 +34,7 @@ ZoneName = Literal[
     "attractions", "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
+MAX_AMOUNT = 2**31 - 1  # an amount to divide (damage, counters): a power can double far past any table limit
 # Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the
 # division (601.2d) of each divided group with two or more targets, amount per target in order.
 # -- target limits (wave 29C) -- the most targets one target group takes: the limit of the Choose action's options (a group's targets are
@@ -34,7 +44,7 @@ Coord = Annotated[float, Field(ge=-100000, le=100000)]
 MAX_TARGETS = 250
 MAX_GROUPS = 10
 TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=MAX_TARGETS)]], Field(max_length=MAX_GROUPS)]
-Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=MAX_TARGETS * MAX_GROUPS)]
+Division = Annotated[list[Annotated[int, Field(ge=1, le=MAX_AMOUNT)]], Field(max_length=MAX_TARGETS * MAX_GROUPS)]
 FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
@@ -116,12 +126,15 @@ class Move(Base):
     keep_counters: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
     keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
+    died: list[Id] | None = Field(default=None, max_length=250)  # server-built by the rules engine: the creatures among them (the log says "dies", 700.4)
 
 
 class SetPosition(Base):
     type: Literal["set_position"] = "set_position"
     moves: list[tuple[Id, Coord, Coord]] = Field(min_length=1, max_length=250)
     with_attachments: bool = True  # attached cards follow their host (hold a modifier to move only the host)
+    # -- saved rows -- server-filled: card name -> the row its owner just moved it into (None: back to its type's row)
+    learned_rows: dict[str, BattlefieldRow | None] | None = None
 
 
 class Shuffle(Base):
@@ -228,6 +241,11 @@ class RevealTop(Base):
     type: Literal["reveal_top"] = "reveal_top"
     player: Id | None = None
     count: int = Field(default=1, ge=1, le=100)
+    # -- public reveals -- the rules engine's words for the log and the table's reveal notice (701.20a): the spell or ability that
+    # reveals ("Nissa, Resurgent Animist"), and for "reveal cards … until you reveal X" whether the last card revealed is the one found
+    source: Annotated[str, Field(max_length=200)] | None = Field(default=None, exclude_if=lambda v: v is None)
+    until: bool = Field(default=False, exclude_if=lambda v: not v)
+    found: bool = Field(default=False, exclude_if=lambda v: not v)
 
 
 class DigData(BaseModel):
@@ -305,6 +323,7 @@ class Tap(Base):
     card_ids: IdList
     tapped: bool | None = None  # None = toggle each
     declared: bool = False  # -- tap events (wave 45C) -- 508.1f: tapped as attackers are declared (rules/combat.py)
+    cost: bool = False  # -- planechase G2 -- tapped to pay a cost (601.2h, 602.2b; crew, enlist): a restriction refuses it, never skips it
 
 
 class UntapAll(Base):
@@ -358,6 +377,10 @@ class TokenSpec(BaseModel):
     text: str = Field(default="", max_length=1000)
     mana_cost: str = Field(default="", max_length=40, pattern=r"^(\{[0-9WUBRGCX]+\})*$")  # -- named tokens (wave 49D) -- 111.3
     back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
+    # -- engine token art -- the rules engine's own token copy of a pictured token passes the copied picture on (TokenDef.art_id); only
+    # the engine's steps keep it (resolve clears it from a client's create_token); it never changes the token's characteristics
+    art_id: Id | None = Field(default=None, exclude_if=lambda v: v is None)
+    art_face: int = Field(default=0, ge=0, le=3, exclude_if=lambda v: not v)
 
     @field_validator("name", "type_line")
     @classmethod
@@ -661,6 +684,7 @@ class LoadDeck(Base):
     deck_id: str | None = Field(default=None, max_length=64)
     cards: list[LoadDeckCard] = Field(max_length=600)
     draw: int = Field(default=7, ge=0, le=20)
+    row_overrides: dict[str, BattlefieldRow] = Field(default_factory=dict, max_length=1000)  # -- saved rows -- the deck's
     r: LoadDeckData | None = None
 
 
@@ -675,6 +699,53 @@ class ResetDeck(Base):
     r: ShuffleData | None = None
 
 
+class AddDummy(Base):
+    """-- target dummy -- Sandbox: seat a "Target Dummy" opponent with no deck (app/game/dummy.py)."""
+
+    type: Literal["add_dummy"] = "add_dummy"
+    blocks: Literal["never", "chump", "all"] = "never"  # how it blocks with automation on (state.DummyBlocks)
+    name: str | None = Field(default=None, max_length=40)  # (None: "Target Dummy", "Target Dummy 2" …)
+    life: int | None = Field(default=None, ge=1, le=10000)  # its starting life (None: the table's)
+
+
+class AddBot(Base):
+    """-- test opponent -- Sandbox: seat an opponent that plays a deck, the server playing for it (app/game/bot.py). Built by the server
+    from a saved deck (POST /games/{id}/bot), like ``LoadDeck``: a client can't send one directly."""
+
+    type: Literal["add_bot"] = "add_bot"
+    name: str | None = Field(default=None, max_length=40)
+    policy: Literal["simple"] = "simple"
+    level: Literal["simple", "intermediate", "advanced"] = "intermediate"  # -- bot levels -- (state.PlayerState.bot_level)
+    deck_name: str = Field(default="Deck", max_length=120)
+    deck_id: str | None = Field(default=None, max_length=64)
+    cards: list[LoadDeckCard] = Field(max_length=600)
+    r: LoadDeckData | None = None
+
+
+class SetBotLevel(Base):
+    """-- bot levels -- how well a test opponent plays from now on: Simple, Intermediate or Advanced (app/game/bot.py)."""
+
+    type: Literal["set_bot_level"] = "set_bot_level"
+    level: Literal["simple", "intermediate", "advanced"]
+    player: Id | None = None  # which opponent (None: the first)
+
+
+class ResetDummy(Base):
+    """-- target dummy -- its life back to the start, its poison, counters and commander damage cleared, its permanents gone (a
+    card it was given goes back to its owner), and back in the game if it lost."""
+
+    type: Literal["reset_dummy"] = "reset_dummy"
+    player: Id | None = None  # which dummy (None: the first)
+
+
+class SetDummy(Base):
+    """-- target dummy -- how it blocks with automation on: never, chump the biggest attacker, or block with everything it can."""
+
+    type: Literal["set_dummy"] = "set_dummy"
+    blocks: Literal["never", "chump", "all"]
+    player: Id | None = None  # which dummy (None: the first)
+
+
 class RestartGame(Base):
     """Everyone resets their deck (as above) and play goes back to turn 1 (host on LAN)."""
 
@@ -685,6 +756,12 @@ class RestartGame(Base):
     # still in the game take part; ``keep`` are cards left in exile (727.5), put onto the battlefield when the pregame is over.
     first: Id | None = None
     keep: list[Id] = Field(default_factory=list)
+    # -- test-table ending -- "Start over": a new game at the same table (every seat, the dummies too, back in it; the rules
+    # started afresh with nothing of the old game; the opening hands again), the first player not a dummy going first
+    fresh: bool = False
+    # -- first turn (S7) -- with the rules on and no mulligans: the compiled steps that carry the new game past its untap step (502.4:
+    # no priority there), like ``MulliganKeep.opening`` after the mulligans. Server-filled (app/game/resolve.py), never a client's.
+    opening: list[dict[str, Any]] | None = None
 
 
 class RestoreState(Base):
@@ -895,6 +972,75 @@ class BagEmpty(Base):
     type: Literal["bag_empty"] = "bag_empty"
 
 
+# -- planechase (901, Commander's single planar deck) -- the planar die, its cost and planeswalking are the table's; what a plane or
+# phenomenon does is applied by the players (app/game/handlers/planechase.py).
+class PlanarDeckData(BaseModel):
+    cards: list[PlanarCard]  # the dealt deck in order, top (face up) first
+
+
+class PlanarStart(Base):
+    """Deal a new planar deck (host): ``count`` distinct planes, with or without phenomena, shuffled on the server."""
+
+    type: Literal["planar_start"] = "planar_start"
+    count: int = Field(default=10, ge=2, le=60)
+    phenomena: bool = True
+    r: PlanarDeckData | None = None
+
+
+class PlanarEnd(Base):
+    """Put the planar deck away (host): the table stops planechasing."""
+
+    type: Literal["planar_end"] = "planar_end"
+
+
+class PlanarRollData(BaseModel):
+    face: Literal["planeswalker", "chaos", "blank"]
+
+
+class PlanarRollAction(Base):
+    """The active player rolls the planar die (901.9): planeswalker, chaos or blank, decided on the server."""
+
+    type: Literal["planar_roll"] = "planar_roll"
+    r: PlanarRollData | None = None
+    # -- planechase automation -- rolled by the rules engine (``roll_planar_die``): the planeswalker symbol doesn't planeswalk at once,
+    # the inherent "planeswalking ability" triggers instead (901.8, 901.9c; app/rules/planar.py). A table roll planeswalks at once.
+    by_rules: bool = False
+
+
+class Planeswalk(Base):
+    """Planeswalk: the face-up plane goes to the bottom of the planar deck and the next card is turned face up."""
+
+    type: Literal["planeswalk"] = "planeswalk"
+    # -- planechase deck (wave D) -- with several face-up cards (901.11c), the order their owner puts them on the bottom in (printing ids,
+    # top first; Spatial Merging's ruling: an order of their choice, not revealed). Empty: the order they were turned face up in.
+    bottom: list[str] = Field(default_factory=list, max_length=60)
+
+
+# -- planechase deck (wave D) -- the planar deck changed by a rules effect (app/rules/planar_deck.py): server-built only
+class PlanarDeckOpData(BaseModel):
+    perm: list[int] = Field(default_factory=list)  # the random order of ``random`` (or of the whole planar deck, for "shuffle")
+
+
+class PlanarDeckOp(Base):
+    """Server-built only (the rules engine's step): reveal cards from the top of the planar deck (``count`` cards, or until ``planes``
+    plane cards are revealed), put revealed cards back (``top`` on top, then ``bottom`` and, below them, ``random`` in a random order:
+    printing ids, top first), turn revealed cards face up (``to``: planeswalk to them, after planeswalking away from every face-up card
+    when ``away``), or shuffle the planar deck. The random orders are decided on the server (``r``); no view or log holds the order."""
+
+    type: Literal["planar_deck_op"] = "planar_deck_op"
+    op: Literal["reveal", "arrange", "walk_to", "shuffle"]
+    count: int = Field(default=0, ge=0, le=60)
+    planes: int = Field(default=0, ge=0, le=60)
+    top: list[str] = Field(default_factory=list, max_length=60)
+    bottom: list[str] = Field(default_factory=list, max_length=60)
+    random: list[str] = Field(default_factory=list, max_length=60)
+    to: list[str] = Field(default_factory=list, max_length=60)
+    away: bool = False
+    away_bottom: list[str] = Field(default_factory=list, max_length=60)  # (``away``: as ``Planeswalk.bottom``)
+    by: str = Field(default="", max_length=200)  # the effect's source name, for the log
+    r: PlanarDeckOpData | None = None
+
+
 class Chat(Base):
     type: Literal["chat"] = "chat"
     text: str = Field(min_length=1, max_length=500)
@@ -966,6 +1112,9 @@ class ResolveTop(Base):
     # -- refused look/cast-free (wave 3R5) -- the resolving object when spells cast during its
     # resolution (608.2g) are above it on the stack; None: the topmost object
     card_id: Id | None = None
+    # -- drag to cast -- where a permanent entering its controller's battlefield goes (None: the table's free spot)
+    x: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
+    y: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 # --- response helper -----------------------------------------------------------------
@@ -1160,6 +1309,10 @@ class CostChoice(BaseModel):
 
 class CastSpell(_Intent):
     mana_symbols: list[str] | None = Field(default=None, max_length=40)  # concrete hybrid/Phyrexian announcements, 601.2b
+    # -- drag to cast -- the spot on the caster's own battlefield the card was dropped on: a permanent spell enters there as it resolves (if it
+    # enters that battlefield); like PlayLand's x, y
+    x: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
+    y: Coord | None = Field(default=None, exclude_if=lambda v: v is None)
     flashback_choice: int | None = Field(default=None, ge=0, le=1000)
     type: Literal["cast_spell"] = "cast_spell"
     card_id: Id
@@ -1266,6 +1419,15 @@ class EndEffect(_Intent):
     sources: list[Id] | None = Field(default=None, max_length=60)
 
 
+class RollPlanarDie(_Intent):
+    """-- planechase -- 901.9: the active player rolls the planar die through the rules engine (a special action in their main phase
+    with the stack empty), paying the roll's {N} from their mana pool like any other cost (app/rules/planar_die.py). Its compiled
+    steps hold the payment and the ``planar_roll`` with the die's face. The manual table rolls with ``planar_roll`` itself."""
+
+    type: Literal["roll_planar_die"] = "roll_planar_die"
+    sources: list[Id] | None = Field(default=None, max_length=60)
+
+
 class UnlockDoor(_Intent):
     """-- Rooms (wave 18G) -- the unlock special action (116.2m, 709.5e): pay a locked half's mana cost (1 left, 2 right)."""
 
@@ -1337,7 +1499,7 @@ class DeclareBlockers(_Intent):
     sources: list[Id] | None = Field(default=None, max_length=60)
 
 
-PASS_UNTIL = ("next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
+PASS_UNTIL = ("next_action", "stack_changes", "own_triggers", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
 
 
 class PassPriority(_Intent):
@@ -1345,7 +1507,8 @@ class PassPriority(_Intent):
     RESOLVE ONE = stack_changes, RESOLVE ALL = stack_empty …); decisions still come to you."""
 
     type: Literal["pass_priority"] = "pass_priority"
-    until: Literal["next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat"] | None = None
+    # (-- smart resolve -- "own_triggers": RESOLVE, the top object and the run of your own triggered abilities under it: engine.pass_until_met)
+    until: Literal["next_action", "stack_changes", "own_triggers", "stack_empty", "next_step", "next_turn", "my_turn", "combat"] | None = None
 
 
 class Choose(_Intent):
@@ -1354,16 +1517,20 @@ class Choose(_Intent):
     type: Literal["choose"] = "choose"
     decision_id: Id
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
-    # A "divide" decision (601.2d): the amount for each option, in the options' order.
-    amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=MAX_TARGETS)
+    # A "divide" decision (601.2d): the amount for each option, in the options' order. -- playtest (nov 18) -- as large as a power
+    # can get (a Mossborn Hydra with 262144 counters tramples over: 10000 refused its damage assignment)
+    amounts: list[Annotated[int, Field(ge=0, le=MAX_AMOUNT)]] = Field(default_factory=list, max_length=MAX_TARGETS)
     # -- card names (wave 22B) -- 201.4: the typed card name that answers a "choose a card name" decision
     name: Annotated[str, Field(max_length=200)] | None = None
-    # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.
-    remember: Literal["yes_this_turn", "no_this_turn", "always_yield"] | None = None
+    # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD; for a trigger order, ALWAYS USE THIS
+    # ORDER for these abilities (this game).
+    remember: Literal["yes_this_turn", "no_this_turn", "always_yield", "always_order"] | None = None
 
 
 class Concede(_Intent):
     type: Literal["concede"] = "concede"
+    # -- flip the table -- concede and flip it (╯°□°)╯︵ ┻━┻: the concession as ever, a log line, and a cosmetic flip on every table
+    flip: bool = False
 
 
 class SetStops(_Intent):
@@ -1411,6 +1578,8 @@ class SetPrefs(_Intent):
     hold_priority: bool | None = None
     full_control: bool | None = None
     force_stop: bool | None = None
+    # -- I have a response -- "wait, I have a response!": a public hold (True) or its cancel (False); app/rules/response_call.py
+    respond: bool | None = None
     cancel_pass: bool = False  # cancel a PASS UNTIL … / HOLD AFTER THIS RESOLVES
     stop_after: Id | None = None  # HOLD AFTER THIS RESOLVES: a card on the stack
     # PREFER / NORMAL / SAVE for one of your mana sources ("normal" clears it).
@@ -1420,6 +1589,9 @@ class SetPrefs(_Intent):
     add_yield: YieldIn | None = None
     cancel_yield: Annotated[str, Field(max_length=120)] | None = None
     cancel_all_yields: bool = False
+    # -- trigger order memory -- forget one saved trigger order (its place in the list) or all of them
+    forget_trigger_order: Annotated[int, Field(ge=0, lt=20)] | None = None
+    forget_trigger_orders: bool = False
 
     _stops = field_validator("stops_my_turn", "stops_their_turn")(_steps_list)
 
@@ -1573,9 +1745,10 @@ class RulesLog(Base):
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
-     "miracle_reveal", "end_effect", "pay_deferred"}
+     "miracle_reveal", "end_effect", "pay_deferred", "roll_planar_die"}
 )
-SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
+SERVER_ONLY_TYPES = frozenset({"load_deck", "add_bot", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101",
+                               "planar_deck_op"})  # (-- planechase deck (wave D) --)
 
 
 Action = Annotated[
@@ -1623,6 +1796,11 @@ Action = Annotated[
     | SpawnCard
     | LoadDeck
     | ResetDeck
+    | AddDummy
+    | AddBot
+    | SetBotLevel
+    | ResetDummy
+    | SetDummy
     | RestartGame
     | RunMacro
     | SetAppearance
@@ -1658,6 +1836,11 @@ Action = Annotated[
     | BagShow
     | BagReturn
     | BagEmpty
+    | PlanarStart
+    | PlanarEnd
+    | PlanarRollAction
+    | Planeswalk
+    | PlanarDeckOp
     | Chat
     | Phase
     | NextTurn
@@ -1690,6 +1873,7 @@ Action = Annotated[
     | TurnFaceUp
     | UnlockDoor
     | EndEffect
+    | RollPlanarDie
     | PayDeferred
     | MiracleReveal
     | ActivateAbility
