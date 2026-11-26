@@ -4098,9 +4098,16 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
 
 def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
+    # -- lent abilities -- a lent ability's link scope (607.5, abilities_of.scope_definition) is read into the context before anything else, so the
+    # "you may" / intervening-"if" / action gates below read the ability's own first instruction, not the scope opener
+    effects_ = entry.effects
+    scope = next((e["scope"] for e in effects_ if e.get("do") == "borrowed_link_scope"), None)
+    if scope is not None:
+        effects_ = [e for e in effects_ if e.get("do") != "borrowed_link_scope"]
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
-                    "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x,
+                    "kind": entry.kind, "effects": effects_, "next": 0, "x": entry.x,
+                    **({"borrowed_link_scope": scope} if scope is not None else {}),
                     # what a triggered ability triggered on (603.2, 608.2k): JSON, so it survives
                     # pauses for decisions, saves and replay with the rest of the context
                     "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
@@ -4155,8 +4162,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             finish(plan, ctx, countered=True)
             return
         ctx["targets"] = [t.model_dump() for t in legal]
-    gate = entry.effects[0] if entry.optional and entry.effects else None
-    if gate is not None and gate["do"] == "only_if" and not gate.get("bind") and int(gate.get("skip", 0)) >= len(entry.effects) - 1:
+    gate = effects_[0] if entry.optional and effects_ else None
+    if gate is not None and gate["do"] == "only_if" and not gate.get("bind") and int(gate.get("skip", 0)) >= len(effects_) - 1:
         # -- this-turn history (wave 4D) -- 603.4: an intervening "if" that no longer holds: the ability does
         # nothing — there's nothing to ask (603.5)
         from app.rules import conditions
@@ -4165,13 +4172,13 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             plan.note(f"{entry.name or 'It'} does nothing: its condition no longer holds")
             finish(plan, ctx)
             return
-    if entry.optional and entry.effects and barred_search(plan, ctx, entry.effects[0]):
+    if entry.optional and effects_ and barred_search(plan, ctx, effects_[0]):
         finish(plan, ctx)  # (-- prohibitions (wave 24D) -- "you may search …" can't be chosen: nothing is asked, nothing shuffled)
         return
-    if entry.optional and entry.effects and entry.effects[0]["do"] == "action_gate":
+    if entry.optional and effects_ and effects_[0]["do"] == "action_gate":
         from app.rules import restrictions
 
-        gate = entry.effects[0]
+        gate = effects_[0]
         if restrictions.uses(plan.rules, gate["object"], int(gate["index"]), plan.state.turn.number):
             action_gate(plan, ctx, gate)  # -- playtest (nov 18) -- 603.2h: already done this turn: nothing to ask (Terrasymbiosis asked again)
             finish(plan, ctx)
@@ -4186,7 +4193,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                 finish(plan, ctx)
                 return
         else:
-            summary = describe(entry.effects, amount=lambda v: _foreseen(plan, ctx, v))
+            summary = describe(effects_, amount=lambda v: _foreseen(plan, ctx, v))
             decide(plan, player=entry.controller, kind="confirm", prompt=f"{entry.name}: {summary}?",
                    options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
                    resume={"step": "may", "ctx": ctx}, memory_key=key)

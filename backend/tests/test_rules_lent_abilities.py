@@ -11,7 +11,9 @@ from data/cards.sqlite).
   Quintorius, Loremaster's activated ability alone, so on Marvin it refers to no card: it has no legal target. The same text on an object with
   neither its exiling half nor a lending path is refused (manual), never an engine error. A lent *triggered* half is scoped the same way, also in
   the last known information of a borrower that died: Koh's lent Fiend Hunter / Skyclave Apparition leaves trigger refers only to what the lent
-  enter half exiled (nothing), never to the card Koh's own enter trigger exiled.
+  enter half exiled (nothing), never to the card Koh's own enter trigger exiled. Every lent triggered ability is scoped (Living Lore's "cast the
+  exiled card" reads the link inside its handler); every exile-link reader is registered (abilities_of.LINK_READERS), and a lent ability whose
+  reader keys a record on the borrower itself, or that refers to another ability's choice (Tyrannical Pitlord's "the chosen creature"), is manual.
 * 605.1a: a lent mana ability stays a mana ability whatever its lent wording parses as (Sunbird Effigy's craft mana: lent, shown, manual).
 * A lent ability is read like the lender's own, never an engine error: an exact-wording reading opens with the lent ability's link scope
   (Kianne, Dean of Substance); a reflexive "When you do, choose one —" lent to Koh stays manual (Hylda of the Icy Crown).
@@ -250,3 +252,110 @@ def test_koh_keeps_hyldas_reflexive_modal_trigger_manual(cards):
     ability = lent(s, koh, "Whenever you tap an untapped creature an opponent controls")
     assert not coverage.ability_supported(chars(s, koh), ability.index)
     roundtrip(s)
+
+
+# -- fix round 2: every exile-link reader is scoped or refused; choice records refused --
+
+def through_combat(s):
+    """Answer everything (no blockers; each "you may" with its first option) until the stack is empty after combat damage."""
+    for _ in range(120):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_koh_lent_living_lore_trigger_casts_nothing_koh_exiled(cards):
+    """Koh exiles Bob's Grizzly Bears as it enters and Living Lore as it dies; Koh chooses Living Lore. Its lent "Whenever this permanent deals combat
+    damage, you may sacrifice it. If you do, you may cast the exiled card …" is linked only to Living Lore's "As this creature enters, exile …",
+    which isn't lent (607.5): Koh is sacrificed, and there is no exiled card to cast — the Bears stay in exile."""
+    s = build(cards, [KOH, "Murder"], ["Grizzly Bears", "Living Lore"], forests=30, islands=30)
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, B=2, C=4)
+    cast(s, KOH)
+    answer(s, bears.id)
+    koh = card_named(s, KOH)
+    lore = put(s, "Living Lore", "p2")
+    if s.state.cards[lore.id].zone.endswith(":battlefield"):  # (Murder it: Koh's "Whenever another nontoken creature dies, you may exile it")
+        mana(s, B=2, C=1)
+        cast(s, "Murder", targets=[lore.id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p2:exile" and s.state.cards[lore.id].zone == "p2:exile"
+    act(s, "p1", type="activate_ability", card_id=koh.id, ability=next(a.index for a in chars(s, koh).abilities if a.text.startswith("Pay 1 life")),
+        sources=[])
+    answer(s, lore.id)
+    assert lent(s, koh, "Whenever this permanent deals combat damage, you may sacrifice it.")
+    to_phase(s, "declare_attackers", turn=s.state.turn.number + 2)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": koh.id, "target": "p2"}])
+    through_combat(s)
+    assert s.state.cards[koh.id].zone == "p1:graveyard"  # (sacrificed: "If you do")
+    assert s.state.cards[bears.id].zone == "p2:exile"  # 607.5: not "the exiled card" of the lent ability
+    roundtrip(s)
+
+
+def test_koh_refuses_tyrannical_pitlords_chosen_creature(cards):
+    """"When this permanent leaves the battlefield, sacrifice the chosen creature." refers to the choice "As this creature enters, choose …" made
+    (607.2d), which isn't lent; Koh's choices are Koh's own: the lent trigger is manual (607.5a), not read from the borrower's record."""
+    s, koh = koh_with(cards, "Tyrannical Pitlord")
+    ability = lent(s, koh, "When this permanent leaves the battlefield, sacrifice the chosen creature.")
+    assert abilities_of.prior_choice(ability)
+    assert not coverage.ability_supported(chars(s, koh), ability.index)
+    roundtrip(s)
+
+
+def test_every_exile_link_reader_is_registered():
+    """Each function in app/rules that reads an exile link (exiled_with records, link_key, exiled_with.cards, effects._cards(…, "exiled_with…")) is in
+    abilities_of.LINK_READERS, with how a lent ability's scope reaches it; a "source" reader has its definition marker in SOURCE_KEYED."""
+    import ast
+    import re
+
+    pat = re.compile(r"exiled_with\.(?:get|setdefault)\(|exiled_with\[|exiled_with\.cards\(|link_key\(|_cards\(plan, ctx, ['\"]exiled_with")
+    root = Path(abilities_of.__file__).parent
+    found = set()
+    for f in sorted(root.glob("*.py")):
+        src = f.read_text("utf-8")
+        if not pat.search(src):
+            continue
+        lines = src.splitlines()
+        for node in ast.walk(ast.parse(src)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                own = "\n".join(lines[node.lineno - 1:node.end_lineno])
+                for inner in ast.walk(node):
+                    if inner is not node and isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        own = own.replace("\n".join(lines[inner.lineno - 1:inner.end_lineno]), "")
+                if pat.search(own):
+                    found.add(f"{f.stem}.{node.name}")
+    assert sorted(found - set(abilities_of.LINK_READERS)) == []
+    assert set(abilities_of.LINK_READERS.values()) <= {"ctx", "scoped", "source", "not lent"}
+    for marker in ("samename_exiled_with", "played_linked_name", "exiled_with110a", "exiled_with110c"):
+        assert abilities_of.SOURCE_KEYED.search(marker)
+
+
+@pytest.mark.parametrize("lender", sorted({c["name"] for c in DATA if "Creature" in c["type_line"].split(" //")[0] and c["name"] != KOH}))
+def test_every_lent_trigger_is_scoped_once_before_its_own_instructions(cards, lender):
+    """Each lent triggered (and activated) definition on Koh opens with its link scope once, and reading it without the opener gives the same
+    verdicts (a reader that wants its own first instruction sees it: effects._begin_resolution, triggers._add)."""
+    from app.rules import wave110c_koh
+
+    s = build(cards, [lender, KOH])
+    koh = put(s, KOH)
+    victim = card_named(s, lender)
+    act(s, "p1", type="move", card_ids=[victim.id], to={"player": "p1", "zone": "exile"})
+    s.state.cards[koh.id].choices[wave110c_koh.KEY] = s.state.rules.object_id(victim.id)  # (a definition check: Koh's last chosen card set directly)
+    ch = chars(s, koh)
+    for a in (a for a in ch.abilities if a.borrowed_origin and a.kind in ("triggered", "activated")):
+        d = scripts.define(a, ch)
+        if d is None or d.get("modes"):
+            continue
+        effects = d.get("effects") or []
+        opener = [k for k, e in enumerate(effects) if e.get("do") == "borrowed_link_scope"]
+        assert opener == [0], (lender, a.text)
+        bare = {**d, "effects": effects[1:]}
+        assert coverage.definition_supported(bare) == coverage.definition_supported(d), (lender, a.text)
+        assert scripts._event_refs_ok(bare) == scripts._event_refs_ok(d), (lender, a.text)

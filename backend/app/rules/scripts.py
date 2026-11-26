@@ -5369,7 +5369,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # a reader that patches the native reading of a probe wording ("{2}{B}, {T}: Put target creature card …") sees the lender's own effects
         from app.rules import abilities_of
 
-        if abilities_of.unsettled(ability):
+        if abilities_of.unsettled(ability) or abilities_of.prior_choice(ability):
             return None
         _LENT.on = True
         try:
@@ -5378,7 +5378,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 d = define(alt, ch)
         finally:
             _LENT.on = False
-        return abilities_of.scope_definition(d, ability)
+        return None if abilities_of.source_keyed(d) else abilities_of.scope_definition(d, ability)  # (a record keyed on the borrower itself: manual)
     if (hooked := hooks.DEFINE[0].first(ability, ch)) is not None:  # (app/rules/hooks.py)
         return hooked
     from app.rules import wave110g_spires  # -- wave 110G --

@@ -173,10 +173,20 @@ def manual(ability: AbilityText) -> bool:
         return False
     if "\n• " in ability.text:
         return True  # supported forms are handled by modal_definition before this guard
-    body = ability.text.partition(":")[2]
-    prior_choice = re.search(r"\bchosen\b|\bnoted\b|\bthe named card\b", body, re.I)
+    return prior_choice(ability)
+
+
+def prior_choice(ability: AbilityText) -> bool:
+    """-- lent abilities -- a lent ability that refers to a choice or note another ability made (607.2d-e): the borrower's choice records are keyed
+    on the object, not on the lending path, so the reference is refused rather than read from the borrower's own choices (607.5a: undefined).
+    The effect of an activated ability is what follows its cost; a triggered ability's whole text is its effect (no colon: "When the chosen
+    creature leaves …", Zenos yae Galvus; "sacrifice the chosen creature", Tyrannical Pitlord)."""
+    if not ability.borrowed_origin and ability.index < BORROWED:
+        return False
+    body = ability.text.partition(":")[2] if ability.kind in ("activated", "mana", "loyalty") else ability.text
+    choice = re.search(r"\bchosen\b|\bnoted\b|\bthe named card\b", body, re.I)
     own_choice = re.search(r"\bchoose\b|\bnote\b|\bname a card\b", body, re.I)
-    return bool(prior_choice and not own_choice)
+    return bool(choice and not own_choice)
 
 
 # -- lent abilities -- the lent text names its object "this permanent" (``_lent``: the lender's name, 201.5b, and its "this creature"). Many readers
@@ -245,15 +255,54 @@ def _saved_scope(plan: Plan, borrower: str, origin: tuple[str, ...]) -> str | No
     return None
 
 
-_LINKS = re.compile(r'"link": true|exiled_with|"linked[_"]|linked_cards|linked_pool')  # -- lent abilities -- an exile link written or read (607.2a)
+# -- lent abilities -- every reader of an exile link (607.2a), by where its key comes from. A lent ability is scoped as a whole (``scope_definition``:
+# its scope opener sets the resolution context's ``borrowed_link_scope``; the trigger's intervening "if" gets it too, triggers._add), so a reader keyed
+# by ``exiled_with.link_key(ctx)`` — directly or through ``exiled_with.cards(plan, ctx)`` — reads only the lending path's record (607.5):
+#   "ctx"     the resolution / condition context of the ability (scoped with the ability);
+#   "scoped"  a key built with the lent ability's own scope (mana abilities, announcement-time targets, X);
+#   "source"  keyed on the source object alone: a lent ability whose definition carries the marker of such a reader is refused (``SOURCE_KEYED``);
+#   "not lent" readers for abilities a borrower never borrows (static abilities, cost and cast rules, planes, cipher) or the records' writers.
+# tests/test_rules_lent_abilities.py scans app/rules for exile-link reads and fails on a reader missing here.
+LINK_READERS: dict[str, str] = {
+    "abilities_of._lenders": "not lent", "cast_limits._same_name_as_exiled": "not lent", "casting._resolve_options": "scoped",
+    "conditional_prevention_effects.source_matches": "ctx", "conditional_prevention_effects.run": "ctx", "cost_changes.static_delta": "not lent",
+    "cost_payment._candidates": "scoped", "counter_outcomes42.return_linked_source": "ctx", "defined_activation_x.evaluate": "scoped",
+    "effects._cards": "ctx", "engine.leave_stack": "not lent", "exile_outcomes42.linked_grant": "ctx", "exile_outcomes42.lobelia_packet": "ctx",
+    "exile_permission_sequences.bind_linked": "ctx", "exiled_with.linked_cards": "ctx", "exiled_with.link_key": "ctx", "exiled_with.record": "ctx",
+    "exiled_with.cards": "ctx", "knowledge_pool78.run": "ctx", "linked_aggregates.current_pool": "ctx", "linked_exile_look.refresh": "ctx",
+    "linked_owner_cast77.run": "ctx", "linked_play_grants.grant_pool": "ctx", "mana_esper_profiles.paid_cast": "ctx",
+    "mana_foundry_profiles.linked_packet": "ctx", "mana_linked_profiles.linked_colorless": "ctx", "mana_noted_profiles.actual_exile": "ctx",
+    "mana_noted_profiles.note_payment": "ctx", "mana_noted_profiles.output": "ctx", "name_event_receipts.linked_types": "ctx",
+    "name_event_receipts.execute": "ctx", "name_relation_continuations.execute": "ctx", "name_relation_continuations.event_linked_name": "ctx",
+    "permissions.grants": "scoped", "permissions.grant_play": "ctx", "pile_groups.pile_top_hand": "ctx", "planar_more3._matrix": "not lent",
+    "pooled_casting_authorities71.stamp": "ctx", "recursion.resume_cipher": "not lent", "selectors._same_name_now": "source",
+    "source_qualities.lines": "not lent", "static_conditions.holds": "not lent", "targets._legal_targets": "scoped",
+    "token_copy_continuations.run": "ctx", "token_copy_outcomes.run": "scoped", "token_copy_sources.other_tokens": "ctx",
+    "token_copy_sources.replace_vat_pool": "ctx", "triggers._cond_matches": "source", "triggers.exiled_with_watcher": "source",
+    "triggers.dealt_combat_damage_to_player": "not lent", "values.evaluate": "ctx", "wave110a_restart.restart": "ctx",
+    "wave110b_cards.destroy_created": "ctx", "wave110b_cards._linked": "ctx", "wave110c_koh._pool": "ctx", "wave110c_valki.valki_copy": "ctx",
+    "wave110c_visionary.holds": "source", "wave110d_noted.output": "ctx", "wave110g_cards.shares_with_exiled": "ctx",
+    "wave110g_cards.idol_cast": "ctx", "wave110g_cards.bind_linked": "ctx", "wave110m_cards.ashiok": "ctx", "wave110o_cards.exiled_mv": "ctx",
+    "wave110o_cards.lore_bind": "ctx",
+}
+# the definition markers of the "source" readers (selectors._same_name_now's "samename_exiled_with"; triggers._cond_matches's "played_linked_name";
+# triggers.exiled_with_watcher's "exiled_with110a"; wave110c_visionary.holds's "exiled_with110c"), and of the object-keyed choice records a lent
+# ability can't be scoped to (607.2d, 607.5a: "picked110a" / "pair110a" chosen objects, "chosen_n" / "chosen_cmp" a chosen number)
+SOURCE_KEYED = re.compile(r"samename_exiled_with|played_linked_name|exiled_with110a|exiled_with110c|picked110a|pair110a|chosen_n|chosen_cmp")
+
+
+def source_keyed(d: dict[str, Any] | None) -> bool:
+    """-- lent abilities -- does a lent ability's definition use a record keyed on the borrower itself (``SOURCE_KEYED``)? Then it stays manual."""
+    return d is not None and SOURCE_KEYED.search(json.dumps(d, default=str)) is not None
 
 
 def scope_definition(d: dict[str, Any] | None, ability: AbilityText) -> dict[str, Any] | None:
     scope = link_scope(ability)
-    # -- lent abilities -- 607.5: a lent triggered half is linked only to an exiling half lent by the same effect, like an activated one — never to
-    # the borrower's own exile record (Koh with Fiend Hunter's "return the exiled card", Skyclave Apparition's token)
-    # (a triggered one only when it exiles or reads such a link: its other readers — "copy it" first, … — read its effects as written)
-    if d is None or scope is None or d.get('kind') not in ('activated', 'triggered') or (d['kind'] == 'triggered' and not _LINKS.search(json.dumps(d, default=str))):
+    # -- lent abilities -- 607.5: a lent triggered ability is linked only to an exiling ability lent by the same effect, like an activated one —
+    # never to the borrower's own exile record (Koh with Fiend Hunter's "return the exiled card", Skyclave Apparition's token, Living Lore's "cast
+    # the exiled card": a reader that keys the link inside its handler, ``LINK_READERS``). Every lent one is scoped; its opener is read into the
+    # context before the ability's own first instruction (effects._begin_resolution), so gates that read that instruction see it.
+    if d is None or scope is None or d.get('kind') not in ('activated', 'triggered'):
         return d
 
     def rewrite(value: Any) -> Any:
