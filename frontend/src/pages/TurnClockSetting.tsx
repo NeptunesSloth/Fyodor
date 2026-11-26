@@ -1,3 +1,4 @@
+import { CommitNumber } from "../components/CommitNumber";
 import type { ClockSettings, LobbySettings } from "../types/game";
 
 export const DEFAULT_CLOCK: ClockSettings = { on: false, bank_seconds: 1500, buffer_seconds: 30, at_zero: "act", grace_seconds: 120 };
@@ -6,8 +7,6 @@ export const DEFAULT_CLOCK: ClockSettings = { on: false, bank_seconds: 1500, buf
 export function clockPatch(current: ClockSettings | undefined, change: Partial<ClockSettings>): { clock: ClockSettings } {
   return { clock: { ...DEFAULT_CLOCK, ...current, ...change } };
 }
-
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(n)));
 
 /**
  * -- turn clock -- the lobby's optional turn clock (server-owned, Stage 3): off by default. Self-contained like PlanechaseSetting.
@@ -27,12 +26,12 @@ export function TurnClockSetting({ value, onChange }: { value: ClockSettings | u
       {c.on && (
         <span className="inline">
           <label>Bank{" "}
-            <input type="number" min={1} max={120} value={Math.round(c.bank_seconds / 60)} style={{ width: 56 }} aria-label="Minutes in each player's bank"
-              onChange={(e) => change({ bank_seconds: clamp((Number(e.target.value) || 25) * 60, 60, 7200) })} /> min
+            <CommitNumber min={1} max={120} value={Math.round(c.bank_seconds / 60)} label="Minutes in each player's bank"
+              onCommit={(n) => change({ bank_seconds: n * 60 })} /> min
           </label>{" "}
           <label>Grace{" "}
-            <input type="number" min={5} max={300} value={c.buffer_seconds} style={{ width: 56 }} aria-label="Seconds of grace per decision"
-              onChange={(e) => change({ buffer_seconds: clamp(Number(e.target.value) || 30, 5, 300) })} /> s
+            <CommitNumber min={5} max={300} value={c.buffer_seconds} label="Seconds of grace per decision"
+              onCommit={(n) => change({ buffer_seconds: n })} /> s
           </label>{" "}
           <label>At zero{" "}
             <select value={c.at_zero} onChange={(e) => change({ at_zero: e.target.value as ClockSettings["at_zero"] })}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGame } from "../state/gameStore";
+import type { GameClock } from "../types/game";
 import { formatClock, remainingNow } from "./turnClock";
 
 /** The chip's spoken label: the state in words, never colour alone. */
@@ -29,9 +30,14 @@ export function TurnClockChip({ player }: { player: string }) {
   const clock = useGame((s) => s.view?.game.clock);
   const skew = useGame((s) => s.clockSkew);
   const name = useGame((s) => s.view?.players.find((p) => p.id === player)?.name ?? player);
-  const e = clock?.settings.on ? clock.players?.[player] : undefined;
   const anyRunning = !!clock?.players && Object.values(clock.players).some((x) => x.running && !x.away);
   const now = useTick(anyRunning);
+  return <ClockChipView clock={clock} skew={skew} name={name} player={player} now={now} />;
+}
+
+/** The chip drawn from the clock block, the skew and "now" (pure: the connected chip above feeds it). */
+export function ClockChipView({ clock, skew, name, player, now }: { clock: GameClock | undefined; skew: number | null; name: string; player: string; now: number }) {
+  const e = clock?.settings.on ? clock.players?.[player] : undefined;
   if (!clock || !e) return null;
   const left = remainingNow(e, clock.sent_at, skew ?? 0, now);
   const live = e.running && !e.away;
