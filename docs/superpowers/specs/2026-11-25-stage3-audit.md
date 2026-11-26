@@ -19,6 +19,55 @@ ledger's hashes predate the two rebases onto Stage 2).
 `git diff --stat 6b9dd82..HEAD` → `39 files changed, 3492 insertions(+), 28 deletions(-)`; `git diff -U0 6b9dd82..HEAD -- backend/app`
 adds 934 lines.
 
+## Final fix wave (after the final review and the security pass, on `8986f70`)
+
+The final whole-branch review (`.superpowers/sdd/2026-11-25-internet-play-stage3-turn-clock/final-review-report.md`) and the security
+pass (`security-review-report.md`, same folder) returned "with fixes". Fixed in `3d9d1eb` (C1), `a126d80` (I1 + the security Medium,
+and the review's minors M2, M3, M4, the `seen_revision` 0 window and `disabled={busy}`), and this documentation commit. Everything
+above this section describes `2ead807` as audited; where a statement below no longer holds, it says so in place.
+
+- **C1: the clock no longer aims a required target at the player whose clock ran out.** At `8986f70`, a mandatory "deals 3 damage to
+  any target" trigger answered at zero chose the first offered option, the timed-out player in seat 1, and at Full automation they lost
+  the game. Now (`clock_defaults._target_ranks`, used by `answers`) a choice that offers players (115.1, 601.2c, 603.3d) is tried least
+  drastic first: an object someone else controls, the player's own permanent, an opponent, and the timed-out player last; when every
+  answer names them, `[]` (the table decides). A division (601.2d) that includes them is left to the table. Tests:
+  `test_turn_clock_targets.py` (the review's reproduction at Full with the player at 3 life; Bloodgift Demon against two Leylines of
+  Sanctity → `[]`; Grizzly Bears chosen over an opponent; guards over the dummy's fallback order, only-self and divisions).
+- **I1 + security Medium: one reconnect grace per player per game.** At `8986f70` a vanished player got a fresh 120 s grace on every
+  new decision (I1), and a reconnect wiped the away time and any extension, so drop / reconnect / drop stalled the clock forever (the
+  security pass: 5810 s of stalling spent 5 s of a 65 s clock). Now `TurnClock.grace_left` holds what is left of each player's
+  reconnect grace for the game (`grace_seconds` plus every host extension), spent only while the player is away **and** waited on (and
+  somebody is connected, nothing held, the clock on); reconnecting or a new decision never refills it; once it is spent the buffer then
+  the bank are charged and at zero the clock acts. It is saved with the clock (`dump` / `load`, the crash record; the grace route now
+  persists); a save without it loads with full budgets. The timer's wake at the end of a budget now broadcasts, and the chip freezes
+  on `running` alone (*Paused — reconnecting* while time is left, *Away — clock running* once it is spent). Tests:
+  `test_turn_clock.py::test_drop_reconnect_drop_spends_one_budget_and_the_clock_comes_due` (the security reproduction),
+  `::test_an_absent_players_next_decision_gets_no_fresh_grace` (I1), `::test_a_host_extension_adds_exactly_its_seconds`,
+  `::test_reconnecting_does_not_refill_the_budget`, `::test_the_budget_is_not_spent_while_held_nobody_is_here_or_not_waited_on`,
+  `::test_save_and_load_keep_the_remaining_budget`, `::test_turning_the_clock_off_keeps_the_budget`;
+  `test_turn_clock_driver.py::test_a_vanished_player_gets_one_reconnect_grace_per_game_not_per_decision`;
+  `test_turn_clock_settings.py::test_more_time_to_reconnect_adds_to_the_budget_and_is_saved`;
+  `test_turn_clock_saves.py::test_a_save_then_a_load_keeps_what_is_left_of_each_reconnect_grace`; the frontend's `turnClock.test.ts`
+  and `TurnClockChip.test.ts`.
+- **Minors.** M2: the `CANT` notice is now true whether the player is here or gone (*… so the table waits for them to make it. The
+  host can add time, or remove a player who has left.*). M3: a settings change settles the clock first
+  (`test_turn_clock_settings.py::test_a_settings_change_charges_the_time_before_it`). M4: `buffer` is typed `number | null`. The
+  `seen_revision` 0 window: nothing is sent before a connection's first snapshot (`gameSocket.test.ts`). Host tools' number fields are
+  disabled while a request is out (`CommitNumber` gained `disabled`). M5: remaining risk 5's "stays held" sentence is removed (below).
+
+**Controller rulings recorded in this wave (the owner may overrule):**
+
+- **Targets at zero:** order every answer naming the timed-out player last; if only such answers remain, `[]`; among the rest, prefer a
+  non-player target (a permanent) over an opponent player, so the clock's pick is the least drastic. Sub-order chosen by the
+  implementer, within that ruling: an object someone else controls before the player's own permanent (the review's refinement). The
+  residual: when only players are offered (no permanent), the clock still picks an opponent, and a lethal "any target" or "target
+  player" effect can eliminate that opponent.
+- **Reconnect grace:** a budget per player per game (`grace_seconds` plus every host extension), spent only while away and waited
+  on, never refilled by reconnecting or a new decision.
+- **Gate point 8's `except Exception`** (`clock_defaults.py:246`): **accepted** by the final review (it matches the dummy's own block
+  planner at `dummy.py:137`, is logged with its traceback at error level, catches `Exception` not `BaseException`, and every fallback
+  after it is still judged by the engine; narrowing it would let a planner error end the timer task).
+
 ## Stage gate (Task 8)
 
 Backend tools ran from `backend/` with Fyodor-main's environment (`..\Fyodor-main\backend\.venv\Scripts\`, `PYTHONPATH` set to this
@@ -98,7 +147,8 @@ File and line numbers are as of `2ead807`. Every backend test named is in the fu
    not checked against the game's players and their length is unbounded (at most 12; Tasks 1 and 5 minors).
 7. **Met.** `git diff 6b9dd82..HEAD -- frontend/src | grep -c "^+.*\(innerHTML\|dangerouslySetInnerHTML\|javascript:\)"` → 0. The notices
    carry the seat name (user text) into the log, rendered as React text like every other log line. New log lines: point 3.
-8. **Not met in letter: one new `except Exception`, for the owner to accept or have narrowed.**
+8. **Not met in letter: one new `except Exception`, accepted by the final review** (final fix wave, above; the owner may still have it
+   narrowed).
    `git diff 6b9dd82..HEAD -- backend/app | grep -n "^+.*\(except\|suppress\)"`:
    - **`except Exception:  # noqa: BLE001` in `clock_defaults._required_blocks` (`clock_defaults.py:246`)** (Task 2, `805ca70`): logs
      `log.exception("The turn clock couldn't work out the required blocks")` and returns `[]`. It does **not** re-raise (unlike Stage 2's
@@ -144,11 +194,11 @@ File and line numbers are as of `2ead807`. Every backend test named is in the fu
 
 | # | Focus | Task (commit) | Tests |
 |---|---|---|---|
-| 1 | A phone sleeps mid-decision for 90 s: nothing charged within the grace; on return the same buffer and bank | 3 (`2601e03`, `4e4d1f9`) | `test_turn_clock_driver.py::test_phone_sleeps_within_grace`, `::test_after_grace_the_absent_player_is_acted_for`, `::test_the_task_wakes_at_the_grace_end_and_syncs`, `::test_a_connect_or_drop_during_an_action_charges_nobody`; `test_turn_clock.py::test_held_and_exempt_are_not_charged` |
+| 1 | A phone sleeps mid-decision for 90 s: nothing charged within the grace; on return the same buffer and bank. *Final fix wave:* "within the grace" counts from when the server notices the drop (the socket closing, or up to 90 s of silence: until then the player is charged, review M1), and the grace is one budget per player per game, not one per decision (I1) | 3 (`2601e03`, `4e4d1f9`); `a126d80` | `test_turn_clock_driver.py::test_phone_sleeps_within_grace`, `::test_a_vanished_player_gets_one_reconnect_grace_per_game_not_per_decision`, `::test_after_grace_the_absent_player_is_acted_for`, `::test_the_task_wakes_at_the_grace_end_and_syncs`, `::test_a_connect_or_drop_during_an_action_charges_nobody`; `test_turn_clock.py::test_held_and_exempt_are_not_charged` |
 | 2 | A client clock minutes wrong, or throttled timers: the countdown matches the server, never below 0:00 or above the bank | 7 (`2d519db`, `2ead807`) | `frontend/src/game/turnClock.test.ts` (a clock 600 s ahead, a future `sentAt`, buffer then bank, frozen when not running or away), `frontend/src/state/clockSkew.test.ts` |
 | 3 | Fyodor restarts mid-game: banks come back, downtime not charged, the clock starts again without anyone acting | 5 (`d8b4191`, `78cb060`) | `test_turn_clock_saves.py::test_a_crash_keeps_the_banks_and_charges_nobody_until_a_player_is_back`, `::test_a_host_clock_change_survives_a_crash` |
 | 4 | Illegal clicks or another player's action do not refill the buffer; only a new decision does | 1 (`3b361f3`, `a65f127`) | `test_turn_clock.py::test_same_key_keeps_its_buffer_new_key_refills`, `::test_priority_key_follows_real_priority_changes` |
-| 5 | Every default refused: one log notice, nothing applied, no loop, no concede; the host can still act | 3 (`2601e03`) | `test_turn_clock_driver.py::test_refused_everything_says_so_once` (and `next_event` is `None` afterwards), `::test_never_concedes_or_eliminates`; `test_turn_clock.py::test_read_methods_do_not_change_state_and_give_up_stops_spinning` |
+| 5 | Every default refused: one log notice, nothing applied, no loop, no concede; the host can still act. *Final fix wave:* at `2ead807` "never eliminates" did not hold at Full for a required target (C1: the timed-out player could target themself); it now holds for the timed-out player (an opponent can still be the target when only players are offered: ruling above) | 3 (`2601e03`); `3d9d1eb` | `test_turn_clock_driver.py::test_refused_everything_says_so_once` (and `next_event` is `None` afterwards), `::test_never_concedes_or_eliminates`, `test_turn_clock_targets.py`; `test_turn_clock.py::test_read_methods_do_not_change_state_and_give_up_stops_spinning` |
 
 ### Departures from the plan and spec: the rulings, for the owner
 
@@ -163,7 +213,8 @@ Each was made during execution (ledger) and can be overruled.
   doesn't change). Cost: a player who plays a land and taps mana before passing spends one buffer, not several.
 - **Task 2: decline only where declining is harmless to the player whose clock ran out.** Where the decline or no-pay branch harms
   them (life loss, damage, sacrifice, discard, losing the game) the clock returns `[]` and the table decides. The spec's "never …
-  eliminates" and the anti-goal outrank "decline optional choices" when they conflict. Optional payments are classified by the
+  eliminates" and the anti-goal outrank "decline optional choices" when they conflict. (*Final fix wave:* this reached only the decline
+  sites; the required-choice fallback could still target the timed-out player, C1, now fixed: see the rulings above.) Optional payments are classified by the
   not-paid branch's own effects: harm to the payer → the table; a benefit to someone else only (Smothering Tithe's Treasure) → declined;
   a plain "you may pay … If you do" → declined; anything the module can't place → the table (guard test over every engine
   `optional_payment` definition: 784 cases over 92 definitions, 48 declined, all plain).
@@ -196,7 +247,11 @@ player**. Each line is an action and what you should see; write what you saw bes
 - [ ] Let it run out. At zero the clock passes priority for that player, and the log on both screens says *<name> ran out of time:
       Fyodor acted for them.* Nobody concedes or loses.
 - [ ] Mid-decision, lock the phone (let it sleep) for under 2 minutes, then wake it. Its plate read *Paused — reconnecting* on the
-      other screen meanwhile; on return the bank and grace are what they were: it lost nothing.
+      other screen meanwhile (once the server noticed the drop: that can take up to 90 s if the phone didn't close its connection, and
+      until then it is charged); on return the bank and grace are what they were.
+- [ ] Drop the phone again in a later decision and leave it away: its plate says *Paused — reconnecting* only for what is left of
+      its reconnect grace (one budget for the game, not a new one per decision), then *Away — clock running*, and at zero the clock
+      acts for it.
 - [ ] The host, in **⋯ → Host tools… → Turn clock**, presses **+1:00** for a player: the bank goes up by 1:00 on both screens, and
       the log says *The host added 1:00 to <name>'s clock.*
 - [ ] Set **At zero** to **Only show it** and let a clock run out: it reads 0:00 and nothing happens (no pass, no log line).
@@ -212,9 +267,9 @@ player**. Each line is an action and what you should see; write what you saw bes
 
 Accepted or deferred during execution (ledger), by task:
 
-1. Task 1: `settings` can be changed in place without `validate_assignment` (only validated models are assigned today); a `sync` with
-   the clock off keeps `_away_since` / `_grace_extra`; bank keys are unbounded in length (at most 12); with `rules` `None` the pregame
-   is never charged; an extended grace takes effect from the next sync (the route pokes at once).
+1. Task 1: `settings` can be changed in place without `validate_assignment` (only validated models are assigned today); bank keys are
+   unbounded in length (at most 12); with `rules` `None` the pregame is never charged; an extended grace takes effect from the next
+   sync (the route pokes at once). (*Final fix wave:* a `sync` with the clock off now clears `_away_since`; `_grace_extra` is gone.)
 2. Task 1 ruling: a land play or a mana ability within one priority window does not refill the buffer (above).
 3. Task 2: **more choices wait for the table.** Of the "unless … pay" cards the review swept, 6 are declined and about 68 go to the
    table; a timed-out player's game waits for the table there instead of moving on (the safe direction). Not planned:
@@ -226,30 +281,36 @@ Accepted or deferred during execution (ledger), by task:
 5. Task 3: **the +1 revision invariant.** `mark_acted(pid, room.revision + 1)` relies on only `broadcast` bumping the revision and no
    `await` between the action and `mark_acted` (verified on every path today); reading the revision tick's own broadcast sends would be
    sturdier. A view sent outside a broadcast between the clock's action and tick's broadcast shows revision R (errs safe: refuses a
-   little more). If `perform` raises between `hold` and its `try` (e.g. building `InterimStream`), the clock stays held until the next
-   poke (any broadcast). `tick` waits while an "I have a response" hold is pending (rechecks every 0.5 s).
+   little more). `tick` waits while an "I have a response" hold is pending (rechecks every 0.5 s).
 6. Task 4: 409 (not a LAN table / practice) is answered before 403 (non-host): it reveals only the mode and format, both visible; there
-   is no practice-table 409 test; the grace test reads private `_grace_extra`; **+time** or **grace** with no clock silently creates an
+   is no practice-table 409 test; **+time** or **grace** with no clock silently creates an
    off clock; a lobby PATCH with `clock` replaces the whole `ClockSettings` (the lobby UI always sends the full object, tested).
 7. Task 5: a damaged crash-record clock is ignored by `hub.restore` with a logged warning only; the crash test's downtime assertion is
-   trivially true (the later act at zero is the real evidence) and polls up to 3 s; an extra reconnect grace is in memory only (not in
-   the crash record); bank keys are not checked against the players.
-8. Task 6: **the `seen_revision` 0 window.** `gameSocket` sends `seen_revision: 0` before the first snapshot; safe, but it refuses in a
-   narrow window (better: send nothing while the revision is 0). Mulligan actions are not in `INTENT_TYPES`, so a late mulligan click
+   trivially true (the later act at zero is the real evidence) and polls up to 3 s; bank keys (and now reconnect-budget keys) are not
+   checked against the players. (*Final fix wave:* the reconnect grace left is saved with the clock and in the crash record.)
+8. Task 6: Mulligan actions are not in `INTENT_TYPES`, so a late mulligan click
    isn't refused by `late()` (the engine's own refusals cover it: "You've already kept this hand"). The REST `tableAction` path carries
    no view revision and is unguarded by design. The race test sleeps in `prepare`; the `LATE` text is duplicated in the test.
 9. Task 7: **the jitter step-back.** When the lowest-delay skew sample ages out of its window, the countdown can step back by the jitter
-   difference (under 1 s). **The host field's disabled state:** Host tools' "Grace per decision" `CommitNumber` lost `disabled={busy}`
-   (a second change can be sent while one is out; the server applies them in order). The screenshots and critique are not done (owner's
-   checklist).
+   difference (under 1 s). The screenshots and critique are not done (owner's checklist). (*Final fix wave:* the `seen_revision` 0
+   window and the host fields' `disabled={busy}` are fixed.)
 10. mypy: one more message on `night.py:246` (above): a follow-up.
 11. Dependency upgrades still open from Stage 1: `pip`; `vite`, `source-map-js`, `vitest`, `@vitest/mocker`.
 12. Stage 2's open items are unchanged by this stage (the clock route is not reachable through the invite link).
+13. *Final fix wave:* **a sleeping phone is charged until the server notices.** The reconnect grace starts at `hub.disconnect`; a phone
+    that sleeps without closing its socket is noticed only after `IDLE_CLOSE` (90 s, `games.py`), and is charged its buffer and bank
+    until then (at bank 0 the clock can act for it first). Said in `docs/LAN_PLAY.md`; later, a `visibilitychange` "away" or a shorter
+    idle limit for the waited-on seat (review M1).
+14. *Final fix wave:* **the clock's target can still eliminate an opponent** when a required choice offers only players (no
+    permanent): the least drastic legal answer left is an opponent (ruling above). And a reconnect budget, once spent, is gone for the
+    game unless the host gives more (*Give 2 more minutes to reconnect*); its cap is `grace_seconds` + 3600 s left at a time.
 
 ### Before merging
 
 1. **FULL SUITE: pending controller run.**
 2. **Independent review: pending (controller)** (the security pass and a fresh reviewer).
 3. **Manual check on two devices** and Task 7's screenshots and critique: NOT DONE — owner's to do (checklist above).
-4. The owner rules on gate point 8's `except Exception` in `clock_defaults._required_blocks` (accept, as Stage 2's was, or narrow).
+4. Gate point 8's `except Exception` in `clock_defaults._required_blocks`: accepted by the final review (above); the owner may still
+   have it narrowed. The owner may also overrule the two controller rulings of the final fix wave (targets at zero; the reconnect
+   grace budget).
 5. Merge order: Stage 1, then Stage 2, then this branch. Do not merge until the owner has read this file.

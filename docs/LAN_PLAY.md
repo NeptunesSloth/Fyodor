@@ -220,24 +220,34 @@ grace; a new decision does.
 (`0:24 · 12:31`). Everyone sees whose clock is running and each bank, never what the decision is. The countdown is drawn from the
 server's numbers, so a computer whose own clock is wrong still shows the right time.
 
-**A dropped connection.** A player whose phone sleeps or whose connection drops is not charged for the **reconnect grace**
-(default 2 minutes; the host can give more): their plate says *Paused — reconnecting*, and when they come back the decision has
-the grace and bank it had. After the reconnect grace their clock runs again.
+**A dropped connection.** Each player has one **reconnect grace** for the whole game (default 2 minutes; **Give 2 more
+minutes to reconnect** adds to it). While they are disconnected *and* the table is waiting on them, the server spends that grace
+instead of their clock: their plate says *Paused — reconnecting*, and when they come back the decision has the grace and bank it
+had. Coming back doesn't refill the reconnect grace, and neither does a new decision: once it is spent, a player who is still away
+is charged as usual (their plate says *Away — clock running*), and at zero the clock acts for them. Time while someone else is
+being waited on doesn't spend it. The reconnect grace left is saved with the game.
+
+The server only knows a connection has gone once the socket closes, or after **90 seconds** of silence (a phone that sleeps
+without closing it): until then that player is charged as if they were there.
 
 **At zero.** With **Act for the player**, the decision's grace still runs out first; then Fyodor makes the safest legal choice
 for that player: pass priority, keep the hand, decline a "may" or an optional cost, attack or block with nothing (or only what
-must), take back a spell that was still being cast. The log says *Alice ran out of time: Fyodor acted for them.* **It never
-concedes or eliminates anyone.** Where declining would hurt the player (a "pay or lose life", a sacrifice, a tribute, anything
-that could lose them the game) or the choice is a fact only the table knows (a manual resolution), the clock doesn't choose; the
-log says *Alice ran out of time, but Fyodor can't make this choice for them. The table decides it; the host can add time or turn
-the clock off.* An empty bank stays empty, and each later decision still gets its full grace first. With **Only show it** the
-clock reads 0:00 and nothing happens.
+must), take back a spell that was still being cast. A target it must choose (a "deals 3 damage to any target" trigger) is a
+permanent where one is offered (someone else's before the player's own), else an opponent, and never the player whose clock ran
+out while anything else is legal; when only they are, the clock doesn't choose. The log says *Alice ran out of time: Fyodor acted
+for them.* **It never concedes for anyone, and never chooses a loss for the player who ran out of time.** Where declining would
+hurt the player (a "pay or lose life", a sacrifice, a tribute, anything that could lose them the game) or the choice is a fact
+only the table knows (a manual resolution), the clock doesn't choose; the log says *Alice ran out of time, but Fyodor can't make
+this choice for them, so the table waits for them to make it. The host can add time, or remove a player who has left.* An empty
+bank stays empty, and each later decision still gets its full grace first. With **Only show it** the clock reads 0:00 and
+nothing happens.
 
 A click made just before the clock acted, from a screen that hadn't shown it yet, is refused with *The clock already acted for
 you. Look at the table and try again.* (a concession always goes through).
 
 **Saves and restarts.** The clock is saved with the game. After a restart the banks come back as they were, the time Fyodor was
-down is not charged, and a decision that was waiting starts again with a full grace. Undo never gives time back.
+down is not charged, and a decision that was waiting starts again with a full grace. Undo never gives time back: a decision the
+clock made can be undone, but with an empty bank the player then has only that decision's grace (the host can add time first).
 
 ## Limits you can run into
 
