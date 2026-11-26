@@ -314,6 +314,7 @@ class Services:
         self.autobackups.stop()
         self.art_keeper.stop()
         self.jobs.shutdown()
-        self.hash_pool.shutdown(wait=True, cancel_futures=True)  # (a join still hashing finishes; queued ones are dropped)
+        # (a join still hashing finishes, queued ones are dropped; called from the lifespan, so the loop waits up to one hash, ~0.2 s)
+        self.hash_pool.shutdown(wait=True, cancel_futures=True)
         self.cards.close()
         self.app_db.close()

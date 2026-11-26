@@ -278,24 +278,31 @@ def test_undo_last_removes_only_the_newest_failure() -> None:
     assert len(lim._failures) == 0
 
 
-def _wrong_joins(app: FastAPI, code: str, password: str, *, address: str, n: int,
+def _wrong_joins(app: FastAPI, code: str, password: str, addresses: list[str],
                  during: Callable[[httpx.AsyncClient], Awaitable[Any]] | None = None) -> tuple[list[int], Any]:
-    """``n`` joins from ``address`` started together on the running app (one event loop, the real ASGI app); ``during`` (an async
-    function taking the client) runs once they are under way. The status codes, and what ``during`` returned."""
+    """One join from each of ``addresses``, started together on the running app (one event loop, the real ASGI app); ``during`` (an
+    async function taking a client) runs once they are under way. The status codes, and what ``during`` returned."""
+    def client(address: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=(address, 1)), base_url="http://testserver")
+
     async def scenario() -> tuple[list[int], Any]:
-        transport = httpx.ASGITransport(app=app, client=(address, 1))
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-            joins = [asyncio.ensure_future(c.post("/api/join", json={"code": code, "password": password})) for _ in range(n)]
+        clients = [client(a) for a in addresses]
+        try:
+            joins = [asyncio.ensure_future(c.post("/api/join", json={"code": code, "password": password})) for c in clients]
             seen = None
             if during is not None:
-                seen = await during(c)
+                async with client("203.0.113.250") as other:
+                    seen = await during(other)
             return [r.status_code for r in await asyncio.gather(*joins)], seen
+        finally:
+            for c in clients:
+                await c.aclose()
 
     return asyncio.run(scenario())
 
 
 def test_concurrent_wrong_joins_stop_at_five(app: FastAPI, table: dict[str, Any]) -> None:
-    codes, _ = _wrong_joins(app, table["game"]["code"], "bad", address="203.0.113.1", n=40)
+    codes, _ = _wrong_joins(app, table["game"]["code"], "bad", ["203.0.113.1"] * 40)
     assert sorted(codes) == [403] * 5 + [429] * 35
 
 
@@ -319,8 +326,10 @@ def test_other_routes_answer_while_joins_hash(app: FastAPI, table: dict[str, Any
         r = await c.get("/api/health")
         return r.status_code, time.monotonic() - start
 
-    _, (status, took) = _wrong_joins(app, table["game"]["code"], "bad", address="203.0.113.1", n=40, during=health)
+    # (40 addresses: none is refused by its own limiter, so all 40 joins are hashed — only a pool of their own keeps health fast)
+    codes, (status, took) = _wrong_joins(app, table["game"]["code"], "bad", [f"198.51.100.{i}" for i in range(40)], during=health)
     assert status == 200 and took < 0.3, took
+    assert codes.count(403) + codes.count(429) == 40 and codes.count(429) == 11  # (every join hashed; the room's 30 failures block it)
 
 
 def test_a_right_join_costs_the_address_nothing(app: FastAPI, table: dict[str, Any]) -> None:
