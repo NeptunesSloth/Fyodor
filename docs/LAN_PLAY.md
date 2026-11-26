@@ -195,6 +195,50 @@ stays as it was. The seat's old token stops working at once: the old tab, if it 
 valid here. Join again.* and the player there joins again with the room code if they still want to play. Treat a seat link like
 a key to the seat and don't post it where others read it.
 
+## Turn clock
+
+An optional clock for the whole game, kept by the server. It is **off** unless the host turns it on, so a normal pod night is
+unchanged. It is offered at LAN Commander tables only: never at a Sandbox table, the hot-seat table or a practice table.
+
+**Turning it on.** In the lobby, tick **Turn clock** and set the **Bank** (minutes each player has for the whole game, default
+25), the **Grace** (seconds each decision gets before the bank is touched, default 30) and **At zero** (**Act for the player**,
+the default, or **Only show it**). During the game the host changes it under **⋯ → Host tools… → Turn clock**: On/Off, At zero,
+**Grace per decision**, **Reconnect grace** (minutes, default 2), and for each player **+1:00**, **+5:00** and, while that
+player is disconnected, **Give 2 more minutes to reconnect**. Each change is one line in the log (*The host added 1:00 to
+Alice's clock.*). Only the host's window can change the clock (the invite link cannot reach it); everyone else just sees it. Turning
+the clock off and on again during a game never refills a bank: only **+1:00** / **+5:00** add time. A rematch, or a new game
+from the lobby, starts with full banks; the lobby keeps the last settings.
+
+**Who is charged.** Only the player the table is waiting on: the one holding priority, or the one making a pending choice
+(during mulligans, everyone still deciding, each on their own clock). Nobody is charged while the server works out an action,
+during someone else's choice, while rules automation is paused, or when nobody is connected. The clock runs only with rules
+automation on (Assisted or Full); with automation off the server waits on no one, so the clock never moves. Each decision first
+spends its grace, then the bank. Clicking something the table refuses, or another player acting, does not give you a fresh
+grace; a new decision does.
+
+**On the table.** Each seat plate shows that player's clock, for example `12:31`; while it runs, the grace left comes first
+(`0:24 · 12:31`). Everyone sees whose clock is running and each bank, never what the decision is. The countdown is drawn from the
+server's numbers, so a computer whose own clock is wrong still shows the right time.
+
+**A dropped connection.** A player whose phone sleeps or whose connection drops is not charged for the **reconnect grace**
+(default 2 minutes; the host can give more): their plate says *Paused — reconnecting*, and when they come back the decision has
+the grace and bank it had. After the reconnect grace their clock runs again.
+
+**At zero.** With **Act for the player**, the decision's grace still runs out first; then Fyodor makes the safest legal choice
+for that player: pass priority, keep the hand, decline a "may" or an optional cost, attack or block with nothing (or only what
+must), take back a spell that was still being cast. The log says *Alice ran out of time: Fyodor acted for them.* **It never
+concedes or eliminates anyone.** Where declining would hurt the player (a "pay or lose life", a sacrifice, a tribute, anything
+that could lose them the game) or the choice is a fact only the table knows (a manual resolution), the clock doesn't choose; the
+log says *Alice ran out of time, but Fyodor can't make this choice for them. The table decides it; the host can add time or turn
+the clock off.* An empty bank stays empty, and each later decision still gets its full grace first. With **Only show it** the
+clock reads 0:00 and nothing happens.
+
+A click made just before the clock acted, from a screen that hadn't shown it yet, is refused with *The clock already acted for
+you. Look at the table and try again.* (a concession always goes through).
+
+**Saves and restarts.** The clock is saved with the game. After a restart the banks come back as they were, the time Fyodor was
+down is not charged, and a decision that was waiting starts again with a full grace. Undo never gives time back.
+
 ## Limits you can run into
 
 A normal night doesn't touch these. They slow down someone guessing a table's **password**; they do not hide the room code:
