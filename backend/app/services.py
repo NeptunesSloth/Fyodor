@@ -308,6 +308,7 @@ class Services:
         return out
 
     def close(self) -> None:
+        self.tunnel.stop()  # first: nobody reaches the tables over the internet while they are saved and closed
         for room in list(self.hub.rooms.values()):
             try:
                 self.autosave(room)
