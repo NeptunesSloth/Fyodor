@@ -67,8 +67,9 @@ def test_room_host_token_is_not_host_on_the_tunnel_port(client, tunnel_client) -
         assert first["type"] == "lobby" and first["lobby"]["viewer"] == "p1" and first["lobby"]["is_host"] is False
     assert tunnel_client.get(f"/api/games/{gid}/lobby", headers={"X-Seat-Token": alice}).json()["is_host"] is False
     body = {"seat": "p2"}
-    assert tunnel_client.post(f"/api/games/{gid}/host/seat-link", json=body, headers={"X-Seat-Token": alice}).status_code == 403
-    assert tunnel_client.post(f"/api/games/{gid}/lobby/kick", json=body, headers={"X-Seat-Token": alice}).status_code == 403
+    for path in ("host/seat-link", "lobby/kick"):  # refused by the route's host check, not by the cross-site guard
+        res = tunnel_client.post(f"/api/games/{gid}/{path}", json=body, headers={"X-Seat-Token": alice})
+        assert res.status_code == 403 and res.json()["detail"] == "Only the host can do that"
     assert client.post(f"/api/games/{gid}/host/seat-link", json=body, headers={"X-Seat-Token": alice}).status_code == 200
 
 
