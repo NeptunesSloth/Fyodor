@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Razorgrass Screen",
+    "oracle_text": "Defender (This creature can't attack.)\nThis creature blocks each combat if able.",
+    "mana_cost": "{1}",
+    "type_line": "Artifact Creature — Wall",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Defender"
+    ]
+  }
+]
