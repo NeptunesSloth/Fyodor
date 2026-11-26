@@ -462,3 +462,270 @@ stopped by process id (other Python work on the computer was left alone), and:
 
 (Right after cloudflared stopped the name answered 502 once, then 530: the name is dead.) Only the scratch scripts and logs
 remain, outside the repository.
+
+## Stage gate (Task 16)
+
+Run on 2026-11-25 at `9439005` (Stage 2 head; base `9eb1e71`, the tip of `internet-play-stage1`, plus the two plans in `3b77fbb`).
+Backend tools ran from `backend/` with Fyodor-main's environment (`..\Fyodor-main\backend\.venv\Scripts\`, `PYTHONPATH` set to
+this worktree's `backend`). The base counts came from a temporary `git worktree add --detach <temp> 9eb1e71`, run the same way and
+removed afterwards (`git worktree remove`).
+
+### Gate results
+
+| Check | Command | Stage 2 head `9439005` | Base `9eb1e71` | Verdict |
+|---|---|---|---|---|
+| ruff | `ruff check . --output-format concise` | `Found 10 errors.` | `Found 10 errors.` | **No new error.** The two lists are identical line for line (`diff` of the two outputs is empty): I001 ×5 (`app/game/engine.py:3`, `app/game/handlers/dummy.py:98`, `app/game/views.py:9`, `tests/conftest.py:1`, `tests/test_rules_layer_whole_conditions.py:8`), SIM102 ×3 (`app/rules/costs.py:287`, `random_choice_receipts.py:261`, `taught.py:266`), F841 (`tests/test_rules_round5_additional_costs.py:189`), SIM300 (`tests/test_rules_token_batch_one_pile.py:49`). |
+| mypy | `python -m mypy app tools` | `Found 303 errors in 15 files (checked 1189 source files)` | `Found 303 errors in 15 files (checked 1183 source files)` | **No new error.** The messages are identical once line numbers are removed (`sed -E 's/:[0-9]+: /: /'`, sorted, `diff` empty). The six extra files checked are the new `app/api/share.py` and `app/tunnel/*.py` (five files): none has an error. |
+| Full backend suite | `python -m pytest -n 4 -q` (controller) | **FULL SUITE: pending controller run** | | The controller runs it (one run at a time on this machine, ledger Ruling 4); its result goes on this line. |
+| Frontend typecheck | `npm run typecheck` (`tsc -b --noEmit`) in `frontend/` | exit 0 | | Pass. |
+| Frontend tests | `npm test` in `frontend/` | `Test Files 161 passed (161)`, `Tests 1633 passed (1633)` | | Pass. |
+
+### Security tools
+
+**bandit** (`bandit -r app -q`; also `-f json` for the line check below): 794 findings, **8 High, 27 Medium, 759 Low**, 202,765 lines
+scanned. Stage 1's run found 790 (8 High, 27 Medium, 755 Low): the only change is four Low findings. To find which findings sit on
+lines this stage added, the added lines of `git diff -U0 9eb1e71..HEAD -- backend/app` (1,218 lines) were matched against each
+finding's file and line (a throwaway script in the scratchpad): exactly those four.
+
+| Finding | Where | Answer |
+|---|---|---|
+| B404 import subprocess | `app/tunnel/manager.py:10` | Accepted because the tunnel has to run `cloudflared` as a child process; the only call is the B603 line below. |
+| B404 import subprocess | `app/tunnel/process.py:8` | Accepted: same reason (the module uses `subprocess.Popen` in types and `TimeoutExpired`). |
+| B603 subprocess without shell | `app/tunnel/manager.py:112` | Accepted because the program is the pinned `cloudflared`, its SHA-256 checked (`binary.verify`) just before this call, run without a shell with a fixed argument list (`process.command`: `tunnel --no-autoupdate --config <empty file> --metrics 127.0.0.1:<port> --url http://127.0.0.1:<tunnel port>`) built from integers and Fyodor's own paths; no request text reaches it. Tests: `test_tunnel_process.py::test_command_disables_autoupdate_and_pins_metrics_to_loopback`, `::test_a_program_that_fails_verification_is_not_started`. |
+| B101 assert | `app/tunnel/manager.py:74` | Accepted: `assert self._loop is not None` narrows a type for mypy after `start()` has set it. Under `python -O` it would vanish and a missing loop would raise `AttributeError` instead, which `_start` treats as a failure (state `failed`): never a grant. |
+
+The plan expected the `ctypes` lines of `app/tunnel/process.py` among the findings; bandit 1.9.4 raises none for them. The other
+790 findings are on lines from before this stage and were answered in the Stage 1 audit ("Security tools").
+
+**pip-audit** (`pip-audit`, Fyodor-main's environment): `Found 12 known vulnerabilities in 1 package`: six advisories, each listed
+twice, all in `pip` 25.0.1 (PYSEC-2026-1795 → 25.3, PYSEC-2026-1796 → 26.0, PYSEC-2026-2875 and -2876 → 26.1, PYSEC-2026-196 → 26.1.2,
+PYSEC-2026-3721 → 26.2). `fyodor-backend` itself is skipped (not on PyPI). None is on a line this stage added: Stage 2 adds no Python
+or npm dependency (`git diff 9eb1e71..HEAD -- backend/pyproject.toml frontend/package.json frontend/package-lock.json | wc -l` → 0).
+Accepted because `pip` is the development environment's installer, not part of Fyodor; it is Stage 1's open item (Stage 1 audit, risk
+11), unchanged.
+
+**npm audit** (`npm audit` in `frontend/`): 4 vulnerabilities (2 moderate, 2 high): `vite` 8.3.0–8.3.2 (high; GHSA-698v-4r3x-3vcv,
+GHSA-r825-w8mm-5pxw, GHSA-587h-7wmj-h5pm (launch-editor), GHSA-9jrq-w75r-8gcw, GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg (dev server)),
+`source-map-js` ≤ 1.2.1 (high, GHSA-68fv-2mgg-jv7q), `vitest` and `@vitest/mocker` ≤ 5.0.2 (moderate, GHSA-qxg6-89mg-rqv8,
+GHSA-xp26-3454-mjgp). `npm audit --omit=dev`: `found 0 vulnerabilities`. None is on a line this stage added (no package change).
+Accepted because each is a development or build tool, never shipped; they are Stage 1's open dependency upgrades (risk 11), still
+open. (The `vite` entry lists more advisories than Stage 1 recorded: new advisories against the same installed version.)
+
+### The 13-point review gate
+
+The spec's "Review gate (every stage)" (`docs/superpowers/specs/2026-11-21-internet-play-design.md`). File and line numbers are as
+of `9439005`. Every test named is in the full backend run, which is pending (above).
+
+1. **Met.** No new route trusts a client-supplied seat or game id: the tunnel port reuses `authorize` / `Room.seat_for_token`, and
+   every host decision goes through `room_host` / `is_host_request`, both false on the tunnel port (`deps.py:79`). Tests:
+   `test_tunnel_identity.py::test_host_cookie_is_not_host_on_the_tunnel_port`, `::test_room_host_token_is_not_host_on_the_tunnel_port`;
+   `test_tunnel_routes.py::test_unshared_room_is_no_such_room`, `::test_an_unshared_room_cannot_be_joined_by_its_code_through_the_tunnel`,
+   `::test_the_host_computer_on_the_tunnel_port_is_a_stranger`; `test_share_api.py::test_only_the_host_cookie_shares`; SR1 (`0a0cd16`):
+   `test_host_seat_guard.py` (four tests, see "Stage 2 must" below).
+2. **Met.** The tunnel serves the same per-viewer views; new paths: shared rooms only, codes hidden there, the invite code in no view.
+   Tests: `test_shared_rooms.py::test_views_say_shared_and_never_the_invite_code` (walks a seated view, a spectator view, the lobby view
+   and `GET /api/games`), `::test_discovery_never_advertises_the_invite`;
+   `test_tunnel_routes.py::test_games_list_and_summary_hide_codes_on_the_tunnel_port`, `::test_shared_room_plays`;
+   `test_tunnel_identity.py::test_a_seat_reconnects_from_a_new_address`; dropped spectators:
+   `test_spectator_cap.py::test_33_spectators_leave_32_and_the_first_is_refused`. Accepted and documented (`netguard.py:129-135`): on a
+   shared table a stranger can read its summary (no code), `GET …/result` and `GET /api/macros`; a seated remote player sees the LAN
+   code in their own view (it is accepted only on the LAN port).
+3. **Met.** `git grep -n "[?&]token=\|[?&]seat_token=" -- backend/app frontend/src ':!*.test.*'` → `games.py:1808` (the seat link,
+   token after `#`), `games.py:1989` (a comment: a `?token=` is never credentials) and two comment lines in
+   `frontend/src/services/seatLink.ts`. The legacy switch is gone (`git grep -n -i "legacy_ws_token\|LEGACY_WS" -- backend/app
+   frontend/src` → nothing; `test_socket_auth.py::test_a_token_in_the_query_is_never_credentials`). The invite link is
+   `https://<host>/#/play?code=<invite code>&join=1`: the invite code sits after `#` and it carries no seat or host token
+   (`test_share_api.py::test_share_returns_the_link_with_the_invite_code`). The stage adds two log lines, both constant text
+   (`manager.py`: "The tunnel could not be started", "Handling the internet link going down failed"); cloudflared's output goes to
+   DEVNULL and is never read or logged.
+4. **Met, one note.** The invite code is 10 characters by `secrets.choice` (`hub.py:444`), unique against every room's codes
+   (`test_shared_rooms.py::test_invite_code_is_ten_characters_of_the_alphabet`, `::test_invite_code_avoids_every_room_code`), compared
+   with `hmac.compare_digest` (`hub.py:476`, ASCII-guarded at `:473`; `::test_non_ascii_code_is_the_normal_refusal_on_the_lan_port`,
+   `::test_non_ascii_token_matches_nothing`). The pinned hashes are compared with `hmac.compare_digest` (`binary.py`). Note: the invite
+   code is kept once made (`::test_invite_code_is_kept_once_made`, `test_share_api.py::test_resharing_reuses_the_invite_code`) and a set
+   password cannot be replaced through sharing (409): revocation is **Stop sharing** (the next share has a new hostname) or closing the
+   table (risk 8 below).
+5. **Met.** No secret is configured or defaulted; a shared table must have a password
+   (`test_share_api.py::test_sharing_needs_a_password`, `test_shared_rooms.py::test_set_password_refuses_an_empty_password`).
+6. **Met.** `ShareIn.password`: 8–100 characters (`test_share_api.py::test_a_short_password_is_422`); like the other request bodies
+   (`JoinIn`) it does not forbid extra fields (pydantic ignores them). Header and tool input: `CF-Connecting-IP` is parsed by
+   `cf_client_key`, anything unparseable goes to one shared bucket (`test_tunnel_identity.py::test_cf_client_key`); cloudflared's
+   hostname must fullmatch `[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com`
+   (`test_tunnel_process.py::test_a_hostname_that_is_not_trycloudflare_fails_closed`); the download stops at 150 MB
+   (`test_tunnel_binary.py::test_download_stops_at_the_size_cap`); archive members with a path or a link are refused
+   (`::test_archive_member_with_a_path_is_refused`); bodies on the tunnel port are limited to 256 KB
+   (`test_body_limit.py::test_no_allowance_on_the_tunnel_port`).
+7. **Met.** `git diff 9eb1e71..HEAD -- frontend/src | grep "^+.*\(innerHTML\|dangerouslySetInnerHTML\|javascript:\)"` → nothing; the
+   link is shown in an `<input readOnly value=…>`. New log lines: two, constant text (point 3).
+8. **Met in substance; deviates in letter once.** `git diff 9eb1e71..HEAD -- backend/app | grep -n "^+.*\(except\|suppress\)"`: every
+   added handler refuses, fails or re-raises:
+   - `except Exception as exc:` in `TunnelManager._start` (`manager.py:77`): sets `state = "failed"` and a reason, logs an error that is
+     not `TunnelUnavailable`, then `raise`s. It is the one literal "new `except Exception`" the gate forbids; it swallows nothing.
+     **Flagged for the independent reviewer**; not changed here.
+   - `except BaseException:` twice (`manager.py`, ending a half-started process; `process.py`, closing the job handle): clean up and
+     `raise`.
+   - `contextlib.suppress(RuntimeError)` around `loop.call_soon_threadsafe` (the loop closed in between: nothing left to notify).
+   - The rest are typed: `TunnelUnavailable` → 502 (`share.py`); `HTTPException` → stop an unused tunnel and `raise`; `ValueError` → the
+     shared unknown bucket (`netguard.py`); `OSError` → `verify` is false / `TunnelUnavailable`; `httpx.HTTPError`, `tarfile.TarError` →
+     `TunnelUnavailable`; `subprocess.TimeoutExpired` → kill; `(httpx.HTTPError, ValueError, RecursionError, AttributeError)` → keep
+     polling, then time out (fails closed).
+   Fail-closed routing: the tunnel allowlist is frozen (71 method/route pairs, checked both ways,
+   `test_tunnel_routes.py::test_every_route_is_either_allowed_or_404_on_the_tunnel_port`); a stopped tunnel serves nothing
+   (`::test_tunnel_port_serves_nothing_when_stopped`).
+9. **Met.** No new Python or npm dependency (command in "Security tools" → 0 lines). One downloaded binary: **cloudflared 2026.10.7**
+   (the newest release at least 14 days old on 2026-11-25, section 3.0), pinned in `backend/app/tunnel/pins.py` by version and SHA-256,
+   verified after download and again before every launch (`binary.verify`). The five hashes (`sha256` = the download, `binary_sha256` =
+   the executable):
+   - `cloudflared-windows-amd64.exe` `2493dbc168923bb3e59e5e7716f71deced92992eea9acd6e9d74f84ac7751343` (both)
+   - `cloudflared-linux-amd64` `1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872` (both)
+   - `cloudflared-linux-arm64` `3df43aedc9ff291d1735b5cb576cb97e0b157488796db2e32b28aecabb445775` (both)
+   - `cloudflared-darwin-amd64.tgz` `02f3edfd87684dd5b705607688e4eb4b323f6e777b81e7b3a85af556aa356848`, executable
+     `5c55e77da7012cebca19170357e196176c48c9647cc2ead404702fa125ddbd86`
+   - `cloudflared-darwin-arm64.tgz` `3586ccf397e98e5f437e60e7c307ca6ac463e110580503af8bb8e6f9ebf831bd`, executable
+     `2136431d5eb467bf447d2ee514b713e192719b143aec1d9e09bf7dc290d5bb12`
+   The two independent checks of Task 12 Step 1 (section 3.0a): each asset was downloaded and hashed with `certutil -hashfile`, and the
+   hash compared with (a) the release notes' "SHA256 Checksums:" and (b) GitHub's asset `digest` from the release API; the macOS archives
+   match (b) and their extracted `cloudflared` matches (a). The Task 12 reviewer re-fetched the release API and confirmed every pin.
+   (`git grep -n "2493dbc1\|02f3edfd\|3586ccf3\|1f99fb51\|3df43aed" -- backend/app/tunnel/pins.py` finds each.) Tests:
+   `test_tunnel_binary.py::test_pins_are_well_formed`, `::test_a_wrong_hash_leaves_nothing_and_raises`,
+   `::test_a_replaced_binary_fails_verify`, `::test_archive_whose_member_hash_differs_is_refused`,
+   `test_tunnel_process.py::test_a_program_that_fails_verification_is_not_started`.
+10. **Met, with the RED evidence as the ledger records it.** Each task's report holds its RED/GREEN runs; the weak ones: Task 7's RED was
+    only an ImportError; Task 11's non-ASCII guard test was not seen RED (its re-review showed a 500 without the guard); two of Task 4's
+    tests are regression guards that passed from the start. Negative cases: wrong seat (point 1); replaced or dropped token
+    (`test_spectator_cap.py::test_the_dropped_spectators_socket_closes_4403`, Stage 1's reclaim tests); foreign Origin on the tunnel
+    (`test_tunnel_routes.py::test_no_origin_post_is_refused_on_the_tunnel_port`, `::test_http_origin_is_refused_on_the_tunnel_port`) and
+    for the development origins (`test_origin_guard.py::test_dev_origins_are_refused_by_default`); forged `X-Forwarded-For`
+    (`test_launcher.py::test_a_real_server_ignores_forwarded_for_from_loopback` on a real uvicorn,
+    `test_tunnel_identity.py::test_tunnel_client_address_is_cf_connecting_ip`, the `203.0.113.9:4711` row of `test_client_address.py`);
+    oversized message (`test_body_limit.py::test_no_allowance_on_the_tunnel_port`, `::test_a_stranger_gets_256k_on_lobby_routes`);
+    repeated action id / an action in flight at unshare (`test_share_api.py::test_stop_sharing_closes_only_tunnel_sockets` asserts at
+    most one log entry for its `client_action_id`; `::test_a_rest_action_queued_behind_the_unshare_is_refused`). "Timeout racing an
+    action": not applicable, it belongs to Stage 3's clock.
+11. **Pending (full suite); otherwise met as "no new errors".** ruff 10 = base 10, mypy 303 = base 303 (identical messages); the frontend
+    typecheck and 1633 tests pass; the full backend suite is pending the controller. bandit, pip-audit and npm audit are read and
+    answered above.
+12. **Independent review: pending (controller).** The controller runs the security pass (ledger Ruling 6: an equivalent opus pass, as
+    the `security-review` skill needs a git remote) and one fresh reviewer after this commit.
+13. **Met.**
+    - `git grep -n "\.is_host(" -- backend/app/api` → only `backend/app/api/deps.py:79` (`room_host`).
+    - `git grep -n -i "cf-connecting-ip" -- backend/app` → only `deps.py:85,87` (`client_address`) and `netguard.py:154` (the
+      `cf_client_key` docstring).
+    - `git grep -n "proxy_headers" -- backend/app` → `launcher.py:329` (docstring) and `launcher.py:334` `"proxy_headers": False}`: only
+      `False`.
+    - One limiter class (`AttemptLimiter`, which gained `undo_last`), one Host/Origin guard (`net_guard` + `host_ok`/`origin_ok`, each with
+      a tunnel branch), one body limit (`BodyLimit`, which asks `is_host_request`/`is_tunnel_request`).
+
+### Stage 2 must (Stage 1 audit), plus NB1 and SR1
+
+| # | Item | Task (commit) | Tests |
+|---|---|---|---|
+| 1 | The tunnel port filters what a stranger reads | 9 (`38d4a7c`, `ef34d97`) | `test_tunnel_routes.py::test_games_list_and_summary_hide_codes_on_the_tunnel_port`, `::test_pod_stats_and_assets_list_404_on_the_tunnel_port`, `::test_health_is_trimmed_for_guests`, `::test_unshared_room_is_no_such_room`, `::test_every_route_is_either_allowed_or_404_on_the_tunnel_port`, `::test_the_tunnel_branch_is_what_refuses`. `GET …/result` of a *shared* table stays readable (accepted, gate point 2). |
+| 2 | The tunnel port never passes the LAN gate | 9 (`38d4a7c`) | `test_tunnel_routes.py::test_lan_handoff_routes_404_on_the_tunnel_port` (with `CF-Connecting-IP: 192.168.1.5`) |
+| 3 | Limits keyed by the provider's client address, per /64 | 8 (`b380b0e`), 11 (`4e62f5a`) | `test_tunnel_identity.py::test_tunnel_client_address_is_cf_connecting_ip`, `::test_cf_client_key`, `::test_two_phones_in_one_ipv6_64_share_a_bucket_but_other_64s_do_not`, `::test_lan_port_never_reads_cf_connecting_ip`, `::test_a_seat_reconnects_from_a_new_address`; `test_shared_rooms.py::test_wrong_password_on_the_tunnel_port_counts_against_cf_address`. The socket caps and the asset throttle read the same `client_address`. |
+| 4 | A cap on spectator tokens | 7 (`3520aa4`) | `test_spectator_cap.py`: `test_33_spectators_leave_32_and_the_first_is_refused`, `test_the_dropped_spectators_socket_closes_4403`, `test_a_dropped_spectators_queued_deck_goes_with_them`, `test_restore_keeps_the_newest_32_of_40_in_order_and_round_trips`, `test_the_cap_leaves_seats_alone` |
+| 5 | The `__Host-` cookie | 5 (`e4a4014`) | `test_host_auth.py::test_https_session_sets_the_host_prefixed_cookie`, `::test_either_cookie_name_is_the_host`, `::test_plain_http_keeps_the_plain_name` |
+| 6 | Delete `FYODOR_LEGACY_WS_TOKEN` | 4 (`811ef22`) | `test_socket_auth.py::test_a_token_in_the_query_is_never_credentials` (also with the variable set) |
+| 7 | `connect-src` to the server's own origin | 5 (`e4a4014`) | `test_security_headers.py::test_csp_pins` (no bare `ws:`/`wss:`), `::test_connect_src_names_this_host`, `::test_refused_host_gets_self_only` |
+| 8 | Join hashing off the shared threadpool, counted first | 6 (`df8c531`, `62b022b`) | `test_join_limits.py::test_undo_last_removes_only_the_newest_failure`, `::test_concurrent_wrong_joins_stop_at_five`, `::test_other_routes_answer_while_joins_hash` (40 addresses), `::test_a_right_join_costs_the_address_nothing` |
+| 9 | Development origins only in development | 4 (`811ef22`) | `test_origin_guard.py::test_dev_origins_are_refused_by_default`, `::test_dev_origins_with_dev_tools`, `::test_cors_origins_variable_wins` |
+| 10 | An `X-Forwarded-For` entry with a port | 3 (`1b854db`) | `test_client_address.py:29`, row `(("127.0.0.1",), "127.0.0.1", "203.0.113.9:4711", "127.0.0.1")`; also `test_launcher.py::test_uvicorn_does_not_rewrite_the_client_from_headers`, `::test_a_real_server_ignores_forwarded_for_from_loopback` |
+| NB1 | Large body allowances only for the host or a seat, never through the tunnel | 10 (`c4f0fc5`) | `test_body_limit.py::test_a_guest_gets_256k_on_host_routes`, `::test_the_host_keeps_the_large_allowance`, `::test_a_stranger_gets_256k_on_lobby_routes`, `::test_a_seat_keeps_the_lobby_allowance`, `::test_no_allowance_on_the_tunnel_port`, `::test_the_route_speaks_first_for_streamed_uploads` |
+| SR1 (F1) | The host's own seat can't be removed; a left seat can't be claimed | 2 (`0a0cd16`) | `test_host_seat_guard.py::test_host_cannot_remove_their_own_seat`, `::test_a_left_seat_cannot_be_claimed`, `::test_join_without_a_seat_skips_left_seats`, `::test_the_exploit_from_the_review_fails` |
+
+### Manual check through a real tunnel
+
+**NOT DONE — owner's to do** (ledger Rulings 1, 5, 6). It needs the host computer started from the launcher, a phone on **mobile
+data** (Wi-Fi off), an iPhone, and a second device on the LAN. Each line is an action and what you should see.
+
+- [ ] Start Fyodor from its launcher. Open a LAN lobby; press **Invite** → **Invite over the internet**, type a password (8 or more
+      characters), **Share with this password**. The first time it says *Starting the link… the first time downloads the tunnel
+      program* (the Windows download is about 55 MB; the text says "about 40 MB", see risk 15); then a link
+      `https://<name>.trycloudflare.com/#/play?code=…&join=1` with **Copy link**, *Send the password separately.* and **Stop sharing**.
+      Copy the link.
+- [ ] A phone on mobile data (not on the Wi-Fi) opens the link: it asks for the password, joins, takes a seat, plays a land; the land
+      appears on the host's screen at once.
+- [ ] The top bar on the host and on the phone shows the globe chip *Shared over the internet*. The phone shows no 6-character room code.
+- [ ] The phone sleeps (locked) for a minute, then wakes: the same seat and hand, no *Too many connections*.
+- [ ] Review Focus 1: mid-game the phone switches from Wi-Fi to mobile data: it reconnects to the same seat, with no 429 and no new join.
+- [ ] On the phone, open by hand `https://<name>.trycloudflare.com/api/saves` → 404, `/api/games` → `[]`, `/api/pod/results` → 404.
+- [ ] A LAN player joins by the 6-character room code as always and plays.
+- [ ] Review Focus 3: the host presses **Stop sharing**: the phone's table closes with *The host stopped sharing this table.*; the LAN
+      player plays on; the chip disappears.
+- [ ] The host invites again: a **new** hostname, the **same** invite code (`code=` in the link).
+- [ ] Review Focus 4 (optional): while shared, end `cloudflared-2026.10.7` in Task Manager: the chip goes, the invite panel says *The
+      internet link went down.* and offers **Invite again**.
+- [ ] The host closes Fyodor: the link stops answering (a Cloudflare error page), and Task Manager (or `Get-Process cloudflared*`) shows
+      no `cloudflared-2026.10.7` left. (The program is stored as `<data folder>\tunnel\cloudflared-2026.10.7.exe`.)
+- [ ] Repeat the join on an **iPhone** (Safari, mobile data): the page loads, the table's socket connects (the CSP is
+      `connect-src 'self' ws://<name> wss://<name>`), a land can be played.
+- [ ] Task 15's look (not done by its implementer): screenshots of the lobby's Invite popover and of Host tools → *Invite over the
+      internet* in each state (button, password, starting, link, failed), and of the *Shared over the internet* chip, at 1920×1080 and at a
+      phone width; an `impeccable` critique of them; fix what fits the tabletop direction.
+- [ ] Task 1's open question (HTTP/2): with four tabs or devices opening one 100-card table through the link in real browsers, do card
+      pictures that got a 429 come back (the page retries once after about a second)? Note any picture left broken.
+
+### Remaining risks
+
+Provider (Task 1, section 3):
+
+1. Cloudflare positions quick tunnels "for testing and development" with "no uptime guarantee", and can change or end them without
+   notice (website terms, section 2). The owner accepted this (section 1). If it stops, internet play stops; LAN play is unaffected.
+2. A quick tunnel carries at most 200 in-flight requests; more get a 429 with no `Retry-After` and an empty body. Four tabs × 100
+   pictures got 188–197 429s (3.6). The page retries a picture once (Task 15); how real browsers' HTTP/2 multiplexing meets the cap was
+   not measured (owner's checklist).
+3. Cloudflare sees all traffic through the link (it terminates https). A visitor's `True-Client-IP` passes through unchanged: Fyodor
+   never reads it (only `CF-Connecting-IP`, which Cloudflare refuses from a visitor, 3.4).
+4. A brand-new hostname is not resolvable for a few seconds; a resolver that cached the miss can keep failing a little longer (3.2).
+5. A hard kill of Fyodor on macOS or Linux leaves `cloudflared` running, pointing at a closed port (the link answers an error, nothing
+   is served); on Windows the job object ends it with Fyodor (`test_tunnel_process.py::test_the_child_dies_with_the_job`). Windows on
+   ARM64 runs the amd64 build (Task 12; there is no arm64 Windows asset).
+6. Task 12: verify-then-launch is not atomic: something able to write the user's data folder between the check and `Popen` could swap
+   the program. Extraction of the macOS archive has no size bound of its own (safe: the archive's hash is checked first).
+
+Sharing:
+
+7. Anyone holding the link and the password can join; the host's kick and seat tools are the remedy (spec).
+8. Neither credential of a shared table rotates: the invite code is kept once made and sharing again reuses it; a set password cannot be
+   replaced through sharing (409). The new hostname on every share, **Stop sharing** and closing the table are what end access.
+9. Task 14: closing a shared table (or loading a save over it) at the same instant as a share request can leave the tunnel running with
+   nothing shared (`close_game`/`load_save` check `shared` before `share_lock`); `response_call.early` and an `ALREADY_APPLIED` replay
+   run before the tunnel re-check; `load_save`'s `hub.close` runs without `room.lock` (older); a failing share's stop-if-unused can 502
+   a concurrent second share (fails safe); tests read `asyncio.Lock._waiters`.
+10. Task 13: `TunnelManager.stop()` blocks up to about 5 s (routes call it in an executor); the die-during-start test is
+    timing-dependent; `main.py`'s lifespan ordering (discovery stop before services close) was noted for the final review.
+11. Task 9: on a shared table a stranger without a seat can read its summary (no code), `GET …/result` and `GET /api/macros`; a seated
+    remote player sees the LAN code in their own view (useless off the LAN port); `…/save//` (two slashes) still gets Starlette's 307
+    (nothing exposed); a configured `FYODOR_CORS_ORIGINS` is echoed on tunnel GETs (development only); every new player-facing game
+    route needs a line in the frozen allowlist test (ledger ruling).
+12. Task 8: the undo display fields (`hub.py` ~875) use `viewer == host_seat`, not the connection, so a remote host-seat view may offer
+    an undo the server refuses; `is_tunnel_request` matches the port only (not also `127.0.0.1`); `create_server` resolves a hand-set host
+    name to IPv4 only; the sockets can leak if `create_app`/lifespan fails before start; uvicorn no longer prints its "running on" line.
+13. Task 6: `undo_last` pops the newest failure (the wrong entry only if the reservation expired during a 900 s queue, or after
+    `MAX_KEYS` eviction); the `hash_pool` queue is unbounded; `Services.close()` waits for the pool; a join may seat into a room closed
+    during the hash (older). `/api/health`'s cost and `journal.lock` hold times were noted for the final review.
+14. Task 10: `/api/lan/handoff/missing` still parses up to ~2 MB of JSON per LAN request (LAN only; 404 on the tunnel); the teach
+    import's own 413 text is unreachable; stale comments above `_DECK_TEXT` and in `BodyLimit`; no HTTP test for a spectator's grant or
+    for the host cookie on the tunnel; `is_host_request`/`is_tunnel_request` run on every request.
+15. Task 15: the status poll gives up after 3 misses with no Retry in the page (a remount is needed) and its error is never cleared; a
+    `src` change does not clear a pending picture retry (one extra load); the tunnel flag from `/api/health` is cached for the page's
+    life (a transient failure on a tunnel page shows the LAN code chip); the Show-password icon is `hand`; the "about 40 MB" text
+    understates the 55 MB Windows download (`InternetInvite.tsx:66` and `internetInvite.test.ts:55`; not changed by the gate); the
+    screenshots and critique are not done (owner's checklist).
+16. Tests not written (deferred minors): Task 2 (a non-host `remove_player` of the host seat, the socket path; one test ends on
+    `is_host("")`), Task 3 (`thread.is_alive()` after join), Task 5 (`ws://[::1]` host-source support varies by browser; `'self'`
+    covers it), Task 7 (socket reconnect with a dropped token; a duplicated case; a receive loop that could flake), Task 8 (started-game
+    `HOST_ONLY_ACTIONS` on the tunnel client), Task 12 (HTTP 404/500, connect error, corrupt archive, missing or hard-link member,
+    cross-host redirect). Task 1's audit lacks a "wrapper log: 0 entries" line for the forged-header cases (the 403 at the edge stands).
+17. Dependency upgrades still open from Stage 1 (its risk 11): `pip` in the environment; `vite`, `source-map-js`, `vitest`,
+    `@vitest/mocker` in `frontend/`.
+18. Gate point 8's literal `except Exception` in `TunnelManager._start` (re-raises; flagged for the reviewer).
+19. `docs/SECURITY.md` predates Stage 1 and is now wrong in places ("never needs the Internet during play", the `X-Forwarded-For`
+    paragraph, "10 per minute" join limit); it is not in this task's file list and is left for a docs pass.
+
+### Before merging
+
+1. **FULL SUITE: pending controller run.**
+2. **Independent review: pending (controller)** (the security pass and a fresh reviewer).
+3. **Manual check through a real tunnel:** NOT DONE — owner's to do (checklist above).
+4. Merge order: Stage 1 (`internet-play-stage1`) first, then this branch. Do not merge until the owner has read this file.

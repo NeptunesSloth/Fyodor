@@ -215,7 +215,49 @@ give the table one when not everyone on the network is in your pod.
 
 ## Friends outside your home network
 
-Fyodor has no built-in internet play yet. What should work, with no change to Fyodor, is a **private network** between the
+Two ways: an **invite link** from Fyodor itself (below), or a **private network** between the computers (option A).
+
+### Inviting friends over the internet
+
+For a friend who is not on your network, with nothing for them to install: they need only a browser.
+
+1. **Host:** in the table's lobby press **Invite** → **Invite over the internet** (or, at the table, **⋯ → Host tools → Invite
+   over the internet**). Only a LAN table can be shared, and only from the window the launcher opened.
+2. If the table has no password, type one (8 to 100 characters) and press **Share with this password**: a table shared over the
+   internet always has a password, and from then on LAN players need it too.
+3. Fyodor starts the link. The first time it downloads Cloudflare's tunnel program, `cloudflared` (about 55 MB on Windows, kept in the
+   `tunnel` folder of Fyodor's data folder), checks it against a checksum written into Fyodor, and runs it; a different file is never
+   run. A few seconds later the panel shows the link (`https://<random name>.trycloudflare.com/#/play?code=…`). **Copy link** and send
+   it to your friends, and **send the password separately**.
+4. **Friends** open the link, type the password, and take a seat. The top bar shows **Shared over the internet** (a globe) to everyone
+   at the table while the link is up.
+
+What the link reaches: only the tables you shared, and only what a player at them needs. It never lists your other tables, never
+gives anyone host tools (even from your own computer), and the LAN room code does not work through it (the link carries its own
+10-character invite code). Friends on your LAN keep joining with the room code as always.
+
+**Stop sharing** (same panel) closes the link's players' tables at once (*The host stopped sharing this table.*); LAN players play on.
+Pressing **Invite over the internet** again gives a new address with the same invite code and password. Closing the table ends its
+sharing (and the link, when no other table is shared); closing Fyodor ends the link: an old link stops answering. If the link goes down by itself, the panel says *The internet link went down.*
+and offers **Invite again**.
+
+Things to know:
+
+- **Cloudflare carries the traffic.** The link is a Cloudflare *quick tunnel*: no account and no router change, and Cloudflare sees
+  the traffic (it serves the https). Cloudflare describes quick tunnels as "for testing and development" with "no uptime guarantee": a
+  game night's link can drop or be refused, and Cloudflare can change or end the service. LAN play does not depend on it.
+- A quick tunnel handles at most 200 requests in flight; on a busy table a card picture may load a second late.
+- Anyone with the link **and** the password can join. Kick and seat tools work as for any player; to cut everyone off, press **Stop
+  sharing**.
+- `FYODOR_ALLOW_NETWORK=0` turns it off: nothing is downloaded and the panel says internet features are turned off. A server started
+  without the launcher (for example `uvicorn --factory`) cannot share. With nobody pressing **Invite over the internet**, nothing is
+  downloaded and no tunnel runs; `--local` still allows it (the tunnel only talks to this computer).
+- On macOS and Linux, if Fyodor is killed outright (not closed), `cloudflared` can be left running; it reaches nothing, and you can end
+  it by hand. On Windows it always ends with Fyodor.
+
+### Option A: a private network
+
+What should work, with no change to Fyodor, is a **private network** between the
 friends' computers, such as Tailscale. This project has not tested it yet. Install it on the host's computer and on each friend's, then the friends open
 `http://HOST-PRIVATE-ADDRESS:PORT` (the host's address on that private network, shown in the Tailscale app) as if it were
 the LAN. The game, the room code and the password should work as on a LAN, and nothing is opened to the internet. If the address
@@ -225,7 +267,7 @@ addresses to Fyodor, so a friend joining by one can play but **Join brings your 
 host only takes deck libraries from the local network). A friend can paste a list or pick from *My decks* instead.
 
 **Port-forwarding the host's router to the game port is not recommended.** It puts the table on the open internet,
-reachable by anyone who finds the address, before the protections for that exist; use a private network instead.
+reachable by anyone who finds the address; use an invite link or a private network instead.
 
 ## Settings for this
 
@@ -233,7 +275,10 @@ Environment variables (set them before starting the launcher; the defaults are r
 
 | Variable | What it does |
 |---|---|
-| `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. |
+| `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. This is the only place forwarded headers are read (the web server's own proxy-header handling is off), and an invite link never needs it. |
 | `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's own names (its name, with `.local`, and its full name on the network). None by default; a bad entry stops Fyodor at start. |
-| `FYODOR_CORS_ORIGINS` | Comma-separated origins (`https://host`) besides Fyodor's own that may post and open sockets. None by default. |
-| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). It also trusts the Vite dev server's origins (`http://localhost:5173`, `http://127.0.0.1:5173`) unless `FYODOR_CORS_ORIGINS` is set. |
+| `FYODOR_CORS_ORIGINS` | Comma-separated origins (`https://host`) besides Fyodor's own that may post and open sockets. None by default (before this release the Vite dev server's origins were trusted on every install). Never consulted for an invite link. |
+| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json` and the rules test-scenario tools. Off by default (without it those pages are not there). It also trusts the Vite dev server's origins (`http://localhost:5173`, `http://127.0.0.1:5173`) unless `FYODOR_CORS_ORIGINS` is set; `scripts/dev.sh` sets it. |
+| `FYODOR_ALLOW_NETWORK` | `0` turns off everything that reaches the internet from this computer, the invite link included (and Archidekt import, artwork caching, card updates). On by default. |
+
+`FYODOR_LEGACY_WS_TOKEN` is gone: a seat token in the game socket's address is never accepted, whatever the environment says.

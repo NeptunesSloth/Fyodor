@@ -1,3 +1,30 @@
+## INTERNET-PLAY STAGE 2: AN INVITE LINK THROUGH A CLOUDFLARE QUICK TUNNEL (2026-11-25)
+
+Branch `internet-play-stage2`, built on `internet-play-stage1` (neither merged; merge Stage 1 first; the owner reads `docs/superpowers/specs/2026-11-25-stage2-audit.md` first). Plan `docs/superpowers/plans/2026-11-25-internet-play-stage2-invite-link.md`. The host presses **Invite over the internet** on a LAN table and sends one https link plus the password; nothing changes for a LAN night, and nothing is downloaded or started until someone presses it. Card coverage and the rules engine are unchanged.
+
+**The provider (audit "Provider verification")**
+- Checked on a real quick tunnel before any code: sockets work and survive a 10-minute idle, Cloudflare refuses a forged `CF-Connecting-IP` at its edge, the origin's `Host` is the public name, a `config.yaml` in `.cloudflared` would hijack routing (so Fyodor always passes `--config <empty file>`), four tabs × 100 pictures get 429s past 200 in flight. The owner accepted Cloudflare's "for testing and development" / "no uptime guarantee".
+
+**The tunnel (`backend/app/tunnel/`, `launcher.py`, `api/share.py`)**
+- `cloudflared` 2026.10.7 is downloaded on first use, pinned by version and SHA-256 (all five platforms, checked against the release notes and GitHub's digests), checked again before every launch, run with `--no-autoupdate`, metrics on loopback, as a child that dies with Fyodor on Windows (job object). Its hostname comes from the metrics `/quicktunnel` and must be a `*.trycloudflare.com` name.
+- One uvicorn server, two sockets: the LAN port as before and a loopback tunnel port only cloudflared connects to. uvicorn's own proxy-header handling is off.
+- `GET/POST/DELETE /api/games/{id}/share` (host window only): sharing needs a password, makes a 10-character invite code (kept for re-shares), starts the link; **Stop sharing** closes the remote players' sockets ("The host stopped sharing this table."), and the last unshare, closing a shared table or the link dying stops or reports it.
+
+**What the tunnel port is (`api/deps.py`, `netguard.py`, `main.py`)**
+- Never the host (cookie or room host token), never the LAN gate; client address from `CF-Connecting-IP`, IPv6 per /64; Host must be the invite name and Origin `https://` it; a frozen allowlist of 71 routes (everything else 404); only shared tables, joined by invite code only; `GET /api/games` is `[]`, codes hidden, `/api/health` trimmed to status and version for anyone not the host; request bodies 256 KB.
+
+**Stage 1's "Stage 2 must" and two Stage 1 review findings**
+- The host's own seat can't be removed and a left seat can't be claimed (SR1); large body allowances only for the host or a seat (NB1); spectator tokens capped at 32 per room; `__Host-fyodor_host` over https; `FYODOR_LEGACY_WS_TOKEN` deleted; `connect-src` names this host only; join passwords counted before hashing and hashed on their own pool; the Vite dev origins trusted only with `FYODOR_DEV_TOOLS=1` (`FYODOR_CORS_ORIGINS` defaults to none); an `X-Forwarded-For` entry with a port pinned by a test.
+
+**Frontend**
+- The invite panel in the lobby's Invite popover and in Host tools (password step, link with Copy, Stop sharing, Invite again), a "Shared over the internet" chip with a globe for everyone at a shared table, the LAN code chip hidden on the tunnel, the join asks for the password on the tunnel, and a card picture that got a 429 through the tunnel is retried once.
+
+**The gate (audit "Stage gate")**
+- ruff 10 and mypy 303 errors, the same as the base; frontend typecheck and 1633 tests pass; bandit's 4 findings on new lines (the `subprocess` use and an `assert`) and the open pip/npm development-tool advisories answered; the 13-point gate walked (one literal `except Exception` that re-raises, flagged); every "Stage 2 must" item with its test.
+- Not done, one line each: the full backend run (the controller's, pending); the independent review (pending); the manual check through a real tunnel with a phone on mobile data and an iPhone, and Task 15's screenshots (the owner's, NOT DONE).
+
+**Docs:** `docs/LAN_PLAY.md` "Inviting friends over the internet" (what to press, link plus password, Cloudflare sees the traffic, no uptime guarantee, Stop sharing and closing Fyodor end it, `FYODOR_ALLOW_NETWORK=0` turns it off) and the environment-variable changes; README's `FYODOR_CORS_ORIGINS` default corrected.
+
 ## INTERNET-PLAY STAGE 1: HARDENING BEFORE ANYTHING IS EXPOSED (2026-11-21)
 
 Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/specs/2026-11-21-stage1-audit.md` first). The design is `docs/superpowers/specs/2026-11-21-internet-play-design.md`; this is its Stage 1, the security work that has to exist before the tunnel of Stage 2 does. On a LAN night nothing new is asked of the host or the players. Card coverage and the rules engine are unchanged.
