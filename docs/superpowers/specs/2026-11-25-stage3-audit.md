@@ -29,10 +29,13 @@ above this section describes `2ead807` as audited; where a statement below no lo
 - **C1: the clock no longer aims a required target at the player whose clock ran out.** At `8986f70`, a mandatory "deals 3 damage to
   any target" trigger answered at zero chose the first offered option, the timed-out player in seat 1, and at Full automation they lost
   the game. Now (`clock_defaults._target_ranks`, used by `answers`) a choice that offers players (115.1, 601.2c, 603.3d) is tried least
-  drastic first: an object someone else controls, the player's own permanent, an opponent, and the timed-out player last; when every
-  answer names them, `[]` (the table decides). A division (601.2d) that includes them is left to the table. Tests:
+  drastic first: an object someone else controls, the player's own permanent, an opponent, and the timed-out player last; a "same
+  for all" answer (`all:<target>`, offered when several copies of a trigger wait together) ranks as its target, so `all:<them>` is
+  last too; when every answer names them (by itself or for all), `[]` (the table decides). A division (601.2d) that includes them is left to the table. Tests:
   `test_turn_clock_targets.py` (the review's reproduction at Full with the player at 3 life; Bloodgift Demon against two Leylines of
-  Sanctity → `[]`; Grizzly Bears chosen over an opponent; guards over the dummy's fallback order, only-self and divisions).
+  Sanctity → `[]`; Grizzly Bears chosen over an opponent; guards over the dummy's fallback order, only-self, same-for-all and
+  divisions); `test_rules_playtest_same_target_for_all.py::test_the_turn_clock_never_aims_the_drain_at_the_timed_out_player` (Wrath of
+  God under Blood Artist and Falkenrath Noble, several copies of each trigger waiting: none aimed at the timed-out player).
 - **I1 + security Medium: one reconnect grace per player per game.** At `8986f70` a vanished player got a fresh 120 s grace on every
   new decision (I1), and a reconnect wiped the away time and any extension, so drop / reconnect / drop stalled the clock forever (the
   security pass: 5810 s of stalling spent 5 s of a 65 s clock). Now `TurnClock.grace_left` holds what is left of each player's
@@ -198,7 +201,7 @@ File and line numbers are as of `2ead807`. Every backend test named is in the fu
 | 2 | A client clock minutes wrong, or throttled timers: the countdown matches the server, never below 0:00 or above the bank | 7 (`2d519db`, `2ead807`) | `frontend/src/game/turnClock.test.ts` (a clock 600 s ahead, a future `sentAt`, buffer then bank, frozen when not running or away), `frontend/src/state/clockSkew.test.ts` |
 | 3 | Fyodor restarts mid-game: banks come back, downtime not charged, the clock starts again without anyone acting | 5 (`d8b4191`, `78cb060`) | `test_turn_clock_saves.py::test_a_crash_keeps_the_banks_and_charges_nobody_until_a_player_is_back`, `::test_a_host_clock_change_survives_a_crash` |
 | 4 | Illegal clicks or another player's action do not refill the buffer; only a new decision does | 1 (`3b361f3`, `a65f127`) | `test_turn_clock.py::test_same_key_keeps_its_buffer_new_key_refills`, `::test_priority_key_follows_real_priority_changes` |
-| 5 | Every default refused: one log notice, nothing applied, no loop, no concede; the host can still act. *Final fix wave:* at `2ead807` "never eliminates" did not hold at Full for a required target (C1: the timed-out player could target themself); it now holds for the timed-out player (an opponent can still be the target when only players are offered: ruling above) | 3 (`2601e03`); `3d9d1eb` | `test_turn_clock_driver.py::test_refused_everything_says_so_once` (and `next_event` is `None` afterwards), `::test_never_concedes_or_eliminates`, `test_turn_clock_targets.py`; `test_turn_clock.py::test_read_methods_do_not_change_state_and_give_up_stops_spinning` |
+| 5 | Every default refused: one log notice, nothing applied, no loop, no concede; the host can still act. *Final fix wave:* at `2ead807` "never eliminates" did not hold at Full for a required target (C1: the timed-out player could target themself); it now holds for the timed-out player, "same for all" answers included (an opponent can still be the target when only players are offered: ruling above) | 3 (`2601e03`); `3d9d1eb` | `test_turn_clock_driver.py::test_refused_everything_says_so_once` (and `next_event` is `None` afterwards), `::test_never_concedes_or_eliminates`, `test_turn_clock_targets.py`; `test_turn_clock.py::test_read_methods_do_not_change_state_and_give_up_stops_spinning` |
 
 ### Departures from the plan and spec: the rulings, for the owner
 

@@ -85,6 +85,21 @@ def test_same_target_for_all_asks_once_per_ability(cards):
     check(s)
 
 
+def test_the_turn_clock_never_aims_the_drain_at_the_timed_out_player(cards):
+    # stage 3 turn clock (final fix C1): Alice timed out; the clock answers her target prompts, "same for all" ones included
+    from app.game.clock_defaults import answers
+
+    s = _wrath(cards)
+    life = s.state.players["p1"].life
+    picked = []
+    asked = _play_out(s, lambda d: picked.append(answers(s.state, d.player, s.cards)[0]["option_ids"][0]) or picked[-1])
+    assert "all:p1" in {o.id for o in asked[0].options}  # (several copies waiting: the same-for-all answers were offered)
+    assert picked and not {"p1", "all:p1"} & set(picked)
+    deaths, mine = 4 + GOBLINS + 1, 4 + GOBLINS
+    assert s.state.players["p1"].life == life + 2 * (2 * deaths) + 2 * mine  # (every drain gains, none aimed at herself)
+    check(s)
+
+
 def test_a_plain_answer_still_answers_one_trigger(cards):
     s = _wrath(cards)
     asked = _play_out(s, lambda d: "p2")

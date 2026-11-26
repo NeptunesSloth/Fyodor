@@ -170,6 +170,19 @@ def test_guard_only_self_answers_are_left_to_the_table(cards):
     assert answers(s.state, "p1", s.cards) == []
 
 
+def test_guard_same_for_all_answers_never_name_the_timed_out_player_first(cards):
+    # triggers.SAME_FOR_ALL: several identical triggers waiting together also offer "all:<target>" (one answer for every copy)
+    s = table(cards, [], [], [])
+    s.state.rules.decision = _decision(["p1", "p2", "p3", "all:p1", "all:p2", "all:p3"])
+    s.state.rules.priority = None
+    got = answers(s.state, "p1", s.cards)
+    assert got and not {"p1", "all:p1"} & set(got[0]["option_ids"])
+    named = [i for i, a in enumerate(got) if {"p1", "all:p1"} & set(a.get("option_ids") or [])]
+    assert all(i > j for i in named for j, a in enumerate(got) if j not in named)  # (named last, if at all)
+    s.state.rules.decision = _decision(["p1", "all:p1"])  # only themself, one copy or every copy: the table decides
+    assert answers(s.state, "p1", s.cards) == []
+
+
 def test_guard_a_division_that_includes_the_timed_out_player_is_left_to_the_table(cards):
     s = table(cards, [], [], [])
     d = _decision(["p1", "p2"], kind="divide")

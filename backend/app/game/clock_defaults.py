@@ -121,8 +121,8 @@ def answers(state: GameState, pid: str, info: CardInfo | None) -> list[dict[str,
     out += dummy.answers(tried, state=state, info=info)
     if ranks is not None:
         out.sort(key=lambda a: max((ranks.get(i, 0) for i in a.get("option_ids") or []), default=0))  # (stable)
-        if all(pid in (a.get("option_ids") or []) for a in out):
-            return []  # every answer names the timed-out player: the table decides
+        if all(pid in {_plain(i) for i in a.get("option_ids") or []} for a in out):
+            return []  # every answer names the timed-out player (itself or "same for all"): the table decides
     return _tidy(out)
 
 
@@ -135,17 +135,27 @@ def _target_ranks(d: Decision, state: GameState, pid: str) -> dict[str, int] | N
     """Each option's rank, for a decision offering at least one player (a target or player choice); None for any other (modes, cards,
     trigger order …: as offered). The timed-out player ``pid`` is ranked last, so the clock never aims a required choice at them while
     any other legal answer exists (the anti-goal: a clock that makes a player lose the game); a permanent comes before any player, so
-    its pick is the least drastic (no opponent eliminated by a target the clock chose, where a permanent is offered)."""
-    if d.kind in ("order", "reconcile") or not any(o.id in state.players for o in d.options):
+    its pick is the least drastic (no opponent eliminated by a target the clock chose, where a permanent is offered). A "same for all"
+    option (triggers.SAME_FOR_ALL, "all:<target>") ranks as its target."""
+    if d.kind in ("order", "reconcile") or not any(_plain(o.id) in state.players for o in d.options):
         return None
     out: dict[str, int] = {}
     for o in d.options:
-        if o.id in state.players:
-            out[o.id] = _SELF if o.id == pid else _OPPONENT
+        target = _plain(o.id)
+        if target in state.players:
+            out[o.id] = _SELF if target == pid else _OPPONENT
             continue
-        card = state.cards.get(o.id) or (state.cards.get(o.card_id) if o.card_id else None)
+        card = state.cards.get(target) or (state.cards.get(o.card_id) if o.card_id else None)
         out[o.id] = _OWN_OBJECT if card is not None and card.controller == pid else _OTHERS_OBJECT
     return out
+
+
+def _plain(option_id: str) -> str:
+    """The target an option names: a "same for all" option (triggers.SAME_FOR_ALL: one answer for each identical trigger waiting with
+    it) names it after its prefix."""
+    from app.rules.triggers import SAME_FOR_ALL  # (rules → game: imported late to stay acyclic)
+
+    return option_id.removeprefix(SAME_FOR_ALL)
 
 
 def _decline_harms(d: Decision) -> bool:
