@@ -43,6 +43,7 @@ import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
 import { joinWithPreferredSeat } from "./joinSeat";
+import { isTunnel } from "../services/share";
 import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
@@ -87,6 +88,8 @@ export function PlayPage({ route }: { route: Route }) {
   const [games, setGames] = useState<GameSummary[] | null>(null);
   const [saves, setSaves] = useState<SaveSummary[]>([]);
   const [decks, setDecks] = useState<DeckSummary[]>([]);
+  const [tunnel, setTunnel] = useState<boolean | null>(null); // (reached through the invite link: read once)
+  useEffect(() => { void isTunnel().then(setTunnel); }, []);
 
   const refresh = useCallback(() => {
     listGames().then(setGames, (e) => {
@@ -115,19 +118,19 @@ export function PlayPage({ route }: { route: Route }) {
   const invite = useMemo(() => readInvite(route.query), [route.query]);
   const [askPassword, setAskPassword] = useState(false);
   useEffect(() => {
-    if (!invite || invite.action === "fill" || games === null) return;
+    if (!invite || invite.action === "fill" || games === null || tunnel === null) return;
     const key = `${invite.code}|${invite.action}|${invite.name}|${invite.handoff ?? ""}`;
     if (handledInvites.has(key)) return;
     handledInvites.add(key);
     window.history.replaceState(window.history.state, "", withoutInvite(window.location.hash));
-    const plan = planInvite(invite, games, (id) => !!seatToken(id));
+    const plan = planInvite(invite, games, (id) => !!seatToken(id), tunnel);
     if (plan.kind === "open") navigate(`/game/${plan.gameId}`);
     else if (plan.kind === "password") setAskPassword(true);
     else if (plan.kind === "join") {
       void joinTable({ code: invite.code, name: invite.name || activeProfile().name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
         .catch(toastError);
     }
-  }, [invite, games]);
+  }, [invite, games, tunnel]);
 
   // -- clear the shelf -- close every open table, then delete every save (closing autosaves a table: listed after)
   const clearAll = async () => {

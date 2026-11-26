@@ -7,6 +7,7 @@ import { useGame } from "../state/gameStore";
 import { isVisible, splitZone, type CardPermissions, type UndoPolicy } from "../types/game";
 import { setTableReactions } from "../services/spectate";
 import { send } from "./actions";
+import { InternetInvite } from "./InternetInvite";
 import { UNDO_POLICIES } from "./undoPolicy";
 import { CARD_PERMISSIONS } from "./cardPermissions";
 
@@ -109,6 +110,7 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
         <UndoSetting />
+        {lan && <InternetInvite gameId={gameId} />}
         <PlanechaseHostSetting />
         {lan && <CardPermissionsSetting />}
         {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}

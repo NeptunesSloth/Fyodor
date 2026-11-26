@@ -72,13 +72,17 @@ export function readInvite(query: URLSearchParams): Invite | null {
  * What a join link does once the tables are listed: open a seat this browser already holds at that table, ask for the
  * password the table needs, or join (or watch) at once. A table that isn't listed is tried anyway: the server says why not.
  */
-export function planInvite(invite: Invite, games: GameSummary[], held: (gameId: string) => boolean): InvitePlan {
+export function planInvite(invite: Invite, games: GameSummary[], held: (gameId: string) => boolean, tunnel = false): InvitePlan {
   if (invite.action === "fill") return { kind: "fill" };
   const listed = games.find((g) => g.code === invite.code);
   if (listed && held(listed.id)) return { kind: "open", gameId: listed.id };
+  if (tunnel) return { kind: "password" }; // through the invite link a table always has a password
   if (listed?.has_password) return { kind: "password" };
   return { kind: "join", spectate: invite.action === "watch" };
 }
+
+/** The lobby's Invite popover is the host's whether or not there is a link for the LAN (none under --local): it holds the internet invite too. */
+export const showInvitePopover = (isHost: boolean, _lanLink: string | null): boolean => isHost;
 
 /** The address without the join link's parameters (anything else stays). */
 export function withoutInvite(hash: string): string {

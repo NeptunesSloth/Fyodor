@@ -318,6 +318,8 @@ export interface GameMeta {
   undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
   code: string | null;
+  /** Shared over the internet (an invite link through the tunnel). */
+  shared?: boolean;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
   /** Custom images used at this table (sleeves, playmats), by asset id. */
   assets?: Record<string, AssetRef>;
@@ -738,7 +740,7 @@ export interface LobbyView {
   phase: "lobby";
   /** Room revision when this lobby was built (older ones arriving late are ignored). */
   revision?: number;
-  game: { id: string; mode: "lan"; code: string | null; has_password: boolean };
+  game: { id: string; mode: "lan"; code: string | null; shared?: boolean; has_password: boolean };
   viewer: string;
   is_host: boolean;
   settings: LobbySettings;

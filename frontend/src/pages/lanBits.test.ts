@@ -12,6 +12,7 @@ import {
   orderGames,
   planInvite,
   readInvite,
+  showInvitePopover,
   tableStatus,
   tileActions,
   withoutInvite,
@@ -162,5 +163,23 @@ describe("friends' decks", () => {
     expect(listCount("Commander\n1 Krenko, Mob Boss\nDeck\n12 Mountain\n2x Shock\n")).toBe(15);
     expect(friendFolder("DANA-PC")).toBe("From DANA-PC");
     expect(friendFolder(" ")).toBe("From a friend");
+  });
+});
+
+describe("invites through the tunnel", () => {
+  const q = (s: string) => new URLSearchParams(s);
+  it("always ask for the password unless the table is held", () => {
+    const join = readInvite(q("code=ABC123&join=1"))!;
+    const g = [{ id: "g1", code: "ABC123", has_password: false }] as never;
+    expect(planInvite(join, g, () => false, true)).toEqual({ kind: "password" });
+    expect(planInvite(join, [], () => false, true)).toEqual({ kind: "password" });
+    expect(planInvite(join, g, () => true, true)).toEqual({ kind: "open", gameId: "g1" });
+    expect(planInvite(readInvite(q("code=ABC123"))!, g, () => false, true)).toEqual({ kind: "fill" });
+    expect(planInvite(join, g, () => false, false)).toEqual({ kind: "join", spectate: false });
+  });
+  it("shows the invite popover to the host even without a LAN link", () => {
+    expect(showInvitePopover(true, null)).toBe(true);
+    expect(showInvitePopover(true, "http://192.168.1.2:8000/#/play?code=A")).toBe(true);
+    expect(showInvitePopover(false, "http://192.168.1.2:8000/#/play?code=A")).toBe(false);
   });
 });
