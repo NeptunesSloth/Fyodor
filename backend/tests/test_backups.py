@@ -11,11 +11,13 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.storage.backup import pre_migration_backup
+from tests.conftest import claim_host, guest
 from tests.test_protocol_privacy import P1_DECK
 
 
 def test_backup_and_restore_round_trip(settings, card_db):
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         deck = c.post("/api/decks", json={"text": P1_DECK, "name": "Before"}).json()["id"]
         made = c.post("/api/backups")
         assert made.status_code == 201, made.text
@@ -29,6 +31,7 @@ def test_backup_and_restore_round_trip(settings, card_db):
         staged = c.post(f"/api/backups/{name}/restore")
         assert staged.status_code == 200 and staged.json()["restart_required"] is True
     with TestClient(create_app(settings)) as c:  # the restore is applied at the next start
+        claim_host(c)
         assert c.get(f"/api/decks/{deck}").status_code == 200
         kept = [b.name for b in (settings.data_dir / "backups").iterdir() if b.name.startswith("app-before-restore-")]
         assert kept, "the database from before the restore is kept"
@@ -53,15 +56,13 @@ def test_restore_rejects_anything_unexpected(client):
 
 
 def test_backups_are_host_only(client):
-    res = client.post("/api/backups", headers={"X-Forwarded-For": "192.168.1.20"})
-    assert res.status_code in (201, 403)  # the test client is loopback; a proxied LAN address is refused
-    if res.status_code == 201:
-        # the forwarded header isn't trusted in this setup; at least the endpoint exists and works
-        assert res.json()["name"].startswith("fyodor-backup-")
+    res = client.post("/api/backups", headers=guest())
+    assert res.status_code == 403  # without the host cookie, even from loopback, a guest is refused
 
 
 def test_a_damaged_database_starts_in_recovery_mode(settings, card_db):
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         c.post("/api/decks", json={"text": P1_DECK})
     path = settings.app_db_path
     for suffix in ("-wal", "-shm"):
@@ -70,6 +71,7 @@ def test_a_damaged_database_starts_in_recovery_mode(settings, card_db):
     data[100:4096] = b"\x00\xff" * ((4096 - 100) // 2)  # wreck the first page
     path.write_bytes(bytes(data))
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         health = c.get("/api/health").json()
         assert "recovery" in health and health["recovery"]["moved_to"].startswith("app-damaged-")
         assert c.get("/api/decks").status_code == 200  # a fresh, working database
@@ -94,6 +96,7 @@ def test_backup_carries_the_browsers_my_decks(settings, card_db):
     mine = [{"id": "abc", "name": "Krenko", "body": {"name": "Krenko", "text": "1 Krenko, Mob Boss"}, "commanders": ["Krenko, Mob Boss"],
              "savedAt": 1}]
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         assert c.post("/api/backups", json={"browser_decks": "nope"}).status_code == 422
         made = c.post("/api/backups", json={"browser_decks": mine})
         assert made.status_code == 201, made.text
@@ -104,6 +107,7 @@ def test_backup_carries_the_browsers_my_decks(settings, card_db):
         assert c.post("/api/backups/restore", content=blob).json()["browser_decks"] is True
         assert c.get("/api/backups").json()["restore_pending"] is True
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         assert c.get("/api/backups").json()["restore_pending"] is False
         assert c.get("/api/restored-decks").json()["decks"] == mine
         assert c.delete("/api/restored-decks").status_code == 204
@@ -114,6 +118,7 @@ def test_automatic_backups_carry_the_synced_my_decks(settings, card_db):
     """The host browser mirrors My decks to the server, so a backup made without a browser (automatic) carries them too."""
     mine = [{"id": "x", "name": "Atraxa", "body": {"text": "1 Atraxa, Praetors' Voice"}}]
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         services = c.app.state.services
         before = services.autobackups._changes()
         assert c.put("/api/browser-decks", json={"browser_decks": mine}).status_code == 204
@@ -154,6 +159,7 @@ def test_hand_made_backups_carry_the_decks_card_art(settings, card_db, tmp_path)
 
     krenko, bolt, elves = cid("Krenko, Mob Boss|ddn|13"), cid("Lightning Bolt|clb|187"), cid("Llanowar Elves|dom|168")
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         services = c.app.state.services
         deck = c.post("/api/decks", json={"text": KRENKO_DECK, "name": "Goblins"}).json()
         assert {e["printing_id"] for e in deck["entries"]} >= {krenko, bolt}
@@ -185,10 +191,12 @@ def test_hand_made_backups_carry_the_decks_card_art(settings, card_db, tmp_path)
     # restore onto an offline computer that has no art for Krenko yet, but newer art for Lightning Bolt
     other = _other_settings(tmp_path)
     with TestClient(create_app(other)) as c:
+        claim_host(c)
         newer = _plant(c.app.state.services.images, bolt, JPEG + b"newer")
         staged = c.post("/api/backups/restore", content=blob)
         assert staged.status_code == 200 and staged.json()["art"] == 5
     with TestClient(create_app(other)) as c:
+        claim_host(c)
         images = c.app.state.services.images
         assert c.get(f"/api/decks/{deck['id']}").status_code == 200
         assert images.find(krenko) == images.path_for(krenko) and images.find(krenko).read_bytes() == JPEG

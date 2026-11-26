@@ -7,6 +7,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.conftest import connect_game
+
 ALICE_DECK = """Commander
 1x Atraxa, Praetors' Voice (2x2) 190
 Deck
@@ -193,7 +195,7 @@ def test_decks_are_content_only_and_bounded(lobby):
 
 def test_websocket_receives_lobby_then_game(lobby):
     client, gid, code, alice, bob = lobby
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+    with connect_game(client, gid, bob) as ws:
         first = ws.receive_json()
         assert first["type"] == "lobby" and first["lobby"]["viewer"] == "p2"
         assert ws.receive_json()["type"] == "lobby"  # presence update after connecting

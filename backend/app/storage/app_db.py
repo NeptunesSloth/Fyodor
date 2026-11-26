@@ -182,6 +182,19 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE decks ADD COLUMN shared INTEGER NOT NULL DEFAULT 0;
     """,
+    # 14: -- action ids -- remembered per seat (``actor``). Ids remembered per table are dropped: no seat could ever match them, and a
+    # retry that spans this upgrade is the only thing lost.
+    """
+    DROP TABLE client_actions;
+    CREATE TABLE client_actions (
+        game_id TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        client_action_id TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (game_id, actor, client_action_id)
+    );
+    """,
 ]
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -74,6 +76,18 @@ class DeckCategory(BaseModel):
         return clean_text(v, 40) or "Category"
 
 
+def is_http_url(value: str) -> bool:
+    """An absolute http or https address with a host, and no whitespace or control character anywhere."""
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in value):
+        return False
+    try:
+        parts = urlsplit(value)
+        parts.port  # noqa: B018 - raises ValueError on a malformed port
+    except ValueError:
+        return False
+    return parts.scheme in ("http", "https") and bool(parts.hostname)
+
+
 class DeckSource(BaseModel):
     kind: Literal["archidekt", "text", "file"] = "archidekt"
     id: str | None = Field(default=None, max_length=40)
@@ -81,6 +95,23 @@ class DeckSource(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     updated_at: str | None = Field(default=None, max_length=40)
     imported_at: str | None = Field(default=None, max_length=40)
+
+    @field_validator("url")
+    @classmethod
+    def _http_only(cls, v: str | None) -> str | None:
+        """The deck editor shows this as a link, so it may only be empty or an http(s) address (not javascript:, data:, file: ...)."""
+        if v and not is_http_url(v):
+            raise ValueError("url must be an absolute http or https address")
+        return v
+
+    @classmethod
+    def from_stored(cls, raw: str) -> DeckSource:
+        """A source read back from the database. A deck saved before the url check existed (or restored from an old backup) may hold a
+        url that would now be refused: that url is dropped, so the deck still opens and the rest of its source is kept."""
+        data = json.loads(raw)
+        if isinstance(data, dict) and isinstance(data.get("url"), str) and not is_http_url(data["url"]):
+            data["url"] = None
+        return cls.model_validate(data)
 
 
 class DeckIn(BaseModel):

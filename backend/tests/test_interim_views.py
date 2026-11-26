@@ -25,6 +25,22 @@ def eager(monkeypatch):
     monkeypatch.setattr(hub_mod, "INTERIM_EVERY", 0.0)
     monkeypatch.setattr(hub_mod, "INTERIM_SHARE", 0.0)
     monkeypatch.setattr(kiki, "COPIES", 4)
+    # with no pacing the worker can build the next set before the loop has sent the last, and a newer set replaces a waiting one
+    # ("latest wins"): wait, on the worker, until the loop has sent each set, so every resolution's set goes out
+    watch = InterimStream.watch
+
+    def watch_and_wait_for_the_send(self, plan, resolved):
+        watch(self, plan, resolved)
+        if self.closed:
+            return
+
+        async def sent():
+            if self.task is not None:
+                await self.task
+
+        asyncio.run_coroutine_threadsafe(sent(), self.loop).result(timeout=5)
+
+    monkeypatch.setattr(InterimStream, "watch", watch_and_wait_for_the_send)
 
 
 def _seated(session):
@@ -77,8 +93,7 @@ def test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action(card
 
     for viewer, messages in inbox.items():
         interim = [m for m in messages if m["type"] == "interim"]
-        assert len(interim) >= 3, viewer  # (four sacrifices: a view after each)
-        assert [m["progress"]["resolved"] for m in interim] == sorted(m["progress"]["resolved"] for m in interim)
+        assert [m["progress"]["resolved"] for m in interim] == [1, 2, 3, 4], viewer  # (four sacrifices: a view after each, in order)
         for m in interim:
             assert m["revision"] == revision and m["view"]["game"]["revision"] == revision  # on top of the last update, not a new one
             assert m["view"]["viewer"] == viewer

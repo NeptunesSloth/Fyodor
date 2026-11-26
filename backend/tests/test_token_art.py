@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.cards.importer import build_database
 from app.config import Settings
 from app.main import create_app
+from tests.conftest import claim_host
 from tests.fixtures.cards import GOBLIN, card, fixture_cards
 
 TEXT = "{T}, Sacrifice this token: Add one mana of any color."
@@ -53,6 +54,7 @@ def token_db(settings: Settings) -> Path:
 @pytest.fixture()
 def app_client(settings: Settings, token_db: Path) -> Iterator[TestClient]:
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         yield c
 
 

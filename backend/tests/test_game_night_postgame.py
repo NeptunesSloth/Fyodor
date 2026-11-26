@@ -13,6 +13,7 @@ import pytest
 from app.game.state import GameState
 from app.multiplayer.lobby import LobbySettings
 from app.multiplayer.night import FINAL_BOARD, Night, winner_last
+from tests.conftest import connect_game
 from tests.test_game_night import _finish, seat_of, view
 from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of
 
@@ -77,7 +78,7 @@ def test_the_final_board_refuses_every_change_and_the_vote_still_works(table):
     ]
     for res in refused:
         assert res.status_code == 409 and res.json()["detail"] == FINAL_BOARD, res.text
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+    with connect_game(client, gid, bob) as ws:
         ws.receive_json()
         ws.send_json({"type": "action", "id": 7, "action": {"type": "tap", "card_ids": []}, "client_action_id": "final-board-1"})
         assert ws_until(ws, lambda m: m.get("id") == 7) == {"type": "error", "id": 7, "status": "REJECTED", "message": FINAL_BOARD}
@@ -109,7 +110,7 @@ def test_the_final_board_shows_each_viewer_exactly_what_the_game_did(table):
         return {k: x for k, x in v.items() if k not in ("game", "log")}
 
     before = {who: table_part(view(client, gid, tok)) for who, tok in tokens.items()}
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+    with connect_game(client, gid, bob) as ws:
         ws.receive_json()
         _finish(client, gid, alice, bob, bob)
         pushed = ws_until(ws, lambda m: m.get("type") == "state" and (m["view"]["game"]["night"] or {}).get("result"))["view"]
@@ -205,7 +206,7 @@ def test_the_host_arranges_the_seats_and_the_seat_order_starts_from_seat_one(cli
     assert client.post(arrange, json={"order": order}, headers=h(bob)).status_code == 403  # the host's call
     assert client.post(arrange, json={"order": order[:2]}, headers=h(alice)).status_code == 422
     assert client.post(arrange, json={"order": [order[0]] * 4}, headers=h(alice)).status_code == 422
-    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+    with connect_game(client, gid, bob) as ws:
         ws.receive_json()
         res = client.post(arrange, json={"order": order}, headers=h(alice))
         assert res.status_code == 200, res.text

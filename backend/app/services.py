@@ -33,9 +33,11 @@ from app.decks.repository import DeckRepository
 from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
+from app.hostauth import SECRET_FILE, HostSecret
 from app.jobs import JobManager, ProgressFn
 from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
+from app.netguard import AttemptLimiter, ConnectionCaps
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
 from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
@@ -53,8 +55,8 @@ from app.storage.backup import (
 )
 from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
-from app.storage.taught import TaughtRepository
 from app.storage.saves import SaveRepository
+from app.storage.taught import TaughtRepository
 
 log = logging.getLogger(__name__)
 
@@ -87,7 +89,14 @@ class Services:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         settings.ensure_dirs()
+        self.host_secret = HostSecret(settings.data_dir / SECRET_FILE)  # new on every start; see app/hostauth.py
         self.recovery: RecoveryInfo | None = None
+        self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes and passwords, by client address
+        self.host_limiter_addr = AttemptLimiter(5, 900.0)  # wrong host secrets, by client address (the right one is never refused)
+        self.join_limiter_room = AttemptLimiter(30, 900.0)  # wrong passwords, by room code (a room that exists)
+        self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
+        self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
+        self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)

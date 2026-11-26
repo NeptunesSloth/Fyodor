@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardData } from "../types/cards";
 import type { DeckEntry } from "../types/decks";
-import { artFirst, checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, playedWhen, printingsShown, recordText, savedRows } from "./deckBits";
+import { artFirst, checkSummary, curveStats, deckMatches, deckRecords, groupGlyph, groupTitle, isHttpUrl, playedWhen, printingsShown, recordText, savedRows } from "./deckBits";
 
 const player = (deck_key: string | null, outcome: "win" | "loss" | "draw" | "none") => ({
   seat: "p1", player_id: "x", name: "X", deck_key, deck_name: null, commanders: [], outcome,
@@ -119,5 +119,16 @@ describe("the printing picker's order", () => {
     expect(printingsShown(list, "old", true).map((c) => c.id)).toEqual(["mid", "old"]);
     expect(printingsShown(list, "mid", true).map((c) => c.id)).toEqual(["mid"]);
     expect(printingsShown(list, "mid", false)).toHaveLength(3);
+  });
+});
+
+describe("a deck source's link", () => {
+  it("is a link only for http and https addresses", () => {
+    expect(isHttpUrl("https://archidekt.com/decks/1")).toBe(true);
+    expect(isHttpUrl("http://archidekt.com/decks/1")).toBe(true);
+    expect(isHttpUrl("HTTPS://archidekt.com/decks/1")).toBe(true);
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "file:///etc/passwd", "//evil.example", "archidekt.com", "", " https://x", null, undefined]) {
+      expect(isHttpUrl(bad)).toBe(false);
+    }
   });
 });

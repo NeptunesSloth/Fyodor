@@ -3,6 +3,10 @@
 Fyodor is built for a trusted pod on a home network: no accounts, no matchmaking, no cloud.
 The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in a browser.
 
+The host computer's name works too: its bare name (`http://DESKTOP-42:8000`), with `.local`, and the full name the home
+router gives it (`http://desktop-42.lan:8000`, `.home`, `.localdomain`). Any other name answers *This address is not one
+Fyodor answers to*: use the IP address, or add the name to `FYODOR_EXTRA_HOSTS` ([Settings for this](#settings-for-this)).
+
 ## Setting up a table
 
 1. **Host:** *Host a LAN night* on the launcher (or *Play*): every new game is a LAN night (hot-seat tables are no longer
@@ -168,3 +172,68 @@ Under **⋯ → Host tools…** (host only; hidden from everyone else):
 | Restore lost objects | Brings battlefield objects dragged far off the table back into view. |
 
 Anything deleted by mistake comes back with **Undo**.
+
+### The host's window
+
+Host tools, and anything else only the host may do (opening a table, seat links, kicking), work in **the window the launcher
+opens for you**, and only there. That window carries a secret that Fyodor makes new each time it starts and keeps in the
+browser; no one else has it. A browser pointed at the address by hand (`http://127.0.0.1:8000`, or the host's LAN address),
+even on the host computer, is a guest: it can join and play, and the host tools say *Open Fyodor from its launcher on the host
+computer to use host tools.*
+
+- **To get host tools back** (the window was closed, or you opened a second browser): start Fyodor from its launcher again. It
+  says it is already running and opens a new host window. *Settings → Restart* does the same: it opens a new host window and
+  the old one becomes a guest.
+- A restart makes a new secret, so a host window from before it is a guest afterwards.
+
+### Seat links
+
+**Reclaim / assign seat** (above) gives a link of the form `http://HOST-IP:PORT/#/game/GAME-ID?seat_token=...`. Send it to the
+player (or open it on their device). The token sits after the `#`, so the browser never sends it to the server in an address,
+and Fyodor removes it from the address bar as soon as the page opens. Opening it puts that device in the seat and the hand
+stays as it was. The seat's old token stops working at once: the old tab, if it is still open, shows *Your seat is no longer
+valid here. Join again.* and the player there joins again with the room code if they still want to play. Treat a seat link like
+a key to the seat and don't post it where others read it.
+
+## Limits you can run into
+
+A normal night doesn't touch these. They slow down someone guessing a table's **password**; they do not hide the room code:
+anyone who can open the host's address sees every LAN table's code on the Play page (that is how *Tables in progress* and
+*Games on your network* work). The room code is not a secret. Only a table password keeps a stranger on the network out, so
+give the table one when not everyone on the network is in your pod.
+
+- **Wrong room codes or passwords:** five wrong tries from one device in 15 minutes give *Too many attempts. Try again in a
+  few minutes.* The message says how long to wait; other devices are not affected, and a player who already holds a seat
+  reconnects as usual. A right password still gets in. If a table's password is guessed wrongly many times from many devices,
+  that table also slows down new joins for a while, but not the right password.
+- **Too many connections:** a seat may have four tabs or windows open at once, and one device 24 connections. A fifth tab for the
+  same seat is closed with *Too many connections*: close the tabs you don't need and reload. A phone that went to sleep
+  leaves its old connection behind until Fyodor closes it (below), so a player who wakes it and also opens a new tab may
+  have to wait a minute or so.
+- **A connection that goes quiet** for 90 seconds is closed; the browser reconnects by itself and gets the table back.
+- **Messages** much over 64 KB are refused by the table; normal play never comes near that.
+
+## Friends outside your home network
+
+Fyodor has no built-in internet play yet. What should work, with no change to Fyodor, is a **private network** between the
+friends' computers, such as Tailscale. This project has not tested it yet. Install it on the host's computer and on each friend's, then the friends open
+`http://HOST-PRIVATE-ADDRESS:PORT` (the host's address on that private network, shown in the Tailscale app) as if it were
+the LAN. The game, the room code and the password should work as on a LAN, and nothing is opened to the internet. If the address
+is a name rather than a number, the host lists it in `FYODOR_EXTRA_HOSTS` (below); numeric addresses work as they are.
+One difference from a LAN: Tailscale's IPv4 addresses (`100.64.0.0/10`, such as `100.101.102.103`) are not private-network
+addresses to Fyodor, so a friend joining by one can play but **Join brings your decks** and *Friends' decks* are refused (the
+host only takes deck libraries from the local network). A friend can paste a list or pick from *My decks* instead.
+
+**Port-forwarding the host's router to the game port is not recommended.** It puts the table on the open internet,
+reachable by anyone who finds the address, before the protections for that exist; use a private network instead.
+
+## Settings for this
+
+Environment variables (set them before starting the launcher; the defaults are right for a LAN night):
+
+| Variable | What it does |
+|---|---|
+| `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. |
+| `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's own names (its name, with `.local`, and its full name on the network). None by default; a bad entry stops Fyodor at start. |
+| `FYODOR_LEGACY_WS_TOKEN` | `1` lets an old client put its seat token in the socket's address. Off by default; keep it off, a token in an address can end up in logs and history. |
+| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). |

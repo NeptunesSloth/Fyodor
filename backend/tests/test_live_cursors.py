@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.api.games import WsCursor, _cursor_relay
+from tests.conftest import connect_game
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
 _ids = itertools.count(1000)
@@ -44,7 +45,7 @@ def cursors(msgs: list[dict]) -> list[dict]:
 
 def test_a_cursor_reaches_the_others_but_not_the_sender(table):
     client, gid, _code, host, mike = table
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a, client.websocket_connect(f"/ws/games/{gid}?token={mike}") as b:
+    with connect_game(client, gid, host) as a, connect_game(client, gid, mike) as b:
         drain(a)
         drain(b)
         a.send_json({"type": "cursor", "player": "p2", "x": 512.345, "y": 300})
@@ -73,7 +74,7 @@ def test_a_cursor_names_only_a_card_everyone_can_see(table):
     hand = state.zones["p1:hand"][0]
     library = state.zones["p1:library"][0]
     commander = state.zones["p1:command"][0]
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a, client.websocket_connect(f"/ws/games/{gid}?token={mike}") as b:
+    with connect_game(client, gid, host) as a, connect_game(client, gid, mike) as b:
         drain(a)
         drain(b)
         a.send_json({"type": "cursor", "player": "p1", "x": 10, "y": 20, "card": commander, "cx": 0.25, "cy": -3})
@@ -89,7 +90,7 @@ def test_cursors_are_never_stored_or_logged(table):
     client, gid, _code, host, mike = table
     room = client.app.state.services.hub.get(gid)
     before = (room.session.state.seq, len(room.session.state.log))
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a:
+    with connect_game(client, gid, host) as a:
         drain(a)
         for i in range(10):
             a.send_json({"type": "cursor", "player": "p1", "x": i, "y": i})
@@ -99,7 +100,7 @@ def test_cursors_are_never_stored_or_logged(table):
 
 def test_excess_cursors_are_dropped_without_errors(table):
     client, gid, _code, host, mike = table
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a, client.websocket_connect(f"/ws/games/{gid}?token={mike}") as b:
+    with connect_game(client, gid, host) as a, connect_game(client, gid, mike) as b:
         drain(a)
         drain(b)
         for i in range(60):
@@ -119,7 +120,7 @@ def test_excess_cursors_are_dropped_without_errors(table):
 def test_spectators_see_cursors_but_cannot_send_them(table):
     client, gid, code, host, mike = table
     spectator = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a, client.websocket_connect(f"/ws/games/{gid}?token={spectator}") as s:
+    with connect_game(client, gid, host) as a, connect_game(client, gid, spectator) as s:
         drain(a)
         drain(s)
         s.send_json({"type": "cursor", "player": "p1", "x": 10, "y": 10})
@@ -133,9 +134,9 @@ def test_spectators_see_cursors_but_cannot_send_them(table):
 
 def test_leaving_the_table_takes_the_cursor_away(table):
     client, gid, _code, host, mike = table
-    with client.websocket_connect(f"/ws/games/{gid}?token={mike}") as b:
+    with connect_game(client, gid, mike) as b:
         drain(b)
-        with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a:
+        with connect_game(client, gid, host) as a:
             drain(a)
             a.send_json({"type": "cursor", "player": "p1", "x": 1, "y": 2})
             drain(a)

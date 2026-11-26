@@ -123,7 +123,7 @@ describe("game connection: view deltas", () => {
 
   it("asks for deltas, applies them in order on the last view, and keeps unchanged cards", () => {
     const { ws, states, resyncs } = connect();
-    expect(ws.url).toContain("deltas=1");
+    expect(ws.sent[0]).toMatchObject({ type: "auth", deltas: true }); // asked for in the auth message (the address carries nothing)
     ws.reply({ type: "state", view: view(1), revision: 1, vseq: 1 });
     ws.reply({ type: "delta", revision: 2, base: 1, vseq: 2,
       patch: { sub: { game: { set: { revision: 2, seq: 2 } }, cards: { set: { a: { zone: "bf" } } } } } });

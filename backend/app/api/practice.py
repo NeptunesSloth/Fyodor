@@ -92,7 +92,9 @@ async def open_practice(game_id: str, body: PracticeIn, request: Request, servic
         mine = _practice_of(hub, live, seat)
         if mine and not body.reset:
             practice = mine[0]
-            return {"game_id": practice.id, "token": hub.reissue_seat(practice, "p1"), "resumed": True}
+            token = hub.reissue_seat(practice, "p1")
+            await hub.close_seat_connections(practice, "p1", "This practice table was opened somewhere else")
+            return {"game_id": practice.id, "token": token, "resumed": True}
         for old in mine:
             await _put_away(hub, old)
         player = state.players[seat]

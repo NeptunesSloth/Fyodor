@@ -16,6 +16,7 @@ from app.cards.importer import build_database
 from app.rules import coverage, taught
 from app.rules.taught import TeachError
 from app.storage.taught import TaughtRepository
+from tests.conftest import guest
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import on_top
@@ -386,9 +387,9 @@ def test_teach_api_library_export_import_and_games(client):
 def test_teach_api_refuses_bad_entries_and_remote_hosts(client):
     bad = client.post("/api/teach", json={"entry": {**DIVE, "abilities": [{"hat": {"id": "etb"}, "body": [{"id": "nope"}]}]}})
     assert bad.status_code == 422 and "unknown piece" in bad.json()["detail"]
-    remote = client.post("/api/teach", json={"entry": DIVE}, headers={"x-forwarded-for": "192.168.50.20"})
+    remote = client.post("/api/teach", json={"entry": DIVE}, headers=guest())
     assert remote.status_code == 403
-    assert client.get("/api/teach", headers={"x-forwarded-for": "192.168.50.20"}).status_code == 200  # (reading is fine)
+    assert client.get("/api/teach", headers=guest()).status_code == 200  # (reading is fine)
 
 
 def test_teaching_an_action_through_the_api(client):

@@ -57,7 +57,7 @@ def test_first_run_downloads_the_cards_and_lets_the_pod_join(tmp_path, monkeypat
     import tools.update_cards
 
     monkeypatch.setattr(tools.update_cards, "main", lambda argv: calls.append(argv) or 0)
-    monkeypatch.setattr(launcher, "serve", lambda settings: served.update(host=settings.host))
+    monkeypatch.setattr(launcher, "serve", lambda settings, browser=False: served.update(host=settings.host))
     assert launcher.main(["--port", "0", "--no-browser"]) == 0
     assert calls and calls[0][:2] == ["--images", "none"]  # missing card database: fetched once
     assert served["host"] == "0.0.0.0"  # LAN by default
@@ -170,7 +170,7 @@ def test_restart_from_settings_starts_the_server_again_in_the_same_program(tmp_p
         return False
 
     assert up(1)
-    req = urllib.request.Request(f"{url}/api/restart", data=b"{}", method="POST", headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(f"{url}/api/restart", data=b"{}", method="POST", headers={"Content-Type": "application/json", "Cookie": f"fyodor_host={made[0].state.services.host_secret.value}"})  # (as the host)
     with urllib.request.urlopen(req, timeout=5) as r:
         assert r.status == 202 and json.loads(r.read())["restarting"] is True
     assert up(2)  # a new server, from a new app, on the same port
@@ -214,3 +214,69 @@ def test_fyodors_own_window_runs_without_the_network_service_sandbox(tmp_path, m
     own, chrome = ([a for a in args if a.startswith("--disable-features=")] for args in started)
     assert own == ["--disable-features=Translate,MediaRouter,NetworkServiceSandbox"]
     assert chrome == ["--disable-features=Translate,MediaRouter"]  # an installed browser keeps its sandbox
+
+
+def test_reopening_a_running_table_carries_the_host_secret_from_its_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("FYODOR_DATA_DIR", str(tmp_path / "d"))
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "host.secret").write_text("s3cret-value")
+    monkeypatch.setattr(launcher, "_running_fyodor", lambda url: True)
+    opened: list[str] = []
+    monkeypatch.setattr(launcher, "open_table", lambda url, settings: opened.append(url))
+    assert launcher.main(["--local"]) == 0
+    assert opened == ["http://127.0.0.1:8000/#host=s3cret-value"]
+    assert "s3cret-value" not in capsys.readouterr().out  # never printed
+
+
+def test_every_start_opens_the_window_with_that_starts_secret(tmp_path, monkeypatch):
+    """A first start and the in-app restart each open a window holding the secret of the server just made."""
+    import threading
+    import time
+
+    import app.main
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_PORT": str(port), "FYODOR_AUTO_BACKUP_MINUTES": "0"})
+    made: list = []
+    real = app.main.create_app
+    monkeypatch.setattr(app.main, "create_app", lambda st: made.append(real(st)) or made[-1])
+    opened: list[str] = []
+    monkeypatch.setattr(launcher, "open_table", lambda url, settings, watch=False: opened.append(url))
+    threading.Thread(target=launcher.serve, args=(settings, True), daemon=True).start()
+
+    def wait(cond) -> None:
+        for _ in range(150):
+            if cond():
+                return
+            time.sleep(0.1)
+        raise AssertionError("timed out")
+
+    wait(lambda: len(opened) == 1)
+    made[0].state.request_restart()
+    wait(lambda: len(opened) == 2)
+    secrets_made = [m.state.services.host_secret.value for m in made]
+    assert opened == [f"http://127.0.0.1:{port}/#host={v}" for v in secrets_made] and secrets_made[0] != secrets_made[1]
+
+
+def test_a_slow_window_note_never_prints_the_host_secret(tmp_path, install_dir, monkeypatch, capsys):
+    (install_dir / "browser").mkdir()
+    (install_dir / "browser" / "chrome.exe").write_bytes(b"")
+    monkeypatch.setattr(launcher, "installed_browsers", lambda: [])
+    monkeypatch.setattr(launcher, "_launch", lambda name, exe, url, settings: object())
+    monkeypatch.setattr(launcher, "WINDOW_WAIT", 0.05)
+    launcher.PAGE_SEEN.clear()
+    url = launcher.host_url("http://127.0.0.1:8000", "s3cret-value")
+    launcher.open_table(url, load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d")}), watch=True)
+    out = capsys.readouterr().out
+    assert "hasn't appeared" in out and "http://127.0.0.1:8000" in out and "s3cret-value" not in out
+
+
+def test_the_server_is_built_with_a_frame_limit_just_above_the_message_limit(tmp_path):
+    """uvicorn would buffer a 16 MiB frame before the app's 64 KiB check ran; the transport limit is the message limit in bytes (worst case) plus a margin."""
+    from app.api.games import MAX_WS_MESSAGE
+
+    options = launcher.server_options(load_settings({"FYODOR_DATA_DIR": str(tmp_path), "FYODOR_PORT": "8765"}))
+    assert MAX_WS_MESSAGE * 4 <= options["ws_max_size"] <= MAX_WS_MESSAGE * 4 + 4096  # (a message's characters may be 4 bytes each)
+    assert (options["port"], options["log_level"]) == (8765, "info")

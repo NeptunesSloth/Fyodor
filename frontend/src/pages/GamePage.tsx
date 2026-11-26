@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { GameScreen } from "../game/GameScreen";
 import { PracticeBar } from "../game/PracticeBar";
-import { rememberSeat, seatToken } from "../services/games";
+import { seatToken } from "../services/games";
+import { adoptSeatLink } from "../services/seatLink";
 import { useGame } from "../state/gameStore";
 import { LobbyScreen } from "./LobbyScreen";
 
@@ -24,19 +25,4 @@ export function GamePage({ id, viewer }: { id: string; viewer: string | null }) 
       <PracticeBar id={id} />
     </>
   );
-}
-
-/**
- * A seat link from the host (Host tools → Seat link) carries `?seat_token=`: remember it as this
- * browser's seat and drop it from the address bar so it isn't left in history.
- */
-function adoptSeatLink(id: string): void {
-  const [path, query = ""] = window.location.hash.split("?");
-  const params = new URLSearchParams(query);
-  const token = params.get("seat_token");
-  if (!token) return;
-  rememberSeat(id, token);
-  params.delete("seat_token");
-  const rest = params.toString();
-  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${path}${rest ? `?${rest}` : ""}`);
 }

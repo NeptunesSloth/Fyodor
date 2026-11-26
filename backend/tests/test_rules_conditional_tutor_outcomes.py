@@ -11,6 +11,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
+from tests.conftest import claim_host, connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -605,6 +606,7 @@ def test_revealed_found_destination_rest_ws_hide_other_library_cards(cards, sett
     found = choose_named(s, "Grizzly Bears")
     other = next(o.id for o in s.state.rules.decision.options if o.id != found)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         deck_id = client.post(
             "/api/decks", json={"text": "Commander\n1 Krenko, Mob Boss\nDeck\n20 Forest"}
         ).json()["id"]
@@ -627,7 +629,7 @@ def test_revealed_found_destination_rest_ws_hide_other_library_cards(cards, sett
             for token in [bob, spec]:
                 response = client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": token})
                 assert response.status_code == 200
-                with client.websocket_connect(f"/ws/games/{gid}?token={token}") as ws:
+                with connect_game(client, gid, token) as ws:
                     frame = ws.receive_json()
                 for raw in [response.text, json.dumps(frame)]:
                     assert (found in raw) == (stage == 1)

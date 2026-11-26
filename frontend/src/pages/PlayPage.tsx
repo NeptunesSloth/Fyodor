@@ -19,6 +19,7 @@ import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
+import { HOST_ONLY_NOTE } from "../services/hostSession";
 import {
   addBot,
   closeGame,
@@ -41,6 +42,7 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
+import { joinWithPreferredSeat } from "./joinSeat";
 import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
@@ -62,11 +64,22 @@ const handledInvites = new Set<string>();
 /** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. */
 async function joinTable(body: { code: string; name?: string; password?: string; spectate: boolean; handoff?: string | null }): Promise<void> {
   const preferred = usePrefs.getState().preferredSeat;
-  const res = preferred && !body.spectate
-    ? await joinGame({ ...body, seat: preferred }).catch(() => joinGame(body))
-    : await joinGame(body);
+  const res = await joinWithPreferredSeat((b) => joinGame(b), body, preferred);
   rememberSeat(res.game_id, res.token);
   navigate(`/game/${res.game_id}`);
+}
+
+/** What a browser without the host cookie sees where the new table would be: a player's device, or the host computer opened by
+ *  hand (http://127.0.0.1:8000), which needs the launcher's window for the host tools. */
+export function GuestDoor() {
+  return (
+    <section className="pg-remote" aria-labelledby="pg-remote-title">
+      <Icon name="table" size={30} />
+      <h1 id="pg-remote-title">You're connected to a host</h1>
+      <p>Games are created on the host computer. Join one with its room code: ask the host for it, or find it among the open tables.</p>
+      <p>{HOST_ONLY_NOTE}</p>
+    </section>
+  );
 }
 
 export function PlayPage({ route }: { route: Route }) {
@@ -143,13 +156,7 @@ export function PlayPage({ route }: { route: Route }) {
       <div className="pg-grid">
         <div className="pg-main">
           {host !== false && <NewGame decks={decks} preselect={route.query.get("deck")} />}
-          {host === false && (
-            <section className="pg-remote" aria-labelledby="pg-remote-title">
-              <Icon name="table" size={30} />
-              <h1 id="pg-remote-title">You're connected to a host</h1>
-              <p>Games are created on the host computer. Join one with its room code: ask the host for it, or find it among the open tables.</p>
-            </section>
-          )}
+          {host === false && <GuestDoor />}
         </div>
         <aside className="pg-side">
           <JoinGame key={invite ? `${invite.code} ${invite.action}` : "door"} invite={invite} askPassword={askPassword} />

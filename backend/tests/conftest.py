@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import contextlib
+import functools
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -47,6 +50,32 @@ def _fresh_printed_cache() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _testserver_is_a_known_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    # the test client's Host is "testserver", a name the Host guard (app/netguard.py) refuses unless told (FYODOR_EXTRA_HOSTS). Every
+    # test builds its settings through ``load_settings``, so tell it there, below the environment a test passes (which may say otherwise).
+    from app import config
+
+    real = config._load_dotenv
+    monkeypatch.setattr(config, "_load_dotenv", lambda path: {"FYODOR_EXTRA_HOSTS": "testserver", **real(path)})
+
+
+@pytest.fixture(autouse=True)
+def _sockets_send_the_page_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    # a browser always sends an Origin when it opens a socket, and the server refuses a socket without an allowed one (app/netguard.py):
+    # the test client sends the page's own unless the test names another. ``TestClient.websocket_connect.__wrapped__`` sends none.
+    real = TestClient.websocket_connect
+
+    @functools.wraps(real)
+    def connect(self: TestClient, url: str, subprotocols: Any = None, **kwargs: Any) -> Any:
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not any(k.lower() == "origin" for k in headers):
+            headers["Origin"] = "http://testserver"
+        return real(self, url, subprotocols, headers=headers, **kwargs)
+
+    monkeypatch.setattr(TestClient, "websocket_connect", connect)
+
+
+@pytest.fixture(autouse=True)
 def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
     # -- keep deck art -- saving a deck downloads its art while online (app/cards/art_keeper.py); never in the tests unless one
     # turns it on for its own server (``services.art_keeper.downloads = True``)
@@ -84,14 +113,38 @@ def cards(settings: Settings, card_db: Path) -> Iterator[CardRepository]:
     repo.close()
 
 
+def claim_host(c: TestClient) -> TestClient:
+    """Make ``c`` the host's browser, the way the page does: post the server's secret to /api/host/session for the cookie."""
+    secret = c.app.state.services.host_secret.value  # type: ignore[attr-defined]
+    assert c.post("/api/host/session", json={"secret": secret}).status_code == 204
+    return c
+
+
+def guest(client: TestClient | None = None) -> dict[str, str]:
+    """Headers for a request from someone who is not the host: the same client, but the host cookie is left out. Pass them as
+    ``headers=guest(client)``. (A second ``TestClient`` on the same app starts with no cookies and is a guest as well.)"""
+    return {"Cookie": ""}
+
+
+@contextlib.contextmanager
+def connect_game(client: TestClient, game_id: str, token: str | None = None, *, viewer: str | None = None, deltas: bool = False,
+                 **kwargs: Any) -> Iterator[Any]:
+    """Open the game socket the way the page does: no token in the URL, an ``auth`` message first. ``kwargs`` go to ``websocket_connect``
+    (headers). A refused seat is closed by the server (4403) after the auth message, so it shows at the first receive."""
+    with client.websocket_connect(f"/ws/games/{game_id}", **kwargs) as ws:
+        ws.send_json({"type": "auth", "token": token, "viewer": viewer, "deltas": deltas})
+        yield ws
+
+
 @pytest.fixture()
 def bare_client(settings: Settings) -> Iterator[TestClient]:
-    """Client with no card database imported."""
+    """Client with no card database imported. It is the host."""
     with TestClient(create_app(settings)) as c:
-        yield c
+        yield claim_host(c)
 
 
 @pytest.fixture()
 def client(settings: Settings, card_db: Path) -> Iterator[TestClient]:
+    """The host's browser (it carries the host cookie); ``guest()`` gives the headers of anyone else."""
     with TestClient(create_app(settings)) as c:
-        yield c
+        yield claim_host(c)

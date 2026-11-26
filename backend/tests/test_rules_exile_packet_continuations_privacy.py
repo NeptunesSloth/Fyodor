@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from tests import test_rules_exile_packet_continuations_staged as gameplay
+from tests.conftest import connect_game
 from tests.game_helpers import act
 from tests.test_rules_designations import put
 from tests.test_rules_library_look import settle
@@ -53,7 +54,7 @@ def test_actual_private_exile_rest_and_websocket_look_authority(cards, settings,
             assert 'card_id' not in payload['cards'][cid]
             assert 'Doran, the Siege Tower' not in json.dumps(payload)
             assert s.state.cards[cid].card_id not in json.dumps(payload)
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame = ws.receive_json()
                 assert frame['type'] == 'state'
                 assert 'name' not in frame['view']['cards'][cid]

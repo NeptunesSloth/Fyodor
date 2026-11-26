@@ -7,6 +7,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.conftest import claim_host, connect_game
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
 
@@ -45,6 +46,7 @@ def crash(client):
 
 def test_a_crash_loses_nothing_and_players_keep_their_seats(settings, card_db):
     first = TestClient(create_app(settings))  # no context manager: no lifespan, so no final autosave
+    claim_host(first)
     gid, code, host, mike = lan_table(first)
     for payload in ({"type": "draw", "count": 7}, {"type": "life", "player": "p1", "delta": -3}, {"type": "shuffle"}):
         assert act(first, gid, host, payload).status_code == 200
@@ -58,6 +60,7 @@ def test_a_crash_loses_nothing_and_players_keep_their_seats(settings, card_db):
     crash(first)
 
     with TestClient(create_app(settings)) as second:
+        claim_host(second)
         # the same seat tokens still work: each player sees exactly their own table again
         after_host = second.get(f"/api/games/{gid}/view", headers=h(host)).json()
         after_mike = second.get(f"/api/games/{gid}/view", headers=h(mike)).json()
@@ -79,24 +82,29 @@ def test_a_crash_loses_nothing_and_players_keep_their_seats(settings, card_db):
 
 def test_closed_tables_are_not_brought_back(settings, card_db):
     first = TestClient(create_app(settings))
+    claim_host(first)
     gid, _, host, _ = lan_table(first)
     assert first.delete(f"/api/games/{gid}").status_code in (200, 204)
     crash(first)
     with TestClient(create_app(settings)) as second:
+        claim_host(second)
         assert second.get(f"/api/games/{gid}/view", headers=h(host)).status_code in (403, 404)
 
 
 def test_a_graceful_restart_also_restores_the_table(settings, card_db):
     with TestClient(create_app(settings)) as first:
+        claim_host(first)
         gid, _, host, _ = lan_table(first)
         act(first, gid, host, {"type": "draw", "count": 2})
     with TestClient(create_app(settings)) as second:
+        claim_host(second)
         view = second.get(f"/api/games/{gid}/view", headers=h(host)).json()
         assert len(view["zones"]["p1:hand"]) == 2
 
 
 def test_a_retried_action_is_applied_once(settings, card_db):
     first = TestClient(create_app(settings))
+    claim_host(first)
     gid, _, host, _ = lan_table(first)
     one = act(first, gid, host, {"type": "life", "player": "p1", "delta": -1}, cid="c-0001-life")
     two = act(first, gid, host, {"type": "life", "player": "p1", "delta": -1}, cid="c-0001-life")
@@ -110,6 +118,7 @@ def test_a_retried_action_is_applied_once(settings, card_db):
     crash(first)
     # ids survive a crash: a client retrying after the restart still gets ALREADY_APPLIED
     with TestClient(create_app(settings)) as second:
+        claim_host(second)
         res = act(second, gid, host, {"type": "life", "player": "p1", "delta": -1}, cid="c-0001-life")
         assert res.json()["status"] == "ALREADY_APPLIED"
         assert next(p["life"] for p in res.json()["players"] if p["id"] == "p1") == 39
@@ -123,7 +132,7 @@ def test_client_action_ids_are_validated(client):
 
 def test_websocket_retries_are_idempotent(client):
     gid, _, host, _ = lan_table(client)
-    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as ws:
+    with connect_game(client, gid, host) as ws:
         ws.receive_json()
         msg = {"type": "action", "id": 1, "client_action_id": "ws-action-0001", "action": {"type": "draw", "count": 1}}
         def ack(i):
@@ -144,11 +153,13 @@ def test_websocket_retries_are_idempotent(client):
 def test_a_same_decks_rematch_still_works_after_a_crash(settings, card_db):
     """-- restart rematch -- the crash record keeps every seat's deck, so "Rematch — same decks" isn't refused after a restart."""
     first = TestClient(create_app(settings))
+    claim_host(first)
     gid, code, host, mike = lan_table(first)
     assert act(first, gid, host, {"type": "draw", "count": 1}).status_code == 200
     crash(first)
 
     with TestClient(create_app(settings)) as second:
+        claim_host(second)
         night = second.get(f"/api/games/{gid}/view", headers=h(host)).json()["game"]["night"]
         assert night["rematch_missing"] == []
         assert "Counterspell" not in json.dumps(night)  # (only seat names are public, never a card)
@@ -166,6 +177,7 @@ def test_a_rematch_the_table_cant_start_is_refused_before_the_vote_counts(settin
     """-- restart rematch -- a record without the decks (saved before they were kept): the view says so, and a rematch vote is
     refused without being stored (it used to be kept and shown as "Deciding…")."""
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         gid, code, host, mike = lan_table(client)
         client.app.state.services.hub.get(gid).night.setups = {}
         assert client.post(f"/api/games/{gid}/night/propose", json={"result_type": "draw"}, headers=h(host)).status_code == 200

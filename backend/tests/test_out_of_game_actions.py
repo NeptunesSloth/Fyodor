@@ -13,6 +13,7 @@ from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
+from tests.conftest import connect_game, guest
 from tests.game_helpers import act, enable, find
 
 
@@ -157,7 +158,7 @@ def test_over_the_api_a_conceded_seat_gets_a_clear_refusal_and_can_still_chat(cl
         res = post(action)
         assert res.status_code == 409 and res.json()["detail"].startswith("You're out of this game (you conceded)"), res.text
     assert post({"type": "chat", "text": "watching now"}).status_code == 200
-    with client.websocket_connect(f"/ws/games/{gid}?token={carol}") as ws:
+    with connect_game(client, gid, carol) as ws:
         ws.receive_json()  # the view
         ws.send_json({"type": "action", "id": 1, "action": {"type": "next_turn"}})
         msg = ws.receive_json()
@@ -233,7 +234,7 @@ def test_over_the_api_an_out_seat_cannot_undo_and_the_host_can(client):
     })
     assert game.status_code == 201, game.text
     gid, code, host = game.json()["game"]["id"], game.json()["game"]["code"], game.json()["seat"]["token"]
-    remote = {"X-Forwarded-For": "192.168.1.50"}
+    remote = guest()
     client.post("/api/join", json={"code": code}, headers=remote)
     carol = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
     post = lambda path, body, token: client.post(f"/api/games/{gid}/{path}", json=body, headers={**h(token), **remote})  # noqa: E731
@@ -241,7 +242,7 @@ def test_over_the_api_an_out_seat_cannot_undo_and_the_host_can(client):
     for path, body in (("undo", {}), ("redo", {}), ("undo-request", {"op": "request"})):
         res = post(path, body, carol)
         assert res.status_code == 409 and res.json()["detail"] == "You're out of this game (you conceded): you can watch and chat, but not move the game.", (path, res.text)
-    with client.websocket_connect(f"/ws/games/{gid}?token={carol}", headers=remote) as ws:
+    with connect_game(client, gid, carol, headers=remote) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "undo", "id": 1})
         while (msg := ws.receive_json())["type"] == "state":

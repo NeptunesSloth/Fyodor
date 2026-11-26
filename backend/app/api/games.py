@@ -32,8 +32,17 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from starlette.websockets import WebSocketDisconnected
 
-from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
+from app.api.deps import (
+    client_address,
+    get_services,
+    host_ok,
+    is_local_request,
+    origin_ok,
+    require_local,
+    too_many_attempts,
+)
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.cards.repository import CardDatabaseUnavailable
@@ -54,7 +63,14 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarC
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art, response_call
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, bot_token, undo_voters
+from app.multiplayer.hub import (
+    RECONNECT_GRACE,
+    Connection,
+    Room,
+    bot_token,
+    spend_password_check,
+    undo_voters,
+)
 from app.multiplayer.lobby import (
     CardPermissions,
     DeckTooLarge,
@@ -158,9 +174,9 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
     if action.get("type") == "remove_player":
         pid = str(action.get("player"))
         if pid in room.seats:
-            await services.hub.drop_connections(room, pid, code=4403, reason="You left the table")
-            room.seats[pid].token = None
+            room.seats[pid].token = None  # (first: a socket that reconnects in the meantime no longer has a seat)
             services.hub.persist(room)
+            await services.hub.close_seat_connections(room, pid, "You left the table")
 
 
 def _check_table_open(room: Room, action_type: str | None = None) -> None:
@@ -429,8 +445,7 @@ async def post_action(
     cid = body.client_action_id
     response_call.early(services.hub, room, actor, body.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
-        if cid is not None and cid in room.client_actions:
-            previous = room.client_actions[cid]
+        if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
         _check_table_open(room, body.action.get("type"))
         try:
@@ -438,14 +453,14 @@ async def post_action(
             await services.hub.perform(room, actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
         except ValidationError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {_validation_message(exc)}")
             raise HTTPException(422, _validation_message(exc)) from exc
         except ActionError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {exc}")
             raise HTTPException(409, str(exc)) from exc
         if cid is not None:
-            services.hub.remember_action(room, cid, "ACCEPTED")
+            services.hub.remember_action(room, actor, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
     return {**await _broadcast_view(services, room, viewer), "status": "ACCEPTED"}
@@ -543,31 +558,22 @@ async def close_game(game_id: str, request: Request, services: ServicesDep) -> R
     return Response(status_code=204)
 
 
-def client_ip(request: Request) -> str:
-    host = request.client.host if request.client else "?"
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and _peer_is_loopback(host, None):
-        return forwarded.split(",")[0].strip()
-    return host
-
-
-def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in failures.get(ip, []) if now - t < 60]
-    failures[ip] = recent
-    if len(recent) >= 10:
-        raise HTTPException(429, "Too many failed join attempts; wait a minute")
-
-
 @router.post("/join")
 def join_game(body: JoinIn, request: Request, services: ServicesDep,
               x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
-    ip = client_ip(request)
-    failures = services.hub.join_failures
-    _throttle_join(failures, ip)
+    ip = client_address(request)
+    by_address, by_room = services.join_limiter_addr, services.join_limiter_room
+    if by_address.blocked(ip):  # (before the room is looked up or anything hashed)
+        raise too_many_attempts(by_address.retry_after(ip))
     room = services.hub.by_code(body.code)
-    if room is None or not room.check_password(body.password):
-        failures.setdefault(ip, []).append(time.monotonic())
+    if room is None or not room.check_password(body.password, lambda: services.hub.persist(room)):
+        by_address.fail(ip)
+        if room is None:
+            spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)
+        else:
+            by_room.fail(room.code)
+            if by_room.blocked(room.code):  # (only a wrong guess meets this: a right password is never refused for it)
+                raise too_many_attempts(by_room.retry_after(room.code))
         raise HTTPException(403, "Unknown room code or wrong password")
     name = clean_text(body.name or "", 40) or None
     try:
@@ -1144,6 +1150,7 @@ async def leave_lobby(
         raise HTTPException(409, "The host can't leave their own table (close the game instead)")
     services.handoffs.drop_seat(room.id, x_seat_token)  # -- bring my decks --
     services.hub.release_seat(room, viewer)
+    await services.hub.close_seat_connections(room, viewer, "You left the table")
     await _lobby_changed(services, room)
     return Response(status_code=204)
 
@@ -1193,10 +1200,9 @@ async def kick_player(
     if body.seat == room.host_seat:
         raise HTTPException(409, "You can't kick yourself")
     await services.hub.send_to(room, body.seat, {"type": "kicked"})
-    for conn in [c for c in room.connections.values() if c.viewer == body.seat]:
-        conn.viewer, conn.actor = SPECTATOR, None
     services.handoffs.drop_seat(room.id, room.seats[body.seat].token)  # -- bring my decks --
     services.hub.release_seat(room, body.seat)
+    await services.hub.close_seat_connections(room, body.seat, "The host removed you from this table")
     room.seats[body.seat].connections = 0
     await _lobby_changed(services, room)
     return _lobby_response(room, viewer, host)
@@ -1762,8 +1768,8 @@ async def host_seat_link(game_id: str, body: SeatRef, request: Request, services
         raise HTTPException(409, "That player has left the table")
     if room.seats[body.seat].bot:
         raise HTTPException(409, "A bot plays that seat")  # -- LAN bots -- (its token is the server's)
-    await services.hub.drop_connections(room, body.seat, code=4403, reason="The host gave this seat to someone else")
-    token = services.hub.reissue_seat(room, body.seat)
+    token = services.hub.reissue_seat(room, body.seat)  # (first: the old token fails a new connection before the old sockets are gone)
+    await services.hub.close_seat_connections(room, body.seat, "The host gave this seat to someone else")
     await services.hub.broadcast(room)
     return {"seat": body.seat, "token": token, "path": f"/#/game/{room.id}?seat_token={token}"}
 
@@ -1814,6 +1820,16 @@ class WsCursor(BaseModel):
 
 
 CURSOR_MESSAGE: TypeAdapter[WsCursor] = TypeAdapter(WsCursor)
+
+
+def _is_pong(raw: str) -> bool:
+    """The client's answer to a server ping: exactly {"type":"pong"} (always tiny, so told apart before the action limiter)."""
+    if len(raw) > 32 or '"pong"' not in raw:
+        return False
+    try:
+        return json.loads(raw) == {"type": "pong"}
+    except ValueError:
+        return False
 
 
 def _cursor_message(raw: str) -> WsCursor | None:
@@ -1868,20 +1884,93 @@ class _RateLimiter:
         return True
 
 
+AUTH_DEADLINE = 5.0  # seconds a new socket has to send its auth message
+TOO_MANY = "Too many connections"  # close 4429: this seat or this address has as many sockets open as it may
+PING_EVERY = 25.0  # seconds between the server's {"type":"ping"} (a client answers with {"type":"pong"}; the page's own ping counts too)
+IDLE_CLOSE = 90.0  # seconds without any message from the client before its socket is closed 4408 (a phone that went to sleep)
+AUTH_REFUSED = "Not authorized"  # the one reason every failed authentication closes with
+MAX_AUTH_FIELD = 256
+
+
+async def _refuse_socket(websocket: WebSocket) -> None:
+    await websocket.close(code=4403, reason=AUTH_REFUSED)
+
+
+def _legacy_credentials(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
+    """FYODOR_LEGACY_WS_TOKEN=1 only: a client that still puts its seat token in the query string (the token is then in URLs and logs)."""
+    params = websocket.query_params
+    if "token" not in params:
+        return None
+    return params.get("token"), params.get("viewer"), params.get("deltas") == "1"
+
+
+async def _read_auth(websocket: WebSocket) -> tuple[str | None, str | None, bool] | None:
+    """The first message of a socket: ``{"type":"auth","token":str|null,"viewer":str|null,"deltas":bool}``. Returns (token, viewer,
+    deltas), or None after closing the socket (anything else, or nothing within AUTH_DEADLINE). Never logs what it was sent."""
+    try:
+        message = await asyncio.wait_for(websocket.receive(), AUTH_DEADLINE)
+    except TimeoutError:
+        await _refuse_socket(websocket)
+        return None
+    raw = message.get("text")
+    if message["type"] == "websocket.disconnect":
+        return None
+    parsed: Any = None
+    if isinstance(raw, str) and len(raw) <= MAX_WS_MESSAGE:
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, RecursionError):  # (deeply nested JSON raises RecursionError, not ValueError)
+            parsed = None
+    if not isinstance(parsed, dict) or parsed.get("type") != "auth":
+        await _refuse_socket(websocket)
+        return None
+    token, viewer, deltas = parsed.get("token"), parsed.get("viewer"), parsed.get("deltas", False)
+    if (not all(v is None or (isinstance(v, str) and len(v) <= MAX_AUTH_FIELD) for v in (token, viewer))
+            or not isinstance(deltas, bool)):
+        await _refuse_socket(websocket)
+        return None
+    return token, viewer, deltas
+
+
 async def game_socket(websocket: WebSocket, game_id: str) -> None:
     services: Services = websocket.app.state.services
-    room = services.hub.get(game_id)
-    if room is None:
-        await websocket.close(code=4404, reason="Game not found")
+    # before anything else, and before accept(): the Host (DNS rebinding), then the Origin (another site's page opening this socket)
+    if not host_ok(websocket):
+        await websocket.close(code=4400, reason="Unknown host")
         return
-    params = websocket.query_params
+    if not origin_ok(websocket):
+        await websocket.close(code=4403, reason="Cross-site connection refused")
+        return
+    # one slot per socket from here to the end, authenticated or not (a flood of silent sockets is bounded in number as well as in time);
+    # taken before accept(), so a refused upgrade costs nothing, and given back in this finally on every way out
+    address = client_address(websocket)
+    if not services.caps_addr.acquire(address):
+        await websocket.close(code=4429, reason=TOO_MANY)
+        return
     try:
-        viewer, actor = authorize(room, local=is_local_request(websocket), token=params.get("token"),
-                                  viewer=params.get("viewer"), as_player=None)
-    except HTTPException as exc:
-        await websocket.close(code=4403, reason=str(exc.detail))
-        return
+        await _serve_game_socket(websocket, game_id, services)
+    finally:
+        services.caps_addr.release(address)
+
+
+async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Services) -> None:
     await websocket.accept()
+    # nothing is attached to the room, and nothing is sent, until the first message has proved a seat (or the host's table view);
+    # every way of failing closes the same way, so the close tells a prober nothing about which check it failed or whether the game exists
+    credentials = _legacy_credentials(websocket) if services.settings.legacy_ws_token else None
+    if credentials is None:
+        credentials = await _read_auth(websocket)
+        if credentials is None:
+            return
+    token, requested_viewer, deltas = credentials
+    room = services.hub.get(game_id)
+    try:
+        if room is None:
+            raise HTTPException(404, "Game not found")
+        viewer, actor = authorize(room, local=is_local_request(websocket), token=token, viewer=requested_viewer, as_player=None)
+    except HTTPException:
+        await _refuse_socket(websocket)
+        return
 
     async def send(message: dict[str, Any]) -> None:
         await websocket.send_text(json.dumps(message, separators=(",", ":")))
@@ -1889,18 +1978,44 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     async def close(code: int, reason: str) -> None:
         await websocket.close(code=code, reason=reason)
 
-    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close,
-                      deltas=params.get("deltas") == "1")  # -- view deltas -- (app/multiplayer/view_delta.py)
-    services.hub.connect(room, conn)
+    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(token), close=close, token=token,
+                      deltas=deltas)  # -- view deltas -- (app/multiplayer/view_delta.py)
     limiter = _RateLimiter()
     cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
+    pong_limiter = _RateLimiter(rate=0.5, burst=10.0)  # a healthy client answers one ping in 25 s
     cursor_shown = False
+    # a seat's sockets are capped (a hot-seat table is one browser, one seat per view: only the address cap there); this is the key that
+    # was acquired, whatever seat the connection is later moved to, and the finally below gives it back
+    seat_key = f"{game_id}:{viewer}" if viewer in room.seats and room.mode != "local" else None
+    if seat_key is not None and not services.caps_seat.acquire(seat_key):
+        await websocket.close(code=4429, reason=TOO_MANY)
+        return
     try:
+        services.hub.connect(room, conn)
         await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
         await send(services.hub.full(conn, services.hub.message(room, viewer, host=conn.host)))
         await services.hub.broadcast(room)  # others see the connection indicator
+        last_heard = next_ping = time.monotonic()
+        next_ping += PING_EVERY
         while True:
-            raw = await websocket.receive_text()
+            # the server pings every PING_EVERY, and a client heard from at all (any message) within IDLE_CLOSE is alive; there is no
+            # timer task: the wait for the next message is what times out
+            now = time.monotonic()
+            if now - last_heard >= IDLE_CLOSE:
+                await close(4408, "Idle")
+                break
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), max(0.0, min(next_ping, last_heard + IDLE_CLOSE) - now))
+            except TimeoutError:
+                if time.monotonic() >= next_ping:
+                    next_ping = time.monotonic() + PING_EVERY
+                    await send({"type": "ping"})  # (nothing but the word: no game state, no revision)
+                continue
+            last_heard = time.monotonic()
+            if _is_pong(raw):  # the answer to the server's ping: activity, nothing more; a flood of them is slowed like any other message
+                if not pong_limiter.allow():
+                    await send({"type": "error", "message": "Slow down"})
+                continue
             if len(raw) > MAX_WS_MESSAGE:
                 await send({"type": "error", "message": "Message too large"})
                 continue
@@ -1915,9 +2030,12 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
                 await send({"type": "error", "message": "Slow down"})
                 continue
             await _handle_ws_message(services, room, conn, raw, send)
-    except WebSocketDisconnect:
+            last_heard = time.monotonic()
+    except (WebSocketDisconnect, WebSocketDisconnected):  # (the peer went, or another task closed this socket and a send came after)
         pass
     finally:
+        if seat_key is not None:
+            services.caps_seat.release(seat_key)
         services.hub.disconnect(room, conn)
         if services.hub.get(game_id) is room:
             if cursor_shown and conn.actor is not None:  # -- live cursors -- they left the table: their pointer goes too
@@ -1995,8 +2113,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
     if isinstance(msg, WsAction):
         response_call.early(services.hub, room, actor, msg.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
-        if cid is not None and cid in room.client_actions:
-            previous = room.client_actions[cid]
+        if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             if previous.startswith("REJECTED"):
                 await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})
             else:
@@ -2014,16 +2131,16 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
                 room.session.redo(actor, host=room.mode == "local" or conn.host)
         except ValidationError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {_validation_message(exc)}")
             await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": _validation_message(exc)})
             return
         except ActionError as exc:
             if cid is not None:
-                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+                services.hub.remember_action(room, actor, cid, f"REJECTED: {exc}")
             await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": str(exc)})
             return
         if cid is not None:
-            services.hub.remember_action(room, cid, "ACCEPTED")
+            services.hub.remember_action(room, actor, cid, "ACCEPTED")
         services.hub.after_change(room)
     if isinstance(msg, WsAction):
         await _after_action(services, room, msg.action)

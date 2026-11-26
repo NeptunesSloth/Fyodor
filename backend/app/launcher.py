@@ -19,8 +19,10 @@ import urllib.request
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.config import FROZEN, Settings, install_dir, load_settings
+from app.hostauth import read_host_secret
 
 
 @dataclass
@@ -212,6 +214,12 @@ def _launch(name: str, exe: Path, url: str, settings: Settings) -> subprocess.Po
         return None
 
 
+def host_url(url: str, secret: str | None) -> str:
+    """The address that makes the window the host's: the page claims the session from the secret in it (and removes it from the
+    address bar). It is only ever handed to the window, never printed or logged."""
+    return f"{url}/#host={secret}" if secret else url
+
+
 def open_table(url: str, settings: Settings, watch: bool = False) -> None:
     """The table in a window of its own (the first of windows_to_try that starts), else the default browser. With
     ``watch`` (this program is the server), a window that hasn't asked for the page after WINDOW_WAIT seconds gets a
@@ -220,21 +228,23 @@ def open_table(url: str, settings: Settings, watch: bool = False) -> None:
         if _launch(name, exe, url, settings) is None:
             continue
         if watch and not PAGE_SEEN.wait(WINDOW_WAIT):
+            # (the address handed to the window carries the host secret after "#": the note shows the address without it)
+            shown = url.partition("#")[0]
             log = settings.data_dir / ("window" if name.startswith("Fyodor") else f"window-{name.lower()}") / "browser.log"
             print(f"\n  The table hasn't appeared in {name} yet. A first start can take a minute. If it stays empty, close"
-                  f" the window and open Fyodor again, or open {url} in any up-to-date browser. (Its log: {log})\n")
+                  f" the window and open Fyodor again, or open {shown} in any up-to-date browser. (Its log: {log})\n")
         return
     webbrowser.open(url)
 
 
-def _open_when_ready(url: str, settings: Settings) -> None:
+def _open_when_ready(url: str, settings: Settings, secret: str | None = None) -> None:
     for _ in range(100):
         try:
             with urllib.request.urlopen(f"{url}/api/health", timeout=1):  # noqa: S310 - our own local server
                 break
         except OSError:
             time.sleep(0.2)
-    open_table(url, settings, watch=True)
+    open_table(host_url(url, secret), settings, watch=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -255,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
     env = dict(os.environ)
     args.lan = not args.local
     if args.lan:
-        env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - explicit opt-in for LAN play
+        env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - LAN play is the default (only --local binds loopback); the Host/Origin guard, host cookie and seat tokens protect it
     if args.port is not None:  # --port 0: any free port (the tests use it so a busy 8000 never matters)
         env["FYODOR_PORT"] = str(args.port)
     settings = load_settings(env)
@@ -264,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.check and _running_fyodor(local):
         print("Fyodor is already running on this computer: opening the table.")
         if not args.no_browser:
-            open_table(local, settings)
+            open_table(host_url(local, read_host_secret(settings.data_dir)), settings)  # (the running server's secret, from its file)
         return 0
 
     print("Fyodor — checking this computer\n")
@@ -307,16 +317,25 @@ def main(argv: list[str] | None = None) -> int:
         print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")
 
-    if not args.no_browser:
-        threading.Thread(target=_open_when_ready, args=(local, settings), daemon=True).start()
-
-    serve(settings)
+    serve(settings, browser=not args.no_browser)
     return 0
 
 
-def serve(settings: Settings) -> None:
+FRAME_MARGIN = 1024  # what the transport allows above a message's own limit in bytes (the app's check still decides)
+
+
+def server_options(settings: Settings) -> dict[str, Any]:
+    """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE characters, up to 4 bytes each in UTF-8) is refused as it arrives,
+    not after uvicorn has buffered up to 16 MiB of it (its default)."""
+    from app.api.games import MAX_WS_MESSAGE
+
+    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN}
+
+
+def serve(settings: Settings, browser: bool = False) -> None:
     """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
-    which is when a staged restore is applied (app/storage/backup.py)."""
+    which is when a staged restore is applied (app/storage/backup.py). With ``browser``, each start opens the table in a window
+    that holds that start's host secret (a restart makes a new one, so the old window is a guest until it is replaced)."""
     import uvicorn
 
     from app.main import create_app
@@ -324,7 +343,10 @@ def serve(settings: Settings) -> None:
     while True:
         again = threading.Event()
         app = create_app(settings)
-        server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port, log_level=settings.log_level.lower()))
+        if browser:
+            threading.Thread(target=_open_when_ready, args=(f"http://127.0.0.1:{settings.port}", settings, app.state.services.host_secret.value),
+                             daemon=True).start()
+        server = uvicorn.Server(uvicorn.Config(app, **server_options(settings)))
 
         def request_restart(server: uvicorn.Server = server, again: threading.Event = again) -> None:
             again.set()

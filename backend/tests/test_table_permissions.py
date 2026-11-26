@@ -17,11 +17,12 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.history import History
 from app.game.session import GameSession
 from app.game.state import GameState
+from tests.conftest import connect_game, guest
 from tests.game_helpers import act, deck, find, zone
 from tests.test_games_api import ATRAXA, KRENKO
 from tests.test_rules_effects import build, draw_all, hand, mana, pass_until_stack_empty
 
-REMOTE = {"X-Forwarded-For": "192.168.1.50"}
+REMOTE = guest()
 REFUSED = "only {0} or the host can change them at this table"
 
 
@@ -356,13 +357,13 @@ def test_lan_only_the_host_sets_it_and_guests_are_refused(client, lan):
 def test_lan_websocket_actions_obey_it(client, lan):
     ring = ring_out(client, lan)
     act_as(client, lan, lan["host"], {"type": "configure", "card_permissions": "owner"})
-    with client.websocket_connect(f"/ws/games/{lan['gid']}?token={lan['bob']}", headers=REMOTE) as ws:
+    with connect_game(client, lan['gid'], lan['bob'], headers=REMOTE) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "action", "id": 1, "action": {"type": "tap", "card_ids": [ring]}})
         while (msg := ws.receive_json())["type"] == "state":
             pass
         assert msg["type"] == "error" and msg["status"] == "REJECTED" and "only Alice or the host" in msg["message"]
-    with client.websocket_connect(f"/ws/games/{lan['gid']}?token={lan['host']}") as ws:
+    with connect_game(client, lan['gid'], lan['host']) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "action", "id": 2, "action": {"type": "tap", "card_ids": [ring]}})
         while (msg := ws.receive_json())["type"] == "state":

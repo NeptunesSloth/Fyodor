@@ -12,11 +12,12 @@ from app.game.errors import ActionError
 from app.game.history import History
 from app.game.session import GameSession
 from app.game.state import GameState
+from tests.conftest import connect_game, guest
 from tests.game_helpers import act, make_session, zone
 from tests.test_games_api import ATRAXA, KRENKO
 from tests.test_rules_effects import build, draw_all, hand, mana
 
-REMOTE = {"X-Forwarded-For": "192.168.1.50"}
+REMOTE = guest()
 
 
 def replay_matches(s: GameSession) -> None:
@@ -189,13 +190,13 @@ def test_lan_own_policy_and_its_view(client, lan):
 def test_lan_websocket_undo_obeys_the_policy(client, lan):
     act_as(client, lan, lan["host"], {"type": "configure", "undo_policy": "host"})
     act_as(client, lan, lan["bob"], {"type": "life", "delta": -2}, **REMOTE)
-    with client.websocket_connect(f"/ws/games/{lan['gid']}?token={lan['bob']}", headers=REMOTE) as ws:
+    with connect_game(client, lan['gid'], lan['bob'], headers=REMOTE) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "undo", "id": 1})
         while (msg := ws.receive_json())["type"] == "state":
             pass
         assert msg["type"] == "error" and "Only the host may undo" in msg["message"]
-    with client.websocket_connect(f"/ws/games/{lan['gid']}?token={lan['host']}") as ws:
+    with connect_game(client, lan['gid'], lan['host']) as ws:
         assert ws.receive_json()["type"] == "state"
         ws.send_json({"type": "undo", "id": 2})
         while (msg := ws.receive_json())["type"] == "state":

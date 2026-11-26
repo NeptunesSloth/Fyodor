@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toastError } from "../components/Toasts";
 import { ApiError } from "../services/api";
+import { HOST_ONLY_NOTE } from "../services/hostSession";
 import { applyUpdate, discardUpdate, updateStatus, uploadUpdate, type UpdateStatus, type UpdateSummary } from "../services/update";
 import { installedText, percent, planLines, resultText, sizeText, waitForRestart } from "./updateBits";
 import { SettingsSection } from "./SettingsSection";
@@ -81,7 +82,7 @@ export function UpdateSection() {
   return (
     <SettingsSection id="st-update" testId="update">
       {denied ? (
-        <p className="st-note st-away">Updates are installed on the host computer (the one running Fyodor).</p>
+        <p className="st-note st-away">Updates are installed on the host computer (the one running Fyodor). {HOST_ONLY_NOTE}</p>
       ) : (
         <div className="st-plate">
           {st && (st.available || last) && (

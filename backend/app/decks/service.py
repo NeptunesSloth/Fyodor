@@ -214,7 +214,7 @@ def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher 
         data = archidekt.load_json_text(raw)
         parsed = archidekt.parse_deck_json(data)
         entries, report = resolve_parsed(parsed, cards)
-        deck_id = str(data.get("id")) if data.get("id") else None
+        deck_id = archidekt.valid_deck_id(data.get("id"))  # (an id read from an uploaded file is checked before it makes a link)
         source = DeckSource(kind="archidekt", id=deck_id, url=archidekt.DECK_URL.format(id=deck_id) if deck_id else None,
                             name=parsed.name, updated_at=str(data.get("updatedAt") or "") or None, imported_at=now)
         return ImportResult(parsed, entries, report, source, archidekt.deck_format(data))

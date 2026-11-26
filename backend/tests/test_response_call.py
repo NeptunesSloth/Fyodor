@@ -14,6 +14,7 @@ from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.multiplayer import bots, response_call
 from app.rules import progress
+from tests.conftest import connect_game
 from tests.game_helpers import act, enable, find, make_session
 from tests.pod_c_kit import hold, mana, table
 from tests.test_rules_effects import replay_matches
@@ -181,7 +182,7 @@ def test_the_shout_reaches_everyone_and_the_flip_is_rate_limited_and_only_ones_o
     caller_tok = alice if client.get(f"/api/games/{gid}/view", headers=h(alice)).json()["viewer"] != holder else bob
     other_tok = bob if caller_tok == alice else alice
     caller = client.get(f"/api/games/{gid}/view", headers=h(caller_tok)).json()["viewer"]
-    with client.websocket_connect(f"/ws/games/{gid}?token={other_tok}") as ws:
+    with connect_game(client, gid, other_tok) as ws:
         ws.receive_json()
         res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "set_prefs", "respond": True}}, headers=h(caller_tok))
         assert res.status_code == 200, res.text

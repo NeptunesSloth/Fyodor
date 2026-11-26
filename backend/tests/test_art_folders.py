@@ -15,6 +15,7 @@ from app.cards import art_fallback, art_folders
 from app.cards.images import ImageStore
 from app.config import Settings, load_settings
 from app.main import create_app
+from tests.conftest import claim_host, guest
 from tests.fixtures.cards import GOBLIN, fixture_cards
 
 GID = GOBLIN["id"]
@@ -50,6 +51,7 @@ def server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Te
     settings.ensure_dirs()
     build_database(fixture_cards(), settings.cards_db_path, meta={"bulk_type": "test"})
     with TestClient(create_app(settings)) as c:
+        claim_host(c)
         yield c, settings
 
 
@@ -152,7 +154,7 @@ def test_bad_folders_are_refused(server, tmp_path):
 
 def test_only_the_host_manages_folders(server):
     client, _ = server
-    remote = {"x-forwarded-for": "192.168.1.20"}
+    remote = guest()
     assert client.get("/api/art-folders", headers=remote).status_code == 403
     assert client.post("/api/art-folders", json={"path": "C:\\x"}, headers=remote).status_code == 403
 

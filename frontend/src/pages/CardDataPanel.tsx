@@ -5,6 +5,7 @@ import { checkCardBack } from "../cards/cardBack";
 import { checkSymbols } from "../cards/symbols";
 import { toast, toastError } from "../components/Toasts";
 import { ApiError } from "../services/api";
+import { HOST_ONLY_NOTE } from "../services/hostSession";
 import {
   type ArtFolder, bulkName, cardData, checkCardData, progressFraction, progressText, scryfallDay, startCardUpdate,
   type CardCheck, type CardDataInfo, type CardJob,
@@ -83,7 +84,7 @@ export function CardDataSection() {
   return (
     <SettingsSection id="card-data" testId="card-data">
       {denied ? (
-        <p className="st-note st-away">Card data is downloaded and updated on the host computer (the one running Fyodor).</p>
+        <p className="st-note st-away">Card data is downloaded and updated on the host computer (the one running Fyodor). {HOST_ONLY_NOTE}</p>
       ) : db && info ? (
         <div className="carddata st-plate">
           {db.available ? (

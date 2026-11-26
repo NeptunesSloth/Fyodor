@@ -63,11 +63,19 @@ type ServerMessage =
   | { type: "ack"; id: number | null; status?: "ACCEPTED" | "ALREADY_APPLIED" }
   | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
+  | { type: "ping" } // the server's heartbeat: answered with a pong
   | { type: "closed" }
   | ({ type: "signal" } & Signal)
   | ({ type: "cursor" } & CursorWire);
 
-const FATAL_CODES = new Set([4403, 4404]);
+// The codes the page can see are the ones the server closes with after accepting the socket: 4403, no seat here (every auth failure);
+// 4429 for a fifth socket of one seat; 4408, silent too long. A refusal before accept (4400 a Host the server does not answer to, 4403
+// a cross-site Origin, 4429 too many sockets from one address) is an HTTP 403 to the browser, which reports 1006 like a dropped
+// connection: those reconnect through the backoff below (a page whose Host is refused cannot load in the first place). 4400 and 4404
+// (no such game, from older servers) stay fatal for a server that sends them after accept. Only a server message resets the backoff.
+const FATAL_CODES = new Set([4400, 4403, 4404]);
+/** What a refused seat says, whatever reason the server gave (it gives the same one for every refusal). */
+export const SEAT_REFUSED = "Your seat is no longer valid here. Join again.";
 const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
 
 interface Queued {
@@ -106,6 +114,8 @@ export class GameConnection {
   private base: GameView | null = null;
   private vseq = 0;
   private resyncAsked = false;
+  /** The server has answered this socket (its first message follows a good `auth`): until then nothing else is sent on it. */
+  private authed = false;
 
   constructor(
     private readonly gameId: string,
@@ -115,32 +125,37 @@ export class GameConnection {
 
   connect(): void {
     this.stopped = false;
-    const q = new URLSearchParams();
-    if (this.params.token) q.set("token", this.params.token);
-    if (this.params.viewer) q.set("viewer", this.params.viewer);
-    q.set("deltas", "1"); // -- view deltas -- (a server without them sends whole views, as before)
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     this.revision = 0; // a fresh connection starts with a full snapshot
     this.base = null;
     this.vseq = 0;
     this.resyncAsked = false;
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}?${q}`);
+    this.authed = false;
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}`); // (no token in the address)
     this.ws = ws;
     this.handlers.onStatus(this.retry ? "reconnecting" : "connecting");
     ws.onopen = () => {
-      this.retry = 0;
-      this.handlers.onStatus("open");
-      this.pingTimer = setInterval(() => this.raw({ type: "ping" }), 20000);
-      this.flushOutbox(); // the server applies each queued action once (client_action_id)
+      // the seat token travels in the first message of every connection, reconnects included, never in the address
+      // (-- view deltas -- `deltas`: a server without them sends whole views, as before)
+      ws.send(JSON.stringify({ type: "auth", token: this.params.token ?? null, viewer: this.params.viewer ?? null, deltas: true }));
     };
-    ws.onmessage = (ev) => this.onMessage(ev.data as string);
+    ws.onmessage = (ev) => {
+      if (!this.authed) {
+        this.authed = true; // the server's first word: the seat is good
+        this.retry = 0;
+        this.handlers.onStatus("open");
+        this.pingTimer = setInterval(() => this.raw({ type: "ping" }), 20000);
+        this.flushOutbox(); // the server applies each queued action once (client_action_id)
+      }
+      this.onMessage(ev.data as string);
+    };
     ws.onclose = (ev) => {
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.failPending("Connection lost");
       if (this.stopped) return;
       if (FATAL_CODES.has(ev.code)) {
         this.stopped = true;
-        this.handlers.onStatus("closed", ev.reason || "Refused");
+        this.handlers.onStatus("closed", ev.code === 4403 ? SEAT_REFUSED : ev.reason || "Refused");
         return;
       }
       this.retry = ev.code === RETRY_NOW ? 0 : this.retry + 1;
@@ -193,7 +208,7 @@ export class GameConnection {
   request(message: Record<string, unknown>): Promise<void> {
     const id = this.nextId++;
     return new Promise<void>((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authed) {
         reject(new Error("Not connected — reconnecting…"));
         return;
       }
@@ -222,7 +237,7 @@ export class GameConnection {
 
   private sendQueued(cid: string): void {
     const q = this.outbox.get(cid);
-    if (!q || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!q || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authed) return;
     const id = this.nextId++;
     q.wireId = id;
     this.ws.send(JSON.stringify({ ...q.message, id }));
@@ -259,7 +274,7 @@ export class GameConnection {
   }
 
   private raw(message: Record<string, unknown>): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(message));
+    if (this.ws?.readyState === WebSocket.OPEN && this.authed) this.ws.send(JSON.stringify(message));
   }
 
   private onMessage(data: string): void {
@@ -345,6 +360,9 @@ export class GameConnection {
         this.handlers.onClosedByServer("The host closed this game.");
         break;
       case "pong":
+        break;
+      case "ping":
+        this.raw({ type: "pong" }); // (only after auth, like every send: raw)
         break;
       case "signal":
         this.handlers.onSignal?.(msg);

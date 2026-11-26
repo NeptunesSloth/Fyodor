@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.api import updates as api
 from app.storage import update as up
+from tests.conftest import guest
 
 
 def sha(b: bytes) -> str:
@@ -284,7 +285,7 @@ def test_a_source_checkout_shows_why_it_cant_install(client: TestClient):
 
 def test_update_is_host_only(client: TestClient, install):
     client.app.state.update_install_dir = install
-    lan = {"X-Forwarded-For": "192.168.1.20"}
+    lan = guest()
     assert client.get("/api/update", headers=lan).status_code == 403
     assert client.post("/api/update/upload", content=zip_bytes(FILES), headers=lan).status_code == 403
     assert client.post("/api/update/apply", headers=lan).status_code == 403

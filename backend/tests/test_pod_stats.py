@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.conftest import claim_host
 
 DECKS = {
     "Jonathan": "Commander\n1x Atraxa, Praetors' Voice (2x2) 190\nDeck\n10x Island (cmm) 1001\n",
@@ -131,6 +132,7 @@ def test_stats_are_separate_from_saves_and_survive_restart(client, settings):
     client.post(f"/api/saves/{save['id']}/load", json={"mode": "local"})
     assert record(client, gid, "single", ["p2"]).status_code == 201
     with TestClient(create_app(settings)) as again:
+        claim_host(again)
         s = stats(again)
         assert s["Mike"]["wins"] == 1 and s["Jonathan"]["losses"] == 1
         # a reloaded game still knows it was recorded

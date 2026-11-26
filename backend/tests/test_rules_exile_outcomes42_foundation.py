@@ -12,6 +12,7 @@ from app.cards.repository import CardRepository
 from app.rules import effects, engine, scripts
 from app.rules import exile_outcomes42 as leaf
 from app.rules import exile_packet_continuations as packets
+from tests.conftest import connect_game
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -890,7 +891,7 @@ def test_lobelia_actual_face_down_packet_rest_websocket_privacy_and_look_survive
         for viewer in ['p1','p2','p3','spectator']:
             token='lobelia42-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()
             for exiled in packet:
                 for view in [payload,frame['view']]:
@@ -1414,7 +1415,7 @@ def test_intellect_pending_private_hand_choice_rest_websocket_hides_other_hands(
         for viewer in ['p1','p2','p3','spectator']:
             token='intellect42-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
-            with client.websocket_connect(f'/ws/games/{room.id}?token={token}') as ws:
+            with connect_game(client, room.id, token) as ws:
                 frame=ws.receive_json()
             for view in [payload,frame['view']]:
                 if viewer=='p2':

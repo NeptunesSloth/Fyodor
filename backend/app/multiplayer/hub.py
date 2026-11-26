@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import logging
 import secrets
+import threading
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import nullcontext
@@ -37,7 +38,7 @@ from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules, rematch_missing
 from app.multiplayer.spectate import Predictions
-from app.storage.journal import RoomJournal
+from app.storage.journal import MAX_CLIENT_ACTIONS, RoomJournal
 
 if TYPE_CHECKING:
     from app.decks.repository import DeckRepository
@@ -50,8 +51,34 @@ Phase = Literal["lobby", "playing"]
 SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-def _hash_password(password: str, salt: bytes) -> bytes:
-    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
+PASSWORD_ROUNDS = 600_000  # what a password is hashed at now (OWASP's figure for PBKDF2-HMAC-SHA256)
+MAX_STORED_ROUNDS = 10_000_000  # a saved count above this is not ours: one join must not burn minutes of CPU on a doctored file
+# At most 4 hashes run at once: this bounds the CPU a burst of guesses costs, not the threadpool. A join waiting for a slot still holds
+# one of the shared worker threads (the join route is sync), so ~40 concurrent joins stall the other sync routes while they drain, and
+# they all pass the address limiter before the first failure is counted. Stage 2: count the attempt before hashing, hash off the pool.
+_hash_slots = threading.BoundedSemaphore(4)
+
+
+def _pbkdf2(password: str, salt: bytes, rounds: int) -> bytes:
+    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
+
+
+def _hash_password(password: str, salt: bytes, rounds: int) -> bytes:
+    """Every password hash passes here (room creation, checks and the unknown-code stand-in), 4 at a time."""
+    with _hash_slots:
+        return _pbkdf2(password, salt, rounds)
+
+
+def _rounds_ok(rounds: object) -> bool:
+    return type(rounds) is int and 1 <= rounds <= MAX_STORED_ROUNDS
+
+
+_NO_ROOM_SALT = bytes(16)
+
+
+def spend_password_check(password: str | None) -> None:
+    """The cost of checking a password against a room, for a room code that has none, so a wrong code answers as slowly as a wrong password."""
+    _hash_password(password or "", _NO_ROOM_SALT, PASSWORD_ROUNDS)
 
 
 RECONNECT_GRACE = 60.0  # seconds a dropped player shows as "Reconnecting…" before "Disconnected"
@@ -99,9 +126,10 @@ class Connection:
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
     host: bool = False  # connected with host rights (lobby management)
+    token: str | None = field(default=None, repr=False)  # the seat token it authenticated with (a secret: never logged)
     close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
-    # -- view deltas (app/multiplayer/view_delta.py) -- the client applies patches (it asked: ``?deltas=1``): after a full view, each
+    # -- view deltas (app/multiplayer/view_delta.py) -- the client applies patches (its auth message asked: ``deltas``): after a full view, each
     # update is the patch from the last view sent here (``sent``, as the client parsed it), naming it by its number on this connection
     # (``vseq``: every view message sent here counts). None: no view to patch (none sent yet, or a lobby since)
     deltas: bool = False
@@ -126,6 +154,8 @@ class Room:
     host_seat: str | None = None
     password_salt: bytes | None = None
     password_hash: bytes | None = None
+    password_rounds: int = 120_000  # (the default is what metadata written before this field used)
+    _password_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)  # the three password fields change together
     seats: dict[str, Seat] = field(default_factory=dict)
     spectator_tokens: set[str] = field(default_factory=set)
     connections: dict[str, Connection] = field(default_factory=dict)
@@ -134,8 +164,9 @@ class Room:
     created_at: float = field(default_factory=time.time)
     revision: int = 0  # bumped on every authoritative update sent to clients
     result_id: str | None = None  # the recorded pod result for this game, if any
-    # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
-    client_actions: dict[str, str] = field(default_factory=dict)
+    # actor (the seat an action is performed as) -> client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies
+    # once. Scoped to the seat: one seat's ids never match, evict or reveal another's.
+    client_actions: dict[str, dict[str, str]] = field(default_factory=dict)
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
@@ -159,10 +190,31 @@ class Room:
             raise GameNotStarted("The game hasn't started yet")
         return self.game
 
-    def check_password(self, password: str | None) -> bool:
-        if self.password_hash is None or self.password_salt is None:
+    def password_state(self) -> tuple[bytes | None, bytes | None, int]:
+        with self._password_lock:
+            return self.password_salt, self.password_hash, self.password_rounds
+
+    def check_password(self, password: str | None, on_upgrade: Callable[[], None] | None = None) -> bool:
+        """Does the password match? A right one on a hash made with fewer rounds than ``PASSWORD_ROUNDS`` re-hashes it
+        (new salt) and calls ``on_upgrade`` so the caller can store the room."""
+        salt, stored, rounds = self.password_state()
+        if stored is None or salt is None:
             return True
-        return hmac.compare_digest(_hash_password(password or "", self.password_salt), self.password_hash)
+        if not _rounds_ok(rounds):  # (a damaged or doctored saved count: this room verifies nothing, at the cost of a current room's check)
+            _hash_password(password or "", salt, PASSWORD_ROUNDS)
+            return False
+        if not hmac.compare_digest(_hash_password(password or "", salt, rounds), stored):
+            return False
+        if rounds < PASSWORD_ROUNDS:
+            new_salt = secrets.token_bytes(16)
+            new_hash = _hash_password(password or "", new_salt, PASSWORD_ROUNDS)
+            with self._password_lock:
+                upgraded = self.password_hash == stored and self.password_salt == salt  # (else a join at the same moment already did)
+                if upgraded:
+                    self.password_salt, self.password_hash, self.password_rounds = new_salt, new_hash, PASSWORD_ROUNDS
+            if upgraded and on_upgrade is not None:
+                on_upgrade()
+        return True
 
     def seat_for_token(self, token: str | None) -> str | None:
         """Player id for a seat token, SPECTATOR for a spectator token, else None."""
@@ -329,7 +381,6 @@ class GameHub:
         self.journal = journal
         self.decks = decks  # -- saved rows -- where rows learned at the table are stored
         self.asset_info = asset_info  # asset id -> {url, width, height} for sleeves / playmats in views
-        self.join_failures: dict[str, list[float]] = {}  # client ip -> recent failed join times
         self._autosave = autosave
         self.autosave_every = max(1, autosave_every)
 
@@ -367,7 +418,8 @@ class GameHub:
         room = Room(mode=mode, code=self._new_code(), host_token=secrets.token_urlsafe(24), game_id=game_id)
         if password:
             room.password_salt = secrets.token_bytes(16)
-            room.password_hash = _hash_password(password, room.password_salt)
+            room.password_hash = _hash_password(password, room.password_salt, PASSWORD_ROUNDS)
+            room.password_rounds = PASSWORD_ROUNDS
         return room
 
     def _new_code(self) -> str:
@@ -397,10 +449,12 @@ class GameHub:
     # -- crash recovery --------------------------------------------------------------
     def meta(self, room: Room) -> dict[str, Any]:
         """Everything about a room that isn't the game itself (for restoring it after a restart)."""
+        salt, pw_hash, rounds = room.password_state()
         return {
             "mode": room.mode, "code": room.code, "host_token": room.host_token, "host_seat": room.host_seat,
-            "password_salt": room.password_salt.hex() if room.password_salt else None,
-            "password_hash": room.password_hash.hex() if room.password_hash else None,
+            "password_salt": salt.hex() if salt else None,
+            "password_hash": pw_hash.hex() if pw_hash else None,
+            "password_rounds": rounds,
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
             "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
@@ -452,7 +506,7 @@ class GameHub:
         room.game.history.listener = record
         self.persist(room)
 
-    def restore(self, meta: dict[str, Any], session: GameSession, client_actions: dict[str, str]) -> Room:
+    def restore(self, meta: dict[str, Any], session: GameSession, client_actions: dict[str, dict[str, str]]) -> Room:
         """Put a recovered table back: same id, room code, seats and tokens."""
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
@@ -460,6 +514,8 @@ class GameHub:
         if meta.get("password_salt") and meta.get("password_hash"):
             room.password_salt = bytes.fromhex(meta["password_salt"])
             room.password_hash = bytes.fromhex(meta["password_hash"])
+            rounds = meta.get("password_rounds", room.password_rounds)
+            room.password_rounds = rounds if _rounds_ok(rounds) else 0  # (a bad count keeps the room locked: check_password refuses it)
         for pid in session.state.seat_order:
             info = (meta.get("seats") or {}).get(pid) or {}
             room.seats[pid] = Seat(player_id=pid, token=info.get("token"), claimed_name=info.get("claimed_name"),
@@ -470,7 +526,7 @@ class GameHub:
         if meta.get("lobby"):
             room.lobby = LobbySettings.model_validate(meta["lobby"])
         room.created_at = float(meta.get("created_at") or time.time())
-        room.client_actions = dict(client_actions)
+        room.client_actions = {actor: dict(ids) for actor, ids in client_actions.items()}
         if any(r.code == room.code for r in self.rooms.values()):
             room.code = self._new_code()
         self.rooms[room.id] = room
@@ -478,14 +534,15 @@ class GameHub:
         follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
         return room
 
-    def remember_action(self, room: Room, client_action_id: str, outcome: str) -> None:
-        room.client_actions[client_action_id] = outcome
-        if len(room.client_actions) > 512:
-            for key in list(room.client_actions)[: len(room.client_actions) - 512]:
-                del room.client_actions[key]
+    def remember_action(self, room: Room, actor: str, client_action_id: str, outcome: str) -> None:
+        """Remember what became of ``actor``'s action; at most ``MAX_CLIENT_ACTIONS`` per seat, the seat's own oldest go first."""
+        mine = room.client_actions.setdefault(actor, {})
+        mine[client_action_id] = outcome
+        for key in list(mine)[: max(0, len(mine) - MAX_CLIENT_ACTIONS)]:
+            del mine[key]
         if self.journal is not None and room.started:
             try:
-                self.journal.remember_action(room.id, client_action_id, outcome)
+                self.journal.remember_action(room.id, actor, client_action_id, outcome)
             except Exception:  # noqa: BLE001 - see persist()
                 log.exception("Could not store client action id for %s", room.id)
 
@@ -515,7 +572,9 @@ class GameHub:
 
     async def drop_connections(self, room: Room, pid: str, *, code: int, reason: str) -> int:
         """Close every socket of a seat. Code 4000 makes clients reconnect; 4403 stops them."""
-        conns = [c for c in room.connections.values() if c.viewer == pid]
+        return await self._close_all(room, [c for c in room.connections.values() if c.viewer == pid], code, reason)
+
+    async def _close_all(self, room: Room, conns: list[Connection], code: int, reason: str) -> int:
         for conn in conns:
             self.disconnect(room, conn)
             if conn.close is not None:
@@ -524,6 +583,15 @@ class GameHub:
                 except Exception:  # noqa: BLE001 - already gone
                     log.debug("socket %s already closed", conn.id)
         return len(conns)
+
+    async def close_seat_connections(self, room: Room, player_id: str, reason: str) -> None:
+        """A seat's token was replaced or the seat was taken away: close that seat's sockets that do not hold the seat's current token at
+        once with 4403 (clients stop, they do not reconnect). A seat with no token any more loses all of them; a socket with no token
+        on a seat (none exists in a LAN game) counts as not holding it. Only this seat's: never another seat's."""
+        current = room.seats[player_id].token if player_id in room.seats else None
+        stale = [c for c in room.connections.values()
+                 if c.viewer == player_id and (current is None or c.token is None or not hmac.compare_digest(c.token, current))]
+        await self._close_all(room, stale, 4403, reason)
 
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""

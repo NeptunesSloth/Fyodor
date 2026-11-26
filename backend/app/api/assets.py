@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_services, is_local_request, require_local
+from app.api.deps import client_address, get_services, is_local_request, require_local
 from app.assets.store import KINDS, AssetNotFound
 from app.assets.validate import MAX_BYTES, InvalidImage
 from app.services import Services
@@ -35,7 +35,7 @@ def _may_upload(request: Request, services: Services, token: str | None, kind: s
         raise HTTPException(403, "Only card backs and playmats can be added from another device")
     if not token or not any(r.seat_for_token(token) not in (None, "__spectator__") for r in services.hub.rooms.values()):
         raise HTTPException(403, "Join a table first")
-    ip = request.client.host if request.client else "?"
+    ip = client_address(request)
     now = time.monotonic()
     recent = [t for t in _uploads.get(ip, []) if now - t < 600]
     if len(recent) >= 30:

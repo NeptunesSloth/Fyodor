@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from tests.conftest import claim_host
 from tests.test_lobby import ALICE_DECK, BOB_DECK, create_lobby, h, lobby_of, seat
 
 
@@ -72,6 +73,7 @@ def test_collection_companion_must_be_owned_legal_and_meet_the_starting_deck(set
     settings.ensure_dirs()
     build_database([*fixture_cards(),*EXTRA],settings.cards_db_path)
     with TestClient(create_app(settings)) as client:
+        claim_host(client)
         gid,_,alice=create_lobby(client)
         imported=client.post(f'/api/games/{gid}/lobby/import',json={'text':'1 Keruga, the Macrosage'},headers=h(alice)).json()
         companion=imported['entries'][0]['printing_id']
@@ -102,6 +104,7 @@ def test_collection_survives_an_offline_host_restart_and_saved_game_load(setting
     from app.config import load_settings
     from app.main import create_app
     with TestClient(create_app(settings)) as first:
+        claim_host(first)
         gid,code,alice=create_lobby(first)
         bob=first.post('/api/join',json={'code':code,'name':'Bob'}).json()['token']
         imported=first.post(f'/api/games/{gid}/lobby/import',json={'text':'2 Sol Ring'},headers=h(bob)).json()
@@ -114,6 +117,7 @@ def test_collection_survives_an_offline_host_restart_and_saved_game_load(setting
     offline=load_settings({'FYODOR_DATA_DIR':str(settings.data_dir),'FYODOR_ALLOW_NETWORK':'0',
                           'FYODOR_FRONTEND_DIST':str(settings.frontend_dist)})
     with TestClient(create_app(offline)) as fresh:
+        claim_host(fresh)
         loaded=fresh.post(f'/api/saves/{sid}/load',json={})
         assert loaded.status_code==201,loaded.text
         state=fresh.app.state.services.hub.get(loaded.json()['game']['id']).session.state
