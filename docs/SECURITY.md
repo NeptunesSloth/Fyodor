@@ -1,21 +1,33 @@
 # Security model
 
-Fyodor runs on a trusted home or LAN network. It never needs the Internet during play
-and has no accounts, cloud services or telemetry. These are the protections in place.
+Fyodor runs on a trusted home or LAN network and has no accounts, cloud services or telemetry. LAN play never needs the
+Internet. The one exception is opt-in: a host who presses **Invite over the internet** shares one table through a Cloudflare
+quick tunnel (below and `docs/LAN_PLAY.md`); nothing is downloaded or started until then, and `FYODOR_ALLOW_NETWORK=0` turns it
+off. These are the protections in place.
 
 ## Network exposure
 
 - By default the server binds to `127.0.0.1`. LAN exposure requires `FYODOR_HOST=0.0.0.0`
   (or `scripts/start.sh --lan`).
-- **Hot-seat (local) games** and host-only endpoints accept only loopback clients: create and
-  close games, saves, the deck library, pod-stat edits, packages, diagnostics, asset deletion and
-  LAN info. Requests relayed by the dev proxy are
-  judged by their `X-Forwarded-For` address. That header is only trusted when the direct
-  peer is loopback.
+- **Hot-seat (local) games** and host-only endpoints (create and close games, saves, the deck library, pod-stat edits,
+  packages, diagnostics, asset deletion, LAN info, sharing a table) answer only the host's browser: the window the launcher
+  opened, which holds the host secret in its cookie (`app/hostauth.py`). Neither the peer address nor any forwarded header
+  makes a request the host's. `X-Forwarded-For` is read only for rate limits and logs, and only from a proxy listed in
+  `FYODOR_TRUSTED_PROXIES` (none by default); the web server's own proxy-header handling is off.
 - **LAN games** require a seat token. Tokens are random (`secrets.token_urlsafe(24)`),
   compared in constant time, and issued only after a valid room code and optional password.
-  Passwords are stored as PBKDF2-SHA256 hashes. Failed join attempts are rate-limited to
-  10 per minute per client address.
+  Passwords are stored as PBKDF2-SHA256 hashes, checked on a thread pool of their own. Wrong room codes or passwords are
+  limited to 5 per client address in 15 minutes (counted before the password is checked; a right password gives the try
+  back), and a room that many addresses guessed at wrongly refuses further wrong guesses for a while (the right password
+  still gets in on the LAN).
+- **Invite over the internet** (opt-in, per table): the tunnel arrives on a port of its own, which serves only a fixed list
+  of player routes for the tables the host shared, never host tools or the room listing, and only for the invite's own
+  hostname and Origin. A shared table always has a password (8 to 100 characters when set for sharing). Rate limits there
+  are keyed by Cloudflare's `CF-Connecting-IP` (an IPv6 address by its /64), read only on that port; once a shared room is
+  blocked for wrong guesses, joins through the link are refused before any password is hashed. Large request bodies are
+  allowed there only to a seat of the shared table. The `cloudflared` program is pinned by version and SHA-256, checked
+  after download and before every start.
+
 - In a LAN game each connection can only act as its own seat. Spectators cannot act.
 - Anyone who can reach the server can browse cards. LAN players bring decks through their
   seat in the lobby (parsed on the host as data), not through the host's library.

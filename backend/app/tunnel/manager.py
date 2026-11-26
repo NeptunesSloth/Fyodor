@@ -74,7 +74,7 @@ class TunnelManager:
         assert self._loop is not None
         try:
             return await self._loop.run_in_executor(None, self._launch, gen)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail closed: any failure ends in "failed", never stuck "starting"; re-raised
             with self._lock:
                 if gen == self._gen:
                     self.state, self.hostname = "failed", None
