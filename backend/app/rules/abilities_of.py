@@ -11,10 +11,15 @@ object left is gone, a card that enters the graveyard brings its own).
   the borrower like any granted ability.
 * **Numbering.** Each is numbered from its lender's object number (``BORROWED``), so it stays the same ability while the lender stays the
   object it is (400.7), and a lender that changes zones is a new object with new ones.
-* **Linked abilities (607.5).** A lender's ability that refers to a choice or to cards exiled with it (its linked half may be elsewhere),
-  or to a card by name (201.5b vs "a card named …"), is lent but never automated (``manual``): it would link to the wrong thing. A modal
-  ability is lent with its modes (shown) and is manual too. Characteristics are read as the lender has them without other statics (a lender's own
-  borrowed abilities, an Aura's grants: ``layers._T.depth``), so a lender's abilities from other statics aren't lent either.
+* **Linked abilities (607.5).** A lent ability that refers to cards exiled with its object ("exiled with this permanent", "the exiled card") is
+  automated with its lending path's link scope (``link_scope``, ``scope_definition``; activated and triggered alike, and kept in the last known
+  information of a borrower that left: granted.last_existed): it refers only to what an exiling ability lent by the same effect exiled — both
+  halves lent together are linked as on the lender (Sisters of Stone Death on Marvin, Fiend Hunter on Koh), and a half lent alone refers to
+  nothing (Quintorius on Marvin: no legal target), never to the borrower's own exiles. A lent ability that refers to a choice made by another
+  ability (607.2d-f, 607.5a: "the chosen …", "noted") is lent but manual (``manual``), as is a modal ability ``modal_definition`` doesn't read.
+  "A card named <name>" is a characteristic match, not a reference to the object (201.5, 201.5b): kept literal and read as written.
+  Characteristics are read as the lender has them without the borrowing statics (a lender's own borrowed abilities: ``layers._T.depth``);
+  abilities other statics grant it are lent as it has them (113.10, 613.1f: Tazri's and Katilda's quoted mana abilities).
 * **Library top** (Conspicuous Snoop, Skill Borrower): the typed top-card reference is re-read for each derivation, so changing the top
   immediately changes the borrowed abilities. This form requires the card's public top-reveal line; hidden top-card lending stays unsupported.
 * **Refused** (never guessed): sources the selector grammar doesn't read, cards in exile with counters ("Mairsil": each once a turn),
@@ -162,7 +167,8 @@ def _keyword_lines(plan: Plan, lender: CardInstance, keywords: list[str]) -> lis
 
 
 def manual(ability: AbilityText) -> bool:
-    """Refuse only unresolved prior choices, or unsupported modal forms."""
+    """A lent ability refused outright: one that refers to a prior choice it doesn't make itself (607.5a: "the chosen …", "noted", "the named
+    card"), or a modal form ``modal_definition`` didn't read. Exiled-with links are scoped instead (``scope_definition``)."""
     if ability.index < BORROWED:
         return False
     if "\n• " in ability.text:
@@ -177,10 +183,13 @@ def manual(ability: AbilityText) -> bool:
 # match the lender's Oracle wording itself ("When this creature enters, …"), so a lent ability no reader knows as "this permanent" is read again as
 # "this creature" — but only on a borrower that is a creature, where both words name the same object (113.10: the borrower has the ability itself).
 # Refused there (kept manual) whatever a reader makes of it: text whose meaning on another object is unsettled — turning the object over (transform,
-# convert, flip: 701.27c, 701.28c, 710 — only a double-faced or flip card does), "this card" (an ability that works from another zone, 113.6m), a
-# branch on what the object is ("If it's an Aura, …"), craft materials (702.167c: the cards exiled to craft *this* permanent), an ability of the object
-# in exile ("if this permanent is exiled": Cosima, 113.6) and every linked or named wording (607.2, 607.5, 201.5b: ``_LINKED_TEXT``, manual by design).
-_AS_CREATURE_REFUSED = re.compile(r"\b(?:transform|convert|flip)(?:s|ed)?\b|\bthis card\b|\bif it's an? [a-z]+\b|\bcraft|\bthis permanent is exiled\b|\bnote\b|"
+# convert, flip it: 701.27c, 701.28c, 710 — only a double-faced or flip card does; "flip a coin" is no such thing), "this card" (an ability that works
+# from another zone, 113.6m), a branch on what kind of permanent the object is ("If it's an Aura, …"), craft materials (702.167c: the cards exiled to
+# craft *this* permanent), an ability of the object in exile ("if this permanent is exiled": Cosima, 113.6). A linked or named wording
+# (``_LINKED_TEXT``, "note") is not re-read either: conservative only — the lent reading itself still scopes such links (``scope_definition``).
+# (``scripts._LENT`` marks the whole outer reading: another lent ability a reader defines meanwhile is read once, unscoped, and never re-read.)
+_AS_CREATURE_REFUSED = re.compile(r"\b(?:transform|convert)(?:s|ed)?\b|\bflip(?:s|ped)? (?:this permanent|it)\b|\bthis card\b|"
+                                  r"\bif it's an? (?:Aura|Equipment|Fortification|Vehicle)\b|\bcraft|\bthis permanent is exiled\b|\bnote\b|"
                                   + _LINKED_TEXT.pattern, re.IGNORECASE)
 
 
@@ -236,9 +245,15 @@ def _saved_scope(plan: Plan, borrower: str, origin: tuple[str, ...]) -> str | No
     return None
 
 
+_LINKS = re.compile(r'"link": true|exiled_with|"linked[_"]|linked_cards|linked_pool')  # -- lent abilities -- an exile link written or read (607.2a)
+
+
 def scope_definition(d: dict[str, Any] | None, ability: AbilityText) -> dict[str, Any] | None:
     scope = link_scope(ability)
-    if d is None or scope is None or d.get('kind') != 'activated':
+    # -- lent abilities -- 607.5: a lent triggered half is linked only to an exiling half lent by the same effect, like an activated one — never to
+    # the borrower's own exile record (Koh with Fiend Hunter's "return the exiled card", Skyclave Apparition's token)
+    # (a triggered one only when it exiles or reads such a link: its other readers — "copy it" first, … — read its effects as written)
+    if d is None or scope is None or d.get('kind') not in ('activated', 'triggered') or (d['kind'] == 'triggered' and not _LINKS.search(json.dumps(d, default=str))):
         return d
 
     def rewrite(value: Any) -> Any:
@@ -298,6 +313,10 @@ def _lent(plan: Plan, lender: CardInstance, no_mana: bool, loyalty: bool = False
         if loyalty != (ab.kind == "loyalty") or not (ab.kind in ("activated", "loyalty") or (ab.kind == "mana" and not no_mana) or keyword or (triggered and ab.kind == "triggered")):  # (wave 110C: Koh, "activated and triggered")
             continue
         found = parse_abilities(ab.text if keyword else own(ab.text))
+        if found and ab.kind == "mana" and found[0].kind == "activated":
+            # -- lent abilities -- 605.1a: a mana ability by what it is, whatever the lent wording parses as ("For each color among the exiled cards
+            # used to craft this permanent, add …", Sunbird Effigy): lent as the lender's mana ability, read by the mana grammar (or manual)
+            found = [replace(found[0], kind="mana"), *found[1:]]
         if not found or found[0].kind != ab.kind or any(not x.text.startswith('• ') for x in found[1:]):
             continue
         tail = list(itertools.takewhile(lambda x: x.text.startswith('• '), ch.abilities[i + 1:])) if len(found) == 1 else []

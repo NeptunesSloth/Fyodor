@@ -10661,7 +10661,7 @@ def _event_spell_ok(d: Definition) -> bool:
     if not (d.get("kind") == "triggered" and d.get("trigger") == "cast_self") and (
             cond is None or cond.get("event") != "cast" or cond.get("subject") != "player" or cond.get("copy")):
         return False
-    lead = [e for e in effects if e.get("do") != "only_if"]
+    lead = [e for e in effects if e.get("do") not in ("only_if", "borrowed_link_scope")]  # (-- lent abilities -- a lent trigger's link scope opens it)
     return all(not effects[k].get("first") or (lead and lead[0] is effects[k]) for k in uses)
 # -- end refused copy/mana (wave 3R3) --
 

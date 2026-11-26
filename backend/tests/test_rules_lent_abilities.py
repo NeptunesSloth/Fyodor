@@ -9,7 +9,10 @@ from data/cards.sqlite).
   branches, craft materials (702.167c), an exiled object's ability (Cosima) and linked or named wordings (607.2, 607.5).
 * 607.5: a lent ability that refers to cards "exiled with" its object is linked only to an exiling ability lent by the same effect. Marvin lends
   Quintorius, Loremaster's activated ability alone, so on Marvin it refers to no card: it has no legal target. The same text on an object with
-  neither its exiling half nor a lending path is refused (manual), never an engine error.
+  neither its exiling half nor a lending path is refused (manual), never an engine error. A lent *triggered* half is scoped the same way, also in
+  the last known information of a borrower that died: Koh's lent Fiend Hunter / Skyclave Apparition leaves trigger refers only to what the lent
+  enter half exiled (nothing), never to the card Koh's own enter trigger exiled.
+* 605.1a: a lent mana ability stays a mana ability whatever its lent wording parses as (Sunbird Effigy's craft mana: lent, shown, manual).
 * A lent ability is read like the lender's own, never an engine error: an exact-wording reading opens with the lent ability's link scope
   (Kianne, Dean of Substance); a reflexive "When you do, choose one —" lent to Koh stays manual (Hylda of the Icy Crown).
 
@@ -33,9 +36,8 @@ from app.rules import abilities_of, coverage, scripts
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, mana_pool
-from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave100f_attached import to_phase
-from tests.wave9c_kit import build, card_named, mana, put
+from tests.wave9c_kit import build, card_named, check, mana, put
 from tests.wave110c_kit import answer, cast
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "lent_abilities_cards.json").read_text("utf-8"))
@@ -57,7 +59,7 @@ def cards(settings):
 
 
 def roundtrip(s):
-    replay_matches(s)
+    check(s)  # (replays the history, and a table rebuilt from it)
     loaded = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=s.cards)
     assert loaded.state.model_dump() == s.state.model_dump()
 
@@ -112,6 +114,10 @@ def test_marvin_coffin_queen_exiles_the_creature_when_marvin_untaps(cards):
 
 def test_koh_investigates_when_dealt_three_damage_by_innocent_bystanders_trigger(cards):
     s, koh = koh_with(cards, "Innocent Bystander", mine=["Lightning Bolt"])
+    ability = lent(s, koh, "Whenever this permanent is dealt 3 or more damage")
+    assert abilities_of.as_creature(ability, chars(s, koh)) is not None
+    # (the re-reading needs a creature borrower: on a Koh that is no creature — Weeping Angel's lent trigger — it stays manual)
+    assert abilities_of.as_creature(ability, replace(chars(s, koh), types=frozenset({"Artifact"}))) is None
     mana(s, R=1)
     cast(s, "Lightning Bolt", targets=[koh.id])
     answer(s)
@@ -130,6 +136,24 @@ def test_marvin_adds_mana_of_its_own_colors_none_while_colorless(cards):
     with pytest.raises(ActionError):  # 106.1b, 201.5b: Marvin's colors, and Marvin is colorless — no mana it could add
         act(s, "p1", type="activate_ability", card_id=marvin.id, ability=ability.index)
     assert mana_pool(s, "p1") == {}
+    roundtrip(s)
+
+
+# -- 607.5: a lent triggered linked half refers only to what its lent partner did --
+
+@pytest.mark.parametrize("victim", ["Fiend Hunter", "Skyclave Apparition"])
+def test_koh_lent_leaves_trigger_refers_to_nothing_its_lent_enter_half_exiled(cards, victim):
+    """Koh's own enter trigger exiled the lender; Koh then borrows its leaves-the-battlefield half. That half is linked only to the lent enter
+    half (607.5), which exiled nothing: when Koh dies, the card Koh's own ability exiled stays exiled and no one gets a token."""
+    s, koh = koh_with(cards, victim, mine=["Murder"])
+    lender = card_named(s, victim, "p2")
+    assert lent(s, koh, "When this permanent leaves the battlefield")
+    mana(s, B=2, C=1)
+    cast(s, "Murder", targets=[koh.id])
+    answer(s)
+    assert s.state.cards[koh.id].zone == "p1:graveyard"
+    assert s.state.cards[lender.id].zone == "p2:exile"
+    assert not [c for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name == "Illusion"]
     roundtrip(s)
 
 
@@ -157,9 +181,9 @@ def test_marvin_refuses_sunbird_effigys_craft_mana(cards):
     effigy = put(s, "Sunbird Standard // Sunbird Effigy")
     act(s, "p1", type="set_face", card_id=effigy.id, face=1)  # (Sunbird Effigy, a creature: Marvin lends its mana ability)
     marvin = put(s, MARVIN)
-    marvin_ch = chars(s, marvin)
-    assert not any(coverage.ability_supported(marvin_ch, a.index) for a in marvin_ch.abilities  # 702.167c: Marvin wasn't crafted — unsettled, manual
-                   if a.borrowed_origin and "craft" in a.text)
+    ability = lent(s, marvin, "{T}: For each color among the exiled cards used to craft this permanent, add one mana of that color.")
+    assert ability.kind == "mana"  # (605.1a: lent as the mana ability it is, shown for manual use)
+    assert not coverage.ability_supported(chars(s, marvin), ability.index)  # 702.167c: Marvin wasn't crafted — unsettled, manual
     roundtrip(s)
 
 

@@ -247,7 +247,10 @@ def last_existed(printed: Characteristics, now: Characteristics) -> tuple[Any, A
     abilities = None
     if now.abilities != printed.abilities:
         abilities = [{"index": a.index, "text": a.text, "kind": a.kind, "keywords": list(a.keywords), "cost": a.cost,
-                      "intrinsic": a.intrinsic} for a in now.abilities]
+                      "intrinsic": a.intrinsic,
+                      # -- lent abilities -- a lent ability keeps its lending path as it last existed (607.5: its link scope, abilities_of.link_scope)
+                      **({"borrowed_origin": list(a.borrowed_origin), "borrowed_scope": a.borrowed_scope} if a.borrowed_origin else {})}
+                     for a in now.abilities]
     keywords = sorted(now.keywords) if now.keywords != printed.keywords else None
     traits = None
     if now.name != printed.name or (now.types, now.subtypes, now.supertypes, now.colors) != (printed.types, printed.subtypes, printed.supertypes, printed.colors):
@@ -262,7 +265,8 @@ def as_last_existed(ch: Characteristics, snap: ObjectSnapshot) -> Characteristic
     if snap.abilities is not None:
         ch = replace(ch, abilities=tuple(AbilityText(index=int(a["index"]), text=str(a["text"]), kind=a["kind"],
                                                      keywords=tuple(a.get("keywords") or ()), cost=a.get("cost"),
-                                                     intrinsic=bool(a.get("intrinsic"))) for a in snap.abilities))
+                                                     intrinsic=bool(a.get("intrinsic")), borrowed_origin=tuple(a.get("borrowed_origin") or ()),
+                                                     borrowed_scope=a.get("borrowed_scope")) for a in snap.abilities))
     if snap.keywords is not None:
         printed = frozenset(k for a in ch.abilities if a.kind == "keywords" for k in a.keywords)
         now = frozenset(snap.keywords)
