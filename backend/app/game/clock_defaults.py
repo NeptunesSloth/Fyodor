@@ -1,7 +1,9 @@
 """-- turn clock (stage 3) -- the safest legal default for each wait, for a player whose clock reached zero when the host chose "Act
 for the player". A pure function of the table: the answers to try in order (the first the engine accepts is the one); ``[]`` leaves the
-wait to the table. It never concedes or eliminates anyone: an optional choice is declined, and a wait whose answer could make a player
-lose the game (a state-based loss to confirm, a "lose the game unless you pay") is left to the table. It reads only what the waited-on
+wait to the table. It never concedes for anyone, and it never chooses a loss: an optional choice is declined, a wait whose answer could
+make a player lose the game (a state-based loss to confirm, a "lose the game unless you pay") is left to the table, and a required choice
+offering players is never aimed at the timed-out player while another legal answer exists (a permanent first, then an opponent; only
+themself: the table decides). It reads only what the waited-on
 player may see (their own decision and, while bottoming, their own hand). The engine stays the judge of every answer;
 ``app.game.dummy.answers`` gives the fallbacks.
 """
@@ -105,9 +107,44 @@ def answers(state: GameState, pid: str, info: CardInfo | None) -> list[dict[str,
         out.append(choose([declined]))
     if d.min_choices <= 0:
         out.append(choose([]))  # an optional ("up to") choice: nothing chosen
+    # -- never at themself (final fix C1) -- a choice offering players (115.1 / 601.2c / 603.3d: "any target", "target player")
+    ranks = _target_ranks(d, state, pid)
+    if ranks is not None:
+        if d.kind == "divide":
+            # 601.2d: the division among targets already chosen: when the timed-out player is one of them (their own earlier choice),
+            # how much they deal themself is left to the table
+            return [] if pid in ranks else _tidy(out + dummy.answers(d, state=state, info=info))
+        # the least drastic options first (ruling: a permanent over a player), the dummy's first legal options over that order
+        d = d.model_copy(update={"options": sorted(d.options, key=lambda o: ranks.get(o.id, 0))})
     # 608.2d, 700.2: otherwise the first legal options (``order``: as offered; ``divide``: as evenly as allowed, 601.2d; typed names)
     out += dummy.answers(d, state=state, info=info)
+    if ranks is not None:
+        out.sort(key=lambda a: max((ranks.get(i, 0) for i in a.get("option_ids") or []), default=0))  # (stable)
+        if all(pid in (a.get("option_ids") or []) for a in out):
+            return []  # every answer names the timed-out player: the table decides
     return _tidy(out)
+
+
+# The order the clock tries the options of a choice that offers players (final fix C1; a controller ruling, the owner may overrule): an
+# object someone else controls (an opponent's permanent), the timed-out player's own permanent, an opponent, the timed-out player last.
+_OTHERS_OBJECT, _OWN_OBJECT, _OPPONENT, _SELF = 0, 1, 2, 3
+
+
+def _target_ranks(d: Decision, state: GameState, pid: str) -> dict[str, int] | None:
+    """Each option's rank, for a decision offering at least one player (a target or player choice); None for any other (modes, cards,
+    trigger order …: as offered). The timed-out player ``pid`` is ranked last, so the clock never aims a required choice at them while
+    any other legal answer exists (the anti-goal: a clock that makes a player lose the game); a permanent comes before any player, so
+    its pick is the least drastic (no opponent eliminated by a target the clock chose, where a permanent is offered)."""
+    if d.kind in ("order", "reconcile") or not any(o.id in state.players for o in d.options):
+        return None
+    out: dict[str, int] = {}
+    for o in d.options:
+        if o.id in state.players:
+            out[o.id] = _SELF if o.id == pid else _OPPONENT
+            continue
+        card = state.cards.get(o.id) or (state.cards.get(o.card_id) if o.card_id else None)
+        out[o.id] = _OWN_OBJECT if card is not None and card.controller == pid else _OTHERS_OBJECT
+    return out
 
 
 def _decline_harms(d: Decision) -> bool:

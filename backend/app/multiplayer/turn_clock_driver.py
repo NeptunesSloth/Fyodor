@@ -6,7 +6,7 @@ while it is worked out). ``poke`` syncs the clock with who the engine waits on a
 task, which sleeps until the clock's next event (a deadline, the end of a grace) or a wake-up, then runs :func:`tick` under the room lock:
 for each player whose clock reached zero (when the host chose "Act for the player") it tries the safest default
 (app/game/clock_defaults.py) as an ordinary action of theirs; when the engine takes none of them, it says so once and leaves the choice to
-the table. It never concedes or eliminates anyone.
+the table. It never concedes for anyone and never chooses a loss (nor aims a required target at the timed-out player).
 
 A timeout and a click never both apply: the room lock orders them (the second sees the table the first left), and :func:`late` refuses a
 click sent from a view older than the one that showed the clock's action for that player.
