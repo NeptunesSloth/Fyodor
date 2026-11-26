@@ -108,6 +108,25 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
     return any(key == _origin_key(e) for e in extra)
 
 
+UNKNOWN_TUNNEL_CLIENT = "tunnel:unknown"
+
+
+def cf_client_key(value: str | None) -> str:
+    """The limiter key of a visitor through the tunnel, from Cloudflare's ``CF-Connecting-IP`` (one address; Cloudflare refuses a
+    client's own copy of the header, so what reaches us is Cloudflare's). An IPv4 address as text (an IPv4-mapped IPv6 as its IPv4);
+    an IPv6 address as its /64, the block one home or phone is given, so walking its own addresses buys no fresh budget. Missing
+    or unparseable: one shared bucket, ``tunnel:unknown`` (fails closed: it never escapes the limits)."""
+    try:
+        ip = ipaddress.ip_address((value or "").strip())
+    except ValueError:
+        return UNKNOWN_TUNNEL_CLIENT
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network((ip, 64), strict=False))
+    return str(ip)
+
+
 class AttemptLimiter:
     """Guesses allowed per key (an address, a room code): ``max_failures`` failures within ``window`` seconds block the key until the
     oldest of them is ``window`` old. Only failures count, and they leave only by expiring: the app never calls ``succeed`` (a key may

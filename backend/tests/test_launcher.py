@@ -320,3 +320,37 @@ def test_a_real_server_ignores_forwarded_for_from_loopback(tmp_path: Path) -> No
     finally:
         server.should_exit = True
         thread.join(timeout=20)
+
+
+def test_serve_listens_on_a_loopback_tunnel_port(tmp_path, monkeypatch, capsys):
+    """One uvicorn server, two sockets: the LAN port, and a loopback port the OS picks that only cloudflared connects to (never printed)."""
+    import uvicorn
+
+    import app.main
+
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_HOST": "127.0.0.1", "FYODOR_PORT": "0",
+                              "FYODOR_AUTO_BACKUP_MINUTES": "0"})
+    made: list = []
+    real = app.main.create_app
+    monkeypatch.setattr(app.main, "create_app", lambda st: made.append(real(st)) or made[-1])
+    handed: list = []
+    monkeypatch.setattr(uvicorn.Server, "run", lambda self, sockets=None: handed.append(sockets))
+    launcher.serve(settings)
+    try:
+        assert len(handed) == 1 and len(handed[0]) == 2
+        lan, tun = handed[0]
+        address, port = tun.getsockname()[:2]
+        assert address == "127.0.0.1" and port != 0 and port == made[0].state.services.tunnel.port
+        assert lan.getsockname()[1] != port
+        assert str(port) not in capsys.readouterr().out
+    finally:
+        for s in (handed[0] if handed else None) or []:
+            s.close()
+        for m in made:
+            m.state.services.close()
+
+
+def test_local_help_says_an_invite_link_still_works(capsys):
+    with pytest.raises(SystemExit):
+        launcher.main(["--help"])
+    assert "only this computer can connect (an invite link you start still works)" in " ".join(capsys.readouterr().out.split())

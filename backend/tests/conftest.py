@@ -148,3 +148,31 @@ def client(settings: Settings, card_db: Path) -> Iterator[TestClient]:
     """The host's browser (it carries the host cookie); ``guest()`` gives the headers of anyone else."""
     with TestClient(create_app(settings)) as c:
         yield claim_host(c)
+
+
+TUNNEL_PORT = 18001  # the tunnel port the tests pretend the launcher bound (app/launcher.py serve)
+TUNNEL_HOST = "fyodor-test.trycloudflare.com"
+
+
+@pytest.fixture()
+def tunnel_client(client: TestClient) -> TestClient:
+    """A remote player through the invite link: requests arrive on the tunnel port, as cloudflared forwards them (the public Host,
+    the https Origin, Cloudflare's CF-Connecting-IP). The same app as ``client``, no cookies, no lifespan of its own. Its sockets go to the
+    tunnel port too (Starlette's ``websocket_connect`` ignores ``base_url``) with the tunnel's Origin unless a test names another."""
+    tunnel = client.app.state.services.tunnel  # type: ignore[attr-defined]
+    tunnel.port, tunnel.hostname, tunnel.state = TUNNEL_PORT, TUNNEL_HOST, "running"
+    origin = f"https://{TUNNEL_HOST}"
+    c = TestClient(client.app, base_url=f"http://127.0.0.1:{TUNNEL_PORT}",
+                   headers={"Host": TUNNEL_HOST, "Origin": origin, "CF-Connecting-IP": "198.51.100.7"})
+    connect = c.websocket_connect
+
+    def websocket_connect(url: str, subprotocols: Any = None, **kwargs: Any) -> Any:
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not any(k.lower() == "origin" for k in headers):
+            headers["Origin"] = origin
+        if url.startswith("/"):
+            url = f"ws://127.0.0.1:{TUNNEL_PORT}{url}"
+        return connect(url, subprotocols, headers=headers, **kwargs)
+
+    c.websocket_connect = websocket_connect  # type: ignore[method-assign]
+    return c

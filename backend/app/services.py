@@ -58,6 +58,7 @@ from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
 from app.storage.saves import SaveRepository
 from app.storage.taught import TaughtRepository
+from app.tunnel.manager import TunnelManager
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class Services:
         self.hash_pool = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="pbkdf2")
         self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
         self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
+        self.tunnel = TunnelManager(settings)  # -- invite over the internet -- (its port is set by the launcher; app/tunnel/manager.py)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()

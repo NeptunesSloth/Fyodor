@@ -46,7 +46,7 @@ def _live(services: Services, game_id: str) -> Room:
 
 def _who(room: Room, request: Request, token: str | None, viewer: str | None) -> str | None:
     """Anyone who may watch this table (a seat, a spectator, the host computer); returns the acting seat, if any."""
-    _, actor = authorize(room, local=is_local_request(request), token=token, viewer=viewer, as_player=None)
+    _, actor = authorize(room, conn=request, token=token, viewer=viewer, as_player=None)
     return actor
 
 

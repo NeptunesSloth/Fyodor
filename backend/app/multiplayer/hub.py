@@ -127,7 +127,8 @@ class Connection:
     viewer: str  # player id, SPECTATOR or OMNISCIENT
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
-    host: bool = False  # connected with host rights (lobby management)
+    host: bool = False  # connected with host rights (lobby management): never through the tunnel (app/api/deps.py room_host)
+    tunnel: bool = False  # -- invite over the internet -- connected on the tunnel port (app/api/deps.py is_tunnel_request)
     token: str | None = field(default=None, repr=False)  # the seat token it authenticated with (a secret: never logged)
     close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
