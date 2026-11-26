@@ -28,6 +28,7 @@ from app.game.factory import PLAYER_COLORS
 from app.game.ops import down_public
 from app.game.session import GameSession
 from app.game.summary import player_commanders
+from app.game.turn_clock import TurnClock
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer import (
     bots,  # -- test opponent -- the server's pacing of its actions
@@ -509,6 +510,8 @@ class GameHub:
             "spectator_tokens": list(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
             "lobby": room.lobby.model_dump(mode="json") if room.lobby is not None else None,  # (the pod rule, mulligans… for the next game)
+            # -- turn clock (stage 3) -- the banks as of this record (newer than the checkpoint's: every change stores this record)
+            "clock": room.game.clock.dump(turn_clock_driver.now()) if room.game is not None and room.game.clock is not None else None,
         }
 
     def persist(self, room: Room) -> None:
@@ -560,6 +563,10 @@ class GameHub:
         """Put a recovered table back: same id, room code, seats and tokens."""
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
+        if meta.get("clock") is not None:  # -- turn clock (stage 3) -- over the checkpoint's; every seat starts away: nobody is charged
+            clock = TurnClock.load(meta["clock"])
+            if clock is not None:
+                session.clock = clock
         room.host_seat = meta.get("host_seat")
         room.invite_code = meta.get("invite_code")  # (shared stays False: closing Fyodor ends the link)
         if meta.get("password_salt") and meta.get("password_hash"):

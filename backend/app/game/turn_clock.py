@@ -7,13 +7,16 @@ waits (in memory only), and only ``sync``/``hold``/``add_time``/``extend_grace``
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, field_validator
 
 from app.game.autoseat import non_human
 from app.game.control import controller_of, decider_of
 from app.game.state import GameState
+
+if TYPE_CHECKING:
+    from app.game.session import GameSession
 
 log = logging.getLogger(__name__)
 
@@ -224,3 +227,19 @@ class TurnClock(BaseModel):
 
     def mark_acted(self, pid: str, revision: int) -> None:
         self._acted[pid] = revision
+
+
+# -- saves -- the clock lives on the session, not the game state: it travels in a save's extras (banks as of ``now``, settings)
+
+DAMAGED = "The turn clock in this save couldn't be read, so it is off."
+
+
+def save_extras(session: GameSession, now: float) -> dict[str, Any]:
+    return {"clock": session.clock.dump(now)} if session.clock is not None else {}
+
+
+def load_extras(session: GameSession, extras: dict[str, Any]) -> None:
+    data = extras.get("clock")
+    session.clock = TurnClock.load(data) if data is not None else None
+    if data is not None and session.clock is None:
+        session.notice(DAMAGED)

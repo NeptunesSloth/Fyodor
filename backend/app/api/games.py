@@ -57,7 +57,7 @@ from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
-from app.game import placement, undo_requests
+from app.game import placement, turn_clock, undo_requests
 from app.game.errors import ActionError
 from app.game.factory import STARTING_LIFE, DeckCard, PlayerSetup, new_game
 from app.game.handlers import planechase
@@ -68,7 +68,7 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarC
 from app.game.turn_clock import ClockSettings, TurnClock
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
-from app.multiplayer import lan_art, response_call
+from app.multiplayer import lan_art, response_call, turn_clock_driver
 from app.multiplayer.hub import (
     RECONNECT_GRACE,
     Connection,
@@ -563,7 +563,8 @@ async def save_game(game_id: str, body: SaveIn, request: Request, services: Serv
     name = clean_text(body.name, 80) or f"{room.session.state.name} — turn {room.session.state.turn.number}"
     async with room.lock:
         summary = services.saves.save(room.session.state, room.session.history, name=name,
-                                      extras={"table_snapshots": room.session.table_snapshots})
+                                      extras={"table_snapshots": room.session.table_snapshots,
+                                              **turn_clock.save_extras(room.session, turn_clock_driver.now())})
         room.session.notice(f"Game saved as “{name}”.")
     await services.hub.broadcast(room)
     return summary
@@ -692,9 +693,11 @@ def load_save(save_id: str, body: LoadIn, request: Request, services: ServicesDe
         services.hub.close(state.id)
     session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit,
                           rules=services.rules)
-    snaps = services.saves.extras(save_id).get("table_snapshots")
+    extras = services.saves.extras(save_id)
+    snaps = extras.get("table_snapshots")
     if isinstance(snaps, list):
         session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)][-MAX_SNAPSHOTS:]
+    turn_clock.load_extras(session, extras)  # -- turn clock (stage 3) --
     session.notice("Game loaded.")
     return _create_room(services, session, body.mode, body.password, "p1")
 
