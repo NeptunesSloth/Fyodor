@@ -789,10 +789,10 @@ class GameHub:
         recorded as one, as always (``commit``, on the loop). Interim views are display only: no revision, no history, no replay; the
         broadcast after the action is the table's word. Anything else is performed at once, as before."""
         session = room.session
-        turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out
         if payload.get("type") not in INTENT_TYPES or session.state.rules is None or not room.connections:
             done = False
             try:
+                turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out
                 action = session.perform(actor, payload, host=host)
                 done = True
                 return action
@@ -805,6 +805,7 @@ class GameHub:
         room.acting = loop.create_future()
         applied = False
         try:
+            turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out (pokes wait: room.acting)
             try:
                 prepared = await asyncio.to_thread(session.prepare, actor, payload, host=host, watcher=stream.watch)
             finally:
@@ -831,10 +832,11 @@ class GameHub:
     def interim_metas(self, room: Room) -> dict[str, tuple[str, dict[str, Any]]]:
         """-- resolving progress -- (on the event loop) each connection's viewer and the room's part of its view, as ``view`` builds it."""
         out: dict[str, tuple[str, dict[str, Any]]] = {}
-        for conn in list(room.connections.values()):
-            key = conn_key(conn)
-            if key not in out:
-                out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
+        with turn_clock_driver.one_instant(room):  # -- turn clock -- one block for every viewer
+            for conn in list(room.connections.values()):
+                key = conn_key(conn)
+                if key not in out:
+                    out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
         return out
 
     async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None,
@@ -851,7 +853,7 @@ class GameHub:
         reply: dict[str, Any] | None = None
         # -- big boards (views) -- every view is built before any is sent (no await in between: all of the same table), in one read pass:
         # what each view derives, every permanent's characteristics, is worked out once for the table, not once per viewer
-        with room.session.reading() if room.started else nullcontext():
+        with room.session.reading() if room.started else nullcontext(), turn_clock_driver.one_instant(room):  # (-- turn clock -- one block)
             for conn in conns:
                 key = conn_key(conn)
                 if key not in cache:

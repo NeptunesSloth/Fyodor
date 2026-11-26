@@ -21,7 +21,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -30,6 +30,7 @@ from pydantic import ValidationError
 from app.game import clock_defaults
 from app.game.errors import ActionError
 from app.game.turn_clock import ClockSettings, TurnClock, waiting_on
+from app.multiplayer import response_call
 
 if TYPE_CHECKING:
     from app.multiplayer.hub import GameHub, Room
@@ -45,13 +46,28 @@ CANT = ("{name} ran out of time, but Fyodor can't make this choice for them. The
         "clock off.")
 
 
+HOLD_RECHECK = 0.5  # seconds: while a player's "I have a response" hold is pending, how often the timer looks again (its landing wakes it)
+
+
 @dataclass
 class Driver:
+    room: Room
     task: asyncio.Task[None] | None = None
     wake: asyncio.Event | None = None  # cuts the sleep short (a change: the next event may have moved)
 
 
 _drivers: dict[str, Driver] = {}
+_instant: dict[str, tuple[float, float]] = {}  # room id -> (now, wall) every view of one broadcast is built at
+
+
+@contextlib.contextmanager
+def one_instant(room: Room) -> Iterator[None]:
+    """Every view built inside (one broadcast's, one action's interim metas) carries the same clock block, to the byte."""
+    _instant[room.id] = (now(), wall())
+    try:
+        yield
+    finally:
+        _instant.pop(room.id, None)
 
 
 def offered(room: Room) -> bool:
@@ -74,12 +90,18 @@ def poke(hub: GameHub, room: Room) -> None:
     clock = clock_of(room)
     if clock is None or hub.rooms.get(room.id) is not room:
         return
+    if room.acting is not None:
+        return  # an action is being worked out: the clock stays held (a connect or drop meanwhile is synced by perform's own poke)
     _sync(room, clock)
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return  # (off the loop: synced; the next poke inside it arms the timer)
-    d = _drivers.setdefault(room.id, Driver())
+    d = _drivers.get(room.id)
+    if d is None or d.room is not room:  # (a room replaced under the same id: its own timer, the old one stopped)
+        if d is not None and d.task is not None and not d.task.done():
+            d.task.cancel()
+        d = _drivers[room.id] = Driver(room)
     if d.task is not None and not d.task.done():
         if d.wake is not None:
             d.wake.set()
@@ -112,7 +134,9 @@ async def tick(hub: GameHub, room: Room) -> list[str]:
         _sync(room, clock)
         for _ in range(len(session.state.seat_order) * 2):
             due = clock.due(now())
-            if not due:
+            if not due or response_call.waiting(room):
+                # -- I have a response -- a hold heard and not landed yet: acting now could pass the priority it asks for. The wait
+                # stays due (nothing given up); the hold's landing pokes the timer, or it expires (response_call.PENDING_FOR)
                 break
             pid = due[0]
             key = waiting_on(session.state).get(pid)
@@ -121,7 +145,9 @@ async def tick(hub: GameHub, room: Room) -> list[str]:
                     await hub.perform(room, pid, payload)
                 except (ActionError, ValidationError):
                     continue
-                clock.mark_acted(pid, room.revision)
+                # the revision the table first shows this action at: every broadcast numbers its views room.revision + 1, and none
+                # has been sent since the action was applied
+                clock.mark_acted(pid, room.revision + 1)
                 session.notice(ACTED.format(name=room.seat_name(pid)))
                 hub.after_change(room)
                 _sync(room, clock)
@@ -151,8 +177,11 @@ async def _run(hub: GameHub, room: Room, d: Driver) -> None:
             at = clock.next_event(now())
             if at is None:
                 return
+            delay = max(0.0, at - now())
+            if response_call.waiting(room):
+                delay = max(delay, HOLD_RECHECK)  # (tick waits for the hold: no spin meanwhile)
             with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(d.wake.wait(), max(0.0, at - now()))
+                await asyncio.wait_for(d.wake.wait(), delay)
             await tick(hub, room)  # (syncs first: a grace that ended starts charging here)
     finally:
         if d.task is asyncio.current_task():
@@ -171,7 +200,8 @@ def view_fields(room: Room) -> dict[str, Any]:
     clock = room.session.clock
     if clock is None:
         return {"clock": {"settings": ClockSettings.model_validate({}).model_dump()}}
-    return {"clock": clock.public(now(), wall())}
+    at, sent_at = _instant.get(room.id) or (now(), wall())
+    return {"clock": clock.public(at, sent_at)}
 
 
 def forget(room_id: str) -> None:

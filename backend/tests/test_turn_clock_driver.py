@@ -133,6 +133,110 @@ def test_nobody_is_charged_while_an_action_resolves(cards, t, monkeypatch):
     assert s.clock.bank("p2", driver.now()) == 1500.0
 
 
+@pytest.mark.parametrize("change", ["connect", "disconnect"])
+def test_a_connect_or_drop_during_an_action_charges_nobody(cards, t, monkeypatch, change):
+    s = clocked(build(cards))
+    hub, room, _, conns = seated(s)
+    t[0] += 40  # p1's buffer is spent and 10 s of bank
+    prepare = GameSession.prepare
+    loop: dict[str, Any] = {}
+
+    async def meanwhile():
+        if change == "connect":
+            async def send(m):
+                pass
+
+            hub.connect(room, Connection(viewer=SPECTATOR, send=send, actor=None))
+        else:
+            hub.disconnect(room, conns["p2"])
+
+    def slow(self, *a, **k):
+        t[0] += 50
+        asyncio.run_coroutine_threadsafe(meanwhile(), loop["loop"]).result(timeout=5)  # (on the loop, without the room lock)
+        t[0] += 50
+        return prepare(self, *a, **k)
+
+    monkeypatch.setattr(GameSession, "prepare", slow)
+
+    async def go():
+        loop["loop"] = asyncio.get_running_loop()
+        async with room.lock:
+            await hub.perform(room, "p1", {"type": "pass_priority"})
+
+    asyncio.run(go())
+    assert s.clock.bank("p1", driver.now()) == 1490.0  # held from the start of the action to its end
+    assert block(room, "p1")["running"] is True  # (perform's own poke resumed the clock)
+
+
+def test_a_pending_response_hold_defers_the_clock(cards, t):
+    from app.multiplayer import response_call
+
+    s = clocked(build(cards))
+    hub, room, _, _ = seated(s)
+    s.clock.banks["p1"] = 0.0
+    driver.poke(hub, room)
+    before = len(s.history.actions)
+    t[0] += 30
+    response_call.pending(room)["p2"] = time.monotonic()  # p2 said "Wait, I have a response!" and it hasn't landed yet
+    try:
+        assert asyncio.run(driver.tick(hub, room)) == []
+        assert len(s.history.actions) == before and not s.notices  # nothing passed, nothing given up
+        assert driver.clock_of(room).due(driver.now()) == ["p1"]  # still due
+        response_call.pending(room).clear()  # (the hold landed)
+        assert asyncio.run(driver.tick(hub, room)) == ["p1"]
+    finally:
+        response_call.forget(room.id)
+
+
+def test_acted_revision_is_the_revision_that_shows_the_action(cards, t):
+    s = clocked(build(cards))
+    hub, room, inbox, _ = seated(s)
+    asyncio.run(hub.broadcast(room))
+    s.clock.banks["p1"] = 0.0
+    driver.poke(hub, room)
+    t[0] += 30
+    assert asyncio.run(driver.tick(hub, room)) == ["p1"]
+    shown = inbox["p2"][-1]
+    assert ACTED_ALICE in json.dumps(shown["view"]["log"])
+    assert s.clock.acted_revision("p1") == shown["revision"] == shown["view"]["game"]["revision"] == room.revision
+
+
+def test_one_broadcast_one_clock_block(cards):
+    s = clocked(build(cards))
+    hub, room, inbox, _ = seated(s)
+    asyncio.run(hub.broadcast(room))  # (the real clocks: each view built a little later than the last)
+    blocks = {json.dumps(m[-1]["view"]["game"]["clock"], sort_keys=True) for m in inbox.values()}
+    assert len(blocks) == 1
+    assert not driver._instant
+
+
+def test_a_room_replaced_under_the_same_id_gets_its_own_timer(cards, monkeypatch):
+    s = clocked(build(cards))
+    hub, room, _, _ = seated(s)
+    s.clock.banks["p1"] = 0.0
+    offset = [0.0]
+    monkeypatch.setattr(driver, "now", lambda: time.monotonic() + offset[0])
+    before = len(s.history.actions)
+
+    async def run():
+        driver.poke(hub, room)
+        old = driver._drivers[room.id].task
+        assert old is not None
+        twin = hub.create_room(s, mode="lan")  # (a reload puts a new Room object under the same id)
+        assert twin.id == room.id and hub.rooms[room.id] is twin
+        twin.seats["p1"].connections = twin.seats["p2"].connections = 1
+        offset[0] += 31
+        driver.poke(hub, twin)
+        assert driver._drivers[room.id].room is twin and driver._drivers[room.id].task is not old
+        for _ in range(200):
+            if len(s.history.actions) > before:
+                return
+            await asyncio.sleep(0.01)
+
+    asyncio.run(run())
+    assert len(s.history.actions) == before + 1
+
+
 def test_phone_sleeps_within_grace(cards, t):  # Review Focus 1
     s = clocked(build(cards))
     hub, room, _, conns = seated(s)
