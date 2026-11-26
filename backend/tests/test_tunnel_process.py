@@ -20,6 +20,8 @@ STAND_IN = r'''
 import json, sys, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 port, mode, hostname = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+if mode == "die":
+    sys.exit(1)
 if mode == "silent":
     time.sleep(120)
     sys.exit(0)
@@ -111,6 +113,28 @@ def test_start_times_out_when_no_hostname(manager: TunnelManager, stand_in, monk
         asyncio.run(manager.start())
     assert time.monotonic() - t0 < 8
     assert manager.state == "failed" and manager._proc is None
+
+
+def test_a_process_that_dies_while_starting_fails_fast_and_closes_its_job_once(manager: TunnelManager, stand_in,
+                                                                                monkeypatch) -> None:
+    closed: list[int] = []
+    real_close = process.close_job
+
+    def close_job(job: int | None) -> None:
+        if job is not None:
+            closed.append(job)
+        real_close(job)
+
+    monkeypatch.setattr(process, "close_job", close_job)
+    stand_in["conf"]["mode"] = "die"
+    t0 = time.monotonic()
+    with pytest.raises(TunnelUnavailable, match="didn't come up"):
+        asyncio.run(manager.start())
+    assert time.monotonic() - t0 < 10  # not the 30 s timeout: the process is seen to be gone
+    assert manager.state == "failed" and manager._proc is None
+    assert len(closed) == len(set(closed))
+    if os.name == "nt":
+        assert len(closed) == 1
 
 
 def test_a_dying_process_calls_on_down_and_clears_the_hostname(manager: TunnelManager, stand_in) -> None:

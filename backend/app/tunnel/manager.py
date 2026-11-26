@@ -109,12 +109,14 @@ class TunnelManager:
             except OSError as exc:
                 raise TunnelUnavailable(CANT_START) from exc
         job: int | None = None
+        handed_off = False  # once the manager holds proc and job, whoever takes them from it (watcher, stop) ends and closes them
         try:
             job = process.kill_with_parent(proc)
             with self._lock:
                 if gen != self._gen:
                     raise TunnelUnavailable("The internet link was turned off.")
                 self._proc, self._job = proc, job
+                handed_off = True
             threading.Thread(target=self._watch, args=(proc,), name="tunnel-watch", daemon=True).start()
             hostname = process.read_hostname(metrics_port, process.HOSTNAME_TIMEOUT, alive=lambda: proc.poll() is None)
             with self._lock:
@@ -125,7 +127,9 @@ class TunnelManager:
         except BaseException:
             with self._lock:
                 if self._proc is proc:
-                    self._proc, self._job = None, None
+                    job, self._proc, self._job = self._job, None, None
+                elif handed_off:
+                    job = None  # the watcher or stop() already took it and closes it: never close a handle twice
             self._end(proc, job)
             raise
 
@@ -168,6 +172,7 @@ class TunnelManager:
             self._gen += 1
             proc, job, self._proc, self._job = self._proc, self._job, None, None
             self.state, self.hostname, self.reason = "stopped", None, None
+        self._pending = None  # a start after this one starts afresh (the old attempt sees _gen changed and leaves state alone)
         self._end(proc, job)
 
 
