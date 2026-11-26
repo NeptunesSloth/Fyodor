@@ -35,6 +35,7 @@ from app.api.deps import (
 )
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
+from app.api.share import router as share_router  # -- invite over the internet --
 from app.api.spectate import router as spectate_router
 from app.api.teach import router as teach_router  # -- Teach Fyodor --
 from app.assets import validate as asset_validate
@@ -280,6 +281,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rules.router, prefix="/api")
     app.include_router(host_router, prefix="/api")  # claiming the host session (app/api/host.py)
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
+    app.include_router(share_router, prefix="/api")  # sharing a table over the invite link (app/api/share.py)
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 
     @app.exception_handler(GameNotStarted)

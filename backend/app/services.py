@@ -58,7 +58,7 @@ from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
 from app.storage.saves import SaveRepository
 from app.storage.taught import TaughtRepository
-from app.tunnel.manager import TunnelManager
+from app.tunnel.manager import WENT_DOWN, TunnelManager
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ class Services:
         self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
         self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
         self.tunnel = TunnelManager(settings)  # -- invite over the internet -- (its port is set by the launcher; app/tunnel/manager.py)
+        self.tunnel.on_down = self._tunnel_down
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
@@ -306,6 +307,24 @@ class Services:
         if self.recovered:
             out["recovered_tables"] = [{"game_id": r["game_id"], "name": r["name"]} for r in self.recovered]
         return out
+
+    async def unshare(self, room: Room, reason: str) -> None:
+        """-- invite over the internet -- the table is no longer served on the tunnel port: its remote players' sockets (and those of
+        its practice tables) close with ``reason``, the LAN's stay, and everyone sees it. Under the room lock, as actions are applied: an
+        action already sent on a remote socket is applied once (before or just after this) or not at all, never twice."""
+        async with room.lock:
+            room.shared = False
+            self.hub.persist(room)
+            await self.hub.close_tunnel_connections(room, reason)
+        for practice in [r for r in self.hub.rooms.values() if r.practice is not None and r.practice.live == room.id]:
+            async with practice.lock:
+                await self.hub.close_tunnel_connections(practice, reason)
+        await self.hub.broadcast(room)
+
+    async def _tunnel_down(self) -> None:
+        """The tunnel manager's on_down: cloudflared exited while running (its state already says "failed", WENT_DOWN)."""
+        for room in [r for r in self.hub.rooms.values() if r.shared]:
+            await self.unshare(room, WENT_DOWN)
 
     def close(self) -> None:
         self.tunnel.stop()  # first: nobody reaches the tables over the internet while they are saved and closed

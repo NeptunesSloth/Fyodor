@@ -637,6 +637,11 @@ class GameHub:
                  if c.viewer == player_id and (current is None or c.token is None or not hmac.compare_digest(c.token, current))]
         await self._close_all(room, stale, 4403, reason)
 
+    async def close_tunnel_connections(self, room: Room, reason: str) -> int:
+        """-- invite over the internet -- close, with 4403, every socket of the room that came in through the tunnel (the table is no
+        longer shared); the LAN's are untouched."""
+        return await self._close_all(room, [c for c in room.connections.values() if c.tunnel], 4403, reason)
+
     async def close_dropped_spectators(self, room: Room) -> None:
         """Close, with 4403, the sockets of spectators the cap let go, and forget them."""
         dropped, room.dropped_spectators = room.dropped_spectators, []
