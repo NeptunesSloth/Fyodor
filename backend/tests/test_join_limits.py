@@ -3,10 +3,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import threading
+import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -251,3 +258,76 @@ def test_unknown_code_costs_one_password_hash_like_a_real_room(app, table, monke
         assert len(calls) == 1
         assert join(c, table["game"]["code"], "bad").status_code == 403
         assert len(calls) == 2
+
+
+# -- a guess is counted before it is hashed, and hashed off the shared threadpool --
+
+def test_undo_last_removes_only_the_newest_failure() -> None:
+    clock = Clock()
+    lim = AttemptLimiter(2, 100.0, clock)
+    lim.undo_last("ghost")  # (no failure: nothing to undo, no key created)
+    assert len(lim._failures) == 0
+    lim.fail("a")
+    clock.now += 60
+    lim.fail("a")
+    assert lim.blocked("a")
+    lim.undo_last("a")
+    assert not lim.blocked("a")
+    assert lim.retry_after("a") == 40  # the older failure is the one left
+    lim.undo_last("a")
+    assert len(lim._failures) == 0
+
+
+def _wrong_joins(app: FastAPI, code: str, password: str, *, address: str, n: int,
+                 during: Callable[[httpx.AsyncClient], Awaitable[Any]] | None = None) -> tuple[list[int], Any]:
+    """``n`` joins from ``address`` started together on the running app (one event loop, the real ASGI app); ``during`` (an async
+    function taking the client) runs once they are under way. The status codes, and what ``during`` returned."""
+    async def scenario() -> tuple[list[int], Any]:
+        transport = httpx.ASGITransport(app=app, client=(address, 1))
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            joins = [asyncio.ensure_future(c.post("/api/join", json={"code": code, "password": password})) for _ in range(n)]
+            seen = None
+            if during is not None:
+                seen = await during(c)
+            return [r.status_code for r in await asyncio.gather(*joins)], seen
+
+    return asyncio.run(scenario())
+
+
+def test_concurrent_wrong_joins_stop_at_five(app: FastAPI, table: dict[str, Any]) -> None:
+    codes, _ = _wrong_joins(app, table["game"]["code"], "bad", address="203.0.113.1", n=40)
+    assert sorted(codes) == [403] * 5 + [429] * 35
+
+
+def test_other_routes_answer_while_joins_hash(app: FastAPI, table: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.multiplayer import hub
+
+    hashing = threading.Event()
+
+    def slow(password: str, salt: bytes, rounds: int) -> bytes:
+        hashing.set()
+        time.sleep(0.5)
+        return b"x" * 32
+
+    monkeypatch.setattr(hub, "_pbkdf2", slow)
+
+    async def health(c: httpx.AsyncClient) -> tuple[int, float]:
+        while not hashing.is_set():  # (the joins are under way: the first hash has begun)
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
+        start = time.monotonic()
+        r = await c.get("/api/health")
+        return r.status_code, time.monotonic() - start
+
+    _, (status, took) = _wrong_joins(app, table["game"]["code"], "bad", address="203.0.113.1", n=40, during=health)
+    assert status == 200 and took < 0.3, took
+
+
+def test_a_right_join_costs_the_address_nothing(app: FastAPI, table: dict[str, Any]) -> None:
+    code = table["game"]["code"]
+    with peer(app, ("203.0.113.1", 1)) as c:
+        for _ in range(4):
+            assert join(c, code, "bad").status_code == 403
+        assert join(c, code, "pw", spectate=True).status_code == 200
+        assert join(c, code, "bad").status_code == 403  # the right join's reservation was given back: this is the 5th failure
+        assert join(c, code, "bad").status_code == 429

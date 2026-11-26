@@ -53,9 +53,10 @@ SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 PASSWORD_ROUNDS = 600_000  # what a password is hashed at now (OWASP's figure for PBKDF2-HMAC-SHA256)
 MAX_STORED_ROUNDS = 10_000_000  # a saved count above this is not ours: one join must not burn minutes of CPU on a doctored file
-# At most 4 hashes run at once: this bounds the CPU a burst of guesses costs, not the threadpool. A join waiting for a slot still holds
-# one of the shared worker threads (the join route is sync), so ~40 concurrent joins stall the other sync routes while they drain, and
-# they all pass the address limiter before the first failure is counted. Stage 2: count the attempt before hashing, hash off the pool.
+# At most 4 hashes run at once: this bounds the CPU hashing costs. /api/join counts a guess against the address before hashing it (a
+# burst from one address is refused from the sixth on, unhashed) and hashes on ``Services.hash_pool`` (4 threads of its own), so joins
+# waiting to be checked never hold the threads the other sync routes share. Room creation still hashes on a shared worker thread; the
+# slots keep it and the joins at 4 together.
 _hash_slots = threading.BoundedSemaphore(4)
 
 

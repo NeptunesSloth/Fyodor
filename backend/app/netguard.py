@@ -111,8 +111,8 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
 class AttemptLimiter:
     """Guesses allowed per key (an address, a room code): ``max_failures`` failures within ``window`` seconds block the key until the
     oldest of them is ``window`` old. Only failures count, and they leave only by expiring: the app never calls ``succeed`` (a key may
-    be shared by people behind one address, and a guesser's success must not buy a fresh budget). In memory, pure; ``clock`` is
-    injected."""
+    be shared by people behind one address, and a guesser's success must not buy a fresh budget); ``undo_last`` only takes back a
+    failure recorded ahead of a check that then succeeded. In memory, pure; ``clock`` is injected."""
 
     def __init__(self, max_failures: int, window: float, clock: Callable[[], float] = time.monotonic) -> None:
         self.max_failures = max_failures
@@ -147,6 +147,17 @@ class AttemptLimiter:
         self._failures.move_to_end(key)
         while len(self._failures) > MAX_KEYS:
             self._failures.popitem(last=False)
+
+    def undo_last(self, key: str) -> None:
+        """Drop the newest failure of ``key`` (none: nothing happens). /api/join records a failure before it checks the password (so
+        concurrent guesses are counted before any is hashed) and gives it back here when the password was right. Failures of one key
+        are interchangeable times: with others recorded meanwhile, the count drops by exactly one and the one left is the older."""
+        failures = self._recent(key)
+        if failures is None:
+            return
+        failures.pop()
+        if not failures:
+            del self._failures[key]
 
     def succeed(self, key: str) -> None:
         # (nothing in app calls this: a key may be shared by people behind one address, so failures only expire with the window)

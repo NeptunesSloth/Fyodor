@@ -10,7 +10,6 @@ import time
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
-import anyio.from_thread
 from fastapi import (
     APIRouter,
     Depends,
@@ -561,22 +560,33 @@ async def close_game(game_id: str, request: Request, services: ServicesDep) -> R
 
 
 @router.post("/join")
-def join_game(body: JoinIn, request: Request, services: ServicesDep,
-              x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+async def join_game(body: JoinIn, request: Request, services: ServicesDep,
+                    x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     ip = client_address(request)
     by_address, by_room = services.join_limiter_addr, services.join_limiter_room
     if by_address.blocked(ip):  # (before the room is looked up or anything hashed)
         raise too_many_attempts(by_address.retry_after(ip))
-    room = services.hub.by_code(body.code)
-    if room is None or not room.check_password(body.password, lambda: services.hub.persist(room)):
-        by_address.fail(ip)
+    # The guess counts as a failure before it is checked (no await between the check above and this): guesses sent together from one
+    # address are refused from the sixth on instead of all being hashed. A right password gives it back below.
+    by_address.fail(ip)
+
+    def check() -> tuple[Room | None, bool]:
+        """The room of the code, and whether the password is right for it. Runs on ``services.hash_pool``: a join waiting for its
+        hash waits there, never on the threads the other sync routes share. (The limiters are only touched on the event loop.)"""
+        room = services.hub.by_code(body.code)
         if room is None:
             spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)
-        else:
+            return None, False
+        return room, room.check_password(body.password, lambda: services.hub.persist(room))
+
+    room, right = await asyncio.get_running_loop().run_in_executor(services.hash_pool, check)
+    if room is None or not right:  # (the address keeps the failure recorded above)
+        if room is not None:
             by_room.fail(room.code)
             if by_room.blocked(room.code):  # (only a wrong guess meets this: a right password is never refused for it)
                 raise too_many_attempts(by_room.retry_after(room.code))
         raise HTTPException(403, "Unknown room code or wrong password")
+    by_address.undo_last(ip)  # (before the seat is claimed: a seat refused below is not a wrong guess)
     name = clean_text(body.name or "", 40) or None
     try:
         viewer, token = services.hub.claim_seat(room, name=name, seat=body.seat, spectate=body.spectate)
@@ -593,27 +603,16 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
             except (ActionError, ValidationError) as exc:
                 log.info("Could not apply joining player's name: %s", exc)
 
-        ran = False
-
-        async def locked_rename() -> None:
-            nonlocal ran
-            ran = True
-            async with room.lock:
-                rename()
-
-        # (this handler runs on a worker thread: the change waits its turn on the event loop, after any action being worked out —
-        # -- resolving progress -- GameHub.perform reads the table off the loop meanwhile)
-        try:
-            anyio.from_thread.run(locked_rename)
-        except RuntimeError:
-            if ran:
-                raise
-            rename()  # (called outside a worker thread of the app's event loop)
+        # (the change waits its turn, after any action being worked out -- resolving progress -- GameHub.perform reads the table off
+        # the loop meanwhile)
+        async with room.lock:
+            rename()
     # -- bring my decks -- the library sent ahead by the player's own Fyodor, for this seat alone (one use)
     if body.handoff and viewer in room.seats and not room.started:
         library = services.handoffs.take(body.handoff)
         if library is not None:
-            services.handoffs.attach(room.id, token, library, services.cards)  # (adds the cards this database lacked)
+            # (adds the cards this database lacked: card lookups, off the loop)
+            await run_in_threadpool(services.handoffs.attach, room.id, token, library, services.cards)
     # (spectator activities) a spectator of this table taking a lobby seat brings the deck they queued while watching
     if x_seat_token and not room.started and viewer in room.lobby_seats and room.seat_for_token(x_seat_token) == SPECTATOR:
         queued = room.night.queued.pop(x_seat_token, None)

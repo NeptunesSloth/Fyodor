@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import contextlib
 import json
 import logging
@@ -94,6 +95,9 @@ class Services:
         self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes and passwords, by client address
         self.host_limiter_addr = AttemptLimiter(5, 900.0)  # wrong host secrets, by client address (the right one is never refused)
         self.join_limiter_room = AttemptLimiter(30, 900.0)  # wrong passwords, by room code (a room that exists)
+        # /api/join's password checks (PBKDF2, ~0.2 s each): a pool of their own, so joins waiting to be hashed never hold the threads
+        # every other sync route runs on
+        self.hash_pool = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="pbkdf2")
         self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
         self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
@@ -310,5 +314,6 @@ class Services:
         self.autobackups.stop()
         self.art_keeper.stop()
         self.jobs.shutdown()
+        self.hash_pool.shutdown(wait=True, cancel_futures=True)  # (a join still hashing finishes; queued ones are dropped)
         self.cards.close()
         self.app_db.close()
