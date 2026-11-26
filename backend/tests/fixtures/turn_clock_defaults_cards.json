@@ -30,6 +30,36 @@
     "keywords": []
   },
   {
+    "name": "Painful Quandary",
+    "oracle_text": "Whenever an opponent casts a spell, that player loses 5 life unless they discard a card.",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Enchanter's Bane",
+    "oracle_text": "At the beginning of your end step, target enchantment deals damage equal to its mana value to its controller unless that player sacrifices it.",
+    "mana_cost": "{1}{R}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
     "name": "Summoner's Pact",
     "oracle_text": "Search your library for a green creature card, reveal it, put it into your hand, then shuffle.\nAt the beginning of your next upkeep, pay {2}{G}{G}. If you don't, you lose the game.",
     "mana_cost": "{0}",

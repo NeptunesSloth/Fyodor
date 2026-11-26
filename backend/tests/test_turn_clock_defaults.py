@@ -25,6 +25,7 @@ from tests.test_rules_wave30m_durations import to_phase
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FILES = ("attack_destinations34_cards.json", "turn_clock_defaults_cards.json")
+TOLL = "Clock Toll"
 
 
 @pytest.fixture()
@@ -33,6 +34,8 @@ def cards(settings):
     for f in FILES:
         for i, c in enumerate(json.loads((FIXTURES / f).read_text())):
             base[c["name"]] = card(c["name"], set_code=f[:5], number=str(i), **{k: v for k, v in c.items() if k != "name"})
+    # (synthetic, by the review's ruling: the plain "loses N life unless they pay {M}" 118.12a payment)
+    base[TOLL] = card(TOLL, set_code="tcd", number="S1", type_line="Sorcery", oracle_text="Target player loses 4 life unless they pay {1}.")
     settings.ensure_dirs()
     build_database(base.values(), settings.cards_db_path)
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
@@ -41,7 +44,7 @@ def cards(settings):
 
 
 def setup(cards):
-    names = [c["name"] for f in FILES for c in json.loads((FIXTURES / f).read_text())] + ["Murder", "Breeding Pool"]
+    names = [c["name"] for f in FILES for c in json.loads((FIXTURES / f).read_text())] + ["Murder", "Breeding Pool", TOLL]
     return table(cards, names, names, names)
 
 
@@ -321,5 +324,82 @@ def test_manual_resolution_is_left_to_the_table(cards):
     act(s, "p1", type="cast_spell", card_id=ring.id)
     assert s.state.rules.decision.kind == "manual_resolution"
     assert answers(s.state, "p1", s.cards) == []
+    nobody_out(s)
+    roundtrip(s)
+
+
+# -- review round 2: a decline that harms the player is never picked (the table decides) --
+
+
+def test_unless_they_discard_at_5_life_is_left_to_the_table(cards):  # 118.12a: Painful Quandary, declining loses 5 life
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    put(s, "Painful Quandary", "battlefield")
+    victim = put(s, "Grizzly Bears", "battlefield")
+    start(s)
+    put(s, "Island", "hand", pid="p2")
+    act(s, "p1", type="set_life", player="p2", value=5)
+    cast(s, "Murder", [victim.id], pid="p2")
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.id for o in d.options} == {"pay", "decline"}
+    assert answers(s.state, "p2", s.cards) == []
+    assert s.state.players["p2"].life == 5 and "p2" not in s.state.rules.lost
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_loses_life_unless_they_pay_is_left_to_the_table(cards):  # 118.12a: "Target player loses 4 life unless they pay {1}."
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    start(s)
+    mana(s, pid="p2", C=1)  # (118.3: PAY is offered only while it can be paid)
+    cast(s, TOLL, ["p2"])
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.player == "p2" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p2", s.cards) == []
+    assert s.state.players["p2"].life == 40
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_sacrifice_or_take_damage_is_left_to_the_table(cards):  # Enchanter's Bane: "no" is "Take 2 damage"
+    s = setup(cards)
+    start(s)
+    bane = put(s, "Enchanter's Bane", "battlefield")  # (after the earlier end steps of turn 1)
+    act(s, "p1", type="set_life", player="p1", value=2)
+    to_phase(s, "end", turn=4)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and (d.resume or {}).get("step") == "bane100e":
+            break
+        if d is not None:  # (its target: the Bane itself, the only enchantment)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.resume["step"] == "bane100e" and d.player == "p1"
+    assert answers(s.state, "p1", s.cards) == []
+    assert s.state.cards[bane.id].zone == "p1:battlefield" and s.state.players["p1"].life == 2
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_a_commander_goes_to_the_command_zone(cards):  # 903.9a: its owner may put it into the command zone
+    from tests.test_rules_designations import find
+
+    s = setup(cards)
+    start(s)
+    krenko = find(s, "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "graveyard"})
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.resume["step"] == "commander_zone" and d.player == "p1"
+    assert answers(s.state, "p1", s.cards)[0] == choose(d, ["yes"])
+    assert first_accepted(s, "p1") == choose(d, ["yes"])
+    assert s.state.cards[krenko.id].zone == "p1:command"
     nobody_out(s)
     roundtrip(s)

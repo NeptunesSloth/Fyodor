@@ -30,6 +30,13 @@ PAYMENT_STEPS = frozenset({"payment", "pay_mana"})  # a cast or activation's cos
 # "pay or it's countered", optional payments), "none" ("you may choose / attach …"), "tapped" (a shock land's "If you don't, it enters
 # tapped"). Earlier first: where one decision offers two ("no" and "tapped": enter untapped without rad counters), "no" declines.
 DECLINES = ("no", "decline", "none", "tapped")
+# Where declining, or not paying, brings a harm to the player deciding: the clock leaves these to the table. By the engine's own step:
+# "bane100e" (Enchanter's Bane: "no" is "Take N damage"), "gy_pairs110g" and "cu_exile110n" (cumulative upkeep, 702.24a: not paying
+# sacrifices the permanent). ``pay_or_sacrifice`` is judged by its resume in _decline_harms.
+HARMFUL_DECLINES = frozenset({"bane100e", "gy_pairs110g", "cu_exile110n"})
+# 903.9a / 903.9b: "put your commander into the command zone?" (yes = the command zone), by the step that asks it
+COMMANDER_STEPS = frozenset({"commander_zone", "commander_instead", "commander_first", "exchange_hand_library", "exchange_zones94",
+                             "library_placements", "life_command86", "post_mill_command60", "public_command65"})
 
 
 def answers(state: GameState, pid: str, info: CardInfo | None) -> list[dict[str, Any]]:
@@ -82,18 +89,55 @@ def answers(state: GameState, pid: str, info: CardInfo | None) -> list[dict[str,
         for mode in ("chump", "all"):
             out += [b for b in dummy.answers(d, state=state, info=info, blocks=mode) if b.get("blocks")]
         return _tidy(out)
+    if _decline_harms(d):
+        return []  # declining (not paying) would harm the player: the clock doesn't choose, the table does
     if d.kind == "confirm" and step in RULES_CONFIRMS:
         # 704.3 (state-based actions are performed), 510.2 (assigned combat damage is dealt), 603.3 (a triggered ability is put on the
         # stack): ASSISTED only asks the table to confirm what the rules say happens
         out.append(choose(["yes"]))
-    elif declined := next((i for i in DECLINES if i in offered), None):
-        # 603.5, 608.2d, 118.12: a "may" or an optional cost is the player's choice, made as the effect applies: declined
+    elif "yes" in offered and (step in COMMANDER_STEPS or (step == "cost_moves" and (d.resume or {}).get("stage") == "commander")):
+        # 903.9a / 903.9b: its owner may put the commander into the command zone (from a graveyard or exile; instead of a hand or
+        # library): the default every Commander player expects
+        out.append(choose(["yes"]))
+    elif "map" not in (d.resume or {}) and (declined := next((i for i in DECLINES if i in offered), None)):
+        # 603.5, 608.2d, 118.12: a "may" or an optional cost is the player's choice, made as the effect applies: declined (a harmless
+        # decline only: see _decline_harms; replace.py's "map" yes/no is an order of replacement effects, 616.1, not a decline)
         out.append(choose([declined]))
     if d.min_choices <= 0:
         out.append(choose([]))  # an optional ("up to") choice: nothing chosen
     # 608.2d, 700.2: otherwise the first legal options (``order``: as offered; ``divide``: as evenly as allowed, 601.2d; typed names)
     out += dummy.answers(d, state=state, info=info)
     return _tidy(out)
+
+
+def _decline_harms(d: Decision) -> bool:
+    """Would declining (not paying) bring a harm to the player deciding? Then the clock doesn't pick. ``pay_or_sacrifice`` is the step of
+    three kinds of question:
+
+    * "pay or it's countered" (effects.py, resume ``counter``): their own spell is countered: harmless, declined;
+    * an optional payment (optional_payment.py, resume ``opt``): "you may pay … If you do" is harmless to decline; "… unless they pay" /
+      "If you don't" (118.12a: its binding read negated) brings the other branch (Painful Quandary's 5 life): left to the table;
+    * "sacrifice ~ unless you pay", echo, cumulative upkeep (effects.pay_or_sacrifice: pay / sacrifice): left to the table.
+    """
+    resume = d.resume or {}
+    step = resume.get("step")
+    if step in HARMFUL_DECLINES:
+        return True
+    if step != "pay_or_sacrifice" or "counter" in resume:
+        return False
+    opt, ctx = resume.get("opt"), resume.get("ctx")
+    if not isinstance(opt, dict) or not isinstance(ctx, dict):
+        return True
+    return _negated(ctx.get("effects") or [], opt.get("bind"))
+
+
+def _negated(node: Any, bind: Any) -> bool:
+    """Is the payment binding ``bind`` read negated ("unless" / "If you don't": ``{"succeeded": bind, "negate": True}``) anywhere here?"""
+    if isinstance(node, dict):
+        if node.get("succeeded") == bind and node.get("negate"):
+            return True
+        return any(_negated(v, bind) for v in node.values())
+    return isinstance(node, list) and any(_negated(v, bind) for v in node)
 
 
 def _could_eliminate(d: Decision) -> bool:
@@ -121,7 +165,8 @@ def _required_blocks(d: Decision, state: GameState, info: CardInfo | None) -> li
 def _plan_required(d: Decision, state: GameState, info: CardInfo | None) -> list[dict[str, str]]:
     from app.game.resolve import NoCardInfo
     from app.rules import characteristics as chars  # (rules → game: imported late to stay acyclic)
-    from app.rules import combat, layers, scripts
+    from app.rules import combat, combat_rules, layers, scripts, wave110m_cards
+    from app.rules.plan import Plan
     from app.rules.statics import rule_arg
 
     cards: Any = info if info is not None else NoCardInfo()
@@ -135,11 +180,15 @@ def _plan_required(d: Decision, state: GameState, info: CardInfo | None) -> list
     blockers, attackers = offered("b:"), offered("a:")
     ch = {c.id: layers.derive(state, c, chars.of(c, cards), cards) for c in blockers + attackers}
     lures = {a.id for a in attackers if any(rule_arg(x)[0] == "lure" for x in scripts.statics(ch[a.id]))}
+    plan = Plan(state, d.player, cards, None)  # (a scratch copy: has_block_cost reads the costs through a plan)
     out: list[dict[str, str]] = []
     for b in blockers:
+        if combat_rules.has_block_cost(plan, b.id, ch[b.id]):
+            continue  # 509.1c: "that player is not required to pay that cost" (combat.block_requirements exempts it too)
         rules = [rule_arg(x) for x in scripts.statics(ch[b.id])]
         wanted = {arg for name, arg in rules if name == "must_block_obj"}
-        able = [a for a in attackers if combat.block_problem(state, b, ch[b.id], a, ch[a.id], cards) is None]
+        able = [a for a in attackers if not wave110m_cards.attacker_tax(ch[a.id])  # (Awesome Presence: a cost to block it, 509.1c)
+                and combat.block_problem(state, b, ch[b.id], a, ch[a.id], cards) is None]
         pick = next((a for a in able if r.object_id(a.id) in wanted or a.id in lures), None)
         if pick is None and any(name == "must_block" for name, _ in rules) and able:
             pick = able[0]
