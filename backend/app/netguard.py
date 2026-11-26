@@ -109,11 +109,11 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
 
 
 # -- invite over the internet -- what the tunnel port serves (app/main.py net_guard): the page, and what a remote player at a shared
-# table needs; anything else there is a 404. (methods or None for any, the path matched whole). A route added later is outside this
-# list until it is named here (tests/test_tunnel_routes.py walks every route).
+# table needs; anything else there is a 404. (methods, the path matched whole). A route added later is outside this list until it
+# is named here, and one it would let through fails tests/test_tunnel_routes.py until it is added to the frozen set there.
 _GAME = r"/api/games/(?P<game_id>[^/]+)"
-TUNNEL_ROUTES: tuple[tuple[frozenset[str] | None, re.Pattern[str]], ...] = tuple(
-    (frozenset(methods.split()) if methods else None, re.compile(pattern)) for methods, pattern in (
+TUNNEL_ROUTES: tuple[tuple[frozenset[str], re.Pattern[str]], ...] = tuple(
+    (frozenset(methods.split()), re.compile(pattern)) for methods, pattern in (
         ("GET", r"/"),  # the built page (_mount_frontend serves only these two)
         ("GET", r"/assets/.+"),
         ("GET", r"/api/health"),
@@ -126,9 +126,14 @@ TUNNEL_ROUTES: tuple[tuple[frozenset[str] | None, re.Pattern[str]], ...] = tuple
         ("GET", r"/api/symbols(/[^/]+\.svg)?"),
         ("GET", r"/api/assets/[^/]+/file"),
         ("GET", r"/api/rules/(support|coverage)"),
-        ("GET", r"/api/macros"),  # the pod's card macros: the game screen loads them for every seat (app/api/macros.py)
+        # the pod's card macros (read-only definitions): the game screen loads them for every seat (app/api/macros.py). Accepted: a
+        # stranger can read them, as can anyone on the LAN.
+        ("GET", r"/api/macros"),
         # a table and everything under it, but its host's tools, saving, the assistant, the rules lab, sharing and the test opponent
-        (None, _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|lobby/bot|bot(/.*)?)\Z).+)?"),
+        # (a trailing '/' too, so those are a 404 rather than redirect_slashes' 307). Only the methods those routes use: HEAD and
+        # OPTIONS are a 404. Accepted: for a shared table, a stranger without a seat can read its summary (no code), GET /result and
+        # what the routes themselves answer without a seat. tests/test_tunnel_routes.py freezes the whole set of allowed routes.
+        ("GET POST DELETE", _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|lobby/bot|bot(/.*)?)/?\Z).+)?"),
     ))
 
 
@@ -137,7 +142,7 @@ def tunnel_route(method: str, path: str) -> tuple[bool, str | None]:
     checked in game_socket: middleware never sees it.)"""
     for methods, pattern in TUNNEL_ROUTES:
         match = pattern.fullmatch(path)
-        if match is not None and (methods is None or method.upper() in methods):
+        if match is not None and method.upper() in methods:
             return True, match.groupdict().get("game_id")
     return False, None
 

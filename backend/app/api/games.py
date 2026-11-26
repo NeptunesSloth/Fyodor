@@ -418,9 +418,14 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
 async def game_summary(game_id: str, request: Request, services: ServicesDep) -> dict[str, Any]:
     # -- sync endpoints (wave 30B) -- on the event loop like GET /view (review 29A): actions change the table there with no await in
     # between, so a read on the loop sees whole tables; on the threadpool it iterates the room's connections while a socket joins or leaves
-    room = _room(services, game_id)
+    return _summary(_room(services, game_id), request)
+
+
+def _summary(room: Room, request: HTTPConnection) -> dict[str, Any]:
+    """``room.summary()`` for an answer that needs no seat: through the tunnel without the room code (the code is for the LAN; there
+    the invite link is the way in)."""
     summary = room.summary()
-    if is_tunnel_request(request):  # (the room code is for the LAN: through the tunnel the invite link is the way in)
+    if is_tunnel_request(request):
         summary["code"] = None
     return summary
 
@@ -580,11 +585,15 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
     # The guess counts as a failure before it is checked (no await between the check above and this): guesses sent together from one
     # address are refused from the sixth on instead of all being hashed. A right password gives it back below.
     by_address.fail(ip)
+    tunnel = is_tunnel_request(request)
 
     def check() -> tuple[Room | None, bool]:
         """The room of the code, and whether the password is right for it. Runs on ``services.hash_pool``: a join waiting for its
-        hash waits there, never on the threads the other sync routes share. (The limiters are only touched on the event loop.)"""
+        hash waits there, never on the threads the other sync routes share. (The limiters are only touched on the event loop.)
+        Through the tunnel a room that isn't shared is no room at all: the same answer, the same time, as an unknown code."""
         room = services.hub.by_code(body.code)
+        if room is not None and tunnel and not tunnel_serves(services, room.id):
+            room = None
         if room is None:
             spend_password_check(body.password)  # (a wrong code takes as long as a wrong password, and creates no room key)
             return None, False
@@ -632,7 +641,7 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
             info = room.lobby_seats[viewer]
             queued.collection = list(info.collection)
             info.deck = info.queued = queued
-    return {"game_id": room.id, "viewer": viewer, "token": token, "game": room.summary()}
+    return {"game_id": room.id, "viewer": viewer, "token": token, "game": _summary(room, request)}
 
 
 @router.get("/saves")
@@ -838,7 +847,7 @@ def get_lobby(
 ) -> dict[str, Any]:
     room = _room(services, game_id)
     if room.started:
-        return {"phase": "playing", "game": room.summary()}
+        return {"phase": "playing", "game": _summary(room, request)}  # (before any seat check: no code through the tunnel)
     viewer, host = _lobby_who(room, request, x_seat_token, seat_required=False)
     return _lobby_response(room, viewer, host)
 

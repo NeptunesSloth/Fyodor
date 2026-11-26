@@ -54,10 +54,89 @@ def _tunnel_without_origin(client: TestClient) -> TestClient:
                       headers={"Host": TUNNEL_HOST, "CF-Connecting-IP": "198.51.100.7"})
 
 
+# Every (method, route) the tunnel port lets through, reviewed one by one. A route added later that TUNNEL_ROUTES would let through
+# (one under /api/games/{game_id}/, say) fails the walk below until it is added here: a deliberate decision, never an accident.
+ALLOWED_ON_THE_TUNNEL = frozenset({
+    ("DELETE", "/api/games/{game_id}"),
+    ("DELETE", "/api/games/{game_id}/lobby/deck"),
+    ("DELETE", "/api/games/{game_id}/next-deck"),
+    ("DELETE", "/api/games/{game_id}/practice"),
+    ("DELETE", "/api/games/{game_id}/predictions/{market}"),
+    ("DELETE", "/api/games/{game_id}/snapshots/{snapshot_id}"),
+    ("GET", "/api/assets/{asset_id}/file"),
+    ("GET", "/api/cards/autocomplete"),
+    ("GET", "/api/cards/glossary"),
+    ("GET", "/api/cards/search"),
+    ("GET", "/api/cards/{card_id}"),
+    ("GET", "/api/cards/{card_id}/printings"),
+    ("GET", "/api/games"),
+    ("GET", "/api/games/{game_id}"),
+    ("GET", "/api/games/{game_id}/collection"),
+    ("GET", "/api/games/{game_id}/history"),
+    ("GET", "/api/games/{game_id}/history/{position}"),
+    ("GET", "/api/games/{game_id}/lobby"),
+    ("GET", "/api/games/{game_id}/lobby/brought"),
+    ("GET", "/api/games/{game_id}/next-deck"),
+    ("GET", "/api/games/{game_id}/night/deck"),
+    ("GET", "/api/games/{game_id}/pay-preview/{card_id}"),
+    ("GET", "/api/games/{game_id}/predictions"),
+    ("GET", "/api/games/{game_id}/result"),
+    ("GET", "/api/games/{game_id}/sandbox/board"),
+    ("GET", "/api/games/{game_id}/snapshots"),
+    ("GET", "/api/games/{game_id}/view"),
+    ("GET", "/api/games/{game_id}/watch"),
+    ("GET", "/api/health"),
+    ("GET", "/api/host/session"),
+    ("GET", "/api/images/card-back"),
+    ("GET", "/api/images/{card_id}"),
+    ("GET", "/api/macros"),
+    ("GET", "/api/rules/coverage"),
+    ("GET", "/api/rules/support"),
+    ("GET", "/api/symbols"),
+    ("GET", "/api/symbols/{code}.svg"),
+    ("POST", "/api/cards/batch"),
+    ("POST", "/api/games/{game_id}/actions"),
+    ("POST", "/api/games/{game_id}/deck-lab"),
+    ("POST", "/api/games/{game_id}/history/{position}/restore"),
+    ("POST", "/api/games/{game_id}/history/{position}/undo"),
+    ("POST", "/api/games/{game_id}/load-deck"),
+    ("POST", "/api/games/{game_id}/lobby/arrange"),
+    ("POST", "/api/games/{game_id}/lobby/collection"),
+    ("POST", "/api/games/{game_id}/lobby/deck"),
+    ("POST", "/api/games/{game_id}/lobby/import"),
+    ("POST", "/api/games/{game_id}/lobby/kick"),
+    ("POST", "/api/games/{game_id}/lobby/leave"),
+    ("POST", "/api/games/{game_id}/lobby/profile"),
+    ("POST", "/api/games/{game_id}/lobby/ready"),
+    ("POST", "/api/games/{game_id}/lobby/seat"),
+    ("POST", "/api/games/{game_id}/lobby/settings"),
+    ("POST", "/api/games/{game_id}/lobby/start"),
+    ("POST", "/api/games/{game_id}/next-deck"),
+    ("POST", "/api/games/{game_id}/night/answer"),
+    ("POST", "/api/games/{game_id}/night/propose"),
+    ("POST", "/api/games/{game_id}/night/reactions"),
+    ("POST", "/api/games/{game_id}/night/signal"),
+    ("POST", "/api/games/{game_id}/night/vote"),
+    ("POST", "/api/games/{game_id}/practice"),
+    ("POST", "/api/games/{game_id}/predictions"),
+    ("POST", "/api/games/{game_id}/redo"),
+    ("POST", "/api/games/{game_id}/result"),
+    ("POST", "/api/games/{game_id}/sandbox/combat"),
+    ("POST", "/api/games/{game_id}/snapshots"),
+    ("POST", "/api/games/{game_id}/snapshots/{snapshot_id}/restore"),
+    ("POST", "/api/games/{game_id}/test/take-back"),
+    ("POST", "/api/games/{game_id}/undo"),
+    ("POST", "/api/games/{game_id}/undo-request"),
+    ("POST", "/api/join"),
+})
+
+
 def test_every_route_is_either_allowed_or_404_on_the_tunnel_port(client, tunnel_client) -> None:
-    """The fail-closed guard: a route added later is a 404 on the tunnel unless TUNNEL_ROUTES names it."""
+    """The fail-closed guard: a route added later is a 404 on the tunnel unless TUNNEL_ROUTES names it, and one TUNNEL_ROUTES would
+    let through must also be named in ALLOWED_ON_THE_TUNNEL."""
     gid, _ = _shared_game(client)
     walked = refused = 0
+    allowed: set[tuple[str, str]] = set()
     for path, route in _routes(client.app.routes):
         if not isinstance(route, APIRoute):
             continue
@@ -65,11 +144,26 @@ def test_every_route_is_either_allowed_or_404_on_the_tunnel_port(client, tunnel_
         for method in sorted(route.methods):
             walked += 1
             if tunnel_route(method, concrete)[0]:
+                allowed.add((method, path))
                 continue
             refused += 1
             res = tunnel_client.request(method, concrete)
             assert res.status_code == 404 and res.json() == NOT_FOUND, (method, concrete, res.status_code)
     assert walked > 150 and refused > 80  # (the walk saw the app's routes, not an empty list)
+    assert sorted(allowed - ALLOWED_ON_THE_TUNNEL) == [], "newly allowed on the tunnel: review, then add to ALLOWED_ON_THE_TUNNEL"
+    assert sorted(ALLOWED_ON_THE_TUNNEL - allowed) == [], "no longer allowed on the tunnel: drop from ALLOWED_ON_THE_TUNNEL"
+
+
+def test_head_options_and_trailing_slashes_are_404_on_the_tunnel_port(client, tunnel_client) -> None:
+    gid, bob = _shared_game(client)
+    for method, path in (("HEAD", "/api/health"), ("OPTIONS", f"/api/games/{gid}/view"), ("HEAD", f"/api/games/{gid}/view"),
+                         ("PUT", f"/api/games/{gid}/view"), ("PATCH", f"/api/games/{gid}"), ("POST", f"/api/games/{gid}/save/"),
+                         ("POST", f"/api/games/{gid}/assistant/"), ("GET", f"/api/games/{gid}/rules/scenario/"),
+                         ("POST", f"/api/games/{gid}/lobby/bot/"), ("POST", f"/api/games/{gid}/bot/")):
+        res = tunnel_client.request(method, path, headers={"X-Seat-Token": bob}, follow_redirects=False)
+        assert res.status_code == 404, (method, path, res.status_code)
+        if method != "HEAD":
+            assert res.json() == NOT_FOUND, (method, path)
 
 
 def test_the_tunnel_branch_is_what_refuses(client, tunnel_client) -> None:
@@ -113,7 +207,13 @@ def test_the_tunnel_branch_is_what_refuses(client, tunnel_client) -> None:
     ("POST", "/api/games/g1/actions", True, "g1"),
     ("POST", "/api/games/g1/lobby/deck", True, "g1"),
     ("GET", "/api/games/g1/lobby/brought", True, "g1"),
+    ("HEAD", "/api/games/g1/view", False, None),
+    ("OPTIONS", "/api/games/g1", False, None),
+    ("PUT", "/api/games/g1", False, None),
     ("POST", "/api/games/g1/save", False, None),
+    ("POST", "/api/games/g1/save/", False, None),
+    ("POST", "/api/games/g1/lobby/bot/", False, None),
+    ("POST", "/api/games/g1/saved", True, "g1"),
     ("POST", "/api/games/g1/assistant", False, None),
     ("GET", "/api/games/g1/rules/scenario", False, None),
     ("POST", "/api/games/g1/host/seat-link", False, None),
@@ -225,9 +325,30 @@ def test_games_list_and_summary_hide_codes_on_the_tunnel_port(client, tunnel_cli
     code = _room(client, gid).code
     assert any(g["code"] == code for g in client.get("/api/games").json())
     assert client.get(f"/api/games/{gid}").json()["code"] == code
+    assert client.get(f"/api/games/{gid}/lobby", headers=guest()).json()["game"]["code"] == code  # (a started table, no seat)
     assert tunnel_client.get("/api/games").json() == []
     summary = tunnel_client.get(f"/api/games/{gid}").json()
     assert summary["id"] == gid and summary["code"] is None
+    lobby = tunnel_client.get(f"/api/games/{gid}/lobby").json()  # no seat token: before any seat check
+    assert lobby["phase"] == "playing" and lobby["game"]["id"] == gid and lobby["game"]["code"] is None
+
+
+def test_an_unshared_room_cannot_be_joined_by_its_code_through_the_tunnel(client, tunnel_client) -> None:
+    """Critical (review 1): a LAN code names no room through the tunnel unless that room is shared; the answer, and the failure the
+    address is charged, are an unknown code's."""
+    gid, code, _ = create_lobby(client)
+    room = _room(client, gid)
+    seats = {pid: s.token for pid, s in room.seats.items()}
+    services = client.app.state.services
+    unknown = tunnel_client.post("/api/join", json={"code": "ZZZZZZ", "name": "Eve"})
+    res = tunnel_client.post("/api/join", json={"code": code, "name": "Eve"})
+    assert res.status_code == unknown.status_code == 403 and res.json() == unknown.json() == {"detail": "Unknown room code or wrong password"}
+    assert {pid: s.token for pid, s in room.seats.items()} == seats and not room.spectator_tokens  # no seat was claimed
+    assert len(services.join_limiter_addr._failures["198.51.100.7"]) == 2  # both kept as failures
+    assert code not in services.join_limiter_room._failures  # (a room key would say the code exists)
+    room.shared = True  # once shared, the code joins (Task 11 moves tunnel joins to the invite code), and the answer has no code
+    joined = tunnel_client.post("/api/join", json={"code": code, "name": "Eve"})
+    assert joined.status_code == 200 and joined.json()["game"]["code"] is None
 
 
 def test_health_is_trimmed_for_guests(client, tunnel_client) -> None:
