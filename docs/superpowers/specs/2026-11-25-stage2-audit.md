@@ -528,8 +528,10 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
    `test_tunnel_routes.py::test_games_list_and_summary_hide_codes_on_the_tunnel_port`, `::test_shared_room_plays`;
    `test_tunnel_identity.py::test_a_seat_reconnects_from_a_new_address`; dropped spectators:
    `test_spectator_cap.py::test_33_spectators_leave_32_and_the_first_is_refused`. Accepted and documented (`netguard.py:129-135`): on a
-   shared table a stranger can read its summary (no code), `GET …/result` and `GET /api/macros`; a seated remote player sees the LAN
-   code in their own view (it is accepted only on the LAN port).
+   shared table a stranger can read its summary (no code), `GET …/result` and `GET /api/macros`. Since the final fix wave (M8) no
+   lobby or table view sent to a tunnel connection or answering a tunnel request carries the LAN code
+   (`test_share_api.py::test_the_lan_code_never_reaches_a_tunnel_connection`: HTTP lobby, ready, view and action replies, and the
+   socket's first message, broadcasts, deltas and resync; the LAN's views keep it).
 3. **Met.** `git grep -n "[?&]token=\|[?&]seat_token=" -- backend/app frontend/src ':!*.test.*'` → `games.py:1808` (the seat link,
    token after `#`), `games.py:1989` (a comment: a `?token=` is never credentials) and two comment lines in
    `frontend/src/services/seatLink.ts`. The legacy switch is gone (`git grep -n -i "legacy_ws_token\|LEGACY_WS" -- backend/app
@@ -556,15 +558,20 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
    hostname must fullmatch `[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com`
    (`test_tunnel_process.py::test_a_hostname_that_is_not_trycloudflare_fails_closed`); the download stops at 150 MB
    (`test_tunnel_binary.py::test_download_stops_at_the_size_cap`); archive members with a path or a link are refused
-   (`::test_archive_member_with_a_path_is_refused`); bodies on the tunnel port are limited to 256 KB
-   (`test_body_limit.py::test_no_allowance_on_the_tunnel_port`).
+   (`::test_archive_member_with_a_path_is_refused`); bodies on the tunnel port are limited to 256 KB except a seat's lobby allowance
+   for the shared table (final fix wave, I1: `test_body_limit.py::test_on_the_tunnel_port_a_seat_keeps_the_lobby_allowance` — a
+   tunnel seat's 1,800-entry collection reaches the route, a stranger, a made-up token and another table's seat get 256 KB;
+   `::test_no_host_or_any_allowance_on_the_tunnel_port`). (The earlier `test_no_allowance_on_the_tunnel_port` asserted the I1
+   regression and was rewritten.) A password typed when sharing replaces a table's existing one, so the 8-100 rule can be applied
+   to any table before it is shared; the panel asks the host when the table already has one (I3, risk 8).
 7. **Met.** `git diff 9eb1e71..HEAD -- frontend/src | grep "^+.*\(innerHTML\|dangerouslySetInnerHTML\|javascript:\)"` → nothing; the
    link is shown in an `<input readOnly value=…>`. New log lines: two, constant text (point 3).
 8. **Met in substance; deviates in letter once.** `git diff 9eb1e71..HEAD -- backend/app | grep -n "^+.*\(except\|suppress\)"`: every
    added handler refuses, fails or re-raises:
    - `except Exception as exc:` in `TunnelManager._start` (`manager.py:77`): sets `state = "failed"` and a reason, logs an error that is
      not `TunnelUnavailable`, then `raise`s. It is the one literal "new `except Exception`" the gate forbids; it swallows nothing.
-     **Flagged for the independent reviewer**; not changed here.
+     **Accepted deviation** (final review, open item 1): it is load-bearing for fail-closed (without it, any other failure in
+     `_launch` would leave `state == "starting"` for ever). It carries `# noqa: BLE001` with that reason (final fix wave, M7).
    - `except BaseException:` twice (`manager.py`, ending a half-started process; `process.py`, closing the job handle): clean up and
      `raise`.
    - `contextlib.suppress(RuntimeError)` around `loop.call_soon_threadsafe` (the loop closed in between: nothing left to notify).
@@ -601,7 +608,7 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
     for the development origins (`test_origin_guard.py::test_dev_origins_are_refused_by_default`); forged `X-Forwarded-For`
     (`test_launcher.py::test_a_real_server_ignores_forwarded_for_from_loopback` on a real uvicorn,
     `test_tunnel_identity.py::test_tunnel_client_address_is_cf_connecting_ip`, the `203.0.113.9:4711` row of `test_client_address.py`);
-    oversized message (`test_body_limit.py::test_no_allowance_on_the_tunnel_port`, `::test_a_stranger_gets_256k_on_lobby_routes`);
+    oversized message (`test_body_limit.py::test_on_the_tunnel_port_a_seat_keeps_the_lobby_allowance`, `::test_a_stranger_gets_256k_on_lobby_routes`);
     repeated action id / an action in flight at unshare (`test_share_api.py::test_stop_sharing_closes_only_tunnel_sockets` asserts at
     most one log entry for its `client_action_id`; `::test_a_rest_action_queued_behind_the_unshare_is_refused`). "Timeout racing an
     action": not applicable, it belongs to Stage 3's clock.
@@ -623,7 +630,7 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
 
 | # | Item | Task (commit) | Tests |
 |---|---|---|---|
-| 1 | The tunnel port filters what a stranger reads | 9 (`38d4a7c`, `ef34d97`) | `test_tunnel_routes.py::test_games_list_and_summary_hide_codes_on_the_tunnel_port`, `::test_pod_stats_and_assets_list_404_on_the_tunnel_port`, `::test_health_is_trimmed_for_guests`, `::test_unshared_room_is_no_such_room`, `::test_every_route_is_either_allowed_or_404_on_the_tunnel_port`, `::test_the_tunnel_branch_is_what_refuses`. `GET …/result` of a *shared* table stays readable (accepted, gate point 2). |
+| 1 | The tunnel port filters what a stranger reads; no LAN code reaches a tunnel connection (final fix wave, M8) | 9 (`38d4a7c`, `ef34d97`); final fix wave (M8) | `test_tunnel_routes.py::test_games_list_and_summary_hide_codes_on_the_tunnel_port`, `::test_pod_stats_and_assets_list_404_on_the_tunnel_port`, `::test_health_is_trimmed_for_guests`, `::test_unshared_room_is_no_such_room`, `::test_every_route_is_either_allowed_or_404_on_the_tunnel_port`, `::test_the_tunnel_branch_is_what_refuses`. `GET …/result` of a *shared* table stays readable (accepted, gate point 2). Seated remote players' views: `test_share_api.py::test_the_lan_code_never_reaches_a_tunnel_connection`. |
 | 2 | The tunnel port never passes the LAN gate | 9 (`38d4a7c`) | `test_tunnel_routes.py::test_lan_handoff_routes_404_on_the_tunnel_port` (with `CF-Connecting-IP: 192.168.1.5`) |
 | 3 | Limits keyed by the provider's client address, per /64 | 8 (`b380b0e`), 11 (`4e62f5a`) | `test_tunnel_identity.py::test_tunnel_client_address_is_cf_connecting_ip`, `::test_cf_client_key`, `::test_two_phones_in_one_ipv6_64_share_a_bucket_but_other_64s_do_not`, `::test_lan_port_never_reads_cf_connecting_ip`, `::test_a_seat_reconnects_from_a_new_address`; `test_shared_rooms.py::test_wrong_password_on_the_tunnel_port_counts_against_cf_address`. The socket caps and the asset throttle read the same `client_address`. |
 | 4 | A cap on spectator tokens | 7 (`3520aa4`) | `test_spectator_cap.py`: `test_33_spectators_leave_32_and_the_first_is_refused`, `test_the_dropped_spectators_socket_closes_4403`, `test_a_dropped_spectators_queued_deck_goes_with_them`, `test_restore_keeps_the_newest_32_of_40_in_order_and_round_trips`, `test_the_cap_leaves_seats_alone` |
@@ -633,7 +640,7 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
 | 8 | Join hashing off the shared threadpool, counted first | 6 (`df8c531`, `62b022b`) | `test_join_limits.py::test_undo_last_removes_only_the_newest_failure`, `::test_concurrent_wrong_joins_stop_at_five`, `::test_other_routes_answer_while_joins_hash` (40 addresses), `::test_a_right_join_costs_the_address_nothing` |
 | 9 | Development origins only in development | 4 (`811ef22`) | `test_origin_guard.py::test_dev_origins_are_refused_by_default`, `::test_dev_origins_with_dev_tools`, `::test_cors_origins_variable_wins` |
 | 10 | An `X-Forwarded-For` entry with a port | 3 (`1b854db`) | `test_client_address.py:29`, row `(("127.0.0.1",), "127.0.0.1", "203.0.113.9:4711", "127.0.0.1")`; also `test_launcher.py::test_uvicorn_does_not_rewrite_the_client_from_headers`, `::test_a_real_server_ignores_forwarded_for_from_loopback` |
-| NB1 | Large body allowances only for the host or a seat, never through the tunnel | 10 (`c4f0fc5`) | `test_body_limit.py::test_a_guest_gets_256k_on_host_routes`, `::test_the_host_keeps_the_large_allowance`, `::test_a_stranger_gets_256k_on_lobby_routes`, `::test_a_seat_keeps_the_lobby_allowance`, `::test_no_allowance_on_the_tunnel_port`, `::test_the_route_speaks_first_for_streamed_uploads` |
+| NB1 | Large body allowances only for the host or a seat; through the tunnel only a seat's (final fix wave, I1: NB1's "never through the tunnel" overreached for seats) | 10 (`c4f0fc5`); final fix wave (I1) | `test_body_limit.py::test_a_guest_gets_256k_on_host_routes`, `::test_the_host_keeps_the_large_allowance`, `::test_a_stranger_gets_256k_on_lobby_routes`, `::test_a_seat_keeps_the_lobby_allowance`, `::test_on_the_tunnel_port_a_seat_keeps_the_lobby_allowance`, `::test_no_host_or_any_allowance_on_the_tunnel_port`, `::test_the_route_speaks_first_for_streamed_uploads` |
 | SR1 (F1) | The host's own seat can't be removed; a left seat can't be claimed | 2 (`0a0cd16`) | `test_host_seat_guard.py::test_host_cannot_remove_their_own_seat`, `::test_a_left_seat_cannot_be_claimed`, `::test_join_without_a_seat_skips_left_seats`, `::test_the_exploit_from_the_review_fails` |
 
 ### Manual check through a real tunnel
@@ -643,12 +650,18 @@ data** (Wi-Fi off), an iPhone, and a second device on the LAN. Each line is an a
 
 - [ ] Start Fyodor from its launcher. Open a LAN lobby; press **Invite** → **Invite over the internet**, type a password (8 or more
       characters), **Share with this password**. The first time it says *Starting the link… the first time downloads the tunnel
-      program* (the Windows download is about 55 MB; the text says "about 40 MB", see risk 15); then a link
+      program (about 55 MB)*; then a link
       `https://<name>.trycloudflare.com/#/play?code=…&join=1` with **Copy link**, *Send the password separately.* and **Stop sharing**.
       Copy the link.
 - [ ] A phone on mobile data (not on the Wi-Fi) opens the link: it asks for the password, joins, takes a seat, plays a land; the land
       appears on the host's screen at once.
 - [ ] The top bar on the host and on the phone shows the globe chip *Shared over the internet*. The phone shows no 6-character room code.
+- [ ] The phone closes the tab and opens the same link again: after the password it is back in **its own** seat (no second seat in the
+      lobby; mid-game no *The table is full*). The host's **⋯ → Host tools → Reclaim / assign seat** for the phone's seat shows an
+      *Over the internet* link (`https://<name>.trycloudflare.com/#/game/…`) that the phone can open.
+- [ ] A LAN table made with a short password (e.g. `pod`): **Invite over the internet** says *This table already has a password.*;
+      **Set a new password** (8+ characters) shares it; the old password no longer joins on the LAN or the link, LAN players already
+      seated play on. (And **Share with it** at a table with a long password shares at once.)
 - [ ] The phone sleeps (locked) for a minute, then wakes: the same seat and hand, no *Too many connections*.
 - [ ] Review Focus 1: mid-game the phone switches from Wi-Fi to mobile data: it reconnects to the same seat, with no 429 and no new join.
 - [ ] On the phone, open by hand `https://<name>.trycloudflare.com/api/saves` → 404, `/api/games` → `[]`, `/api/pod/results` → 404.
@@ -701,7 +714,7 @@ Sharing:
 10. Task 13: `TunnelManager.stop()` blocks up to about 5 s (routes call it in an executor); the die-during-start test is
     timing-dependent; `main.py`'s lifespan ordering (discovery stop before services close) was noted for the final review.
 11. Task 9: on a shared table a stranger without a seat can read its summary (no code), `GET …/result` and `GET /api/macros`; a seated
-    remote player sees the LAN code in their own view (useless off the LAN port); `…/save//` (two slashes) still gets Starlette's 307
+    remote player no longer sees the LAN code (fixed in the final fix wave, M8); `…/save//` (two slashes) still gets Starlette's 307
     (nothing exposed); a configured `FYODOR_CORS_ORIGINS` is echoed on tunnel GETs (development only); every new player-facing game
     route needs a line in the frozen allowlist test (ledger ruling).
 12. Task 8: the undo display fields (`hub.py` ~875) use `viewer == host_seat`, not the connection, so a remote host-seat view may offer
@@ -715,7 +728,8 @@ Sharing:
     for the host cookie on the tunnel; `is_host_request`/`is_tunnel_request` run on every request.
 15. Task 15: the status poll gives up after 3 misses with no Retry in the page (a remount is needed) and its error is never cleared; a
     `src` change does not clear a pending picture retry (one extra load); the tunnel flag from `/api/health` is cached for the page's
-    life (a transient failure on a tunnel page shows the LAN code chip); the Show-password icon is `hand`; the "about 40 MB" text
+    life (a transient failure on a tunnel page shows the LAN code chip); the Show-password icon is `hand`; (fixed in the final fix wave,
+    M3:) the "about 40 MB" text
     understates the 55 MB Windows download (`InternetInvite.tsx:66` and `internetInvite.test.ts:55`; not changed by the gate); the
     screenshots and critique are not done (owner's checklist).
 16. Tests not written (deferred minors): Task 2 (a non-host `remove_player` of the host seat, the socket path; one test ends on
@@ -725,9 +739,56 @@ Sharing:
     cross-host redirect). Task 1's audit lacks a "wrapper log: 0 entries" line for the forged-header cases (the 403 at the edge stands).
 17. Dependency upgrades still open from Stage 1 (its risk 11): `pip` in the environment; `vite`, `source-map-js`, `vitest`,
     `@vitest/mocker` in `frontend/`.
-18. Gate point 8's literal `except Exception` in `TunnelManager._start` (re-raises; flagged for the reviewer).
-19. `docs/SECURITY.md` predates Stage 1 and is now wrong in places ("never needs the Internet during play", the `X-Forwarded-For`
-    paragraph, "10 per minute" join limit); it is not in this task's file list and is left for a docs pass.
+18. Gate point 8's literal `except Exception` in `TunnelManager._start` (re-raises): accepted by the final review, marked `# noqa: BLE001`
+    with its reason (final fix wave, M7). The one literal deviation of gate point 8.
+
+19. **Fixed in the final fix wave (M4):** `docs/SECURITY.md` no longer says "never needs the Internet during play", the old
+    `X-Forwarded-For` paragraph and "10 per minute" are replaced, and the tunnel port is described.
+
+Final review and security pass (final fix wave):
+
+20. **Fixed:** I1 (a tunnel seat keeps the lobby body allowance; `test_body_limit.py::test_on_the_tunnel_port_a_seat_keeps_the_lobby_allowance`),
+    I2 (a join holding the seat's token gets that seat back, after the password; the Play page sends the token held for the code;
+    Host tools adds the seat link on the internet address: `test_share_api.py::test_the_invite_link_brings_a_player_back_to_their_seat`,
+    `::…_mid_game`, `frontend/src/pages/lanBits.test.ts`), I3 / security F1 / M10 (sharing with a password replaces the table's; the
+    panel asks *Share with it* or *Set a new password*: `test_share_api.py::test_sharing_with_a_new_password_replaces_the_tables`,
+    `frontend/src/game/internetInvite.test.ts`). What remains of I2: opening the link again finds the seat only while the table stays
+    shared under the same invite code and only in the browser that joined (a re-share has a new code, M5); a seat holder opening a
+    *watch* link is given their seat back; a mid-game remote player whose browser lost its token still needs the host's seat link.
+    What remains of I3: **Share with it** still shares a short LAN password if the host chooses it (the server cannot measure a hash).
+21. **Fixed (security F2 / M1), tunnel only:** once the per-room limiter has blocked a shared room (30 wrong passwords in 15 minutes),
+    a join by its invite code is refused (429, the room's Retry-After) before any password is hashed, the right one too
+    (`test_share_api.py::test_a_room_blocked_on_the_tunnel_refuses_before_hashing`, counting hash calls). Consequences: a guesser
+    with many addresses can lock remote joiners out for up to 15 minutes (the LAN joins as ever; a player rejoining with their seat's
+    token is let through to the password check); the room key is the LAN code, so wrong guesses on the LAN count towards the
+    tunnel's pause too. Below the threshold the `hash_pool` queue is still unbounded (risk 13).
+22. **M2 (recorded, not fixed):** a password holder can evict every spectator. A right password costs the address nothing, so repeated
+    `spectate: true` joins through the link push the 32-token cap and drop the earliest spectators, the LAN's included
+    (`hub.py`, the spectator cap in `claim_seat`); the host has no kick for spectators. Later: count successful spectator joins per
+    address, or exempt the LAN's tokens from eviction by tunnel joins.
+23. **M6 (recorded, not fixed):** strangers with only the hostname reach the card and image routes with no per-address budget.
+    `GET /api/images/{id}` on a cache miss calls `token_art.fetch` (`cards.py:140`): a stranger can make the host download each
+    token/plane picture from Scryfall once (a few thousand, cached, 4 at a time, `token_art.py:83`) and hold sync worker threads on
+    that 4-slot gate; `/api/cards/search` and `/cards/batch` (2,000 ids) are unthrottled. Bounded by the token set and Cloudflare's
+    200 in-flight. Later: a per-CF-address request budget (with the turn clock or after).
+24. **cloudflared 2026.11.x vs the pinned 2026.10.7** (final review, ruling 3; read 2026-11-25, record only, the pin is unchanged).
+    The GitHub release pages of 2026.11.0 (12 Nov) and 2026.11.2 (23 Nov) carry only their SHA256 checksums, no notes. The
+    repository's `RELEASE_NOTES` file lists:
+    - 2026.11.0: "TUN-11065: Run Windows CI on production runners", "chore: Bump golang to 1.27.4", "chore: Use correct logger",
+      "**VULN-170057: Don't bypass access with matrix parameters**".
+    - 2026.11.1: "TUN-11062: Reconnect on account region changes", "chore: Update base images to latest versions",
+      "**VULN-187395: Bump OpenTelemetry to 1.47.0**", "fix: Allow quick tunnels to fall back to HTTP/2".
+    - 2026.11.2: "TUN-11396: Bump golang.org/x/net and golang.org/x/crypto", "chore: Update Google Distroless image digests",
+      "TUN-11362: Read the whole protocol version of a tunnel stream".
+    So yes: 2026.11.0 fixes a security issue present in 2026.10.7 (VULN-170057, a Cloudflare Access bypass through matrix
+    parameters), and 2026.11.1 (included in 2026.11.2) another (VULN-187395, a dependency). Neither note says more. VULN-170057 concerns
+    Access rules on a tunnel's ingress; Fyodor runs a quick tunnel with `--config <empty>` and no Access policy, so it appears not to
+    apply, but that is a reading of a one-line note, not a verification. The Go 1.27.4 and x/net/x/crypto bumps give no reason.
+    2026.11.2 is 2 days old (under the plan's 14-day rule); 2026.11.0 turns 14 days old on 2026-11-26. **Owner's decision** whether
+    to re-pin before merge (it needs the five hashes re-verified as in section 3.0a).
+25. Follow-ups from the fix wave: a remote spectator taking a lobby seat uses the invite code this browser joined with (its view has no
+    LAN code since M8); a browser that never stored one (storage blocked) gets the normal refusal and joins by the link instead.
+
 
 ### Before merging
 
