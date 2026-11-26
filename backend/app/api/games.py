@@ -593,6 +593,14 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
     # address are refused from the sixth on instead of all being hashed. A right password gives it back below.
     by_address.fail(ip)
     tunnel = is_tunnel_request(request)
+    if tunnel:
+        # -- invite over the internet -- a shared room the per-room limiter has blocked takes no more guesses through the tunnel, not
+        # even a right one, and none is hashed: guesses from many addresses can't spend the hash pool. (The answer is today's room-blocked
+        # one. Remote joiners wait out the window; the LAN, which joins by the LAN code and is checked after the hash, is untouched, and
+        # so is a player opening the link again with the token of their seat, which no guesser holds.)
+        shared = services.hub.by_invite_code(body.code)
+        if shared is not None and by_room.blocked(shared.code) and shared.seat_for_token(x_seat_token) is None:
+            raise too_many_attempts(by_room.retry_after(shared.code))
 
     def check() -> tuple[Room | None, bool]:
         """The room of the code, and whether the password is right for it. Runs on ``services.hash_pool``: a join waiting for its

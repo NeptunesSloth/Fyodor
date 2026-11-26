@@ -372,6 +372,41 @@ def test_the_invite_link_brings_a_player_back_to_their_seat_mid_game(client: Tes
     assert res.json()["viewer"] == "p2" and res.json()["token"] == bob
 
 
+def test_a_room_blocked_on_the_tunnel_refuses_before_hashing(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient,
+                                                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """Security F2 / final review M1: guesses from many addresses (one /64 each) block the room; from then on a join through the tunnel
+    is refused before its password is hashed, even the right one, with the room's Retry-After. The LAN and seated players are untouched."""
+    from app.multiplayer import hub
+
+    calls: list[int] = []
+    real = hub._hash_password
+    monkeypatch.setattr(hub, "_hash_password", lambda password, salt, rounds: calls.append(rounds) or real(password, salt, 1))
+    gid, code, alice = create_lobby(client)
+    assert _share(client, gid).status_code == 200
+    room = _room(client, gid)
+    body = {"code": room.invite_code, "name": "Mallory", "password": "not the password"}
+    bob = tunnel_client.post("/api/join", json={**body, "name": "Bob", "password": PASSWORD}).json()["token"]
+    services = client.app.state.services  # type: ignore[attr-defined]
+    for i in range(40):
+        if services.join_limiter_room.blocked(room.code):
+            break
+        res = tunnel_client.post("/api/join", json=body, headers={"CF-Connecting-IP": f"2001:db8:{i:x}::1"})
+        assert res.status_code in (403, 429), res.text
+    assert services.join_limiter_room.blocked(room.code)
+    before = len(calls)
+    res = tunnel_client.post("/api/join", json={**body, "password": PASSWORD}, headers={"CF-Connecting-IP": "2001:db8:ffff::1"})
+    assert res.status_code == 429 and res.json() == {"detail": "Too many attempts. Try again in a few minutes."}, res.text
+    assert int(res.headers["Retry-After"]) > 0
+    assert len(calls) == before  # nothing hashed
+    # a remote player opening the link again with their seat's token still gets back to it
+    back = tunnel_client.post("/api/join", json={**body, "password": PASSWORD}, headers={"X-Seat-Token": bob})
+    assert back.status_code == 200 and back.json()["token"] == bob, back.text
+    # the LAN still joins with the right password (hashed as ever), and a seated player is not asked
+    lan = client.post("/api/join", json={"code": code, "name": "Eve", "password": PASSWORD}, headers=guest())
+    assert lan.status_code == 200, lan.text
+    assert client.get(f"/api/games/{gid}/lobby", headers={**guest(), "X-Seat-Token": alice}).status_code == 200
+
+
 def test_practice_and_hot_seat_tables_cannot_be_shared(client: TestClient, fake: FakeTunnel) -> None:
     a = client.post("/api/decks", json={"text": KRENKO}).json()["id"]
     b = client.post("/api/decks", json={"text": ATRAXA}).json()["id"]
