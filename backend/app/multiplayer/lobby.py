@@ -16,6 +16,7 @@ from app.game.factory import DeckCard
 from app.game.mulligan import PRESETS, resolve_policy
 from app.game.rules_state import AutomationLevel
 from app.game.state import CollectionCard, MulliganPolicy
+from app.game.turn_clock import ClockSettings
 from app.textutil import clean_text
 
 DeckPrivacy = Literal["private", "commander_only", "public"]
@@ -56,6 +57,7 @@ class LobbySettings(BaseModel):
     planechase: bool = False
     planar_deck_size: int = Field(default=10, ge=2, le=60)
     planar_phenomena: bool = True
+    clock: ClockSettings = Field(default_factory=lambda: ClockSettings.model_validate({}))  # -- turn clock (stage 3) -- LAN Commander tables only
 
     @field_validator("name")
     @classmethod
@@ -73,6 +75,7 @@ class LobbySettings(BaseModel):
     def _sandbox_starts_manual(self) -> LobbySettings:
         if self.format == "sandbox":
             self.automation = "off"  # a Sandbox table starts as the manual table; automation is turned on at the table
+            self.clock.on = False  # (and has no turn clock)
         return self
 
     def policy(self) -> MulliganPolicy | None:

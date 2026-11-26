@@ -38,6 +38,7 @@ from app.api.lan import router as lan_router
 from app.api.share import router as share_router  # -- invite over the internet --
 from app.api.spectate import router as spectate_router
 from app.api.teach import router as teach_router  # -- Teach Fyodor --
+from app.api.turn_clock import router as turn_clock_router  # -- turn clock (stage 3) --
 from app.assets import validate as asset_validate
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
@@ -289,6 +290,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rules.router, prefix="/api")
     app.include_router(host_router, prefix="/api")  # claiming the host session (app/api/host.py)
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
+    app.include_router(turn_clock_router, prefix="/api")  # the host's turn clock controls (app/api/turn_clock.py)
     app.include_router(share_router, prefix="/api")  # sharing a table over the invite link (app/api/share.py)
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 

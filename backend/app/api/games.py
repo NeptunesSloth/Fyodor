@@ -65,6 +65,7 @@ from app.game.mulligan import resolve_policy
 from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarCard
+from app.game.turn_clock import ClockSettings, TurnClock
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art, response_call
@@ -246,6 +247,7 @@ class CreateGameIn(BaseModel):
     planechase: bool = False
     planar_deck_size: int = Field(default=10, ge=2, le=60)
     planar_phenomena: bool = True
+    clock: ClockSettings = Field(default_factory=lambda: ClockSettings.model_validate({}))  # -- turn clock (stage 3) -- a lobby's setting
 
     @field_validator("name")
     @classmethod
@@ -256,6 +258,7 @@ class CreateGameIn(BaseModel):
     def _sandbox_starts_manual(self) -> CreateGameIn:
         if self.format == "sandbox":
             self.automation = "off"  # a Sandbox table starts as the manual table; the host turns automation on at the table
+            self.clock.on = False
         return self
 
 
@@ -330,7 +333,8 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
                              auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order,
                              card_permissions=body.card_permissions, planechase=body.planechase,
-                             planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena)
+                             planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena,
+                             clock=body.clock)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -818,6 +822,7 @@ class LobbySettingsIn(BaseModel):
     planechase: bool | None = None  # -- planechase -- a shared planar deck (no Ready reset either)
     planar_deck_size: int | None = Field(default=None, ge=2, le=60)
     planar_phenomena: bool | None = None
+    clock: ClockSettings | None = None  # -- turn clock (stage 3) -- (no Ready reset either)
 
 
 class ArrangeIn(BaseModel):
@@ -1410,6 +1415,8 @@ async def start_game(
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
         )
+        if lobby.clock.on and lobby.format == "commander":
+            session.clock = TurnClock(settings=lobby.clock)  # -- turn clock (stage 3) --
         session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
         session.notice(f"Game started. {state.players[state.turn.active_player].name} goes first.")
         if night.order_source == "winner_last":
