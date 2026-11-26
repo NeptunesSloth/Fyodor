@@ -137,6 +137,69 @@ def test_a_process_that_dies_while_starting_fails_fast_and_closes_its_job_once(m
         assert len(closed) == 1
 
 
+def test_a_stop_right_after_start_wins(manager: TunnelManager, stand_in) -> None:
+    async def run() -> None:
+        task = asyncio.ensure_future(manager.start())
+        await asyncio.sleep(0)  # start() has made its task; the task hasn't run yet
+        manager.stop()
+        with pytest.raises(TunnelUnavailable, match="turned off"):
+            await task
+
+    asyncio.run(run())
+    assert (manager.state, manager.hostname) == ("stopped", None)
+    assert manager._proc is None and stand_in["started"] == []
+
+
+def test_a_failed_job_assignment_leaves_no_process(manager: TunnelManager, stand_in, monkeypatch) -> None:
+    procs: list[subprocess.Popen[bytes]] = []
+
+    def broken(proc: subprocess.Popen[bytes]) -> int | None:
+        procs.append(proc)
+        raise TunnelUnavailable("The internet link couldn't be started on this computer.")
+
+    monkeypatch.setattr(process, "kill_with_parent", broken)
+    with pytest.raises(TunnelUnavailable):
+        asyncio.run(manager.start())
+    assert len(procs) == 1 and procs[0].poll() is not None
+    assert manager.state == "failed" and manager._proc is None
+
+
+def test_a_hostname_from_a_process_that_is_gone_is_refused(stand_in, tmp_path: Path) -> None:
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    cmd = process.command(tmp_path / "x", 1, port, tmp_path / "c")
+    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        assert process.read_hostname(port, 10) == HOST
+        with pytest.raises(TunnelUnavailable):
+            process.read_hostname(port, 10, alive=lambda: False)
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_an_on_down_that_fails_is_logged(manager: TunnelManager, stand_in, caplog) -> None:
+    async def run() -> None:
+        async def on_down() -> None:
+            raise RuntimeError("boom")
+
+        manager.on_down = on_down
+        await manager.start()
+        assert manager._proc is not None
+        manager._proc.kill()
+        for _ in range(100):
+            await asyncio.sleep(0.1)
+            if "going down failed" in caplog.text:
+                break
+
+    asyncio.run(run())
+    assert "Handling the internet link going down failed" in caplog.text
+    assert not manager._down_tasks
+
+
 def test_a_dying_process_calls_on_down_and_clears_the_hostname(manager: TunnelManager, stand_in) -> None:
     async def run() -> int:
         down = asyncio.Event()
@@ -241,3 +304,19 @@ def test_the_child_dies_with_the_job() -> None:
     finally:
         proc.kill()
         proc.wait()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows Job objects")
+def test_a_suspended_child_runs_once_it_is_in_the_job() -> None:
+    proc = subprocess.Popen([sys.executable, "-c", "pass"], creationflags=process.CREATE_SUSPENDED,
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    job = None
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            proc.wait(1)  # suspended: it doesn't run on its own
+        job = process.kill_with_parent(proc)
+        assert proc.wait(10) == 0
+    finally:
+        proc.kill()
+        proc.wait()
+        process.close_job(job)

@@ -26,6 +26,7 @@ TunnelState = Literal["stopped", "starting", "running", "failed"]
 WENT_DOWN = "The internet link went down."
 CANT_PREPARE = "The tunnel program couldn't be prepared in Fyodor's data folder. Check the folder can be written to and try again."
 CANT_START = "The internet link couldn't be started on this computer."
+TURNED_OFF = "The internet link was turned off."
 
 
 class TunnelManager:
@@ -50,6 +51,7 @@ class TunnelManager:
         self._gen = 0  # bumped by stop(): a start still under way when it is stopped doesn't come back to life
         self._pending: asyncio.Task[str] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._down_tasks: set[asyncio.Task[None]] = set()
 
     def _client(self, **kwargs: Any) -> httpx.Client:
         return httpx.Client(headers={"User-Agent": self.settings.user_agent},
@@ -57,17 +59,19 @@ class TunnelManager:
 
     async def start(self) -> str:
         """The public hostname, starting cloudflared first unless it is running. A second call while starting awaits the first."""
-        if self.state == "running" and self.hostname:
-            return self.hostname
+        hostname = self.hostname
+        if self.state == "running" and hostname:
+            return hostname
         if self._pending is None or self._pending.done():
             self.state, self.reason, self.hostname = "starting", None, None
             self._loop = asyncio.get_running_loop()
-            self._pending = asyncio.ensure_future(self._start())
+            # the generation is read now, not when the task first runs: a stop() in between must win
+            self._pending = asyncio.ensure_future(self._start(self._gen))
+            self._pending.add_done_callback(_retrieve)  # a start abandoned by stop() (or a cancelled caller) logs no warning
         return await asyncio.shield(self._pending)
 
-    async def _start(self) -> str:
+    async def _start(self, gen: int) -> str:
         assert self._loop is not None
-        gen = self._gen
         try:
             return await self._loop.run_in_executor(None, self._launch, gen)
         except Exception as exc:
@@ -101,11 +105,14 @@ class TunnelManager:
         with self._binary_lock:
             exe, config = self._executable()
             metrics_port = _free_port()
+            if gen != self._gen:  # stopped while the program was being fetched: nothing is started
+                raise TunnelUnavailable(TURNED_OFF)
             try:
+                # on Windows it starts suspended and runs only once it is in the job (process.kill_with_parent resumes it)
                 proc = subprocess.Popen(  # noqa: S603 - the pinned, verified program; fixed arguments
                     process.command(exe, self.port, metrics_port, config),
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+                    creationflags=subprocess.CREATE_NO_WINDOW | process.CREATE_SUSPENDED if sys.platform == "win32" else 0)
             except OSError as exc:
                 raise TunnelUnavailable(CANT_START) from exc
         job: int | None = None
@@ -114,14 +121,14 @@ class TunnelManager:
             job = process.kill_with_parent(proc)
             with self._lock:
                 if gen != self._gen:
-                    raise TunnelUnavailable("The internet link was turned off.")
+                    raise TunnelUnavailable(TURNED_OFF)
                 self._proc, self._job = proc, job
                 handed_off = True
             threading.Thread(target=self._watch, args=(proc,), name="tunnel-watch", daemon=True).start()
             hostname = process.read_hostname(metrics_port, process.HOSTNAME_TIMEOUT, alive=lambda: proc.poll() is None)
             with self._lock:
                 if self._proc is not proc:
-                    raise TunnelUnavailable("The internet link was turned off.")
+                    raise TunnelUnavailable(TURNED_OFF)
                 self.state, self.hostname, self.reason = "running", hostname, None
             return hostname
         except BaseException:
@@ -146,9 +153,16 @@ class TunnelManager:
         loop, on_down = self._loop, self.on_down
         if down and on_down is not None and loop is not None and not loop.is_closed():
             def call() -> None:
-                asyncio.ensure_future(on_down())
+                task = asyncio.ensure_future(on_down())
+                self._down_tasks.add(task)  # held until done (the loop keeps only weak references)
+                task.add_done_callback(self._down_done)
             with contextlib.suppress(RuntimeError):  # the loop closed in between
                 loop.call_soon_threadsafe(call)
+
+    def _down_done(self, task: asyncio.Task[None]) -> None:
+        self._down_tasks.discard(task)
+        if not task.cancelled() and (exc := task.exception()) is not None:
+            log.error("Handling the internet link going down failed", exc_info=exc)
 
     def _take(self) -> tuple[subprocess.Popen[bytes] | None, int | None]:
         with self._lock:
@@ -167,13 +181,19 @@ class TunnelManager:
         process.close_job(job)
 
     def stop(self) -> None:
-        """End cloudflared (terminate, 5 s, kill). The link is gone; on_down isn't called (the host turned it off)."""
+        """End cloudflared (terminate, 5 s, kill). The link is gone; on_down isn't called (the host turned it off). Blocks for up to
+        about 5 s: call it off the event loop (run_in_executor) from a route."""
         with self._lock:
             self._gen += 1
             proc, job, self._proc, self._job = self._proc, self._job, None, None
             self.state, self.hostname, self.reason = "stopped", None, None
         self._pending = None  # a start after this one starts afresh (the old attempt sees _gen changed and leaves state alone)
         self._end(proc, job)
+
+
+def _retrieve(task: asyncio.Task[str]) -> None:
+    if not task.cancelled():
+        task.exception()  # marks it retrieved; whoever awaited it has had it raised already
 
 
 def _free_port() -> int:

@@ -18,6 +18,8 @@ from app.tunnel.binary import TunnelUnavailable
 QUICK_HOST = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com")
 HOSTNAME_TIMEOUT = 30.0  # seconds read_hostname waits when the manager starts the tunnel (the tests shorten it)
 POLL_EVERY = 0.5
+MAX_BODY = 4096  # /quicktunnel answers ~60 bytes
+CREATE_SUSPENDED = 0x00000004  # Windows: cloudflared is started suspended and resumed once it is in its job
 NOT_UP = "The internet link didn't come up. Check this computer's connection and try again."
 
 
@@ -36,10 +38,17 @@ def read_hostname(metrics_port: int, timeout: float = 30.0, *, alive: Callable[[
     with httpx.Client(trust_env=False, timeout=2.0) as client:  # trust_env: never through a proxy
         while True:
             try:
-                hostname = json.loads(client.get(url).text).get("hostname")
-                if isinstance(hostname, str) and QUICK_HOST.fullmatch(hostname):
+                body = b""
+                with client.stream("GET", url) as response:
+                    for chunk in response.iter_bytes():
+                        body += chunk
+                        if len(body) > MAX_BODY:
+                            break
+                hostname = json.loads(body[:MAX_BODY]).get("hostname")  # a longer answer is cut, fails to parse: keep polling
+                # alive: the answer came from our cloudflared, not something else on that port after it died
+                if isinstance(hostname, str) and QUICK_HOST.fullmatch(hostname) and (alive is None or alive()):
                     return hostname
-            except (httpx.HTTPError, ValueError, AttributeError):
+            except (httpx.HTTPError, ValueError, RecursionError, AttributeError):
                 pass
             if (alive is not None and not alive()) or time.monotonic() >= deadline:
                 raise TunnelUnavailable(NOT_UP)
@@ -52,8 +61,6 @@ if sys.platform == "win32":
 
     _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
     _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
-    _PROCESS_SET_QUOTA = 0x0100
-    _PROCESS_TERMINATE = 0x0001
 
     class _IoCounters(ctypes.Structure):
         _fields_ = [(name, ctypes.c_ulonglong) for name in (
@@ -82,15 +89,19 @@ if sys.platform == "win32":
     _kernel32.SetInformationJobObject.restype = wintypes.BOOL
     _kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
     _kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
-    _kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-    _kernel32.OpenProcess.restype = wintypes.HANDLE
     _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     _kernel32.CloseHandle.restype = wintypes.BOOL
+    _ntdll = ctypes.WinDLL("ntdll")
+    _ntdll.NtResumeProcess.argtypes = [wintypes.HANDLE]
+    _ntdll.NtResumeProcess.restype = ctypes.c_long  # NTSTATUS, 0 = success
 
     def kill_with_parent(proc: subprocess.Popen[bytes]) -> int | None:
-        """Put ``proc`` in a new Job object that kills it when the job's last handle closes, which Windows does when Fyodor exits
-        (even killed). Returns the job handle; the caller keeps it open for the process's life and closes it after. A job that
-        can't be made is TunnelUnavailable (the caller stops the process): a cloudflared outliving Fyodor is not acceptable."""
+        """Put ``proc`` (started with CREATE_SUSPENDED, so it has run nothing yet) in a new Job object that kills it when the job's
+        last handle closes, which Windows does when Fyodor exits (even killed), then resume it. Returns the job handle; the caller
+        keeps it open for the process's life and closes it after. A job that can't be made, or a process that can't be resumed,
+        is TunnelUnavailable and the caller ends the process (still suspended if the job failed): a cloudflared outliving Fyodor
+        is not acceptable. (Resuming a process that wasn't suspended does nothing.)"""
+        handle = int(proc._handle)  # type: ignore[attr-defined]  # Popen's own handle to the child (full access)
         job = _kernel32.CreateJobObjectW(None, None)
         if not job:
             raise TunnelUnavailable("The internet link couldn't be started on this computer.")
@@ -100,14 +111,10 @@ if sys.platform == "win32":
             if not _kernel32.SetInformationJobObject(job, _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
                                                      ctypes.byref(info), ctypes.sizeof(info)):
                 raise TunnelUnavailable("The internet link couldn't be started on this computer.")
-            handle = _kernel32.OpenProcess(_PROCESS_SET_QUOTA | _PROCESS_TERMINATE, False, proc.pid)
-            if not handle:
+            if not _kernel32.AssignProcessToJobObject(job, handle):
                 raise TunnelUnavailable("The internet link couldn't be started on this computer.")
-            try:
-                if not _kernel32.AssignProcessToJobObject(job, handle):
-                    raise TunnelUnavailable("The internet link couldn't be started on this computer.")
-            finally:
-                _kernel32.CloseHandle(handle)
+            if _ntdll.NtResumeProcess(handle) != 0:
+                raise TunnelUnavailable("The internet link couldn't be started on this computer.")
         except BaseException:
             _kernel32.CloseHandle(job)
             raise
