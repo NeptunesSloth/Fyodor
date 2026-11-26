@@ -88,7 +88,7 @@ run the same way and removed afterwards (`git worktree remove --force`; `git wor
 |---|---|---|---|---|
 | ruff | `ruff check . --output-format concise` | `Found 10 errors.` | `Found 10 errors.` | **No new error.** `Compare-Object` of the two outputs → 0 differences (the same ten as Stage 2's audit: I001 ×5, SIM102 ×3, F841, SIM300). |
 | mypy | `python -m mypy app tools` | `Found 304 errors in 15 files (checked 1193 source files)` | `Found 303 errors in 15 files (checked 1189 source files)` | **One new message, no new code path.** Messages compared with line numbers removed (`sed -E 's/:[0-9]+: /: /'`, sorted, `diff`): the one extra is `app\api\night.py:246: error: Argument 11 to "LobbySettings" has incompatible type "**dict[str, str]"; expected "ClockSettings" [arg-type]`. Line 246 (`_lobby_from`'s `**({"mulligan_rule": rule} if … else {})`) is not changed by this stage and already raises four such messages at base, one per `LobbySettings` field type; the new `clock` field adds a fifth. Not fixed (it is a pre-existing call, and the fix, an explicit `mulligan_rule=` argument, would also remove the four base messages and move the baseline): a follow-up. The four extra files checked are the four new modules (`turn_clock.py`, `clock_defaults.py`, `turn_clock_driver.py`, `api/turn_clock.py`); none has an error. |
-| Full backend suite | `python -m pytest -n 4 -q` (controller) | **FULL SUITE: pending controller run** | | The controller runs it (one run at a time on this machine, ledger Ruling B); its result goes on this line. |
+| Full backend suite | `python -m pytest -n 4 -q` (controller) | **FULL SUITE: PASSED** at efd4dc72 (exit 0, 0 failed) | | The controller runs it (one run at a time on this machine, ledger Ruling B); its result goes on this line. |
 | Frontend typecheck | `npm run typecheck` (`tsc -b --noEmit`) in `frontend/` | exit 0 | | Pass. |
 | Frontend tests | `npm test` in `frontend/` | `Test Files 166 passed (166)`, `Tests 1664 passed (1664)` | (Stage 2: 161 / 1633) | Pass. |
 
@@ -191,8 +191,8 @@ File and line numbers are as of `2ead807`. Every backend test named is in the fu
 11. **Pending (full suite); otherwise met as "no new errors", one mypy note.** ruff 10 = base 10; mypy 304 vs 303 (one more message on
     an unchanged pre-existing line, above); the frontend typecheck and 1664 tests pass; bandit, pip-audit and npm audit are read and
     answered above.
-12. **Independent review: pending (controller).** The controller runs the security pass (ledger Ruling D) and one fresh reviewer after
-    this commit.
+12. **Independent review: done.** The security pass (ledger Ruling D) and a fresh whole-branch reviewer ran after this commit; their
+    findings were fixed and re-reviewed (see "Before merging").
 13. **Met.** One host check (`room_host`, point 1), no new token check, no rate limiter. One ordering: `tick` runs under the room's
     existing `room.lock` (`turn_clock_driver.py:131`), as does the clock route (`api/turn_clock.py:60`) and `late()`'s callers
     (`games.py:479`, `:2191`); the stage adds no `Lock`, `Semaphore` or `Queue` (`git diff 6b9dd82..HEAD -- backend/app | grep -n "^+.*\(Lock(\|Semaphore\|Queue(\)"`
@@ -315,8 +315,10 @@ Accepted or deferred during execution (ledger), by task:
 
 ### Before merging
 
-1. **FULL SUITE: pending controller run.**
-2. **Independent review: pending (controller)** (the security pass and a fresh reviewer).
+1. **FULL SUITE: PASSED** at efd4dc72 (2026-11-26, `-n 3`, exit 0, about 42,700 tests, 0 failed); frontend typecheck clean and
+   1669 tests pass.
+2. **Independent review: done** (final whole-branch review, security pass, one fix wave, a scoped re-review, and two ruled
+   minimal fixes for the "same for all" and "choose players" answers, each reviewed; see the SDD ledger).
 3. **Manual check on two devices** and Task 7's screenshots and critique: NOT DONE — owner's to do (checklist above).
 4. Gate point 8's `except Exception` in `clock_defaults._required_blocks`: accepted by the final review (above); the owner may still
    have it narrowed. The owner may also overrule the two controller rulings of the final fix wave (targets at zero; the reconnect
