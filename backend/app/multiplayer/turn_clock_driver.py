@@ -8,6 +8,9 @@ for each player whose clock reached zero (when the host chose "Act for the playe
 (app/game/clock_defaults.py) as an ordinary action of theirs; when the engine takes none of them, it says so once and leaves the choice to
 the table. It never concedes or eliminates anyone.
 
+A timeout and a click never both apply: the room lock orders them (the second sees the table the first left), and :func:`late` refuses a
+click sent from a view older than the one that showed the clock's action for that player.
+
 The clock's only failure path: :func:`tick` catches only an action the engine refuses (``ActionError``, which ``AutomationError`` is, and
 ``ValidationError``). Anything else ends the task (the done-callback logs it at error level) and leaves the table as it was; the next
 ``poke`` (every broadcast) starts a fresh task.
@@ -28,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from app.game import clock_defaults
+from app.game.actions import INTENT_TYPES
 from app.game.errors import ActionError
 from app.game.turn_clock import ClockSettings, TurnClock, waiting_on
 from app.multiplayer import response_call
@@ -186,6 +190,24 @@ async def _run(hub: GameHub, room: Room, d: Driver) -> None:
     finally:
         if d.task is asyncio.current_task():
             d.task = None
+
+
+LATE = "The clock already acted for you. Look at the table and try again."
+# a concession always goes through (104.3a); preferences don't play anything the clock could have played
+_ALWAYS = frozenset({"concede", "set_prefs", "set_stops", "set_card_automation"})
+_GUARDED = INTENT_TYPES - _ALWAYS
+
+
+def late(room: Room, actor: str, seen_revision: int | None, action_type: object) -> str | None:
+    """Why a click is refused: it was sent from a view older than the one that showed the clock's action for ``actor`` (that view's
+    revision, ``acted_revision``), so it was chosen without seeing what the clock did. Called under the room lock, before ``perform``.
+    A click with no view revision (an older page, the REST ``tableAction`` path) is not checked."""
+    clock = clock_of(room)
+    acted = clock.acted_revision(actor) if clock is not None else None
+    # (``action_type`` is the raw payload's: anything not a guarded type's name, unhashable ones too, is left to the action's own checks)
+    if acted is None or seen_revision is None or seen_revision >= acted or not (isinstance(action_type, str) and action_type in _GUARDED):
+        return None
+    return LATE
 
 
 def _ended(task: asyncio.Task[None]) -> None:

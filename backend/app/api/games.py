@@ -271,6 +271,7 @@ class ActionIn(BaseModel):
     viewer: str | None = Field(default=None, max_length=32)
     # Idempotency: a retried action (same id) is applied once and answered ALREADY_APPLIED.
     client_action_id: ClientActionId | None = None
+    seen_revision: int | None = Field(default=None, ge=0, le=2**31 - 1)  # -- turn clock -- the view the click was made on (late())
 
 
 class MetaIn(BaseModel):
@@ -475,6 +476,8 @@ async def post_action(
             raise HTTPException(409, STOPPED_SHARING)
         _check_table_open(room, body.action.get("type"))
         try:
+            if (refused := turn_clock_driver.late(room, actor, body.seen_revision, body.action.get("type"))) is not None:
+                raise ActionError(refused)  # -- turn clock -- clicked before seeing what the clock did (remembered below, as any refusal)
             # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
             await services.hub.perform(room, actor, body.action, host=room.mode == "local" or room_host(room, request, x_seat_token))
         except ValidationError as exc:
@@ -1845,6 +1848,7 @@ class WsAction(BaseModel):
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     id: int | None = None
     client_action_id: ClientActionId | None = None
+    seen_revision: int | None = Field(default=None, ge=0, le=2**31 - 1)  # -- turn clock -- the view the click was made on (late())
 
 
 class WsSimple(BaseModel):
@@ -2184,6 +2188,8 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             return
         try:
             if isinstance(msg, WsAction):
+                if (refused := turn_clock_driver.late(room, actor, msg.seen_revision, msg.action.get("type"))) is not None:
+                    raise ActionError(refused)  # -- turn clock -- clicked before seeing what the clock did (remembered below)
                 await services.hub.perform(room, actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
             elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
                 room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
