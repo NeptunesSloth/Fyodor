@@ -27,15 +27,20 @@ and the review's minors M2, M3, M4, the `seen_revision` 0 window and `disabled={
 above this section describes `2ead807` as audited; where a statement below no longer holds, it says so in place.
 
 - **C1: the clock no longer aims a required target at the player whose clock ran out.** At `8986f70`, a mandatory "deals 3 damage to
-  any target" trigger answered at zero chose the first offered option, the timed-out player in seat 1, and at Full automation they lost
-  the game. Now (`clock_defaults._target_ranks`, used by `answers`) a choice that offers players (115.1, 601.2c, 603.3d) is tried least
-  drastic first: an object someone else controls, the player's own permanent, an opponent, and the timed-out player last; a "same
-  for all" answer (`all:<target>`, offered when several copies of a trigger wait together) ranks as its target, so `all:<them>` is
-  last too; when every answer names them (by itself or for all), `[]` (the table decides). A division (601.2d) that includes them is left to the table. Tests:
-  `test_turn_clock_targets.py` (the review's reproduction at Full with the player at 3 life; Bloodgift Demon against two Leylines of
-  Sanctity → `[]`; Grizzly Bears chosen over an opponent; guards over the dummy's fallback order, only-self, same-for-all and
-  divisions); `test_rules_playtest_same_target_for_all.py::test_the_turn_clock_never_aims_the_drain_at_the_timed_out_player` (Wrath of
-  God under Blood Artist and Falkenrath Noble, several copies of each trigger waiting: none aimed at the timed-out player).
+  any target" trigger answered at zero chose the first offered option, the timed-out player in seat 1, and at Full automation they
+  lost the game. Now (`clock_defaults._target_ranks`, used by `answers`) a choice that offers players (115.1, 601.2c, 603.3d) is
+  tried least drastic first: an object someone else controls, the player's own permanent, an opponent, and the timed-out player last;
+  a "same for all" answer (`all:<target>`, offered when several copies of a trigger wait together) ranks as its target, so
+  `all:<them>` is last too; a "choose players" answer (comma-joined player ids, `p1,p2`: Sower of Discord's "choose two players",
+  `wave110a_pick`, the only such prompt in `app/rules`) ranks as an opponent, or last when it includes them; when every answer names
+  them (by itself, for all or in a pair), `[]` (the table decides). A division (601.2d) that includes them is left to the table.
+  Tests: `test_turn_clock_targets.py` (the review's reproduction at Full with the player at 3 life; Bloodgift Demon against two
+  Leylines of Sanctity → `[]`; Grizzly Bears chosen over an opponent; guards over the dummy's fallback order, only-self,
+  same-for-all, choose-players and divisions);
+  `test_rules_playtest_same_target_for_all.py::test_the_turn_clock_never_aims_the_drain_at_the_timed_out_player` (Wrath of God under
+  Blood Artist and Falkenrath Noble, several copies of each trigger waiting: none aimed at the timed-out player);
+  `test_rules_wave110a_sower.py::test_the_turn_clock_never_chooses_a_pair_with_the_timed_out_player` (three players: the clock picks
+  `p2,p3`).
 - **I1 + security Medium: one reconnect grace per player per game.** At `8986f70` a vanished player got a fresh 120 s grace on every
   new decision (I1), and a reconnect wiped the away time and any extension, so drop / reconnect / drop stalled the clock forever (the
   security pass: 5810 s of stalling spent 5 s of a 65 s clock). Now `TurnClock.grace_left` holds what is left of each player's

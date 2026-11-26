@@ -183,6 +183,18 @@ def test_guard_same_for_all_answers_never_name_the_timed_out_player_first(cards)
     assert answers(s.state, "p1", s.cards) == []
 
 
+def test_guard_a_choice_of_players_never_names_the_timed_out_player_first(cards):
+    # wave110a_pick (Sower of Discord, "choose two players"): one option per pair, "p1,p2"; one naming p1 counts as naming them
+    s = table(cards, [], [], [])
+    s.state.rules.decision = _decision(["p1,p2", "p1,p3", "p2,p3"])
+    s.state.rules.priority = None
+    got = answers(s.state, "p1", s.cards)
+    assert got and got[0]["option_ids"] == ["p2,p3"]
+    assert all("p1" in a["option_ids"][0].split(",") for a in got[1:])  # (named last, if at all)
+    s.state.rules.decision = _decision(["p1,p2"])  # every pair includes themself: the table decides
+    assert answers(s.state, "p1", s.cards) == []
+
+
 def test_guard_a_division_that_includes_the_timed_out_player_is_left_to_the_table(cards):
     s = table(cards, [], [], [])
     d = _decision(["p1", "p2"], kind="divide")

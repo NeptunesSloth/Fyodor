@@ -234,13 +234,14 @@ without closing it): until then that player is charged as if they were there.
 for that player: pass priority, keep the hand, decline a "may" or an optional cost, attack or block with nothing (or only what
 must), take back a spell that was still being cast. A target it must choose (a "deals 3 damage to any target" trigger) is a
 permanent where one is offered (someone else's before the player's own), else an opponent, and never the player whose clock ran
-out while anything else is legal (the "same for all" answer offered for several copies of a trigger included); when only they are, the clock doesn't choose. The log says *Alice ran out of time: Fyodor acted
-for them.* **It never concedes for anyone, and never chooses a loss for the player who ran out of time.** Where declining would
-hurt the player (a "pay or lose life", a sacrifice, a tribute, anything that could lose them the game) or the choice is a fact
-only the table knows (a manual resolution), the clock doesn't choose; the log says *Alice ran out of time, but Fyodor can't make
-this choice for them, so the table waits for them to make it. The host can add time, or remove a player who has left.* An empty
-bank stays empty, and each later decision still gets its full grace first. With **Only show it** the clock reads 0:00 and
-nothing happens.
+out while anything else is legal (the "same for all" answer offered for several copies of a trigger included); a "choose
+players" choice (Sower of Discord's "choose two players") never includes them while another pair is legal. When only answers
+naming them are left, the clock doesn't choose. The log says *Alice ran out of time: Fyodor acted for them.* **It never concedes
+for anyone, and never chooses a loss for the player who ran out of time.** Where declining would hurt the player (a "pay or lose
+life", a sacrifice, a tribute, anything that could lose them the game) or the choice is a fact only the table knows (a manual
+resolution), the clock doesn't choose; the log says *Alice ran out of time, but Fyodor can't make this choice for them, so the
+table waits for them to make it. The host can add time, or remove a player who has left.* An empty bank stays empty, and each
+later decision still gets its full grace first. With **Only show it** the clock reads 0:00 and nothing happens.
 
 A click made just before the clock acted, from a screen that hadn't shown it yet, is refused with *The clock already acted for
 you. Look at the table and try again.* (a concession always goes through).
