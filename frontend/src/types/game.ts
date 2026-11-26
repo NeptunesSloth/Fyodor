@@ -278,6 +278,19 @@ export type CardPermissions = "everyone" | "owner";
  */
 export type TableFormat = "commander" | "sandbox";
 
+export interface ClockSettings {
+  on: boolean;
+  bank_seconds: number;
+  buffer_seconds: number;
+  at_zero: "act" | "show";
+  grace_seconds: number;
+}
+export interface GameClock {
+  settings: ClockSettings;
+  sent_at: number;
+  players?: Record<string, { bank: number; buffer: number; running: boolean; away: boolean }>;
+}
+
 export interface GameMeta {
   id: string;
   name: string;
@@ -329,6 +342,8 @@ export interface GameMeta {
   revision?: number;
   /** LAN: the host's seat (table-level overrides are the host's). */
   host_seat?: string | null;
+  /** -- turn clock -- the server's optional clock: the settings, the server's wall time when this was sent, and (only while on) each player's time left. */
+  clock?: GameClock;
   /** Game night: turn order and its d20 rolls, an agreed-ending proposal, the result and rematch vote. */
   night?: NightInfo;
   /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
@@ -697,6 +712,8 @@ export interface LobbySettings {
   planechase?: boolean;
   planar_deck_size?: number;
   planar_phenomena?: boolean;
+  /** -- turn clock -- optional; a PATCH carrying it REPLACES the whole object, so always send all of it. */
+  clock?: ClockSettings;
 }
 
 export interface LobbyDeckSummary {

@@ -157,6 +157,13 @@ export interface BroughtLibrary {
 }
 export const broughtDecks = (gameId: string) => api.get<BroughtLibrary>(lobbyPath(gameId, "/brought"), seatHeaders(gameId));
 export const leaveLobby = (gameId: string) => api.post<void>(lobbyPath(gameId, "/leave"), {}, seatHeaders(gameId));
+/** -- turn clock -- the host's clock route (app: POST /games/{id}/clock). `seconds` 1..3600; a grace extension is in seconds. */
+export type ClockBody =
+  | { op: "settings"; settings: import("../types/game").ClockSettings }
+  | { op: "add_time"; player: string; seconds: number }
+  | { op: "grace"; player: string; seconds: number };
+export const setClock = (gameId: string, body: ClockBody) =>
+  api.post<{ view: import("../types/game").GameView }>(`/games/${gameId}/clock`, body, seatHeaders(gameId));
 export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>) =>
   api.post<LobbyView>(lobbyPath(gameId, "/settings"), body, seatHeaders(gameId));
 /** -- seating -- host: every seat id once, in the order they should sit (seat 1 first). */

@@ -46,6 +46,7 @@ import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
 import { PlanechaseSetting } from "./PlanechaseSetting";
+import { TurnClockSetting } from "./TurnClockSetting";
 import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
@@ -1217,6 +1218,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
         <PlanechaseSetting value={draft} onChange={set} />
+        {!isSandbox(draft.format) && <TurnClockSetting value={draft.clock} onChange={set} />}
       </div>
       {configurable && draft.mulligan_policy && (
         <>

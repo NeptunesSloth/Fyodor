@@ -17,6 +17,7 @@ import {
   type PlayerView,
 } from "../types/game";
 import { reconcile } from "./reconcile";
+import { noteSkew } from "../game/turnClock";
 import { publishTableEvents } from "../game/motion/tableEvents";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
@@ -47,6 +48,8 @@ export interface BrowserState {
 interface GameStore {
   gameId: string | null;
   view: GameView | null;
+  /** -- turn clock -- least (receive time - server send time), seconds: the client clock's offset plus the least delay seen (null: no clock yet). */
+  clockSkew: number | null;
   /**
    * -- resolving progress -- `view` is an interim view: the table part way through a long automatic chain the server is still working
    * out (display only; the action's own update replaces it). Subscribers that react to what an update changed skip these and compare
@@ -187,6 +190,7 @@ function cardIdsOf(view: GameView): string[] {
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
+  clockSkew: null,
   interim: false,
   committed: null,
   resolving: null,
@@ -238,8 +242,12 @@ export const useGame = create<GameStore>((set, get) => ({
         requestCards(cardIdsOf(view));
         const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
         const match = `${incoming.game.id}#${incoming.game.night?.number ?? 1}`;
+        const receivedAt = Date.now();
         set((s) => ({
           view,
+          clockSkew: view.game.clock?.sent_at != null
+            ? noteSkew(prev && prev.game.id === incoming.game.id ? s.clockSkew : null, view.game.clock.sent_at, receivedAt)
+            : s.clockSkew,
           interim: false,
           committed: view,
           resolving: null,
@@ -276,7 +284,7 @@ export const useGame = create<GameStore>((set, get) => ({
       onCursor: (cursor) => window.dispatchEvent(new CustomEvent("fyodor:cursor", { detail: cursor })),
     });
     dropInterim();
-    set({ gameId, conn, view: null, interim: false, committed: null, resolving: null, lobby: null, selection: [], browser: null, dialog: null,
+    set({ gameId, conn, clockSkew: null, view: null, interim: false, committed: null, resolving: null, lobby: null, selection: [], browser: null, dialog: null,
       actingAs: null });
     conn.connect();
   },

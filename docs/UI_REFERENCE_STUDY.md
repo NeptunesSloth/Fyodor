@@ -486,7 +486,7 @@ demonstrates, why it works, what Fyodor should borrow and what Fyodor should avo
 - **Demonstrates:** Life, infect and commander damage are tracked in one place. Clicking your name bar edits or views your commander and damage totals, and clicking another player's shows theirs. There is a turn indicator and a clock.
 - **Why it works:** One compact plate per player and progressive disclosure on click.
 - **Borrow:** A **seat plate** (name, life, poison when non-zero, commander chip, priority and connection state). Click to expand commander damage dealt and taken, then collapse.
-- **Avoid:** Turn clocks. A private pod doesn't need them.
+- **Avoid:** a turn clock by default. Fyodor's is optional and off unless the host turns it on (internet-play Stage 3).
 
 **M5. TableCommander: commander damage also changes life; seat-level badges**
 - **Source:** TableCommander docs (A5 URL)
@@ -557,8 +557,8 @@ demonstrates, why it works, what Fyodor should borrow and what Fyodor should avo
 - **Source:** ASAP guide (CB1) ; MTG Arena Zone *Playing a Match* (S1) ; Hipsters 2018 (T9)
 - **Demonstrates:** A per-turn clock that extends with each action, a burning "rope" near expiry, extensions earned over time, and an hourglass with remaining timeouts.
 - **Why it works:** It protects strangers from stalling.
-- **Borrow:** Only a **gentle "waiting on Player N for 2:00" indicator** visible to the waiting players, optional, with no forced pass. It suits a trusted pod.
-- **Avoid:** Burning ropes, forced passes or timer pressure. The MTG Rocks accessibility article (AC2) reports that timer pressure is a barrier for some players.
+- **Borrow:** An optional, server-owned clock (a bank of time plus an uncharged buffer per decision) whose zero either takes the safest legal default or only shows 0:00 (internet-play Stage 3).
+- **Avoid:** Still no burning rope, no flashing, no pressure by default, since the accessibility point (AC2, the MTG Rocks article) stands: timer pressure is a barrier for some players.
 
 **G4. Victory, defeat and recap**
 - **Source:** No fetched MTGA or TTS source documents end-of-game screens. Fyodor's own spec is in `docs/UI_REDESIGN_BRIEF.md` and `docs/3D_DIRECTION.md` §7a.
