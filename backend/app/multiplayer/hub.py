@@ -444,11 +444,14 @@ class GameHub:
                 code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(10))
                 if code not in taken:
                     room.invite_code = code
+                    self.persist(room)
                     break
         return room.invite_code
 
     def set_password(self, room: Room, password: str) -> None:
         """Give the room a new password (new salt, current rounds) and store the room."""
+        if not password:
+            raise ValueError("A room password cannot be empty")
         salt = secrets.token_bytes(16)
         new_hash = _hash_password(password, salt, PASSWORD_ROUNDS)
         with room._password_lock:
@@ -460,6 +463,8 @@ class GameHub:
 
     def by_code(self, code: str) -> Room | None:
         code = code.strip().upper()
+        if not code.isascii():  # (compare_digest raises on a non-ASCII str)
+            return None
         return next((r for r in self.rooms.values() if r.mode == "lan" and r.practice is None and hmac.compare_digest(r.code, code)), None)
 
     def by_invite_code(self, code: str) -> Room | None:
@@ -486,7 +491,7 @@ class GameHub:
         """Everything about a room that isn't the game itself (for restoring it after a restart)."""
         salt, pw_hash, rounds = room.password_state()
         return {
-            "mode": room.mode, "code": room.code, "invite_code": room.invite_code, "host_token": room.host_token, "host_seat": room.host_seat,
+            "mode": room.mode, "code": room.code, "invite_code": room.invite_code, "shared": room.shared, "host_token": room.host_token, "host_seat": room.host_seat,
             "password_salt": salt.hex() if salt else None,
             "password_hash": pw_hash.hex() if pw_hash else None,
             "password_rounds": rounds,

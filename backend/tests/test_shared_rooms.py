@@ -117,7 +117,7 @@ def test_metadata_without_the_fields_loads(client) -> None:
     hub = _hub(client)
     meta = hub.meta(room)
     meta.pop("invite_code")
-    meta.pop("shared", None)
+    meta.pop("shared")
     hub.rooms.pop(room.id)
     back = hub.restore(meta, room.session, {})
     assert back.invite_code is None and back.shared is False
@@ -182,5 +182,27 @@ def test_non_ascii_token_matches_nothing(client) -> None:
     assert room.seat_for_token("tökén") is None and not room.is_host("tökén")
     gid = room.id
     res = client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": "tökén".encode("latin-1")})
-    assert res.status_code < 500
+    assert res.status_code in (403, 404)
     assert _hub(client).by_invite_code("ÄÄÄÄÄÄÄÄÄÄ") is None
+
+
+def test_non_ascii_code_is_the_normal_refusal_on_the_lan_port(client) -> None:
+    res = client.post("/api/join", json={"code": "ÄÄÄÄÄÄ", "name": "Eve"}, headers=guest())
+    assert res.status_code == 403 and res.json() == REFUSED
+
+
+def test_set_password_refuses_an_empty_password(client) -> None:
+    _gid, _code, _invite, room = _share(client)
+    with pytest.raises(ValueError):
+        _hub(client).set_password(room, "")
+
+
+def test_invite_code_of_a_practice_or_hot_seat_room_is_refused(client) -> None:
+    from types import SimpleNamespace
+
+    _gid, _code, _invite, room = _share(client)
+    hub = _hub(client)
+    room.practice = SimpleNamespace(live="x")
+    assert hub.by_invite_code(room.invite_code) is None
+    room.practice, room.mode = None, "local"
+    assert hub.by_invite_code(room.invite_code) is None
