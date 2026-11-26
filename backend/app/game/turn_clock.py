@@ -239,7 +239,9 @@ def save_extras(session: GameSession, now: float) -> dict[str, Any]:
 
 
 def load_extras(session: GameSession, extras: dict[str, Any]) -> None:
-    data = extras.get("clock")
-    session.clock = TurnClock.load(data) if data is not None else None
-    if data is not None and session.clock is None:
+    if "clock" not in extras:
+        session.clock = None
+        return
+    session.clock = TurnClock.load(extras["clock"])  # (an explicit null is damaged too)
+    if session.clock is None:
         session.notice(DAMAGED)

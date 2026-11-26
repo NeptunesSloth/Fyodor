@@ -84,5 +84,7 @@ async def change_clock(
                 clock.extend_grace(body.player, body.seconds)
                 session.notice(f"The host gave {name} {_mss(body.seconds)} more to reconnect.")
         driver.poke(services.hub, room)
+        if body.op != "grace":  # (the crash record keeps the settings and banks; a grace is in memory only)
+            services.hub.persist(room)
     await services.hub.broadcast(room)
     return {"view": services.hub.view(room, viewer)}

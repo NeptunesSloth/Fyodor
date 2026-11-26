@@ -65,12 +65,13 @@ def test_a_save_without_a_clock_loads_without_one(client) -> None:
     assert DAMAGED not in notices(room)
 
 
-def test_a_damaged_clock_loads_with_no_clock_and_a_notice(client) -> None:
+@pytest.mark.parametrize("damaged", [{"settings": {"on": True}, "banks": {"p1": -5}}, None])
+def test_a_damaged_clock_loads_with_no_clock_and_a_notice(client, damaged) -> None:
     gid, _, _ = started(client, clock={"on": True})
     session = room_of(client, gid).game
     services = client.app.state.services
     saved = services.saves.save(session.state, session.history, name="Damaged",
-                                extras={"table_snapshots": [], "clock": {"settings": {"on": True}, "banks": {"p1": -5}}})
+                                extras={"table_snapshots": [], "clock": damaged})
     loaded = client.post(f"/api/saves/{saved['id']}/load", json={"mode": "lan"})
     assert loaded.status_code == 201, loaded.text
     room = room_of(client, loaded.json()["game"]["id"])
@@ -118,14 +119,33 @@ def test_undo_never_refunds_the_clock(cards, monkeypatch) -> None:
     s = build(cards)
     s.clock = TurnClock(settings=ClockSettings.model_validate({"on": True}))
     hub, room, _, _ = seated(s)
-    s.clock.banks["p1"] = 0.0
+    s.clock.banks["p1"] = 100.0
     driver.poke(hub, room)
-    now[0] += 30
+    now[0] += 30 + 100  # the buffer, then the whole bank: the clock charged it all
     assert asyncio.run(driver.tick(hub, room)) == ["p1"]
-    s.undo("p1", host=True)
+    assert s.history.actions[-1].actor == "p1"
+    s.undo("p1", host=True)  # the clock's own action taken back
     driver.poke(hub, room)
-    assert s.clock.bank("p1", driver.now()) == 0.0
+    assert s.clock.banks["p1"] == 0.0 and s.clock.bank("p1", driver.now()) == 0.0  # not refunded to 100
     replay_matches(s)
+
+
+@pytest.mark.parametrize("change", ["add_time", "off"])
+def test_a_host_clock_change_survives_a_crash(settings, card_db, change) -> None:
+    first = TestClient(create_app(settings))
+    claim_host(first)
+    gid, alice, _ = started(first, clock={"on": True})
+    body = {"op": "add_time", "player": "p2", "seconds": 300} if change == "add_time" else {"op": "settings", "settings": {"on": False}}
+    assert first.post(f"/api/games/{gid}/clock", json=body, headers={"X-Seat-Token": alice}).status_code == 200
+    crash(first)  # (no table change after the host's)
+
+    with TestClient(create_app(settings)) as second:
+        clock = room_of(second, gid).game.clock
+        assert clock is not None
+        if change == "add_time":
+            assert clock.settings.on and clock.bank("p2", driver.now()) == 1800.0
+        else:
+            assert clock.settings.on is False
 
 
 def test_a_rematch_has_full_banks_and_the_lobby_keeps_the_settings(client) -> None:
