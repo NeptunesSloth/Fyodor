@@ -281,7 +281,7 @@ the `LobbySettings` call, moved down one line; none is on the changed line), `ap
 
 Full suite: run by the controller, the result goes on the next line.
 
-FULL SUITE: pending controller run
+FULL SUITE: passed at `9eb1e71` (controller run on 2026-11-25, `pytest -n 4 -q -p no:randomly`: exit code 0, reached 100%, no FAILED or ERROR lines; this pytest configuration prints no count line)
 
 What was run: `.venv/Scripts/python -m pytest -q -rfE -p no:cacheprovider -n 6 tests --ignore-glob="tests/test_rules_*"` (about one minute; this environment
 prints no final count line, so the result is judged by the exit code and the absence of `FAILED`/`ERROR` lines). At `eac3708` it exited 0 with no `FAILED`.
@@ -440,8 +440,8 @@ line is an action and what you should see.
 ## Before merging
 
 1. **Explained, fixed in the test:** the intermittent failure of `tests/test_interim_views.py::test_a_long_chain_streams_interim_views_per_viewer_and_stays_one_action`. It is on `master` too (7 of 80 runs at `3fde593`, 4 of 84 at `1db68aa`, in the investigation), so not a regression; the test turned off the pacing of interim views and then asked for every one, while the design sends the newest set only ("latest wins", by design). The test now waits for each send and asks for exactly `[1, 2, 3, 4]` (`2796cdd`): 0 of 100 failed in the investigation, 20 of 20 passed here. Production code unchanged. Details in "Gate results" and risk 16.
-2. **Full backend test suite:** the controller's run; its result goes on the `FULL SUITE:` line in "Gate results", which still reads pending.
-3. **Independent review:** the fresh reviewer's whole-branch review was done on **opus** (a dispatch on fable failed on usage credits), verdict "with fixes"; the final fix wave applies them. The `security-review` skill run is **pending** (the controller runs it).
+2. **Full backend test suite:** passed at `9eb1e71` (see the `FULL SUITE:` line in "Gate results").
+3. **Independent review:** the fresh reviewer's whole-branch review was done on **opus** (a dispatch on fable failed on usage credits), verdict "with fixes"; the final fix wave applied them, and its scoped re-review left one item open: the larger body allowances (`/api/browser-decks`, `/api/backups`, `/api/decks*`, lobby deck routes) are read before the host or seat check, so risk 20 overstates them. The `security-review` skill could not run (it needs a git remote); an equivalent opus security pass over `6f1f23c..9eb1e71` found 0 High and 1 Medium: a host who removes their own seat through the API lets anyone with the room code claim it and become host. Both are open on this branch and fixed in Stage 2 (Task 2: the host's own seat; Task 10: allowances only for the host or a seat). Merging Stage 1 alone ships them as recorded risks.
 4. **Two-device manual check** (checklist above, including the private-network line and the computer's-name line): NOT DONE — owner's to do.
 5. Open items: the five dependency upgrades (risk 11). The `ruff` and `mypy` errors listed above are the same as master's. The items in "Stage 2 must" below are not Stage 1's, but Stage 2 cannot open the port without them.
 
