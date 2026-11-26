@@ -14,6 +14,7 @@ from app.api.deps import GAME_NOT_FOUND, get_services, require_host
 from app.multiplayer.hub import Room
 from app.services import Services
 from app.tunnel.binary import TunnelUnavailable
+from app.tunnel.manager import TURNED_OFF
 
 router = APIRouter(tags=["share"], dependencies=[Depends(require_host)])
 ServicesDep = Annotated[Services, Depends(get_services)]
@@ -95,6 +96,8 @@ async def share_table(game_id: str, body: ShareIn, services: ServicesDep) -> Sha
         await _stop_when_unused(services)
         raise HTTPException(404, GAME_NOT_FOUND)
     async with room.lock:
+        if services.tunnel.state != "running":  # stopped in between (another table's DELETE): never shared with no link
+            raise HTTPException(502, services.tunnel.reason or TURNED_OFF)
         room.shared = True
         services.hub.persist(room)
     await services.hub.broadcast(room)
