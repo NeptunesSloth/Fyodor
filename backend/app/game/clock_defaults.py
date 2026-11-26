@@ -115,9 +115,10 @@ def _decline_harms(d: Decision) -> bool:
     three kinds of question:
 
     * "pay or it's countered" (effects.py, resume ``counter``): their own spell is countered: harmless, declined;
-    * an optional payment (optional_payment.py, resume ``opt``): "you may pay … If you do" (its binding never read negated) only forgoes
-      a benefit: declined; "… unless they pay" / "If you don't" (118.12a: its binding read negated) brings the other branch: declined
-      only when that branch merely benefits someone else (Smothering Tithe's Treasure), else (Painful Quandary's 5 life) left to the table;
+    * an optional payment (optional_payment.py, resume ``opt``): "you may pay … If you do" (every reading of its binding a plain
+      ``{"succeeded": bind}`` gate) only forgoes a benefit: declined; "… unless they pay" / "If you don't" (118.12a: read negated,
+      ``negate`` or ``not``) brings the other branch: declined only when that branch merely benefits someone else (Smothering Tithe's
+      Treasure), else (Painful Quandary's 5 life, Essence Vortex's destroy) left to the table; any other reading (_payment_gates): the table;
     * "sacrifice ~ unless you pay", echo, cumulative upkeep (effects.pay_or_sacrifice: pay / sacrifice): left to the table.
     """
     resume = d.resume or {}
@@ -135,45 +136,94 @@ def _decline_harms(d: Decision) -> bool:
     opt, ctx = resume.get("opt"), resume.get("ctx")
     if not isinstance(opt, dict) or not isinstance(ctx, dict):
         return True
-    if opt.get("bind") and _negations(ctx.get("effects") or [], opt["bind"]) == 0:
-        return False  # 118.12: no "If you don't" branch: declining only forgoes the "If you do" benefit
-    return not _unpaid_only_benefits_others(ctx, opt)
+    gates = _payment_gates(ctx, opt)
+    if gates is None:
+        return True  # a reading of the payment this module can't place: the table decides (fail-safe)
+    if not any(negated for _, negated, _ in gates):
+        return False  # 118.12: only plain "If you do" gates: declining only forgoes their benefit
+    return not _unpaid_only_benefits_others(ctx, opt, gates)
 
 
 # What the not-paid branch may do and still be harmless to the payer: the ability's controller ("you", never the payer) gets something
 # (Smothering Tithe's Treasure, Rhystic Study's draw). ``may_rest`` is the "you may" marker of such a branch. Anything else: the table.
 _BENEFITS = frozenset({"create_token", "draw", "gain_life", "scry", "surveil"})
+# The readings of a payment's binding the engine has (conditions.holds): ``{"succeeded": b}`` ("If you do"), ``{"succeeded": b,
+# "negate": True}`` and ``{"not": {"succeeded": b}}`` ("If you don't", 118.12a), and anything else (a ``flag`` verdict recorded by a
+# gate's own ``bind``, an ``any`` / ``all``, a ``ref:`` to what it moved, a primitive reading it in code): only the first three, as the
+# whole condition of a plain top-level ``only_if``, are placed; any other is unplaced and leaves the payment to the table.
+_GATE_KEYS = frozenset({"do", "cond", "skip"})
 
 
-def _unpaid_only_benefits_others(ctx: dict[str, Any], opt: dict[str, Any]) -> bool:
-    """118.12 / 118.12a: the instructions gated on the payment not being made (``only_if {"succeeded": bind, "negate": True}``, the
-    ``skip`` instructions after it). Harmless to decline only when each of them gives something to the ability's controller and the payer
-    is someone else; when a branch can't be read with confidence (another shape, another instruction), it isn't (fail-safe)."""
-    bind, effects = opt.get("bind"), ctx.get("effects") or []
-    if not bind or opt.get("payer") in (None, ctx.get("controller")):
-        return False
-    gated: list[Any] = []
-    found = 0
+def _payment_gates(ctx: dict[str, Any], opt: dict[str, Any]) -> list[tuple[int, bool, int]] | None:
+    """The gates on the payment ``opt["bind"]`` in the resolution ``ctx``, as (index, negated, skip): or None when anything in the
+    resolution mentions the binding other than its own ``optional_payment`` and plain gates, or when an instruction after the payment
+    isn't inside a gate's range (a primitive could read the binding in code, by a name the data doesn't show). Fail-safe by
+    construction: every string containing the binding's name, anywhere in the resolution (its effects and any other part but the
+    recorded bindings), must be one of those placed readings."""
+    bind, effects = opt.get("bind"), ctx.get("effects")
+    if not isinstance(bind, str) or not bind or not isinstance(effects, list):
+        return None
+    pays = [i for i, e in enumerate(effects) if isinstance(e, dict) and e.get("do") == "optional_payment" and e.get("bind") == bind]
+    if len(pays) != 1:
+        return None
+    at = pays[0]
+    gates: list[tuple[int, bool, int]] = []
+    placed: set[tuple[Any, ...]] = {("effects", at, "bind")}
     for i, e in enumerate(effects):
-        cond = e.get("cond") if isinstance(e, dict) else None
-        if isinstance(cond, dict) and cond.get("succeeded") == bind and cond.get("negate"):
-            if e.get("do") != "only_if" or not isinstance(e.get("skip"), int):
-                return False
-            found += 1
-            gated += effects[i + 1:i + 1 + e["skip"]]
-    # (nothing read, a negated reading nested deeper than the instruction list, or a condition inside the branch: not judged)
-    if not gated or found != _negations(effects, bind) or '"succeeded"' in json.dumps(gated, default=str):
+        if i <= at or not isinstance(e, dict) or set(e) != _GATE_KEYS or e.get("do") != "only_if":
+            continue
+        skip, cond = e.get("skip"), e.get("cond")
+        if type(skip) is not int or skip < 0:
+            continue
+        if cond == {"succeeded": bind}:
+            gates.append((i, False, skip))
+            placed.add(("effects", i, "cond", "succeeded"))
+        elif cond == {"succeeded": bind, "negate": True}:
+            gates.append((i, True, skip))
+            placed.add(("effects", i, "cond", "succeeded"))
+        elif cond == {"not": {"succeeded": bind}}:
+            gates.append((i, True, skip))
+            placed.add(("effects", i, "cond", "not", "succeeded"))
+    rest = {k: v for k, v in ctx.items() if k not in ("refs", "paid_x")}  # (the recorded bindings are results, not readings)
+    if any(path not in placed for path in _mentions(rest, bind, ())):
+        return None
+    # every instruction after the payment lies in the range of a gate on it, the gates one after another to the end
+    starts = {i: skip for i, _, skip in gates}
+    j = at + 1
+    while j < len(effects):
+        if j not in starts:
+            return None
+        j += 1 + starts[j]
+    return gates if gates and j == len(effects) else None
+
+
+def _mentions(node: Any, bind: str, path: tuple[Any, ...]) -> list[tuple[Any, ...]]:
+    """The path of every string (value or key) that contains ``bind``, at any depth."""
+    if isinstance(node, str):
+        return [path] if bind in node else []
+    if isinstance(node, dict):
+        out = [(*path, k, "<key>") for k in node if isinstance(k, str) and bind in k]
+        for k, v in node.items():
+            out += _mentions(v, bind, (*path, k))
+        return out
+    if isinstance(node, (list, tuple)):
+        return [p for i, v in enumerate(node) for p in _mentions(v, bind, (*path, i))]
+    return []
+
+
+def _unpaid_only_benefits_others(ctx: dict[str, Any], opt: dict[str, Any], gates: list[tuple[int, bool, int]]) -> bool:
+    """118.12 / 118.12a: the instructions in the range of each negated gate (``{"succeeded": bind, "negate": True}`` or ``{"not":
+    {"succeeded": bind}}``) are what not paying does. Harmless to decline only when each of them gives something to the ability's
+    controller and the payer is someone else; anything else (another instruction, another recipient, a condition in the branch) isn't
+    (fail-safe)."""
+    if opt.get("payer") in (None, ctx.get("controller")):
+        return False
+    effects = ctx["effects"]
+    branch = [e for i, negated, skip in gates if negated for e in effects[i + 1:i + 1 + skip]]
+    if not branch or any(w in json.dumps(branch, default=str) for w in ('"cond"', '"succeeded"', '"flag"', '"not"')):
         return False
     return all(isinstance(e, dict) and (e.get("do") == "may_rest" or (e.get("do") in _BENEFITS and e.get("who") == "you"))
-               for e in gated)
-
-
-def _negations(node: Any, bind: Any) -> int:
-    """How many times the payment binding ``bind`` is read negated (``{"succeeded": bind, "negate": True}``), at any depth."""
-    if isinstance(node, dict):
-        own = int(node.get("succeeded") == bind and bool(node.get("negate")))
-        return own + sum(_negations(v, bind) for v in node.values())
-    return sum(_negations(v, bind) for v in node) if isinstance(node, list) else 0
+               for e in branch)
 
 
 def _could_eliminate(d: Decision) -> bool:

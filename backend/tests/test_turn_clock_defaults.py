@@ -468,3 +468,164 @@ def test_a_may_pay_if_you_do_is_declined(cards):  # 118.12, 603.5: Mentor of the
     assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.players["p1"].life == 40
     nobody_out(s)
     roundtrip(s)
+
+
+# -- review round 5: every reading of a payment's binding but a plain "If you do" goes to the not-paid classifier (fail-safe) --
+
+
+def until_pay(s, pid, limit=40):
+    """Pass priority and answer other choices with their first options until ``pid`` is asked to pay (optional_payment)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.player == pid and (d.resume or {}).get("step") == "pay_or_sacrifice":
+            return d
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never asked to pay")
+
+
+def test_destroy_unless_its_controller_pays_life_is_left_to_the_table(cards):  # 118.12a: Essence Vortex, the unpaid branch destroys
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    victim = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    start(s)
+    cast(s, "Essence Vortex", [victim.id])
+    d = until_pay(s, "p2")
+    assert d.resume["opt"]["bind"] == "life41_vortex" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p2", s.cards) == []
+    assert s.state.cards[victim.id].zone == "p2:battlefield" and s.state.players["p2"].life == 40
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_damage_unless_they_sacrifice_a_creature_is_left_to_the_table(cards):  # 118.12a: Unnatural Hunger, the unpaid branch deals damage
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    host = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    put(s, "Razorgrass Screen", "battlefield", pid="p2")  # (another creature to sacrifice: PAY is offered, 118.3)
+    start(s)
+    cast(s, "Unnatural Hunger", [host.id])
+    act(s, "p1", type="set_life", player="p2", value=2)
+    to_phase(s, "upkeep", turn=5)
+    d = until_pay(s, "p2")
+    assert d.resume["opt"]["bind"] == "history_hunger_paid" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p2", s.cards) == []
+    assert s.state.players["p2"].life == 2 and "p2" not in s.state.rules.lost
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_bane_lord_of_darkness_is_left_to_the_table(cards):  # 118.12: "If they don't, you may put a creature card …": not a confirmed benefit only
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    put(s, "Bane, Lord of Darkness", "battlefield")
+    victim = put(s, "Grizzly Bears", "battlefield")
+    start(s)
+    cast(s, "Murder", [victim.id])
+    d = until_pay(s, "p2")
+    assert d.resume["opt"]["bind"] == "bane110n" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p2", s.cards) == []  # (put_from_hand isn't among the confirmed benefits: the table decides)
+    nobody_out(s)
+    roundtrip(s)
+
+
+# -- the guard: every optional payment the engine's own code writes as data (app/rules), and each gate on it rewritten into every other
+# reading conditions.holds has (negated, "not", a "flag", an "any"): declined only when every reading is a plain "If you do", or the
+# not-paid branch is confirmed to give the ability's controller a benefit only --
+
+
+def _value(node):
+    """An engine data literal as a value; what only runs at resolution becomes a stable placeholder ("<j>", "<bind>")."""
+    import ast
+
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Dict):
+        return {("**" if k is None else _value(k) if isinstance(k, ast.Constant) else f"<{ast.unparse(k)}>"): _value(v)
+                for k, v in zip(node.keys, node.values, strict=True)}
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return [{"do": f"<*{ast.unparse(e.value)}>"} if isinstance(e, ast.Starred) else _value(e) for e in node.elts]
+    if isinstance(node, ast.JoinedStr):
+        return "".join(str(v.value) if isinstance(v, ast.Constant) else f"<{ast.unparse(v.value)}>" for v in node.values)  # type: ignore[attr-defined]
+    return f"<{ast.unparse(node)}>"
+
+
+def _engine_payments():
+    import ast
+
+    rules = Path(__file__).resolve().parents[1] / "app" / "rules"
+    found = []
+    for f in sorted(rules.glob("*.py")):
+        for node in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.List):
+                continue
+            effects = _value(node)
+            for e in effects:
+                if isinstance(e, dict) and e.get("do") == "optional_payment" and isinstance(e.get("bind"), str):
+                    found.append(pytest.param(effects, e["bind"], id=f"{f.name}:{node.lineno}:{e['bind']}"))
+    return found
+
+
+ENGINE_PAYMENTS = _engine_payments()
+
+
+def _rewritten(effects, bind):
+    """The definition as written, then with each plain gate on ``bind`` read every other way."""
+    yield effects
+    for i, e in enumerate(effects):
+        if isinstance(e, dict) and e.get("cond") == {"succeeded": bind}:
+            for cond in ({"succeeded": bind, "negate": True}, {"not": {"succeeded": bind}}, {"flag": bind, "negate": True},
+                         {"any": [{"succeeded": bind}, {"turn": "yours"}]}, {"succeeded": bind, "negate": False}):
+                yield [*effects[:i], {**e, "cond": cond}, *effects[i + 1:]]
+            yield [*effects[:i], {**e, "bind": "otherwise0"}, *effects[i + 1:], {"do": "only_if", "cond": {"flag": "otherwise0", "negate": True},
+                                                                                    "skip": 1}, {"do": "lose_life", "who": "event_player", "n": 5}]
+
+
+def _confirmed_benefit_only(effects, bind):
+    """Independently of clock_defaults: every reading of ``bind`` other than the payment and a plain positive top-level gate is a
+    negated top-level gate whose range gives the controller ("you") a benefit only."""
+    for i, e in enumerate(effects):
+        if bind not in json.dumps(e, default=str) or (e.get("do") == "optional_payment" and e.get("bind") == bind):
+            continue
+        if e == {"do": "only_if", "cond": {"succeeded": bind}, "skip": e.get("skip")}:
+            continue
+        if e.get("cond") not in ({"succeeded": bind, "negate": True}, {"not": {"succeeded": bind}}) or set(e) != {"do", "cond", "skip"}:
+            return False
+        branch = effects[i + 1:i + 1 + e["skip"]]
+        if not branch or not all(x.get("do") == "may_rest" or (x.get("do") in ("create_token", "draw", "gain_life", "scry", "surveil")
+                                                               and x.get("who") == "you" and set(x) <= {"do", "who", "n", "token", "tapped"})
+                                 for x in branch):
+            return False
+    return True
+
+
+def _plain_only(effects, bind):
+    return all(e.get("do") == "optional_payment" or e == {"do": "only_if", "cond": {"succeeded": bind}, "skip": e.get("skip")}
+               for e in effects if isinstance(e, dict) and bind in json.dumps(e, default=str))
+
+
+def test_the_guard_finds_the_engines_payments():
+    binds = {p.values[1] for p in ENGINE_PAYMENTS}
+    assert {"life41_vortex", "history_hunger_paid", "life_history_racket_paid", "bane110n"} <= binds
+    assert len(ENGINE_PAYMENTS) >= 20
+
+
+@pytest.mark.parametrize(("effects", "bind"), ENGINE_PAYMENTS)
+def test_no_unplaced_reading_of_a_payment_is_declined(effects, bind):
+    from types import SimpleNamespace
+
+    from app.game.clock_defaults import _decline_harms
+
+    for version in _rewritten(effects, bind):
+        for payer in ("p1", "p2"):
+            d = SimpleNamespace(resume={"step": "pay_or_sacrifice", "ctx": {"controller": "p1", "effects": version, "next": 0},
+                                        "opt": {"cost": "{1}", "bind": bind, "payer": payer, "chosen": {}}})
+            if not _decline_harms(d):  # declined: every reading is a plain "If you do", or the unpaid branch is a benefit to another
+                assert _plain_only(version, bind) or (payer != "p1" and _confirmed_benefit_only(version, bind)), (payer, version)

@@ -126,5 +126,60 @@
       "W"
     ],
     "keywords": []
+  },
+  {
+    "name": "Essence Vortex",
+    "oracle_text": "Destroy target creature unless its controller pays life equal to its toughness. A creature destroyed this way can't be regenerated.",
+    "mana_cost": "{1}{U}{B}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unnatural Hunger",
+    "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals damage equal to that creature's power to that player unless they sacrifice another creature of their choice.",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Enchantment — Aura",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Bane, Lord of Darkness",
+    "oracle_text": "As long as your life total is less than or equal to half your starting life total, Bane has indestructible.\nWhenever another nontoken creature you control dies, target opponent may have you draw a card. If they don't, you may put a creature card with equal or lesser toughness from your hand onto the battlefield.",
+    "mana_cost": "{1}{W}{U}{B}",
+    "type_line": "Legendary Creature — God",
+    "power": "5",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "B",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "U",
+      "W"
+    ],
+    "keywords": []
   }
 ]
