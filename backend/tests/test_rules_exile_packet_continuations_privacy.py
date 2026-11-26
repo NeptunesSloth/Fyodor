@@ -44,7 +44,7 @@ def test_actual_private_exile_rest_and_websocket_look_authority(cards, settings,
         room = client.app.state.services.hub.create_room(s, mode='lan')
         for player, seat in room.seats.items():
             seat.token = mode + '-' + player
-        room.spectator_tokens.add(mode + '-spectator')
+        room.spectator_tokens.append(mode + '-spectator')
         mine = client.get(f'/api/games/{room.id}/view', headers={'X-Seat-Token': mode + '-p1'}).json()
         assert mine['cards'][cid]['name'] == 'Doran, the Siege Tower'
         for viewer in ['p2', 'p3', 'spectator']:

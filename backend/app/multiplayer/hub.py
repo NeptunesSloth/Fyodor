@@ -52,6 +52,7 @@ SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 PASSWORD_ROUNDS = 600_000  # what a password is hashed at now (OWASP's figure for PBKDF2-HMAC-SHA256)
+MAX_SPECTATORS = 32  # spectator tokens per room; a join past it lets the earliest one go
 MAX_STORED_ROUNDS = 10_000_000  # a saved count above this is not ours: one join must not burn minutes of CPU on a doctored file
 # At most 4 hashes run at once: this bounds the CPU hashing costs. /api/join counts a guess against the address before hashing it (a
 # burst from one address is refused from the sixth on, unhashed) and hashes on ``Services.hash_pool`` (4 threads of its own), so joins
@@ -158,7 +159,8 @@ class Room:
     password_rounds: int = 120_000  # (the default is what metadata written before this field used)
     _password_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)  # the three password fields change together
     seats: dict[str, Seat] = field(default_factory=dict)
-    spectator_tokens: set[str] = field(default_factory=set)
+    spectator_tokens: list[str] = field(default_factory=list)  # oldest first, at most MAX_SPECTATORS
+    dropped_spectators: list[str] = field(default_factory=list)  # tokens let go by the cap, their sockets not yet closed (memory only)
     connections: dict[str, Connection] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     actions_since_save: int = 0
@@ -457,7 +459,7 @@ class GameHub:
             "password_hash": pw_hash.hex() if pw_hash else None,
             "password_rounds": rounds,
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
-            "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
+            "spectator_tokens": list(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
             "lobby": room.lobby.model_dump(mode="json") if room.lobby is not None else None,  # (the pod rule, mulligans… for the next game)
         }
@@ -521,7 +523,8 @@ class GameHub:
             info = (meta.get("seats") or {}).get(pid) or {}
             room.seats[pid] = Seat(player_id=pid, token=info.get("token"), claimed_name=info.get("claimed_name"),
                                    last_seen=time.time())
-        room.spectator_tokens = set(meta.get("spectator_tokens") or [])
+        # (a list in join order; one written before the cap is sorted or set-like: its last ones are kept, not necessarily the newest)
+        room.spectator_tokens = list(meta.get("spectator_tokens") or [])[-MAX_SPECTATORS:]
         room.result_id = meta.get("result_id")
         room.night = Night.from_meta(meta.get("night"))
         if meta.get("lobby"):
@@ -593,6 +596,13 @@ class GameHub:
         stale = [c for c in room.connections.values()
                  if c.viewer == player_id and (current is None or c.token is None or not hmac.compare_digest(c.token, current))]
         await self._close_all(room, stale, 4403, reason)
+
+    async def close_dropped_spectators(self, room: Room) -> None:
+        """Close, with 4403, the sockets of spectators the cap let go, and forget them."""
+        dropped, room.dropped_spectators = room.dropped_spectators, []
+        stale = [c for c in room.connections.values()
+                 if c.token is not None and any(hmac.compare_digest(c.token, t) for t in dropped)]
+        await self._close_all(room, stale, 4403, "Too many spectators: the earliest one was let go.")
 
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""
@@ -667,7 +677,11 @@ class GameHub:
         """Claim a free seat (or become a spectator). Returns (viewer, token)."""
         token = secrets.token_urlsafe(24)
         if spectate:
-            room.spectator_tokens.add(token)
+            room.spectator_tokens.append(token)
+            while len(room.spectator_tokens) > MAX_SPECTATORS:  # (the earliest is let go; join_game closes its sockets)
+                dropped = room.spectator_tokens.pop(0)
+                room.night.queued.pop(dropped, None)
+                room.dropped_spectators.append(dropped)
             self.persist(room)
             return SPECTATOR, token
         state = room.game.state if room.game is not None else None

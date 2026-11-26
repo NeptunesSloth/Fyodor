@@ -594,6 +594,7 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
         raise HTTPException(404, str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(409, str(exc)) from exc
+    await services.hub.close_dropped_spectators(room)  # (a spectator past the cap let the earliest one go)
     if name and viewer in room.seats and room.started:
         def rename() -> None:
             room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
