@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import GAME_NOT_FOUND, get_services, require_host
 from app.multiplayer.hub import Room
-from app.services import Services
+from app.services import STOPPED_SHARING, Services
 from app.tunnel.binary import TunnelUnavailable
 from app.tunnel.manager import TURNED_OFF
 
@@ -21,7 +21,6 @@ ServicesDep = Annotated[Services, Depends(get_services)]
 
 NO_LAUNCHER = "Start Fyodor from its launcher to share over the internet."
 NO_NETWORK = "Internet features are turned off on this computer (FYODOR_ALLOW_NETWORK=0)."  # (app/tunnel/binary.py's words)
-STOPPED_SHARING = "The host stopped sharing this table."
 
 
 class ShareStatus(BaseModel):
@@ -63,10 +62,12 @@ def _lan_room(services: Services, game_id: str) -> Room:
     return room
 
 
-async def _stop_when_unused(services: Services) -> None:
-    """End the tunnel once no table is shared (off the loop: stop() waits for cloudflared). A start under way is left alone."""
-    if not any(r.shared for r in services.hub.rooms.values()) and services.tunnel.state not in ("stopped", "starting"):
-        await asyncio.get_running_loop().run_in_executor(None, services.tunnel.stop)
+def _check_password(room: Room, password: str | None) -> None:
+    has_password = room.password_state()[1] is not None
+    if password is None and not has_password:
+        raise HTTPException(422, "A table shared over the internet needs a password.")
+    if password is not None and has_password:
+        raise HTTPException(409, "This table already has a password.")
 
 
 @router.get("/games/{game_id}/share")
@@ -79,27 +80,29 @@ async def share_table(game_id: str, body: ShareIn, services: ServicesDep) -> Sha
     room = _lan_room(services, game_id)
     if (why := _unavailable(services)) is not None:
         raise HTTPException(409, why)
-    async with room.lock:
-        has_password = room.password_state()[1] is not None
-        if body.password is None and not has_password:
-            raise HTTPException(422, "A table shared over the internet needs a password.")
-        if body.password is not None and has_password:
-            raise HTTPException(409, "This table already has a password.")
-        if body.password is not None:  # (PBKDF2, ~0.2 s: on the join hashing pool, not the loop)
-            await asyncio.get_running_loop().run_in_executor(services.hash_pool, services.hub.set_password, room, body.password)
-        services.hub.new_invite_code(room)
+    _check_password(room, body.password)
     try:
-        await services.tunnel.start()  # (not under the room lock: a first start downloads cloudflared)
+        await services.tunnel.start()  # (outside every lock: a first start downloads cloudflared)
     except TunnelUnavailable as exc:
-        raise HTTPException(502, str(exc)) from exc
-    if services.hub.get(game_id) is not room:  # closed while the tunnel started
-        await _stop_when_unused(services)
-        raise HTTPException(404, GAME_NOT_FOUND)
-    async with room.lock:
-        if services.tunnel.state != "running":  # stopped in between (another table's DELETE): never shared with no link
-            raise HTTPException(502, services.tunnel.reason or TURNED_OFF)
-        room.shared = True
-        services.hub.persist(room)
+        raise HTTPException(502, str(exc)) from exc  # (nothing about the table was changed)
+    # the password, the invite code and the share together, once the link is up; under share_lock, so a DELETE's stop-when-unused
+    # can't run between the check that the tunnel runs and the share
+    async with services.share_lock:
+        try:
+            if services.hub.get(game_id) is not room:  # closed while the tunnel started
+                raise HTTPException(404, GAME_NOT_FOUND)
+            async with room.lock:
+                if services.tunnel.state != "running":  # stopped in between: never shared with no link
+                    raise HTTPException(502, services.tunnel.reason or TURNED_OFF)
+                _check_password(room, body.password)  # (again: another request may have set one meanwhile)
+                if body.password is not None:  # (PBKDF2, ~0.2 s: on the join hashing pool, not the loop)
+                    await asyncio.get_running_loop().run_in_executor(services.hash_pool, services.hub.set_password, room, body.password)
+                services.hub.new_invite_code(room)
+                room.shared = True
+                services.hub.persist(room)
+        except HTTPException:
+            await services.stop_tunnel_if_unused()  # (the tunnel started for nothing)
+            raise
     await services.hub.broadcast(room)
     return _status(services, room)
 
@@ -107,6 +110,5 @@ async def share_table(game_id: str, body: ShareIn, services: ServicesDep) -> Sha
 @router.delete("/games/{game_id}/share")
 async def stop_sharing(game_id: str, services: ServicesDep) -> ShareStatus:
     room = _lan_room(services, game_id)
-    await services.unshare(room, STOPPED_SHARING)
-    await _stop_when_unused(services)
+    await services.stop_sharing(room, STOPPED_SHARING)
     return _status(services, room)

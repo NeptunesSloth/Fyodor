@@ -3,6 +3,10 @@ never started: ``services.tunnel.start`` and ``stop`` are swapped for fakes."""
 
 from __future__ import annotations
 
+import asyncio
+import threading
+import time
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any
 
@@ -24,6 +28,7 @@ class FakeTunnel:
     def __init__(self, tunnel: Any) -> None:
         self.tunnel, self.starts, self.stops = tunnel, 0, 0
         self.fail: str | None = None
+        self.during: Callable[[], Awaitable[None]] | None = None  # (runs inside start, before it returns)
 
     async def start(self) -> str:
         self.starts += 1
@@ -31,6 +36,8 @@ class FakeTunnel:
             self.tunnel.state, self.tunnel.reason = "failed", self.fail
             raise TunnelUnavailable(self.fail)
         self.tunnel.hostname, self.tunnel.state, self.tunnel.reason = TUNNEL_HOST, "running", None
+        if self.during is not None:  # (the link is up; the caller hasn't heard yet)
+            await self.during()
         return TUNNEL_HOST
 
     def stop(self) -> None:
@@ -148,7 +155,9 @@ def test_tunnel_unavailable_is_502_and_the_room_stays_unshared(client: TestClien
     gid, _, _ = create_lobby(client)
     res = _share(client, gid)
     assert res.status_code == 502 and res.json()["detail"] == fake.fail
-    assert not _room(client, gid).shared
+    room = _room(client, gid)
+    assert not room.shared and room.password_state()[1] is None and room.invite_code is None  # (nothing kept that nobody needed)
+    assert client.get(f"/api/games/{gid}/share").json()["has_password"] is False
     status = client.get(f"/api/games/{gid}/share").json()
     assert status["shared"] is False and status["link"] is None and status["state"] == "failed" and status["reason"] == fake.fail
 
@@ -160,21 +169,53 @@ def _until_closed(ws: Any) -> WebSocketDisconnect:
     return closed.value
 
 
+def _waiting(lock: asyncio.Lock, count: int) -> None:
+    """Wait (a few seconds at most) until ``count`` tasks wait for ``lock``."""
+    deadline = time.monotonic() + 5
+    while len(lock._waiters or ()) < count:
+        assert time.monotonic() < deadline, "nothing queued on the room lock"
+        time.sleep(0.01)
+
+
+def _queued_behind_delete(client: TestClient, room: Any, act: Callable[[], Any]) -> tuple[Any, Any]:
+    """Hold the room lock, queue the DELETE on it, then ``act`` (an action that queues behind it), then let go: the DELETE runs
+    first. Returns (the DELETE's response, what ``act`` returned)."""
+    out: dict[str, Any] = {}
+    client.portal.call(room.lock.acquire)  # type: ignore[union-attr]
+    try:
+        deleting = threading.Thread(target=lambda: out.setdefault("delete", client.delete(f"/api/games/{room.id}/share")))
+        deleting.start()
+        _waiting(room.lock, 1)
+        acting = threading.Thread(target=lambda: out.setdefault("act", act()))
+        acting.start()
+        try:
+            _waiting(room.lock, 2)
+        except AssertionError:
+            acting.join(1)
+            raise AssertionError(f"the action did not queue: {out.get('act')!r} {getattr(out.get('act'), 'text', '')}") from None
+    finally:
+        client.portal.call(room.lock.release)  # type: ignore[union-attr]
+    deleting.join(10)
+    acting.join(10)
+    return out["delete"], out.get("act")
+
+
 def test_stop_sharing_closes_only_tunnel_sockets(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
     """Review Focus 3: the remote socket closes 4403 with the reason, the LAN socket stays and hears the table is no longer shared,
-    and an action sent on the tunnel socket just before the DELETE is applied once or not at all."""
+    and an action sent on the tunnel socket that is still waiting for the room lock when the DELETE takes it is not applied."""
     gid, bob = _started(client)
     assert _share(client, gid).status_code == 200
     room = _room(client, gid)
     alice = room.seats["p1"].token
     hand_before = len(room.session.state.zone(zone_key("p2", "hand")))
+    tunnel_client.portal = client.portal  # (one event loop for both: the room lock is waited on from each)
     with connect_game(client, gid, alice) as lan:
         assert lan.receive_json()["type"] == "state"
         with connect_game(tunnel_client, gid, bob) as remote:
             assert remote.receive_json()["type"] == "state"
             assert lan.receive_json()["view"]["game"]["shared"] is True  # (the remote player connected)
-            remote.send_json({"type": "action", "action": {"type": "draw", "count": 1}, "id": 1, "client_action_id": "late-draw"})
-            res = client.delete(f"/api/games/{gid}/share")
+            res, _ = _queued_behind_delete(client, room, lambda: remote.send_json(
+                {"type": "action", "action": {"type": "draw", "count": 1}, "id": 1, "client_action_id": "late-draw"}))
             assert res.status_code == 200 and res.json()["shared"] is False and res.json()["link"] is None
             closed = _until_closed(remote)
             assert closed.code == 4403 and closed.reason == "The host stopped sharing this table."
@@ -186,9 +227,53 @@ def test_stop_sharing_closes_only_tunnel_sockets(client: TestClient, fake: FakeT
             while lan.receive_json().get("type") != "pong":
                 pass
     assert not room.shared and room.connections == {}
-    hand_after = len(room.session.state.zone(zone_key("p2", "hand")))
-    assert hand_after - hand_before in (0, 1)  # at most once
-    assert list(room.client_actions.get("p2", {})) in ([], ["late-draw"])
+    assert len(room.session.state.zone(zone_key("p2", "hand"))) == hand_before  # not applied
+    assert "late-draw" not in room.client_actions.get("p2", {})
+
+
+def test_a_rest_action_queued_behind_the_unshare_is_refused(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    gid, bob = _started(client)
+    assert _share(client, gid).status_code == 200
+    room = _room(client, gid)
+    hand_before = len(room.session.state.zone(zone_key("p2", "hand")))
+    tunnel_client.portal = client.portal
+    res, acted = _queued_behind_delete(client, room, lambda: tunnel_client.post(
+        f"/api/games/{gid}/actions", json={"action": {"type": "draw", "count": 1}, "client_action_id": "late-rest-draw"},
+        headers={"X-Seat-Token": bob}))
+    assert res.status_code == 200
+    assert acted.status_code == 409 and acted.json()["detail"] == "The host stopped sharing this table."
+    assert len(room.session.state.zone(zone_key("p2", "hand"))) == hand_before
+
+
+def test_closing_a_shared_table_ends_its_link(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    """Closing the last shared table stops the tunnel, and its remote sockets close 4403 first."""
+    gid, bob = _started(client)
+    assert _share(client, gid).status_code == 200
+    with connect_game(tunnel_client, gid, bob) as remote:
+        assert remote.receive_json()["type"] == "state"
+        assert client.delete(f"/api/games/{gid}").status_code == 204
+        closed = _until_closed(remote)
+        assert closed.code == 4403 and closed.reason == "The host closed this table."
+    assert fake.stops == 1 and client.app.state.services.tunnel.state == "stopped"  # type: ignore[attr-defined]
+
+
+def test_closing_one_of_two_shared_tables_keeps_the_link(client: TestClient, fake: FakeTunnel) -> None:
+    one, _, _ = create_lobby(client)
+    two, _, _ = create_lobby(client)
+    assert _share(client, one).status_code == 200 and _share(client, two).status_code == 200
+    assert client.delete(f"/api/games/{one}").status_code == 204
+    assert fake.stops == 0 and client.get(f"/api/games/{two}/share").json()["link"] is not None
+
+
+def test_loading_a_save_over_a_shared_table_ends_its_link(client: TestClient, fake: FakeTunnel) -> None:
+    gid, _ = _started(client)
+    assert _share(client, gid).status_code == 200
+    alice = _room(client, gid).seats["p1"].token
+    saved = client.post(f"/api/games/{gid}/save", json={"name": "Before"}, headers={"X-Seat-Token": alice})
+    assert saved.status_code in (200, 201), saved.text
+    loaded = client.post(f"/api/saves/{saved.json()['id']}/load", json={"mode": "lan"})
+    assert loaded.status_code == 201, loaded.text
+    assert fake.stops == 1 and not _room(client, gid).shared
 
 
 def test_last_unshare_stops_the_tunnel_and_not_before(client: TestClient, fake: FakeTunnel) -> None:
@@ -251,3 +336,55 @@ def test_practice_and_hot_seat_tables_cannot_be_shared(client: TestClient, fake:
         assert not _room(client, gid).shared
     assert client.get("/api/games/nope/share").status_code == 404
     assert fake.starts == 0
+
+
+def test_a_stop_while_another_table_starts_sharing_wins(client: TestClient, fake: FakeTunnel) -> None:
+    """Minor 3: table A's DELETE stops the unused tunnel while table B's POST is between its start and its share: B is not left
+    shared with a stopped tunnel (and keeps no password)."""
+    services = client.app.state.services  # type: ignore[attr-defined]
+    one, _, _ = create_lobby(client)
+    two, _, _ = create_lobby(client)
+    assert _share(client, one).status_code == 200
+
+    async def delete_one() -> None:
+        await services.stop_sharing(_room(client, one), "The host stopped sharing this table.")
+
+    fake.during = delete_one
+    res = _share(client, two)
+    assert res.status_code == 502 and res.json()["detail"] == "The internet link was turned off."
+    room = _room(client, two)
+    assert not room.shared and room.password_state()[1] is None and services.tunnel.state == "stopped"
+    fake.during = None
+    assert _share(client, two).json()["link"] is not None  # (again: it starts afresh)
+
+
+def test_link_down_unshares_every_table_even_when_one_fails(client: TestClient, fake: FakeTunnel,
+                                                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """Minor 4: every shared table stops being shared before any socket work, so one failing leaves none shared."""
+    services = client.app.state.services  # type: ignore[attr-defined]
+    rooms = [create_lobby(client)[0] for _ in range(3)]
+    for gid in rooms:
+        assert _share(client, gid).status_code == 200
+
+    async def broken(room: Any, reason: str) -> int:
+        raise RuntimeError("socket trouble")
+
+    monkeypatch.setattr(services.hub, "close_tunnel_connections", broken)
+    with pytest.raises(RuntimeError):
+        client.portal.call(services.tunnel.on_down)  # type: ignore[union-attr]
+    assert not any(_room(client, gid).shared for gid in rooms)
+
+
+def test_stopping_an_unshared_table_changes_nothing(client: TestClient, fake: FakeTunnel, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Minor 5: no persist, no broadcast for a table that isn't shared."""
+    hub = client.app.state.services.hub  # type: ignore[attr-defined]
+    gid, _ = _started(client)
+    calls: list[str] = []
+    monkeypatch.setattr(hub, "persist", lambda room: calls.append("persist"))
+
+    async def broadcast(room: Any, **kwargs: Any) -> None:
+        calls.append("broadcast")
+
+    monkeypatch.setattr(hub, "broadcast", broadcast)
+    res = client.delete(f"/api/games/{gid}/share")
+    assert res.status_code == 200 and res.json()["shared"] is False and calls == [] and fake.stops == 0

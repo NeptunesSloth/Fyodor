@@ -10,6 +10,7 @@ import time
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
+from anyio import from_thread
 from fastapi import (
     APIRouter,
     Depends,
@@ -88,7 +89,7 @@ from app.multiplayer.lobby import (
 from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
 from app.rules import coverage
-from app.services import Services
+from app.services import CLOSED_TABLE, STOPPED_SHARING, Services
 from app.stats import recap
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
@@ -464,6 +465,8 @@ async def post_action(
     async with room.lock:
         if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
+        if is_tunnel_request(request) and not tunnel_serves(services, room.id):  # unshared while it waited for the lock
+            raise HTTPException(409, STOPPED_SHARING)
         _check_table_open(room, body.action.get("type"))
         try:
             # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
@@ -564,6 +567,10 @@ async def save_game(game_id: str, body: SaveIn, request: Request, services: Serv
 async def close_game(game_id: str, request: Request, services: ServicesDep) -> Response:
     require_local(request)
     room = _room(services, game_id)
+    # -- invite over the internet -- a shared table stops being shared first (its remote sockets close; the tunnel ends if no other
+    # table is shared): closing the table ends its link
+    if room.shared:
+        await services.stop_sharing(room, CLOSED_TABLE)
     async with room.lock:
         services.autosave(room)
         for conn in list(room.connections.values()):
@@ -660,6 +667,8 @@ def load_save(save_id: str, body: LoadIn, request: Request, services: ServicesDe
         raise HTTPException(422, str(exc)) from exc
     existing = services.hub.get(state.id)
     if existing is not None:
+        if existing.shared:  # -- invite over the internet -- the table it replaces stops being shared (and the tunnel, if unused)
+            from_thread.run(services.stop_sharing, existing, CLOSED_TABLE)  # (a sync route: on a worker thread)
         services.hub.close(state.id)
     session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit,
                           rules=services.rules)
@@ -2133,6 +2142,9 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
     if isinstance(msg, WsAction):
         response_call.early(services.hub, room, actor, msg.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
+        if conn.tunnel and not tunnel_serves(services, room.id):  # -- invite over the internet -- unshared while it waited for the lock
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": STOPPED_SHARING})
+            return
         if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
             if previous.startswith("REJECTED"):
                 await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})

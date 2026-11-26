@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import contextlib
 import json
@@ -62,6 +63,10 @@ from app.tunnel.manager import WENT_DOWN, TunnelManager
 
 log = logging.getLogger(__name__)
 
+# -- invite over the internet -- why remote sockets close (and a late remote action is refused) when a table stops being shared
+STOPPED_SHARING = "The host stopped sharing this table."
+CLOSED_TABLE = "The host closed this table."
+
 
 def replay_journal(session: GameSession, entries: list[dict[str, Any]]) -> int:
     """Re-apply journaled changes on top of a checkpoint. Returns how many were applied."""
@@ -103,6 +108,7 @@ class Services:
         self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
         self.tunnel = TunnelManager(settings)  # -- invite over the internet -- (its port is set by the launcher; app/tunnel/manager.py)
         self.tunnel.on_down = self._tunnel_down
+        self.share_lock = asyncio.Lock()  # a table being shared or unshared, and the tunnel stopped when none is (app/api/share.py)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
@@ -308,10 +314,10 @@ class Services:
             out["recovered_tables"] = [{"game_id": r["game_id"], "name": r["name"]} for r in self.recovered]
         return out
 
-    async def unshare(self, room: Room, reason: str) -> None:
+    async def _end_share(self, room: Room, reason: str) -> None:
         """-- invite over the internet -- the table is no longer served on the tunnel port: its remote players' sockets (and those of
-        its practice tables) close with ``reason``, the LAN's stay, and everyone sees it. Under the room lock, as actions are applied: an
-        action already sent on a remote socket is applied once (before or just after this) or not at all, never twice."""
+        its practice tables) close with ``reason``, the LAN's stay, and everyone sees it. Under the room lock, as actions are applied: a
+        remote action applied before this stands, and one still waiting for the lock is refused (games.py checks tunnel_serves)."""
         async with room.lock:
             room.shared = False
             self.hub.persist(room)
@@ -321,10 +327,29 @@ class Services:
                 await self.hub.close_tunnel_connections(practice, reason)
         await self.hub.broadcast(room)
 
+    async def stop_tunnel_if_unused(self) -> None:
+        """End the tunnel once no table is shared (off the loop: stop() waits for cloudflared). A start under way is left alone. The
+        caller holds share_lock, so a share can't slip in between the check and the stop."""
+        if not any(r.shared for r in self.hub.rooms.values()) and self.tunnel.state not in ("stopped", "starting"):
+            await asyncio.get_running_loop().run_in_executor(None, self.tunnel.stop)
+
+    async def stop_sharing(self, room: Room, reason: str) -> None:
+        """The host stops sharing ``room`` (or closes or replaces it): unshare it if it is shared, then end the tunnel if nothing else
+        is shared."""
+        async with self.share_lock:
+            if room.shared:
+                await self._end_share(room, reason)
+            await self.stop_tunnel_if_unused()
+
     async def _tunnel_down(self) -> None:
-        """The tunnel manager's on_down: cloudflared exited while running (its state already says "failed", WENT_DOWN)."""
-        for room in [r for r in self.hub.rooms.values() if r.shared]:
-            await self.unshare(room, WENT_DOWN)
+        """The tunnel manager's on_down: cloudflared exited while running (its state already says "failed", WENT_DOWN). Every table is
+        unshared first, so one that fails below still stops being served."""
+        async with self.share_lock:
+            rooms = [r for r in self.hub.rooms.values() if r.shared]
+            for room in rooms:
+                room.shared = False
+            for room in rooms:
+                await self._end_share(room, WENT_DOWN)
 
     def close(self) -> None:
         self.tunnel.stop()  # first: nobody reaches the tables over the internet while they are saved and closed
