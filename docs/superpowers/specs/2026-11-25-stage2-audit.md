@@ -499,7 +499,7 @@ removed afterwards (`git worktree remove`).
 |---|---|---|---|---|
 | ruff | `ruff check . --output-format concise` | `Found 10 errors.` | `Found 10 errors.` | **No new error.** The two lists are identical line for line (`diff` of the two outputs is empty): I001 ×5 (`app/game/engine.py:3`, `app/game/handlers/dummy.py:98`, `app/game/views.py:9`, `tests/conftest.py:1`, `tests/test_rules_layer_whole_conditions.py:8`), SIM102 ×3 (`app/rules/costs.py:287`, `random_choice_receipts.py:261`, `taught.py:266`), F841 (`tests/test_rules_round5_additional_costs.py:189`), SIM300 (`tests/test_rules_token_batch_one_pile.py:49`). |
 | mypy | `python -m mypy app tools` | `Found 303 errors in 15 files (checked 1189 source files)` | `Found 303 errors in 15 files (checked 1183 source files)` | **No new error.** The messages are identical once line numbers are removed (`sed -E 's/:[0-9]+: /: /'`, sorted, `diff` empty). The six extra files checked are the new `app/api/share.py` and `app/tunnel/*.py` (five files): none has an error. |
-| Full backend suite | `python -m pytest -n 4 -q` (controller) | **FULL SUITE: pending controller run** | | The controller runs it (one run at a time on this machine, ledger Ruling 4); its result goes on this line. |
+| Full backend suite | `python -m pytest -n 4 -q` (controller) | **FULL SUITE: PASSED** at f10604c (exit 0, 0 failed) | | The controller runs it (one run at a time on this machine, ledger Ruling 4); its result goes on this line. |
 | Frontend typecheck | `npm run typecheck` (`tsc -b --noEmit`) in `frontend/` | exit 0 | | Pass. |
 | Frontend tests | `npm test` in `frontend/` | `Test Files 161 passed (161)`, `Tests 1633 passed (1633)` | | Pass. |
 
@@ -815,7 +815,7 @@ Final review and security pass (final fix wave):
 
 ### Before merging
 
-1. **FULL SUITE: pending controller run.**
-2. **Independent review: pending (controller)** (the security pass and a fresh reviewer).
+1. **FULL SUITE: PASSED** at f10604c (2026-11-26, `-n 3`, exit 0, about 42,500 tests, 0 failed).
+2. **Independent review: done** (final whole-branch review, security pass, one fix wave and a scoped re-review; see the SDD ledger).
 3. **Manual check through a real tunnel:** NOT DONE — owner's to do (checklist above).
 4. Merge order: Stage 1 (`internet-play-stage1`) first, then this branch. Do not merge until the owner has read this file.
