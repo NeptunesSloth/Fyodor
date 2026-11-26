@@ -41,7 +41,7 @@ def cards(settings):
 
 
 def setup(cards):
-    names = [c["name"] for f in FILES for c in json.loads((FIXTURES / f).read_text())] + ["Murder"]
+    names = [c["name"] for f in FILES for c in json.loads((FIXTURES / f).read_text())] + ["Murder", "Breeding Pool"]
     return table(cards, names, names, names)
 
 
@@ -120,6 +120,7 @@ def test_a_cast_being_announced_is_taken_back(cards):  # 601.2c, 733.1
     start(s)
     murder = put(s, "Murder", "hand")
     mana(s, B=2, C=1)
+    pool = dict(s.state.players["p1"].mana)
     act(s, "p1", type="cast_spell", card_id=murder.id)
     d = s.state.rules.decision
     assert d is not None and d.player == "p1"
@@ -127,6 +128,7 @@ def test_a_cast_being_announced_is_taken_back(cards):  # 601.2c, 733.1
     assert ans[0] == choose(d, ["cancel"])
     assert first_accepted(s, "p1") == ans[0]
     assert s.state.cards[murder.id].zone == "p1:hand" and not s.state.zones.get("stack")
+    assert s.state.players["p1"].mana == pool
     assert s.state.rules.decision is None and s.state.cards[victim.id].zone == "p2:battlefield"
     nobody_out(s)
     roundtrip(s)
@@ -154,10 +156,11 @@ def test_no_attack_unless_a_creature_must(cards, juggernaut):  # 508.1a, 508.1d
     roundtrip(s)
 
 
-def test_no_block_unless_a_creature_must(cards):  # 509.1a, 509.1c
+def test_no_block_unless_a_creature_must(cards):  # 509.1a, 509.1c: only the creature that must block does
     s = setup(cards)
     bear = put(s, "Grizzly Bears", "battlefield")
     screen = put(s, "Razorgrass Screen", "battlefield", pid="p2")
+    idle = put(s, "Grizzly Bears", "battlefield", pid="p2")
     start(s)
     to_phase(s, "declare_attackers", turn=4)
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
@@ -167,7 +170,8 @@ def test_no_block_unless_a_creature_must(cards):  # 509.1a, 509.1c
     assert ans[0] == {"type": "declare_blockers", "blocks": []}
     got = first_accepted(s, "p2")
     assert got != ans[0]  # the empty declaration is refused (509.1c)
-    assert s.state.cards[screen.id].blocking == bear.id
+    assert got == {"type": "declare_blockers", "blocks": [{"blocker_id": screen.id, "attacker_id": bear.id}]}
+    assert s.state.cards[screen.id].blocking == bear.id and s.state.cards[idle.id].blocking is None
     nobody_out(s)
     roundtrip(s)
 
@@ -191,22 +195,115 @@ def test_mulligans_keep_then_bottom_the_first_cards(cards):  # 103.5
     roundtrip(s)
 
 
-def test_assisted_rules_confirmations_are_applied(cards):  # 510.2
-    from tests.test_rules_combat import creature
-    from tests.test_rules_combat import table as two
-
-    s = two(cards)
-    bear = creature(s, "p1", "Bear", "3/3")
+def assisted(cards):
+    s = setup(cards)
+    bear = put(s, "Grizzly Bears", "battlefield")
+    start(s)
     turn_on(s, "assisted")
-    act(s, "p1", type="pass_priority")
-    act(s, "p1", type="pass_priority")
+    return s, bear
+
+
+def asked(s):
+    return lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind not in ("declare_blockers", "order")
+
+
+def test_assisted_rules_confirmations_are_applied(cards):  # 510.2
+    s, bear = assisted(cards)
+    to_phase(s, "declare_attackers", turn=4)
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
-    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind != "declare_blockers")
+    until(s, asked(s))
     d = s.state.rules.decision
-    assert d.kind == "confirm" and d.prompt == "Combat damage: Bear → Bob 3"
+    assert d.kind == "confirm" and d.prompt == "Combat damage: Grizzly Bears → Bob 2"
     assert answers(s.state, "p1", s.cards)[0] == choose(d, ["yes"])
     assert first_accepted(s, "p1") == choose(d, ["yes"])
-    assert s.state.players["p2"].life == 37
+    assert s.state.players["p2"].life == 38
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_assisted_state_based_actions_are_applied_unless_a_player_would_lose(cards):  # 704.3, 704.5a, 704.5g
+    s, bear = assisted(cards)
+    act(s, "p1", type="set_damage", card_ids=[bear.id], delta=2)  # by hand
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d.kind == "confirm" and d.resume["step"] == "sba_confirm" and "Grizzly Bears dies" in d.prompt
+    assert first_accepted(s, "p1") == choose(d, ["yes"])
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    act(s, "p1", type="set_life", player="p2", value=0)  # by hand
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.resume["step"] == "sba_confirm" and "Bob loses" in d.prompt
+    assert answers(s.state, d.player, s.cards) == []  # an elimination is left to the table
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_an_optional_damage_choice_is_declined(cards):  # 101.4, 118.12, 608.2d: Browbeat at 5 life
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    start(s)
+    act(s, "p1", type="set_life", player="p1", value=5)
+    cast(s, "Browbeat", ["p3"])
+    hand = len(s.state.zones["p3:hand"])
+    for pid in ("p1", "p2", "p3"):  # 101.4: each player chooses in APNAP order
+        d = s.state.rules.decision
+        assert d.player == pid and {o.id for o in d.options} == {"pay", "decline"}
+        assert answers(s.state, pid, s.cards)[0] == choose(d, ["decline"])
+        assert first_accepted(s, pid) == choose(d, ["decline"])
+    settle(s)
+    assert s.state.players["p1"].life == 5 and len(s.state.zones["p3:hand"]) == hand + 3
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_a_shock_land_enters_tapped(cards):  # 614.12a, 608.2d: "you may pay 2 life. If you don't, it enters tapped."
+    s = setup(cards)
+    start(s)
+    pool = put(s, "Breeding Pool", "hand")
+    act(s, "p1", type="play_land", card_id=pool.id)
+    d = s.state.rules.decision
+    assert {o.id for o in d.options} == {"pay", "tapped"}
+    assert first_accepted(s, "p1") == choose(d, ["tapped"])
+    assert s.state.cards[pool.id].zone == "p1:battlefield" and s.state.cards[pool.id].tapped
+    assert s.state.players["p1"].life == 40
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_a_pact_payment_is_left_to_the_table(cards):  # 118.12a: "you lose the game unless you pay": declining would eliminate
+    from tests.test_rules_declaration_requirements33 import cast
+    from tests.test_rules_wave30m_durations import settle as resolve
+
+    s = setup(cards)
+    start(s, turn=1)
+    cast(s, "Summoner's Pact")
+    resolve(s, prefer=["Grizzly Bears"])
+    to_phase(s, "upkeep", turn=4)
+    mana(s, G=2, C=2)
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.player == "p1" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p1", s.cards) == []
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_a_cast_being_paid_for_is_taken_back(cards):  # 601.2h, 733.1: the payment prompt's "cancel"
+    s = setup(cards)
+    bears = put(s, "Grizzly Bears", "hand")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"player": "p1", "zone": "battlefield"})
+    start(s)
+    act(s, "p1", type="set_prefs", payment="self")
+    pool = dict(s.state.players["p1"].mana)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    d = s.state.rules.decision
+    assert d.resume["step"] in ("payment", "pay_mana") and "cancel" in {o.id for o in d.options}
+    assert answers(s.state, "p1", s.cards)[0] == choose(d, ["cancel"])
+    assert first_accepted(s, "p1") == choose(d, ["cancel"])
+    assert s.state.cards[bears.id].zone == "p1:hand" and not s.state.zones.get("stack")
+    assert s.state.players["p1"].mana == pool and not any(s.state.cards[f.id].tapped for f in forests)
     nobody_out(s)
     roundtrip(s)
 

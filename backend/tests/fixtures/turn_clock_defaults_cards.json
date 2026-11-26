@@ -13,5 +13,35 @@
     "keywords": [
       "Defender"
     ]
+  },
+  {
+    "name": "Browbeat",
+    "oracle_text": "Any player may have Browbeat deal 5 damage to them. If no one does, target player draws three cards.",
+    "mana_cost": "{2}{R}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Summoner's Pact",
+    "oracle_text": "Search your library for a green creature card, reveal it, put it into your hand, then shuffle.\nAt the beginning of your next upkeep, pay {2}{G}{G}. If you don't, you lose the game.",
+    "mana_cost": "{0}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
   }
 ]
