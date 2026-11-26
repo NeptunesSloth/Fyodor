@@ -351,8 +351,8 @@ def test_every_lent_trigger_is_scoped_once_before_its_own_instructions(cards, le
     ch = chars(s, koh)
     for a in (a for a in ch.abilities if a.borrowed_origin and a.kind in ("triggered", "activated")):
         d = scripts.define(a, ch)
-        if d is None or d.get("modes"):
-            continue
+        if d is None or d.get("modes") or d.get("kind") not in ("triggered", "activated"):
+            continue  # (a lent trigger read as a static rule, Strict Proctor: nothing to scope)
         effects = d.get("effects") or []
         opener = [k for k, e in enumerate(effects) if e.get("do") == "borrowed_link_scope"]
         assert opener == [0], (lender, a.text)

@@ -185,7 +185,7 @@ def prior_choice(ability: AbilityText) -> bool:
         return False
     body = ability.text.partition(":")[2] if ability.kind in ("activated", "mana", "loyalty") else ability.text
     choice = re.search(r"\bchosen\b|\bnoted\b|\bthe named card\b", body, re.I)
-    own_choice = re.search(r"\bchoose\b|\bnote\b|\bname a card\b", body, re.I)
+    own_choice = re.search(r"\bchoos(?:e|es|ing)\b|\bnote\b|\bname a card\b|\bchosen at random\b|\bvotes?\b", body, re.I)  # (its own: "chooses", "at random")
     return bool(choice and not own_choice)
 
 
@@ -286,9 +286,10 @@ LINK_READERS: dict[str, str] = {
     "wave110o_cards.lore_bind": "ctx",
 }
 # the definition markers of the "source" readers (selectors._same_name_now's "samename_exiled_with"; triggers._cond_matches's "played_linked_name";
-# triggers.exiled_with_watcher's "exiled_with110a"; wave110c_visionary.holds's "exiled_with110c"), and of the object-keyed choice records a lent
-# ability can't be scoped to (607.2d, 607.5a: "picked110a" / "pair110a" chosen objects, "chosen_n" / "chosen_cmp" a chosen number)
-SOURCE_KEYED = re.compile(r"samename_exiled_with|played_linked_name|exiled_with110a|exiled_with110c|picked110a|pair110a|chosen_n|chosen_cmp")
+# triggers.exiled_with_watcher's "exiled_with110a"; wave110c_visionary.holds's "exiled_with110c"). Choice and note records are keyed on the object
+# too: a lent ability that reads one another ability made is refused by its words (``prior_choice``: 607.2d-e, 607.5a), while a choice the lent
+# ability makes and reads itself ("Choose a card name, then reveal …") is its own and is read as it is.
+SOURCE_KEYED = re.compile(r"samename_exiled_with|played_linked_name|exiled_with110a|exiled_with110c")
 
 
 def source_keyed(d: dict[str, Any] | None) -> bool:
