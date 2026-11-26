@@ -437,7 +437,8 @@ class GameHub:
                 return code
 
     def new_invite_code(self, room: Room) -> str:
-        """The room's invite code (10 characters, unique against every room's codes), made once and kept: sharing again reuses it."""
+        """The room's invite code (10 characters, unique against every room's codes), made once per share: sharing again while shared
+        keeps it; stopping sharing clears it (Services._end_share), so the next share has a new one."""
         if room.invite_code is None:
             taken = {c for r in self.rooms.values() for c in (r.code, r.invite_code)}
             while True:

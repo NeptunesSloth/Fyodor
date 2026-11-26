@@ -541,10 +541,13 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
 4. **Met, one note.** The invite code is 10 characters by `secrets.choice` (`hub.py:444`), unique against every room's codes
    (`test_shared_rooms.py::test_invite_code_is_ten_characters_of_the_alphabet`, `::test_invite_code_avoids_every_room_code`), compared
    with `hmac.compare_digest` (`hub.py:476`, ASCII-guarded at `:473`; `::test_non_ascii_code_is_the_normal_refusal_on_the_lan_port`,
-   `::test_non_ascii_token_matches_nothing`). The pinned hashes are compared with `hmac.compare_digest` (`binary.py`). Note: the invite
-   code is kept once made (`::test_invite_code_is_kept_once_made`, `test_share_api.py::test_resharing_reuses_the_invite_code`) and a set
-   password cannot be replaced through sharing (409): revocation is **Stop sharing** (the next share has a new hostname) or closing the
-   table (risk 8 below).
+   `::test_non_ascii_token_matches_nothing`). The pinned hashes are compared with `hmac.compare_digest` (`binary.py`). Note (final fix
+   wave, M5 and I3): the invite code is kept while the table is shared (`::test_invite_code_is_kept_once_made`) and cleared by **Stop
+   sharing** (`Services._end_share`), so every new share has a new code
+   (`test_share_api.py::test_every_new_share_has_a_new_invite_code`); sharing with a password replaces the table's
+   (`::test_sharing_with_a_new_password_replaces_the_tables`). The hostname is new on the next share only when no other table was
+   shared (the tunnel stays up while any table is). Revocation: **Stop sharing** (a new code), a new password, or closing the table
+   (risk 8 below).
 5. **Met.** No secret is configured or defaulted; a shared table must have a password
    (`test_share_api.py::test_sharing_needs_a_password`, `test_shared_rooms.py::test_set_password_refuses_an_empty_password`).
 6. **Met.** `ShareIn.password`: 8–100 characters (`test_share_api.py::test_a_short_password_is_422`); like the other request bodies
@@ -652,7 +655,8 @@ data** (Wi-Fi off), an iPhone, and a second device on the LAN. Each line is an a
 - [ ] A LAN player joins by the 6-character room code as always and plays.
 - [ ] Review Focus 3: the host presses **Stop sharing**: the phone's table closes with *The host stopped sharing this table.*; the LAN
       player plays on; the chip disappears.
-- [ ] The host invites again: a **new** hostname, the **same** invite code (`code=` in the link).
+- [ ] The host invites again: a **new** invite code (`code=` in the link), and a **new** hostname when no other table was shared
+      (with another table still shared the hostname stays the same). The old link no longer opens the table.
 - [ ] Review Focus 4 (optional): while shared, end `cloudflared-2026.10.7` in Task Manager: the chip goes, the invite panel says *The
       internet link went down.* and offers **Invite again**.
 - [ ] The host closes Fyodor: the link stops answering (a Cloudflare error page), and Task Manager (or `Get-Process cloudflared*`) shows
@@ -686,8 +690,10 @@ Provider (Task 1, section 3):
 Sharing:
 
 7. Anyone holding the link and the password can join; the host's kick and seat tools are the remedy (spec).
-8. Neither credential of a shared table rotates: the invite code is kept once made and sharing again reuses it; a set password cannot be
-   replaced through sharing (409). The new hostname on every share, **Stop sharing** and closing the table are what end access.
+8. **Fixed in the final fix wave (M5, I3)**, was: neither credential rotated. Now **Stop sharing** clears the invite code (the next
+   share has a new one), and sharing with a password replaces the table's. What remains: the hostname is new only when no other table
+   was being shared; a shared table's code is the same while it stays shared (sharing again to set a new password keeps the link).
+
 9. Task 14: closing a shared table (or loading a save over it) at the same instant as a share request can leave the tunnel running with
    nothing shared (`close_game`/`load_save` check `shared` before `share_lock`); `response_call.early` and an `ALREADY_APPLIED` replay
    run before the tunnel re-check; `load_save`'s `hub.close` runs without `room.lock` (older); a failing share's stop-if-unused can 502

@@ -224,7 +224,10 @@ For a friend who is not on your network, with nothing for them to install: they 
 1. **Host:** in the table's lobby press **Invite** → **Invite over the internet** (or, at the table, **⋯ → Host tools → Invite
    over the internet**). Only a LAN table can be shared, and only from the window the launcher opened.
 2. If the table has no password, type one (8 to 100 characters) and press **Share with this password**: a table shared over the
-   internet always has a password, and from then on LAN players need it too.
+   internet always has a password, and from then on LAN players need it too. If it already has one, the panel says *This table
+   already has a password.* and asks: **Share with it**, or **Set a new password** (8 to 100 characters). A short LAN password is
+   easy to guess from the internet, so set a new one unless the old one is long. A new password is needed by everyone who joins
+   from then on, LAN players too; players already seated keep their seats.
 3. Fyodor starts the link. The first time it downloads Cloudflare's tunnel program, `cloudflared` (about 55 MB on Windows, kept in the
    `tunnel` folder of Fyodor's data folder), checks it against a checksum written into Fyodor, and runs it; a different file is never
    run. A few seconds later the panel shows the link (`https://<random name>.trycloudflare.com/#/play?code=…`). **Copy link** and send
@@ -237,7 +240,9 @@ gives anyone host tools (even from your own computer), and the LAN room code doe
 10-character invite code). Friends on your LAN keep joining with the room code as always.
 
 **Stop sharing** (same panel) closes the link's players' tables at once (*The host stopped sharing this table.*); LAN players play on.
-Pressing **Invite over the internet** again gives a new address with the same invite code and password. Closing the table ends its
+Pressing **Invite over the internet** again gives a new invite code (an old link no longer opens the table), with the table's password
+unless you set a new one. The address (`https://<random name>.trycloudflare.com`) is new only when no other table was being shared: the
+link's program keeps running, with the same address, while any table is shared. Closing the table ends its
 sharing (and the link, when no other table is shared); closing Fyodor ends the link: an old link stops answering. If the link goes down by itself, the panel says *The internet link went down.*
 and offers **Invite again**.
 
@@ -247,8 +252,12 @@ Things to know:
   the traffic (it serves the https). Cloudflare describes quick tunnels as "for testing and development" with "no uptime guarantee": a
   game night's link can drop or be refused, and Cloudflare can change or end the service. LAN play does not depend on it.
 - A quick tunnel handles at most 200 requests in flight; on a busy table a card picture may load a second late.
-- Anyone with the link **and** the password can join. Kick and seat tools work as for any player; to cut everyone off, press **Stop
-  sharing**.
+- Anyone with the link **and** the password can join. Kick and seat tools work as for any player (for a shared table, Host tools'
+  **Reclaim / assign seat** also gives the seat's link on the internet address); to cut everyone off, press **Stop sharing**.
+- A friend who closes the tab can open the same link again while the table is shared: after the password, the browser that holds
+  their seat gets it back (not a second seat).
+- Friends over the internet can't upload their own sleeves or playmats (players on your network can); they play with the defaults.
+
 - `FYODOR_ALLOW_NETWORK=0` turns it off: nothing is downloaded and the panel says internet features are turned off. A server started
   without the launcher (for example `uvicorn --factory`) cannot share. With nobody pressing **Invite over the internet**, nothing is
   downloaded and no tunnel runs; `--local` still allows it (the tunnel only talks to this computer).

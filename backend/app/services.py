@@ -317,9 +317,11 @@ class Services:
     async def _end_share(self, room: Room, reason: str) -> None:
         """-- invite over the internet -- the table is no longer served on the tunnel port: its remote players' sockets (and those of
         its practice tables) close with ``reason``, the LAN's stay, and everyone sees it. Under the room lock, as actions are applied: a
-        remote action applied before this stands, and one still waiting for the lock is refused (games.py checks tunnel_serves)."""
+        remote action applied before this stands, and one still waiting for the lock is refused (games.py checks tunnel_serves). The
+        invite code goes with it: the next share has a new one (and a link nobody had), even when the tunnel's hostname stays."""
         async with room.lock:
             room.shared = False
+            room.invite_code = None
             self.hub.persist(room)
             await self.hub.close_tunnel_connections(room, reason)
         for practice in [r for r in self.hub.rooms.values() if r.practice is not None and r.practice.live == room.id]:

@@ -330,13 +330,21 @@ def test_link_down_unshares_and_says_so(client: TestClient, fake: FakeTunnel, tu
     assert status["state"] == "failed" and status["reason"] == WENT_DOWN and status["shared"] is False and status["link"] is None
 
 
-def test_resharing_reuses_the_invite_code(client: TestClient, fake: FakeTunnel) -> None:
+def test_every_new_share_has_a_new_invite_code(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    """Final review M5: stopping sharing retires the invite code, even while another table keeps the tunnel (and its hostname) up."""
     gid, _, _ = create_lobby(client)
+    other, _, _ = create_lobby(client)
+    assert _share(client, other).status_code == 200  # (keeps the tunnel running throughout)
     first = _share(client, gid).json()["link"]
     code = _room(client, gid).invite_code
-    client.delete(f"/api/games/{gid}/share")
+    assert client.delete(f"/api/games/{gid}/share").status_code == 200
+    assert _room(client, gid).invite_code is None
     second = _share(client, gid, None).json()["link"]
-    assert first == second and _room(client, gid).invite_code == code and fake.starts == 2
+    assert first != second and _room(client, gid).invite_code not in (None, code) and fake.stops == 0
+    # the old code opens nothing any more
+    assert tunnel_client.post("/api/join", json={"code": code, "password": PASSWORD}).status_code == 403
+    # a share that was never stopped keeps its code (sharing again, e.g. to set a new password, is the same link)
+    assert _share(client, gid, None).json()["link"] == second
 
 
 def test_the_invite_link_brings_a_player_back_to_their_seat(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
