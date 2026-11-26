@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.game.state import zone_key
+from app.game.visibility import SPECTATOR
 from app.tunnel.binary import TunnelUnavailable
 from app.tunnel.manager import WENT_DOWN
 from tests.conftest import TUNNEL_HOST, TUNNEL_PORT, connect_game, guest
@@ -318,6 +319,39 @@ def test_resharing_reuses_the_invite_code(client: TestClient, fake: FakeTunnel) 
     client.delete(f"/api/games/{gid}/share")
     second = _share(client, gid, None).json()["link"]
     assert first == second and _room(client, gid).invite_code == code and fake.starts == 2
+
+
+def test_the_invite_link_brings_a_player_back_to_their_seat(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    """Final review I2: opening the link again (holding the seat's token) returns that seat, not a new one; only after the password."""
+    gid, _, _ = create_lobby(client)
+    assert _share(client, gid).status_code == 200
+    room = _room(client, gid)
+    body = {"code": room.invite_code, "password": PASSWORD, "name": "Bob"}
+    first = tunnel_client.post("/api/join", json=body).json()
+    again = tunnel_client.post("/api/join", json=body, headers={"X-Seat-Token": first["token"]})
+    assert again.status_code == 200, again.text
+    assert (first["viewer"], again.json()["viewer"]) == ("p2", "p2") and again.json()["token"] == first["token"]
+    assert room.seats["p3"].token is None  # no second seat
+    # the token alone opens nothing: a wrong password is the same refusal as ever
+    wrong = tunnel_client.post("/api/join", json={**body, "password": "not the password"}, headers={"X-Seat-Token": first["token"]})
+    assert wrong.status_code == 403
+    # a token that holds no seat here: a new seat, as before
+    other = tunnel_client.post("/api/join", json={**body, "name": "Cara"}, headers={"X-Seat-Token": "not-a-token"}).json()
+    assert other["viewer"] == "p3" and other["token"] != first["token"]
+    # a spectator watching again keeps their spectator token
+    watch = tunnel_client.post("/api/join", json={**body, "spectate": True}).json()
+    again = tunnel_client.post("/api/join", json={**body, "spectate": True}, headers={"X-Seat-Token": watch["token"]}).json()
+    assert again["viewer"] == watch["viewer"] == SPECTATOR and again["token"] == watch["token"] and len(room.spectator_tokens) == 1
+
+
+def test_the_invite_link_brings_a_player_back_to_their_seat_mid_game(client: TestClient, fake: FakeTunnel,
+                                                                     tunnel_client: TestClient) -> None:
+    gid, bob = _started(client)  # (two seats, both taken: a new joiner would be told the table is full)
+    assert _share(client, gid).status_code == 200
+    body = {"code": _room(client, gid).invite_code, "password": PASSWORD}
+    res = tunnel_client.post("/api/join", json=body, headers={"X-Seat-Token": bob})
+    assert res.status_code == 200, res.text
+    assert res.json()["viewer"] == "p2" and res.json()["token"] == bob
 
 
 def test_practice_and_hot_seat_tables_cannot_be_shared(client: TestClient, fake: FakeTunnel) -> None:

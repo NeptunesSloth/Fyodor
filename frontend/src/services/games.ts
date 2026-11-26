@@ -1,6 +1,6 @@
 import { ApiError, api } from "./api";
 import type { BotLevel, BotSpeed, GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
-import type { NearbyServer } from "../pages/lanBits";
+import { inviteCodeKey, inviteKey, type NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
   name: string;
@@ -77,10 +77,26 @@ export function rememberSeat(gameId: string, token: string): void {
 }
 
 export function seatToken(gameId: string): string | null {
+  return stored(seatKey(gameId));
+}
+
+/** A remembered value, or null (storage unavailable). */
+export function stored(key: string): string | null {
   try {
-    return localStorage.getItem(seatKey(gameId));
+    return localStorage.getItem(key);
   } catch {
     return null;
+  }
+}
+
+/** -- invite over the internet -- the table a join code opened (and the code it was opened with), so opening the link again sends
+ *  the token held there (lanBits.heldTokenFor) and a spectator taking a seat has the code its view lacks. */
+export function rememberInvite(code: string, gameId: string): void {
+  try {
+    localStorage.setItem(inviteKey(code), gameId);
+    localStorage.setItem(inviteCodeKey(gameId), code.trim().toUpperCase());
+  } catch {
+    /* storage unavailable: opening the link again asks for a new seat, as before */
   }
 }
 

@@ -7,7 +7,7 @@ import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememb
 import { toast, toastError } from "../components/Toasts";
 import { InternetInvite, SharedChip } from "../game/InternetInvite";
 import { useTunnelState } from "../services/share";
-import { showInvitePopover } from "./lanBits";
+import { inviteCodeKey, showInvitePopover } from "./lanBits";
 import { navigate } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
@@ -26,6 +26,7 @@ import {
   personalCollection,
   rememberSeat,
   seatToken,
+  stored,
   syncPersonalCollection,
   rememberMyDeck,
   setLobbyProfile,
@@ -874,7 +875,9 @@ async function takeSeat(lobby: LobbyView, seat: string): Promise<void> {
   const password = lobby.game.has_password ? window.prompt("Room password") ?? undefined : undefined;
   if (lobby.game.has_password && password === undefined) return;
   const name = activeProfile().name === "Player" ? undefined : activeProfile().name;
-  const res = await joinGame({ code: lobby.game.code ?? "", seat, name, password }, seatToken(gameId));
+  // (through the invite link the view has no room code: the invite code this browser joined with stands in for it)
+  const code = lobby.game.code ?? stored(inviteCodeKey(gameId)) ?? "";
+  const res = await joinGame({ code, seat, name, password }, seatToken(gameId));
   rememberSeat(gameId, res.token);
   useGame.getState().connect(gameId, { token: res.token });
 }

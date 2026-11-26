@@ -6,6 +6,8 @@ import { seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
 import { isVisible, splitZone, type CardPermissions, type UndoPolicy } from "../types/game";
 import { setTableReactions } from "../services/spectate";
+import { getShare } from "../services/share";
+import { seatLinks } from "../pages/lanBits";
 import { send } from "./actions";
 import { InternetInvite } from "./InternetInvite";
 import { UNDO_POLICIES } from "./undoPolicy";
@@ -35,7 +37,7 @@ export function useIsHost(): boolean {
 export function HostToolsDialog({ onClose }: { onClose: () => void }) {
   const view = useGame((s) => s.view);
   const selection = useGame((s) => s.selection);
-  const [link, setLink] = useState<{ seat: string; url: string } | null>(null);
+  const [link, setLink] = useState<{ seat: string; urls: { label: string; url: string }[] } | null>(null);
   if (!view) return null;
   const gameId = view.game.id;
   const lan = view.game.mode === "lan";
@@ -71,7 +73,9 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
                     <button className="tt-btn ghost" title="Issue a new link for this seat (the old one stops working)" data-testid={`seat-link-${pid}`}
                       onClick={() => run(async () => {
                         const res = await post<{ path: string }>("seat-link", { seat: pid });
-                        setLink({ seat: pid, url: `${window.location.origin}${window.location.pathname}${res.path.replace(/^\//, "")}` });
+                        // a shared table: also the link on the invite's https address (the host's own address is no use to a remote player)
+                        const share = view.game.shared ? await getShare(gameId).catch(() => null) : null;
+                        setLink({ seat: pid, urls: seatLinks(res.path, `${window.location.origin}${window.location.pathname}`, share?.link ?? null) });
                       })}>Reclaim / assign seat</button>
                   )}
                   {!hostSeat && presence !== "connected" && (
@@ -85,8 +89,13 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
             {link && (
               <div className="host-link">
                 <span>Open this on the device that should sit in {view.players.find((x) => x.id === link.seat)?.name}'s seat:</span>
-                <code data-testid="seat-link">{link.url}</code>
-                <button className="tt-btn" onClick={() => void navigator.clipboard?.writeText(link.url).then(() => toast("Link copied"), () => undefined)}>Copy</button>
+                {link.urls.map((u, i) => (
+                  <div key={u.url}>
+                    {link.urls.length > 1 && <span>{u.label}: </span>}
+                    <code data-testid={i === 0 ? "seat-link" : "seat-link-internet"}>{u.url}</code>
+                    <button className="tt-btn" onClick={() => void navigator.clipboard?.writeText(u.url).then(() => toast("Link copied"), () => undefined)}>Copy</button>
+                  </div>
+                ))}
               </div>
             )}
           </section>

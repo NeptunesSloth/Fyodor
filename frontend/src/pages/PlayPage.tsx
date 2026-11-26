@@ -33,8 +33,10 @@ import {
   importPackage,
   packageUrl,
   loadSave,
+  rememberInvite,
   rememberSeat,
   seatToken,
+  stored,
   submitLobbyDeck,
   type CreatePlayer,
 } from "../services/games";
@@ -44,7 +46,7 @@ import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
 import { joinWithPreferredSeat } from "./joinSeat";
 import { isTunnel } from "../services/share";
-import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
+import { heldTokenFor, orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
@@ -62,11 +64,15 @@ const AUTOMATION_HINT: Record<AutomationLevel, string> = {
 /** Join links already acted on in this page's life (a re-render or React's double effect never joins twice). */
 const handledInvites = new Set<string>();
 
-/** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. */
+/** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. A
+ *  browser that already holds a seat at the table this code opened sends that seat's token: the server gives the seat back (opening
+ *  the invite link again) instead of a second one. */
 async function joinTable(body: { code: string; name?: string; password?: string; spectate: boolean; handoff?: string | null }): Promise<void> {
   const preferred = usePrefs.getState().preferredSeat;
-  const res = await joinWithPreferredSeat((b) => joinGame(b), body, preferred);
+  const held = heldTokenFor(body.code, stored, seatToken);
+  const res = await joinWithPreferredSeat((b) => joinGame(b, held), body, preferred);
   rememberSeat(res.game_id, res.token);
+  rememberInvite(body.code, res.game_id);
   navigate(`/game/${res.game_id}`);
 }
 

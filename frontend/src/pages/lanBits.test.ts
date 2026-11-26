@@ -4,6 +4,10 @@ import type { BroughtLibrary, MyDeck } from "../services/games";
 import {
   firstOpenLobby,
   friendAddress,
+  heldTokenFor,
+  inviteCodeKey,
+  inviteKey,
+  seatLinks,
   friendFolder,
   listCount,
   ownDecks,
@@ -181,5 +185,40 @@ describe("invites through the tunnel", () => {
     expect(showInvitePopover(true, null)).toBe(true);
     expect(showInvitePopover(true, "http://192.168.1.2:8000/#/play?code=A")).toBe(true);
     expect(showInvitePopover(false, "http://192.168.1.2:8000/#/play?code=A")).toBe(false);
+  });
+});
+
+describe("opening the invite link again", () => {
+  const store = (entries: Record<string, string>) => (key: string) => entries[key] ?? null;
+  const tokens: Record<string, string> = { g1: "tok-g1" };
+  const seat = (id: string) => tokens[id] ?? null;
+  it("sends the seat token this browser holds for the table the code opened", () => {
+    expect(inviteKey(" abcdefghij ")).toBe("fyodor.invite.ABCDEFGHIJ");
+    expect(heldTokenFor("ABCDEFGHIJ", store({ "fyodor.invite.ABCDEFGHIJ": "g1" }), seat)).toBe("tok-g1");
+    expect(heldTokenFor("abcdefghij", store({ "fyodor.invite.ABCDEFGHIJ": "g1" }), seat)).toBe("tok-g1");
+  });
+  it("sends none for a code it never joined with, or a table it holds no seat at", () => {
+    expect(heldTokenFor("ABCDEFGHIJ", store({}), seat)).toBeNull();
+    expect(heldTokenFor("ABCDEFGHIJ", store({ "fyodor.invite.ABCDEFGHIJ": "g2" }), seat)).toBeNull();
+  });
+  it("finds the code a table was joined with (a tunnel view never carries the LAN code)", () => {
+    expect(inviteCodeKey("g1")).toBe("fyodor.invite-code.g1");
+  });
+});
+
+describe("the host's seat link", () => {
+  const path = "/#/game/g1?seat=p2&token=abc";
+  it("is a LAN link when the table isn't shared", () => {
+    expect(seatLinks(path, "http://127.0.0.1:8000/", null)).toEqual([{ label: "On this network", url: "http://127.0.0.1:8000/#/game/g1?seat=p2&token=abc" }]);
+  });
+  it("adds an internet link on the share's address when the table is shared", () => {
+    expect(seatLinks(path, "http://192.168.1.5:8000/", "https://fyodor-x.trycloudflare.com/#/play?code=ABCDEFGHIJ&join=1")).toEqual([
+      { label: "On this network", url: "http://192.168.1.5:8000/#/game/g1?seat=p2&token=abc" },
+      { label: "Over the internet", url: "https://fyodor-x.trycloudflare.com/#/game/g1?seat=p2&token=abc" },
+    ]);
+  });
+  it("ignores a share link that isn't an https address", () => {
+    expect(seatLinks(path, "http://127.0.0.1:8000/", "not a url")).toHaveLength(1);
+    expect(seatLinks(path, "http://127.0.0.1:8000/", "http://evil.example/")).toHaveLength(1);
   });
 });

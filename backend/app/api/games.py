@@ -613,6 +613,12 @@ async def join_game(body: JoinIn, request: Request, services: ServicesDep,
                 raise too_many_attempts(by_room.retry_after(room.code))
         raise HTTPException(403, "Unknown room code or wrong password")
     by_address.undo_last(ip)  # (before the seat is claimed: a seat refused below is not a wrong guess)
+    # -- invite over the internet -- opening the link again: a token that already holds a seat of this room (or watches it, asking to
+    # watch) gets that seat back instead of a new one. Only after the password check, so the token reveals nothing on its own. A
+    # spectator asking for a seat takes the claim below (and the deck they queued while watching).
+    held = room.seat_for_token(x_seat_token)
+    if x_seat_token and held is not None and (held != SPECTATOR or body.spectate):
+        return {"game_id": room.id, "viewer": held, "token": x_seat_token, "game": _summary(room, request)}
     name = clean_text(body.name or "", 40) or None
     try:
         viewer, token = services.hub.claim_seat(room, name=name, seat=body.seat, spectate=body.spectate)
