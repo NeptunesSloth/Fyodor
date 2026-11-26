@@ -139,6 +139,29 @@ Resolution of the macOS mismatch: the release notes list the hash of the **extra
 downloaded `.tgz` (GitHub's digest, what the bytes hash to), `binary_sha256` = the executable (the release-notes value). Every pinned
 value therefore matches a published source and the downloaded bytes.
 
+#### 3.0b Re-pin to 2026.11.2 (2026-11-25, owner's decision)
+
+**Override of the 14-day rule (Ruling 3).** The owner decided on 2026-11-25 to "move to a newer release", from 2026.10.7 to 2026.11.2
+(published 2026-11-23, 2 days old), overriding the plan's "newest release at least 14 days old" supply-chain rule. Reason: 2026.11.0 fixed
+VULN-170057 and 2026.11.1 fixed VULN-187395 (risk 24).
+
+Each asset was downloaded with `curl.exe -sSL --fail` from `https://github.com/cloudflare/cloudflared/releases/download/2026.11.2/<asset>`
+into a new empty scratch folder (deleted afterwards, nothing executed) and hashed with `certutil -hashfile <file> SHA256`. The release-notes
+values were read from the release body (`api.github.com/repos/cloudflare/cloudflared/releases/tags/2026.11.2`, field `body`) and the GitHub
+`digest` from the same response. The two `.tgz` files were extracted with `tar -xzf` and the `cloudflared` member hashed. Every download matched
+at least one published source.
+
+| Asset | Size (bytes) | certutil of the download | Release notes | GitHub digest | Matched | binary_sha256 (extracted member) |
+|---|---|---|---|---|---|---|
+| `cloudflared-windows-amd64.exe` | 55 470 800 | `555b46c85582461d189cac30d14ad05480d612613801be9f110b8ce08c5b2113` | same | same | both | = download |
+| `cloudflared-linux-amd64` | 40 334 417 | `56f13335143ec0e22772963290683a84a04114a35ec64cbc794a4d39ff9bb8cf` | same | same | both | = download |
+| `cloudflared-linux-arm64` | 37 820 665 | `04a7b7f08bce85d56b26ffe1fdbfbb21a074495a363d16f0783c40e25b5c5281` | same | same | both | = download |
+| `cloudflared-darwin-amd64.tgz` | 21 885 875 | `6153d9ec629174882a3adbff2f7dc5a24b4f3bdd7ccc38eaa84fba26eb890311` | `870dc209...6766` (no) | `6153d9ec...0311` | **GitHub digest** | `870dc2094f98befdd993c455234562be4eee51f8fca6e2e356df4579fa7e6766` (= release notes) |
+| `cloudflared-darwin-arm64.tgz` | 19 889 939 | `f6d58eeec91ad1ec5fd1f7e4a587303772929b2625be5d24068033851c36ff55` | `8654fbdc...0d55` (no) | `f6d58eee...ff55` | **GitHub digest** | `8654fbdc9057f3e13e95f7892f417f8643113bee1b91ee2388fd0acb05210d55` (= release notes) |
+
+As for 2026.10.7, the release notes hash the extracted macOS executable and GitHub's digest the archive; both are pinned in
+`backend/app/tunnel/pins.py`. The Windows exe is 55.5 MB, so "about 55 MB" in `InternetInvite.tsx` and `docs/LAN_PLAY.md` still holds.
+
 #### 3.1 Set-up
 
 Owner's real data was never used. The backend ran from this worktree with `FYODOR_DATA_DIR` = a new empty scratch folder holding
@@ -582,7 +605,7 @@ of `9439005`. Every test named is in the full backend run, which is pending (abo
    Fail-closed routing: the tunnel allowlist is frozen (71 method/route pairs, checked both ways,
    `test_tunnel_routes.py::test_every_route_is_either_allowed_or_404_on_the_tunnel_port`); a stopped tunnel serves nothing
    (`::test_tunnel_port_serves_nothing_when_stopped`).
-9. **Met.** No new Python or npm dependency (command in "Security tools" → 0 lines). One downloaded binary: **cloudflared 2026.10.7**
+9. **Met.** No new Python or npm dependency (command in "Security tools" → 0 lines). One downloaded binary: **cloudflared 2026.11.2** (re-pinned from 2026.10.7, section 3.0b)
    (the newest release at least 14 days old on 2026-11-25, section 3.0), pinned in `backend/app/tunnel/pins.py` by version and SHA-256,
    verified after download and again before every launch (`binary.verify`). The five hashes (`sha256` = the download, `binary_sha256` =
    the executable):
@@ -670,10 +693,10 @@ data** (Wi-Fi off), an iPhone, and a second device on the LAN. Each line is an a
       player plays on; the chip disappears.
 - [ ] The host invites again: a **new** invite code (`code=` in the link), and a **new** hostname when no other table was shared
       (with another table still shared the hostname stays the same). The old link no longer opens the table.
-- [ ] Review Focus 4 (optional): while shared, end `cloudflared-2026.10.7` in Task Manager: the chip goes, the invite panel says *The
+- [ ] Review Focus 4 (optional): while shared, end `cloudflared-2026.11.2` in Task Manager: the chip goes, the invite panel says *The
       internet link went down.* and offers **Invite again**.
 - [ ] The host closes Fyodor: the link stops answering (a Cloudflare error page), and Task Manager (or `Get-Process cloudflared*`) shows
-      no `cloudflared-2026.10.7` left. (The program is stored as `<data folder>\tunnel\cloudflared-2026.10.7.exe`.)
+      no `cloudflared-2026.11.2` left. (The program is stored as `<data folder>\tunnel\cloudflared-2026.11.2.exe`.)
 - [ ] Repeat the join on an **iPhone** (Safari, mobile data): the page loads, the table's socket connects (the CSP is
       `connect-src 'self' ws://<name> wss://<name>`), a land can be played.
 - [ ] Task 15's look (not done by its implementer): screenshots of the lobby's Invite popover and of Host tools → *Invite over the
@@ -771,7 +794,7 @@ Final review and security pass (final fix wave):
     token/plane picture from Scryfall once (a few thousand, cached, 4 at a time, `token_art.py:83`) and hold sync worker threads on
     that 4-slot gate; `/api/cards/search` and `/cards/batch` (2,000 ids) are unthrottled. Bounded by the token set and Cloudflare's
     200 in-flight. Later: a per-CF-address request budget (with the turn clock or after).
-24. **cloudflared 2026.11.x vs the pinned 2026.10.7** (final review, ruling 3; read 2026-11-25, record only, the pin is unchanged).
+24. **cloudflared 2026.11.x vs 2026.10.7: FIXED 2026-11-25.** Re-pinned to 2026.11.2 on the owner's decision ("move to a newer release"), overriding the 14-day rule (Ruling 3) because of VULN-170057 and VULN-187395; hashes re-verified in section 3.0b. Original note (final review, ruling 3; read 2026-11-25):
     The GitHub release pages of 2026.11.0 (12 Nov) and 2026.11.2 (23 Nov) carry only their SHA256 checksums, no notes. The
     repository's `RELEASE_NOTES` file lists:
     - 2026.11.0: "TUN-11065: Run Windows CI on production runners", "chore: Bump golang to 1.27.4", "chore: Use correct logger",
@@ -785,7 +808,7 @@ Final review and security pass (final fix wave):
     Access rules on a tunnel's ingress; Fyodor runs a quick tunnel with `--config <empty>` and no Access policy, so it appears not to
     apply, but that is a reading of a one-line note, not a verification. The Go 1.27.4 and x/net/x/crypto bumps give no reason.
     2026.11.2 is 2 days old (under the plan's 14-day rule); 2026.11.0 turns 14 days old on 2026-11-26. **Owner's decision** whether
-    to re-pin before merge (it needs the five hashes re-verified as in section 3.0a).
+    to re-pin before merge (it needs the five hashes re-verified as in section 3.0a). **Decided: re-pin (section 3.0b).**
 25. Follow-ups from the fix wave: a remote spectator taking a lobby seat uses the invite code this browser joined with (its view has no
     LAN code since M8); a browser that never stored one (storage blocked) gets the normal refusal and joins by the link instead.
 
