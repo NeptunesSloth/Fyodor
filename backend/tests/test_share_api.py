@@ -4,6 +4,7 @@ never started: ``services.tunnel.start`` and ``stop`` are swapped for fakes."""
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from collections.abc import Awaitable, Callable
@@ -413,6 +414,58 @@ def test_a_room_blocked_on_the_tunnel_refuses_before_hashing(client: TestClient,
     lan = client.post("/api/join", json={"code": code, "name": "Eve", "password": PASSWORD}, headers=guest())
     assert lan.status_code == 200, lan.text
     assert client.get(f"/api/games/{gid}/lobby", headers={**guest(), "X-Seat-Token": alice}).status_code == 200
+
+
+def _code_in(message: dict[str, Any]) -> Any:
+    """The room code in a socket message or an HTTP answer (a lobby, a view, or a reply carrying one)."""
+    if message.get("type") == "lobby":
+        return message["lobby"]["game"]["code"]
+    if message.get("type") == "state":
+        return message["view"]["game"]["code"]
+    return (message.get("view") or message)["game"]["code"]
+
+
+def test_the_lan_code_never_reaches_a_tunnel_connection(client: TestClient, fake: FakeTunnel, tunnel_client: TestClient) -> None:
+    """Final review M8 ("Stage 2 must" 1, literally): lobby and table views sent through the tunnel, over HTTP and on the socket, carry
+    no LAN room code; the LAN's still do."""
+    services = client.app.state.services  # type: ignore[attr-defined]
+    gid, code, alice = create_lobby(client)
+    assert _share(client, gid).status_code == 200
+    room = _room(client, gid)
+    bob = tunnel_client.post("/api/join", json={"code": room.invite_code, "password": PASSWORD, "name": "Bob"}).json()["token"]
+    assert _code_in(tunnel_client.get(f"/api/games/{gid}/lobby", headers={"X-Seat-Token": bob}).json()) is None
+    assert _code_in(tunnel_client.post(f"/api/games/{gid}/lobby/ready", json={"ready": False},
+                                       headers={"X-Seat-Token": bob}).json()) is None
+    assert _code_in(client.get(f"/api/games/{gid}/lobby", headers={**guest(), "X-Seat-Token": alice}).json()) == code
+    tunnel_client.portal = client.portal
+    with connect_game(client, gid, alice) as lan, connect_game(tunnel_client, gid, bob) as remote:
+        assert _code_in(lan.receive_json()) == code and _code_in(remote.receive_json()) is None
+        client.portal.call(services.hub.broadcast, room)  # type: ignore[union-attr]
+        assert _code_in(remote.receive_json()) is None
+        while (seen := lan.receive_json()).get("type") != "lobby":
+            pass
+        assert _code_in(seen) == code
+    # a started table
+    gid, bob = _started(client)
+    assert _share(client, gid).status_code == 200
+    room = _room(client, gid)
+    alice = room.seats["p1"].token
+    seat = {"X-Seat-Token": bob}
+    assert _code_in(tunnel_client.get(f"/api/games/{gid}/view", headers=seat).json()) is None
+    acted = tunnel_client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw", "count": 1}}, headers=seat)
+    assert acted.status_code == 200 and _code_in(acted.json()) is None, acted.text
+    assert _code_in(client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": alice}).json()) == room.code
+    with connect_game(client, gid, alice) as lan, connect_game(tunnel_client, gid, bob) as remote:
+        assert _code_in(lan.receive_json()) == room.code and _code_in(remote.receive_json()) is None
+        client.portal.call(services.hub.broadcast, room)  # type: ignore[union-attr]
+        got = remote.receive_json()
+        while got.get("type") not in ("state", "delta"):
+            got = remote.receive_json()
+        assert "code" not in json.dumps(got.get("patch", {})) and (got["type"] == "delta" or _code_in(got) is None)
+        remote.send_json({"type": "resync", "id": 3})
+        while (got := remote.receive_json()).get("type") != "state":
+            pass
+        assert _code_in(got) is None
 
 
 def test_practice_and_hot_seat_tables_cannot_be_shared(client: TestClient, fake: FakeTunnel) -> None:

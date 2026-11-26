@@ -140,8 +140,14 @@ class Connection:
     vseq: int = 0
 
 
+def conn_key(conn: Connection) -> str:
+    """Connections that are sent the same message: one viewer, host rights or not, through the tunnel or not (no LAN room code)."""
+    return f"{conn.viewer}:{conn.host}:{conn.tunnel}"
+
+
 class GameNotStarted(RuntimeError):
     pass
+
 
 
 @dataclass
@@ -313,8 +319,9 @@ class Room:
         key = self.night.last_winner_key
         return next((pid for pid, seat in self.seats.items() if key and seat.token == key), None)
 
-    def lobby_view(self, viewer: str, *, host: bool = False) -> dict[str, Any]:
-        """The pregame lobby as one viewer may see it (deck lists follow the privacy setting)."""
+    def lobby_view(self, viewer: str, *, host: bool = False, tunnel: bool = False) -> dict[str, Any]:
+        """The pregame lobby as one viewer may see it (deck lists follow the privacy setting). ``tunnel``: sent through the invite link,
+        so without the LAN room code (it works only on the LAN port)."""
         settings = self.lobby or LobbySettings()
         seats = []
         for pid, seat in self.seats.items():
@@ -339,7 +346,7 @@ class Room:
             "game": {
                 "id": self.game_id,
                 "mode": self.mode,
-                "code": self.code if self.mode == "lan" else None,
+                "code": self.code if self.mode == "lan" and not tunnel else None,
                 "shared": self.shared,
                 "has_password": self.password_hash is not None,
             },
@@ -816,15 +823,16 @@ class GameHub:
         """-- resolving progress -- (on the event loop) each connection's viewer and the room's part of its view, as ``view`` builds it."""
         out: dict[str, tuple[str, dict[str, Any]]] = {}
         for conn in list(room.connections.values()):
-            key = f"{conn.viewer}:{conn.host}"
+            key = conn_key(conn)
             if key not in out:
-                out[key] = (conn.viewer, self._meta(room, conn.viewer))
+                out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
         return out
 
-    async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None) -> dict[str, Any] | None:
+    async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None,
+                        tunnel: bool = False) -> dict[str, Any] | None:
         """Send each connection a fresh view built for its own viewer (a new revision). ``viewer``: also build (or reuse) that
         viewer's view in the same pass and return it, for the HTTP reply to whoever acted (built after the sends, it would be the
-        table worked out a second time)."""
+        table worked out a second time); ``tunnel``: that reply goes through the invite link (no LAN room code)."""
         await self.settled(room)  # -- resolving progress -- (an action being worked out: its table, once applied)
         room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
@@ -835,16 +843,17 @@ class GameHub:
         # what each view derives, every permanent's characteristics, is worked out once for the table, not once per viewer
         with room.session.reading() if room.started else nullcontext():
             for conn in conns:
-                key = f"{conn.viewer}:{conn.host}"
+                key = conn_key(conn)
                 if key not in cache:
-                    message = self.message(room, conn.viewer, host=conn.host)
+                    message = self.message(room, conn.viewer, host=conn.host, tunnel=conn.tunnel)
                     cache[key] = {**message, "resync": True} if resync else message
             if viewer is not None and room.started:
-                reply = next((m["view"] for k, m in cache.items() if k.split(":", 1)[0] == viewer), None) or self.view(room, viewer)
+                reply = next((m["view"] for k, m in cache.items() if k.split(":")[0] == viewer and k.endswith(f":{tunnel}")), None) \
+                    or self.view(room, viewer, tunnel=tunnel)
         frozen: dict[str, tuple[dict[str, Any], str]] = {}  # -- view deltas -- each view as clients parse it, each patch: worked out once
         patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]] = {}
         for conn in conns:
-            key = f"{conn.viewer}:{conn.host}"
+            key = conn_key(conn)
             message = cache[key]
             if conn.deltas:
                 message = self._update(conn, key, message, frozen, patches, full=resync)
@@ -869,7 +878,7 @@ class GameHub:
     def full(self, conn: Connection, message: dict[str, Any]) -> dict[str, Any]:
         """A full view (or lobby) message about to be sent to ``conn`` outside a broadcast (its first view, a resync, a seat switch): the
         view the next update is a patch from."""
-        return self._update(conn, f"{conn.viewer}:{conn.host}", message, {}, {}, full=True) if conn.deltas else message
+        return self._update(conn, conn_key(conn), message, {}, {}, full=True) if conn.deltas else message
 
     def _update(self, conn: Connection, key: str, message: dict[str, Any], frozen: dict[str, tuple[dict[str, Any], str]],
                 patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]], *, full: bool) -> dict[str, Any]:
@@ -894,10 +903,10 @@ class GameHub:
         return {"type": "delta", "revision": message.get("revision", view.get("game", {}).get("revision")), "base": base_seq,
                 "vseq": conn.vseq, "patch": kept[1]}
 
-    def message(self, room: Room, viewer: str, *, host: bool = False) -> dict[str, Any]:
+    def message(self, room: Room, viewer: str, *, host: bool = False, tunnel: bool = False) -> dict[str, Any]:
         if not room.started:
-            return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host)}
-        return {"type": "state", "view": self.view(room, viewer), "revision": room.revision}
+            return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host, tunnel=tunnel)}
+        return {"type": "state", "view": self.view(room, viewer, tunnel=tunnel), "revision": room.revision}
 
     def _assets(self, room: Room) -> dict[str, Any]:
         if self.asset_info is None or room.game is None:
@@ -909,18 +918,20 @@ class GameHub:
             ids.add(st.table.playmat.asset_id)
         return self.asset_info(ids) if ids else {}
 
-    def view(self, room: Room, viewer: str) -> dict[str, Any]:
+    def view(self, room: Room, viewer: str, *, tunnel: bool = False) -> dict[str, Any]:
+        """``viewer``'s view of the table; ``tunnel``: sent through the invite link, so without the LAN room code."""
         room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
         room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
-        return room.session.view(viewer, meta=self._meta(room, viewer))
+        return room.session.view(viewer, meta=self._meta(room, viewer, tunnel=tunnel))
 
-    def _meta(self, room: Room, viewer: str) -> dict[str, Any]:
-        """The room's part of ``viewer``'s view (seats, revision, game night, undo rights…)."""
+    def _meta(self, room: Room, viewer: str, *, tunnel: bool = False) -> dict[str, Any]:
+        """The room's part of ``viewer``'s view (seats, revision, game night, undo rights…); ``tunnel``: no LAN room code (it works only
+        on the LAN port: -- invite over the internet -- remote players never see it)."""
         recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
         host = room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)
         meta = {
             "mode": room.mode,
-            "code": room.code if room.mode == "lan" else None,
+            "code": room.code if room.mode == "lan" and not tunnel else None,
             "shared": room.shared,
             "seats": {pid: s.public() for pid, s in room.seats.items()},
             "host_seat": room.host_seat,
@@ -1058,7 +1069,7 @@ class InterimStream:
                 for conn in list(self.room.connections.values()):
                     if self.closed:
                         return
-                    message = frames.get(f"{conn.viewer}:{conn.host}")
+                    message = frames.get(conn_key(conn))
                     if message is None:
                         continue  # (connected after this action began: its next update is the action's own)
                     try:

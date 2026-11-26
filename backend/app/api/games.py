@@ -442,12 +442,14 @@ async def game_view(  # (review 29A: on the event loop, between actions — a th
     room = _room(services, game_id)
     v, _ = authorize(room, conn=request, token=x_seat_token, viewer=viewer, as_player=None)
     await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
-    return services.hub.view(room, v)
+    return services.hub.view(room, v, tunnel=is_tunnel_request(request))
 
 
-async def _broadcast_view(services: Services, room: Room, viewer: str) -> dict[str, Any]:
-    """Broadcast the change, and reply with ``viewer``'s view of it, built in the broadcast's own pass (-- big boards (views) --)."""
-    return await services.hub.broadcast(room, viewer=viewer) or services.hub.view(room, viewer)
+async def _broadcast_view(services: Services, room: Room, viewer: str, request: HTTPConnection) -> dict[str, Any]:
+    """Broadcast the change, and reply with ``viewer``'s view of it, built in the broadcast's own pass (-- big boards (views) --); through
+    the invite link without the LAN room code."""
+    tunnel = is_tunnel_request(request)
+    return await services.hub.broadcast(room, viewer=viewer, tunnel=tunnel) or services.hub.view(room, viewer, tunnel=tunnel)
 
 
 @router.post("/games/{game_id}/actions")
@@ -464,7 +466,7 @@ async def post_action(
     response_call.early(services.hub, room, actor, body.action)  # -- I have a response -- heard now, not after the lock
     async with room.lock:
         if cid is not None and (previous := room.client_actions.get(actor, {}).get(cid)) is not None:
-            return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
+            return {**services.hub.view(room, viewer, tunnel=is_tunnel_request(request)), "status": "ALREADY_APPLIED", "outcome": previous}
         if is_tunnel_request(request) and not tunnel_serves(services, room.id):  # unshared while it waited for the lock
             raise HTTPException(409, STOPPED_SHARING)
         _check_table_open(room, body.action.get("type"))
@@ -483,7 +485,7 @@ async def post_action(
             services.hub.remember_action(room, actor, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
-    return {**await _broadcast_view(services, room, viewer), "status": "ACCEPTED"}
+    return {**await _broadcast_view(services, room, viewer, request), "status": "ACCEPTED"}
 
 
 @router.post("/games/{game_id}/undo")
@@ -514,7 +516,7 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
-    return await _broadcast_view(services, room, viewer)
+    return await _broadcast_view(services, room, viewer, request)
 
 
 class UndoAskIn(MetaIn):
@@ -546,7 +548,7 @@ async def undo_request(game_id: str, body: UndoAskIn, request: Request, services
         if undone is not None:
             services.hub.after_change(room)
     await services.hub.broadcast(room)
-    return services.hub.view(room, viewer)
+    return services.hub.view(room, viewer, tunnel=is_tunnel_request(request))
 
 
 @router.post("/games/{game_id}/save", status_code=201)
@@ -862,8 +864,9 @@ async def _lobby_changed(services: Services, room: Room) -> None:
     await services.hub.broadcast(room)
 
 
-def _lobby_response(room: Room, viewer: str, host: bool) -> dict[str, Any]:
-    return room.lobby_view(viewer, host=host)
+def _lobby_response(room: Room, viewer: str, host: bool, request: HTTPConnection) -> dict[str, Any]:
+    """``viewer``'s lobby, as the answer to ``request`` (through the invite link: without the LAN room code)."""
+    return room.lobby_view(viewer, host=host, tunnel=is_tunnel_request(request))
 
 
 @router.get("/games/{game_id}/lobby")
@@ -874,7 +877,7 @@ def get_lobby(
     if room.started:
         return {"phase": "playing", "game": _summary(room, request)}  # (before any seat check: no code through the tunnel)
     viewer, host = _lobby_who(room, request, x_seat_token, seat_required=False)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 def _submitted(
@@ -1035,7 +1038,7 @@ async def sync_collection(game_id: str, body: CollectionIn, request: Request, se
                 info.deck.collection = list(resolved.collection)
             info.ready = False
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.get("/games/{game_id}/collection")
@@ -1102,7 +1105,7 @@ async def submit_deck(
     # -- bring my decks -- the art this table lacks for the deck, from the player's own Fyodor over the LAN (in the background)
     if x_seat_token and (library := services.handoffs.brought(room, x_seat_token)) is not None:
         lan_art.bring_art(services, room, library.origin, [c.printing_id for c in deck.cards if c.printing_id])
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.delete("/games/{game_id}/lobby/deck")
@@ -1114,7 +1117,7 @@ async def clear_deck(
     info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
     info.deck, info.ready = None, False
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/ready")
@@ -1128,7 +1131,7 @@ async def set_ready(
         raise HTTPException(409, "Choose a deck first")
     info.ready = body.ready
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/seat")
@@ -1145,7 +1148,7 @@ async def change_seat(
         except PermissionError as exc:
             raise HTTPException(409, str(exc)) from exc
     await _lobby_changed(services, room)
-    return _lobby_response(room, body.seat, host)
+    return _lobby_response(room, body.seat, host, request)
 
 
 @router.post("/games/{game_id}/lobby/arrange")
@@ -1165,7 +1168,7 @@ async def arrange_seats(
             raise HTTPException(422, str(exc)) from exc
     viewer, host = _lobby_who(room, request, x_seat_token, seat_required=False)
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/profile")
@@ -1184,7 +1187,7 @@ async def set_profile(
     if body.color is not None:
         info.color = body.color
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/leave", status_code=204)
@@ -1233,7 +1236,7 @@ async def lobby_settings(
             info.ready = False
     room.lobby = updated
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/kick")
@@ -1253,7 +1256,7 @@ async def kick_player(
     await services.hub.close_seat_connections(room, body.seat, "The host removed you from this table")
     room.seats[body.seat].connections = 0
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 class LobbyBotIn(BaseModel):
@@ -1322,7 +1325,7 @@ async def lobby_bot(game_id: str, body: LobbyBotIn, request: Request, services: 
             info.deck = deck
         info.bot, info.ready = body.level, True
     await _lobby_changed(services, room)
-    return _lobby_response(room, viewer, host)
+    return _lobby_response(room, viewer, host, request)
 
 
 @router.post("/games/{game_id}/lobby/start")
@@ -1616,7 +1619,8 @@ async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, s
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
     await services.hub.broadcast(room)
-    return {"deck": deck.name, "cards": deck.card_count, "report": deck.report, "view": services.hub.view(room, viewer)}
+    return {"deck": deck.name, "cards": deck.card_count, "report": deck.report,
+            "view": services.hub.view(room, viewer, tunnel=is_tunnel_request(request))}
 
 
 async def _restore(services: Services, room: Room, request: Request, token: str | None, state: dict[str, Any],
@@ -1633,7 +1637,7 @@ async def _restore(services: Services, room: Room, request: Request, token: str 
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
     await services.hub.broadcast(room)
-    return services.hub.view(room, viewer)
+    return services.hub.view(room, viewer, tunnel=is_tunnel_request(request))
 
 
 @router.post("/games/{game_id}/snapshots/{snapshot_id}/restore")
@@ -1734,7 +1738,7 @@ async def undo_to_history(game_id: str, position: int, body: MetaIn, request: Re
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
-    return await _broadcast_view(services, room, viewer)
+    return await _broadcast_view(services, room, viewer, request)
 
 
 @router.post("/games/{game_id}/test/take-back")
@@ -1764,7 +1768,7 @@ async def take_back_test_ending(game_id: str, body: MetaIn, request: Request, se
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
-    return await _broadcast_view(services, room, viewer)
+    return await _broadcast_view(services, room, viewer, request)
 
 
 # --------------------------------------------------------------------------- host tools
@@ -2036,7 +2040,7 @@ async def _serve_game_socket(websocket: WebSocket, game_id: str, services: Servi
     try:
         services.hub.connect(room, conn)
         await services.hub.settled(room)  # -- resolving progress -- (an action being worked out: the table once it is applied)
-        await send(services.hub.full(conn, services.hub.message(room, viewer, host=conn.host)))
+        await send(services.hub.full(conn, services.hub.message(room, viewer, host=conn.host, tunnel=conn.tunnel)))
         await services.hub.broadcast(room)  # others see the connection indicator
         last_heard = next_ping = time.monotonic()
         next_ping += PING_EVERY
@@ -2117,7 +2121,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         return
     if msg.type == "resync":  # the client noticed a gap: the server's state wins
         await services.hub.settled(room)  # -- resolving progress --
-        await send(services.hub.full(conn, {**services.hub.message(room, conn.viewer, host=conn.host), "resync": True, "id": msg.id}))
+        await send(services.hub.full(conn, {**services.hub.message(room, conn.viewer, host=conn.host, tunnel=conn.tunnel), "resync": True, "id": msg.id}))
         return
     if not room.started:
         await send({"type": "error", "id": msg.id, "message": "The game hasn't started yet"})
@@ -2135,7 +2139,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         conn.actor = new_viewer if new_viewer in room.seats else conn.actor
         services.hub.connect(room, conn)
         await services.hub.settled(room)  # -- resolving progress --
-        await send(services.hub.full(conn, {"type": "state", "view": services.hub.view(room, conn.viewer)}))
+        await send(services.hub.full(conn, {"type": "state", "view": services.hub.view(room, conn.viewer, tunnel=conn.tunnel)}))
         return
     actor = conn.actor
     if room.mode == "local" and msg.as_player:
