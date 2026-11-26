@@ -109,5 +109,22 @@
       "G"
     ],
     "keywords": []
+  },
+  {
+    "name": "Mentor of the Meek",
+    "oracle_text": "Whenever another creature you control with power 2 or less enters, you may pay {1}. If you do, draw a card.",
+    "mana_cost": "{2}{W}",
+    "type_line": "Creature — Human Soldier",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
   }
 ]

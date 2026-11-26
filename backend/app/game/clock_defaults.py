@@ -115,8 +115,9 @@ def _decline_harms(d: Decision) -> bool:
     three kinds of question:
 
     * "pay or it's countered" (effects.py, resume ``counter``): their own spell is countered: harmless, declined;
-    * an optional payment (optional_payment.py, resume ``opt``): "you may pay … If you do" is harmless to decline; "… unless they pay" /
-      "If you don't" (118.12a: its binding read negated) brings the other branch (Painful Quandary's 5 life): left to the table;
+    * an optional payment (optional_payment.py, resume ``opt``): "you may pay … If you do" (its binding never read negated) only forgoes
+      a benefit: declined; "… unless they pay" / "If you don't" (118.12a: its binding read negated) brings the other branch: declined
+      only when that branch merely benefits someone else (Smothering Tithe's Treasure), else (Painful Quandary's 5 life) left to the table;
     * "sacrifice ~ unless you pay", echo, cumulative upkeep (effects.pay_or_sacrifice: pay / sacrifice): left to the table.
     """
     resume = d.resume or {}
@@ -134,6 +135,8 @@ def _decline_harms(d: Decision) -> bool:
     opt, ctx = resume.get("opt"), resume.get("ctx")
     if not isinstance(opt, dict) or not isinstance(ctx, dict):
         return True
+    if opt.get("bind") and _negations(ctx.get("effects") or [], opt["bind"]) == 0:
+        return False  # 118.12: no "If you don't" branch: declining only forgoes the "If you do" benefit
     return not _unpaid_only_benefits_others(ctx, opt)
 
 

@@ -445,3 +445,26 @@ def test_an_unpaid_tithe_only_gives_the_opponent_a_treasure(cards):  # 118.12: S
     assert not any(s.state.cards[c.id].tapped for c in islands) and not any(s.state.players["p2"].mana.values())
     nobody_out(s)
     roundtrip(s)
+
+
+# -- review round 4: a plain "you may pay … If you do …" only forgoes a benefit: declined --
+
+
+def test_a_may_pay_if_you_do_is_declined(cards):  # 118.12, 603.5: Mentor of the Meek, "you may pay {1}. If you do, draw a card."
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    put(s, "Mentor of the Meek", "battlefield")
+    start(s)
+    bears = cast(s, "Grizzly Bears")  # (with mana left over: PAY is offered, 118.3)
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.resume["step"] == "pay_or_sacrifice" and {"pay", "decline"} <= {o.id for o in d.options}
+    hand, pool = len(s.state.zones["p1:hand"]), dict(s.state.players["p1"].mana)
+    assert answers(s.state, "p1", s.cards)[0] == choose(d, ["decline"])
+    assert first_accepted(s, "p1") == choose(d, ["decline"])
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand and s.state.players["p1"].mana == pool  # nothing paid, nothing lost
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.players["p1"].life == 40
+    nobody_out(s)
+    roundtrip(s)
