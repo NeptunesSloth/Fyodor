@@ -7,15 +7,16 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import Headers
+from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app import __version__
@@ -23,7 +24,15 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
-from app.api.deps import GAME_NOT_FOUND, host_ok, is_https, is_tunnel_request, origin_ok, tunnel_serves
+from app.api.deps import (
+    GAME_NOT_FOUND,
+    host_ok,
+    is_host_request,
+    is_https,
+    is_tunnel_request,
+    origin_ok,
+    tunnel_serves,
+)
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
@@ -70,36 +79,50 @@ TOO_LARGE = "That request is too large."
 # Larger allowances, each for routes that bound their own bodies (path, matched whole -> bytes); every other path gets BODY_LIMIT.
 # The route keeps its own check; the allowance is never larger than the route's own bound (plus room for JSON's escaping).
 _DECK_TEXT = 200_000  # a pasted deck list: DeckImportRequest.text and LobbyDeckIn.text, in characters
-BODY_ALLOWANCES: tuple[tuple[re.Pattern[str], int], ...] = tuple((re.compile(p), n) for p, n in (
+# Each allowance names who may use it, because FastAPI parses a body before a route's own host or seat check runs: "any" (the route
+# streams the body and stops at its own bound, so nobody gets more than that held in memory), "host" (the host's browser, is_host_request)
+# or "seat" (the host, or a seat or spectator of the room named in the path). Anyone else, and everyone on the tunnel port, gets BODY_LIMIT.
+# A streaming route's allowance is its bound + BODY_LIMIT, so a body just over the bound reaches the route, which says so in its own words.
+Who = Literal["any", "host", "seat"]
+_ALLOWANCES: tuple[tuple[str, int, Who], ...] = (
     # asset upload and replacement: the route streams the body and stops at the image limit (api/assets.py `_body`)
-    (r"/api/assets(/[^/]+/file)?", asset_validate.MAX_BYTES),
+    (r"/api/assets(/[^/]+/file)?", asset_validate.MAX_BYTES + BODY_LIMIT, "any"),
     # a player's Fyodor bringing its deck library: the route streams it and stops at handoff.MAX_BYTES (api/lan.py)
-    (r"/api/lan/handoff", handoff.MAX_BYTES),
-    # which printings the host lacks: up to 20,000 ids (MissingIn), sent with that same library
-    (r"/api/lan/handoff/missing", handoff.MAX_BYTES),
-    # host only: a backup to restore, streamed to a file and stopped at MAX_BACKUP_BYTES (api/backups.py)
-    (r"/api/backups/restore", backup.MAX_BACKUP_BYTES),
-    # host only: an update, streamed and stopped at MAX_UPLOAD_BYTES (api/updates.py)
-    (r"/api/update/upload", update.MAX_UPLOAD_BYTES),
-    # host only: a game package, streamed and stopped at MAX_PACKAGE_BYTES (api/tools.py)
-    (r"/api/packages/import", package.MAX_PACKAGE_BYTES),
-    # host only: a Teach Fyodor file, at most taught.MAX_FILE_BYTES (api/teach.py checks it after reading; this stops it while reading)
-    (r"/api/teach/import", taught.MAX_FILE_BYTES),
-    # host only: this browser's "My decks", at most MAX_BROWSER_DECKS_BYTES as JSON (storage/backup.py `browser_decks_blob`)
-    (r"/api/(browser-decks|backups)", backup.MAX_BROWSER_DECKS_BYTES + BODY_LIMIT),
-    # host only (the decks router): an import may carry saved Archidekt JSON (DeckImportRequest.json, archidekt.MAX_JSON_BYTES
+    (r"/api/lan/handoff", handoff.MAX_BYTES + BODY_LIMIT, "any"),
+    # which printings the host lacks: up to 20,000 ids (MissingIn), parsed whole, sent with that same library. Only LAN peers reach it:
+    # never granted on the tunnel port (a 404 there too, netguard.TUNNEL_ROUTES)
+    (r"/api/lan/handoff/missing", handoff.MAX_BYTES, "any"),
+    # a backup to restore, streamed to a file and stopped at MAX_BACKUP_BYTES (api/backups.py)
+    (r"/api/backups/restore", backup.MAX_BACKUP_BYTES + BODY_LIMIT, "host"),
+    # an update, streamed and stopped at MAX_UPLOAD_BYTES (api/updates.py)
+    (r"/api/update/upload", update.MAX_UPLOAD_BYTES + BODY_LIMIT, "host"),
+    # a game package, streamed and stopped at MAX_PACKAGE_BYTES (api/tools.py)
+    (r"/api/packages/import", package.MAX_PACKAGE_BYTES + BODY_LIMIT, "host"),
+    # a Teach Fyodor file, at most taught.MAX_FILE_BYTES (api/teach.py checks it after reading; this stops it while reading)
+    (r"/api/teach/import", taught.MAX_FILE_BYTES, "host"),
+    # this browser's "My decks", at most MAX_BROWSER_DECKS_BYTES as JSON (storage/backup.py `browser_decks_blob`)
+    (r"/api/(browser-decks|backups)", backup.MAX_BROWSER_DECKS_BYTES + BODY_LIMIT, "host"),
+    # (the decks router): an import may carry saved Archidekt JSON (DeckImportRequest.json, archidekt.MAX_JSON_BYTES
     # characters) or a pasted list; twice the characters for JSON's escapes (\" \\ \n) and accented names
-    (r"/api/decks(/.*)?", 2 * (archidekt.MAX_JSON_BYTES + _DECK_TEXT) + BODY_LIMIT),
-    # a seat choosing or queueing a deck: LobbyDeckIn.json (2,000,000 characters) or a list, and up to 20,000 collection entries
+    (r"/api/decks(/.*)?", 2 * (archidekt.MAX_JSON_BYTES + _DECK_TEXT) + BODY_LIMIT, "host"),
+    # a seat choosing or queueing a deck: LobbyDeckIn.json (LOBBY_JSON_CHARS) or a list, and up to 20,000 collection entries
     # (LobbyDeckIn.collection, CollectionIn: a few hundred bytes each)
     (r"/api/games/[^/]+/(lobby/(deck|import|collection)|load-deck|next-deck)",
-     2 * (2_000_000 + _DECK_TEXT) + 20_000 * 512),
-))
+     2 * (games.LOBBY_JSON_CHARS + _DECK_TEXT) + 20_000 * 512, "seat"),
+)
+BODY_ALLOWANCES = tuple((re.compile(p), n, who) for p, n, who in _ALLOWANCES)
+_ROOM_PATH = re.compile(r"/api/games/([^/]+)/")
 
 
-def body_limit(path: str) -> int:
-    """The most bytes a request to ``path`` may send: its allowance, or BODY_LIMIT."""
-    return next((n for pattern, n in BODY_ALLOWANCES if pattern.fullmatch(path)), BODY_LIMIT)
+def body_limit(path: str, *, host: bool, seat_ok: Callable[[str], bool], tunnel: bool) -> int:
+    """The most bytes a request to ``path`` may send: its allowance if this sender may use it (``host``: the host's browser;
+    ``seat_ok(path)``: a seat or spectator of the room the path names), else BODY_LIMIT. On the tunnel port always BODY_LIMIT."""
+    if tunnel:
+        return BODY_LIMIT
+    for pattern, n, who in BODY_ALLOWANCES:
+        if pattern.fullmatch(path):
+            return n if who == "any" or host or (who == "seat" and seat_ok(path)) else BODY_LIMIT
+    return BODY_LIMIT
 
 
 class BodyLimit:
@@ -114,9 +137,18 @@ class BodyLimit:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        limit = body_limit(scope["path"])
-        declared = Headers(scope=scope).get("content-length")
-        if declared is not None and declared.strip().isdigit() and int(declared) > limit:
+        conn = HTTPConnection(scope)
+        headers = Headers(scope=scope)
+
+        def seat_ok(path: str) -> bool:
+            # the X-Seat-Token header holds a seat or spectator token of the room the path names
+            found = _ROOM_PATH.match(path)
+            room = conn.app.state.services.hub.get(found.group(1)) if found else None
+            return room is not None and room.seat_for_token(headers.get("x-seat-token")) is not None
+
+        limit = body_limit(scope["path"], host=is_host_request(conn), seat_ok=seat_ok, tunnel=is_tunnel_request(conn))
+        declared = headers.get("content-length")
+        if declared is not None and declared.isascii() and declared.strip().isdigit() and int(declared) > limit:
             await JSONResponse({"detail": TOO_LARGE}, status_code=413)(scope, receive, send)
             return
         seen = 0

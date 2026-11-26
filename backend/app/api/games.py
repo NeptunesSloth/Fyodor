@@ -745,13 +745,16 @@ def _validation_message(exc: ValidationError) -> str:
 # --------------------------------------------------------------------------- lobby
 
 
+LOBBY_JSON_CHARS = 2_000_000  # LobbyDeckIn.json, in characters (the body limit in app/main.py sizes the lobby allowance from it)
+
+
 class LobbyDeckIn(BaseModel):
     """A deck a player brings to the table. Content only: never a file path."""
 
     name: str | None = Field(default=None, max_length=120)
     text: str = Field(default="", max_length=200_000)
     archidekt: str | None = Field(default=None, max_length=300)
-    json_data: str | None = Field(default=None, max_length=2_000_000, alias="json")
+    json_data: str | None = Field(default=None, max_length=LOBBY_JSON_CHARS, alias="json")
     deck_id: str | None = Field(
         default=None, max_length=64
     )  # a deck in the host's library (host computer only)
