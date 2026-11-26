@@ -119,6 +119,26 @@ Note: the Windows process name is the file name, `cloudflared-windows-amd64`, so
 cleanup checks used `Get-Process cloudflared*`. Task 13 names the binary it installs, and whatever checks for a leftover process
 must use that name.
 
+#### 3.0a Task 12: the five pins, confirmed by hand (2026-11-25)
+
+Each asset was downloaded with `curl.exe -sSL --fail` from `https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/<asset>`
+into a new empty scratch folder (deleted afterwards, nothing executed), hashed with `certutil -hashfile <file> SHA256`, and compared with
+the release notes (3.0 table) and GitHub's asset `digest` (`curl.exe https://api.github.com/repos/cloudflare/cloudflared/releases/tags/2026.10.7`).
+The two `.tgz` files were extracted with `tar -xzf` and the `cloudflared` member hashed.
+
+| Asset | certutil of the download | Release notes | GitHub digest | Matched | binary_sha256 (extracted member) |
+|---|---|---|---|---|---|
+| `cloudflared-windows-amd64.exe` | `2493dbc1...1343` | same | same | both | = download |
+| `cloudflared-linux-amd64` | `1f99fb51...1872` | same | same | both | = download |
+| `cloudflared-linux-arm64` | `3df43aed...5775` | same | same | both | = download |
+| `cloudflared-darwin-amd64.tgz` | `02f3edfd87684dd5b705607688e4eb4b323f6e777b81e7b3a85af556aa356848` | `5c55e77d...bd86` (no) | `02f3edfd...6848` | **GitHub digest** | `5c55e77da7012cebca19170357e196176c48c9647cc2ead404702fa125ddbd86` |
+| `cloudflared-darwin-arm64.tgz` | `3586ccf397e98e5f437e60e7c307ca6ac463e110580503af8bb8e6f9ebf831bd` | `2136431d...bb12` (no) | `3586ccf3...31bd` | **GitHub digest** | `2136431d5eb467bf447d2ee514b713e192719b143aec1d9e09bf7dc290d5bb12` |
+
+Resolution of the macOS mismatch: the release notes list the hash of the **extracted** `cloudflared` executable, not of the `.tgz`
+(the extracted members hash to exactly the release-notes values). So both are pinned in `backend/app/tunnel/pins.py`: `sha256` = the
+downloaded `.tgz` (GitHub's digest, what the bytes hash to), `binary_sha256` = the executable (the release-notes value). Every pinned
+value therefore matches a published source and the downloaded bytes.
+
 #### 3.1 Set-up
 
 Owner's real data was never used. The backend ran from this worktree with `FYODOR_DATA_DIR` = a new empty scratch folder holding
