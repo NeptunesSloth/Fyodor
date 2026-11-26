@@ -403,3 +403,45 @@ def test_a_commander_goes_to_the_command_zone(cards):  # 903.9a: its owner may p
     assert s.state.cards[krenko.id].zone == "p1:command"
     nobody_out(s)
     roundtrip(s)
+
+
+# -- review round 3: tribute is left to the table; an unpaid branch that only benefits someone else is declined --
+
+
+def test_tribute_is_left_to_the_table(cards):  # 702.104a: Pharagax Giant, "if tribute wasn't paid, ... 5 damage to each opponent"
+    from tests.test_rules_declaration_requirements33 import cast
+
+    s = setup(cards)
+    start(s)
+    act(s, "p1", type="set_life", player="p2", value=5)
+    cast(s, "Pharagax Giant")
+    for _ in range(6):  # (the caster picks the opponent who decides, 702.104a)
+        d = s.state.rules.decision
+        if d is None or d.player == "p2":
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if "p2" in {o.id for o in d.options} else [d.options[0].id])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and d.resume["what"] == "tribute" and {o.id for o in d.options} == {"pay", "no"}
+    assert answers(s.state, "p2", s.cards) == []
+    assert s.state.players["p2"].life == 5 and "p2" not in s.state.rules.lost
+    nobody_out(s)
+    roundtrip(s)
+
+
+def test_an_unpaid_tithe_only_gives_the_opponent_a_treasure(cards):  # 118.12: Smothering Tithe, not paying harms nobody's own board
+    s = setup(cards)
+    put(s, "Smothering Tithe", "battlefield")
+    islands = [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library"][:2]
+    act(s, "p2", type="move", card_ids=[c.id for c in islands], to={"player": "p2", "zone": "battlefield"})
+    start(s, turn=1)
+    to_phase(s, "draw", turn=2)
+    until(s, asked(s))
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.resume["step"] == "pay_or_sacrifice" and {"pay", "decline"} <= {o.id for o in d.options}
+    assert answers(s.state, "p2", s.cards)[0] == choose(d, ["decline"])
+    assert first_accepted(s, "p2") == choose(d, ["decline"])
+    settle(s)
+    assert any(c.name == "Treasure" and c.controller == "p1" for c in s.state.cards.values())
+    assert not any(s.state.cards[c.id].tapped for c in islands) and not any(s.state.players["p2"].mana.values())
+    nobody_out(s)
+    roundtrip(s)

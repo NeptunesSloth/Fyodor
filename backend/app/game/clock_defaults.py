@@ -123,21 +123,54 @@ def _decline_harms(d: Decision) -> bool:
     step = resume.get("step")
     if step in HARMFUL_DECLINES:
         return True
+    if step == "stack_enter_choice":
+        from app.rules import tribute
+
+        # 702.104a: tribute's chosen opponent decides; "if tribute wasn't paid" punishes them (Pharagax Giant's 5 damage to each
+        # opponent, Shrike Harpy's sacrifice …): left to the table
+        return resume.get("what") == tribute.WHAT
     if step != "pay_or_sacrifice" or "counter" in resume:
         return False
     opt, ctx = resume.get("opt"), resume.get("ctx")
     if not isinstance(opt, dict) or not isinstance(ctx, dict):
         return True
-    return _negated(ctx.get("effects") or [], opt.get("bind"))
+    return not _unpaid_only_benefits_others(ctx, opt)
 
 
-def _negated(node: Any, bind: Any) -> bool:
-    """Is the payment binding ``bind`` read negated ("unless" / "If you don't": ``{"succeeded": bind, "negate": True}``) anywhere here?"""
+# What the not-paid branch may do and still be harmless to the payer: the ability's controller ("you", never the payer) gets something
+# (Smothering Tithe's Treasure, Rhystic Study's draw). ``may_rest`` is the "you may" marker of such a branch. Anything else: the table.
+_BENEFITS = frozenset({"create_token", "draw", "gain_life", "scry", "surveil"})
+
+
+def _unpaid_only_benefits_others(ctx: dict[str, Any], opt: dict[str, Any]) -> bool:
+    """118.12 / 118.12a: the instructions gated on the payment not being made (``only_if {"succeeded": bind, "negate": True}``, the
+    ``skip`` instructions after it). Harmless to decline only when each of them gives something to the ability's controller and the payer
+    is someone else; when a branch can't be read with confidence (another shape, another instruction), it isn't (fail-safe)."""
+    bind, effects = opt.get("bind"), ctx.get("effects") or []
+    if not bind or opt.get("payer") in (None, ctx.get("controller")):
+        return False
+    gated: list[Any] = []
+    found = 0
+    for i, e in enumerate(effects):
+        cond = e.get("cond") if isinstance(e, dict) else None
+        if isinstance(cond, dict) and cond.get("succeeded") == bind and cond.get("negate"):
+            if e.get("do") != "only_if" or not isinstance(e.get("skip"), int):
+                return False
+            found += 1
+            gated += effects[i + 1:i + 1 + e["skip"]]
+    # (nothing read, a negated reading nested deeper than the instruction list, or a condition inside the branch: not judged)
+    if not gated or found != _negations(effects, bind) or '"succeeded"' in json.dumps(gated, default=str):
+        return False
+    return all(isinstance(e, dict) and (e.get("do") == "may_rest" or (e.get("do") in _BENEFITS and e.get("who") == "you"))
+               for e in gated)
+
+
+def _negations(node: Any, bind: Any) -> int:
+    """How many times the payment binding ``bind`` is read negated (``{"succeeded": bind, "negate": True}``), at any depth."""
     if isinstance(node, dict):
-        if node.get("succeeded") == bind and node.get("negate"):
-            return True
-        return any(_negated(v, bind) for v in node.values())
-    return isinstance(node, list) and any(_negated(v, bind) for v in node)
+        own = int(node.get("succeeded") == bind and bool(node.get("negate")))
+        return own + sum(_negations(v, bind) for v in node.values())
+    return sum(_negations(v, bind) for v in node) if isinstance(node, list) else 0
 
 
 def _could_eliminate(d: Decision) -> bool:

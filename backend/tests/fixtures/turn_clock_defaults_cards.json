@@ -60,6 +60,42 @@
     "keywords": []
   },
   {
+    "name": "Smothering Tithe",
+    "oracle_text": "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    "mana_cost": "{3}{W}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Treasure"
+    ]
+  },
+  {
+    "name": "Pharagax Giant",
+    "oracle_text": "Tribute 2 (As this creature enters, an opponent of your choice may put two +1/+1 counters on it.)\nWhen this creature enters, if tribute wasn't paid, this creature deals 5 damage to each opponent.",
+    "mana_cost": "{4}{R}",
+    "type_line": "Creature — Giant",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Tribute"
+    ]
+  },
+  {
     "name": "Summoner's Pact",
     "oracle_text": "Search your library for a green creature card, reveal it, put it into your hand, then shuffle.\nAt the beginning of your next upkeep, pay {2}{G}{G}. If you don't, you lose the game.",
     "mana_cost": "{0}",
