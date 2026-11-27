@@ -12,6 +12,7 @@ import { send } from "./actions";
 import { InternetInvite } from "./InternetInvite";
 import { UNDO_POLICIES } from "./undoPolicy";
 import { CARD_PERMISSIONS } from "./cardPermissions";
+import { TurnClockHostSection } from "./TurnClockHostSection";
 
 const PRESENCE: Record<string, string> = {
   connected: "Connected",
@@ -121,6 +122,7 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
         <UndoSetting />
         {lan && <InternetInvite gameId={gameId} />}
         <PlanechaseHostSetting />
+        {lan && view.game.format === "commander" && <TurnClockHostSection />}
         {lan && <CardPermissionsSetting />}
         {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}
       </div>

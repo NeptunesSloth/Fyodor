@@ -26,6 +26,7 @@ from app.game.mulligan import PRESETS
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
+from app.game.turn_clock import TurnClock
 from app.game.visibility import publicly_visible
 from app.multiplayer import response_call
 from app.multiplayer.hub import Room
@@ -203,6 +204,8 @@ def rematch(services: Services, room: Room) -> None:
     if settings.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
+    if room.session.clock is not None:  # -- turn clock (stage 3) -- the same settings, full banks
+        session.clock = TurnClock(settings=room.session.clock.settings.model_copy())
     session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
     night.number += 1
     night.order_source, night.rolls, night.previous_winner = source, rolls, winner
@@ -257,6 +260,8 @@ def to_lobby(services: Services, room: Room) -> None:
     # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
     room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
                                                "card_permissions": old.settings.card_permissions})
+    if room.session.clock is not None:  # (-- turn clock (stage 3) -- the same: the host's latest clock settings)
+        room.lobby = room.lobby.model_copy(update={"clock": room.session.clock.settings.model_copy()})
     room.session.history.listener = None
     if services.hub.journal is not None:
         services.hub.journal.forget(room.id)

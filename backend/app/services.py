@@ -32,11 +32,12 @@ from app.cards.token_art import TokenArt
 from app.config import Settings
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
-from app.game import engine
+from app.game import engine, turn_clock
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
 from app.hostauth import SECRET_FILE, HostSecret
 from app.jobs import JobManager, ProgressFn
+from app.multiplayer import turn_clock_driver
 from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
 from app.netguard import AttemptLimiter, ConnectionCaps
@@ -152,9 +153,11 @@ class Services:
                 state, history = self.saves.load(live.checkpoint, history_limit=self.settings.history_limit)
                 session = GameSession(state, cards=self.cards, history=history, history_limit=self.settings.history_limit,
                                       rules=self.rules)
-                snaps = self.saves.extras(live.checkpoint).get("table_snapshots")
+                extras = self.saves.extras(live.checkpoint)
+                snaps = extras.get("table_snapshots")
                 if isinstance(snaps, list):
                     session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)]
+                turn_clock.load_extras(session, extras)  # -- turn clock -- (the crash record's newer banks, if any, follow in restore)
                 replayed = replay_journal(session, live.entries)
             except Exception:  # noqa: BLE001 - a damaged table must not stop the others from coming back
                 log.exception("Could not recover table %s; its autosaves are still in Saves", live.game_id)
@@ -295,7 +298,8 @@ class Services:
             return  # nothing to save before the host starts the game; a practice table is never saved (ELIMINATION_HUB.md)
         state = room.session.state
         saved = self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
-                                extras={"table_snapshots": room.session.table_snapshots})
+                                extras={"table_snapshots": room.session.table_snapshots,
+                                        **turn_clock.save_extras(room.session, turn_clock_driver.now())})
         if room.id in self.hub.rooms:
             self.hub.persist(room)
             self.journal.checkpoint(room.id, saved["id"])

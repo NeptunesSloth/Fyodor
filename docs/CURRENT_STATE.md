@@ -1,3 +1,24 @@
+## INTERNET-PLAY STAGE 3: AN OPTIONAL, SERVER-OWNED TURN CLOCK (2026-11-25)
+
+Branch `internet-play-stage3`, built on Stage 2's final head `6b9dd82` (none of the three stages merged; merge Stage 1, then Stage 2, then this; the owner reads `docs/superpowers/specs/2026-11-25-stage3-audit.md` first). Plan `docs/superpowers/plans/2026-11-25-internet-play-stage3-turn-clock.md`. Off by default, so a pod night is unchanged; offered at LAN Commander tables only. Card coverage and the rules engine are unchanged.
+
+**The clock (`app/game/turn_clock.py`, `app/multiplayer/turn_clock_driver.py`)**
+- A bank per player (default 25 min) and an uncharged grace per decision (30 s), on the server's monotonic time; only the player the engine waits on is charged (priority, a pending decision, each undecided mulligan), never while an action resolves, while automation is off or paused, with nobody connected, or while a disconnected player has reconnect grace left (one budget per player per game, default 2 minutes plus the host's extensions, spent only while away and waited on; saved with the clock). One timer task per room acts under the existing `room.lock`.
+- Lives on `GameSession.clock`, saved in the save's `extras` and the crash record, never in `GameState`: replay is untouched and undo refunds nothing. Old saves load with the clock off; a restart keeps the banks and charges nothing for the downtime.
+
+**At zero (`app/game/clock_defaults.py`)**
+- **Act for the player**: the safest legal default with its rule number (pass, keep, decline a "may" or a harmless optional cost, no attack/block beyond what must, take back a cast in progress, Assisted rules confirmations "yes", a commander to the command zone). Anything where declining harms the player, tribute, a possible elimination or a manual resolution is left to the table with one log line. A required target is a permanent where one is offered, else an opponent, never the timed-out player while anything else is legal (only them: the table). It never concedes, and never chooses a loss for the timed-out player. **Only show it**: 0:00 and nothing happens.
+- A click from a view older than the clock's action is refused (`seen_revision`); a concession always goes through.
+
+**Host and table (`api/turn_clock.py`, frontend)**
+- `POST /api/games/{id}/clock` (host window only, 404 through the invite link): settings, +time, more reconnect grace, each a log notice. The lobby's **Turn clock** setting, a countdown chip on every seat plate (`0:24 · 12:31`, *Paused — reconnecting*, words not colour, no rope), and a Turn clock section in Host tools.
+
+**The gate (audit "Stage gate")**
+- ruff 10 as the base; mypy 304 vs the base's 303 (one more message on a pre-existing `night.py` line because `LobbySettings` gained a field); frontend typecheck and 1664 tests pass; bandit's 2 findings on new lines (two type-narrowing `assert`s) and the open pip/npm development-tool advisories answered; the 13-point gate walked (one literal new `except Exception` that logs and falls back, flagged for the owner).
+- Not done, one line each: the full backend run (the controller's, pending); the independent review (pending); the two-device manual check and Task 7's screenshots and critique (the owner's, NOT DONE).
+
+**Docs:** `docs/LAN_PLAY.md` "Turn clock"; `docs/UI_REFERENCE_STUDY.md` M4/G3 no longer forbid a clock (optional, off by default, no burning rope).
+
 ## INTERNET-PLAY STAGE 2: AN INVITE LINK THROUGH A CLOUDFLARE QUICK TUNNEL (2026-11-25)
 
 Branch `internet-play-stage2`, built on `internet-play-stage1` (neither merged; merge Stage 1 first; the owner reads `docs/superpowers/specs/2026-11-25-stage2-audit.md` first). Plan `docs/superpowers/plans/2026-11-25-internet-play-stage2-invite-link.md`. The host presses **Invite over the internet** on a LAN table and sends one https link plus the password; nothing changes for a LAN night, and nothing is downloaded or started until someone presses it. Card coverage and the rules engine are unchanged.

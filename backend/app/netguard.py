@@ -129,11 +129,11 @@ TUNNEL_ROUTES: tuple[tuple[frozenset[str], re.Pattern[str]], ...] = tuple(
         # the pod's card macros (read-only definitions): the game screen loads them for every seat (app/api/macros.py). Accepted: a
         # stranger can read them, as can anyone on the LAN.
         ("GET", r"/api/macros"),
-        # a table and everything under it, but its host's tools, saving, the assistant, the rules lab, sharing and the test opponent
+        # a table and everything under it, but its host's tools (and the turn clock's), saving, the assistant, the rules lab, sharing and the test opponent
         # (a trailing '/' too, so those are a 404 rather than redirect_slashes' 307). Only the methods those routes use: HEAD and
         # OPTIONS are a 404. Accepted: for a shared table, a stranger without a seat can read its summary (no code), GET /result and
         # what the routes themselves answer without a seat. tests/test_tunnel_routes.py freezes the whole set of allowed routes.
-        ("GET POST DELETE", _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|lobby/bot|bot(/.*)?)/?\Z).+)?"),
+        ("GET POST DELETE", _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|clock|lobby/bot|bot(/.*)?)/?\Z).+)?"),
     ))
 
 

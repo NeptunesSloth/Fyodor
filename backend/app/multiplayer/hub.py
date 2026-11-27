@@ -28,10 +28,12 @@ from app.game.factory import PLAYER_COLORS
 from app.game.ops import down_public
 from app.game.session import GameSession
 from app.game.summary import player_commanders
+from app.game.turn_clock import TurnClock
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer import (
     bots,  # -- test opponent -- the server's pacing of its actions
     response_call,  # -- I have a response / flip the table --
+    turn_clock_driver,  # -- turn clock (stage 3) -- the room's timer
     view_delta,  # -- view deltas --
 )
 from app.multiplayer.elimination import PracticeLink, Pulse
@@ -487,6 +489,7 @@ class GameHub:
         room = self.rooms.pop(game_id, None)
         bots.forget(game_id)
         response_call.forget(game_id)
+        turn_clock_driver.forget(game_id)
         if room:
             if room.game is not None:
                 room.game.history.listener = None
@@ -507,6 +510,8 @@ class GameHub:
             "spectator_tokens": list(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
             "lobby": room.lobby.model_dump(mode="json") if room.lobby is not None else None,  # (the pod rule, mulligans… for the next game)
+            # -- turn clock (stage 3) -- the banks as of this record (newer than the checkpoint's: every change stores this record)
+            "clock": room.game.clock.dump(turn_clock_driver.now()) if room.game is not None and room.game.clock is not None else None,
         }
 
     def persist(self, room: Room) -> None:
@@ -558,6 +563,10 @@ class GameHub:
         """Put a recovered table back: same id, room code, seats and tokens."""
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
+        if meta.get("clock") is not None:  # -- turn clock (stage 3) -- over the checkpoint's; every seat starts away: nobody is charged
+            clock = TurnClock.load(meta["clock"])
+            if clock is not None:
+                session.clock = clock
         room.host_seat = meta.get("host_seat")
         room.invite_code = meta.get("invite_code")  # (shared stays False: closing Fyodor ends the link)
         if meta.get("password_salt") and meta.get("password_hash"):
@@ -769,6 +778,7 @@ class GameHub:
         if conn.viewer in room.seats:
             room.seats[conn.viewer].connections += 1
         bots.poke(self, room)  # -- test opponent -- a table created or loaded off the event loop starts playing when someone sits down
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a player back within the grace is charged again
 
     def disconnect(self, room: Room, conn: Connection) -> None:
         if room.connections.pop(conn.id, None) is not None and conn.viewer in room.seats:
@@ -776,6 +786,7 @@ class GameHub:
             seat.connections = max(0, seat.connections - 1)
             if seat.connections == 0:
                 seat.last_seen = time.time()
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a player gone has a grace before being charged
 
     # -- resolving progress --------------------------------------------------------------
     async def perform(self, room: Room, actor: str, payload: dict[str, Any], *, host: bool = False) -> Action:
@@ -788,17 +799,20 @@ class GameHub:
         if payload.get("type") not in INTENT_TYPES or session.state.rules is None or not room.connections:
             done = False
             try:
+                turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out
                 action = session.perform(actor, payload, host=host)
                 done = True
                 return action
             finally:
                 response_call.after(self, room, actor, payload, applied=done)  # -- I have a response / flip the table --
+                turn_clock_driver.poke(self, room)  # -- turn clock -- resumes (a refused action: the same wait)
         loop = asyncio.get_running_loop()
         stream = InterimStream(self, room, loop, actor)
         stream.calls = response_call.pending(room)  # -- I have a response -- a hold heard while this is worked out stops its chain
         room.acting = loop.create_future()
         applied = False
         try:
+            turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out (pokes wait: room.acting)
             try:
                 prepared = await asyncio.to_thread(session.prepare, actor, payload, host=host, watcher=stream.watch)
             finally:
@@ -811,8 +825,11 @@ class GameHub:
             if done is not None and not done.done():
                 done.set_result(None)
             response_call.after(self, room, actor, payload, applied=applied)  # -- I have a response / flip the table --
-            if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
-                await self.broadcast(room, resync=True)
+            try:
+                if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
+                    await self.broadcast(room, resync=True)
+            finally:
+                turn_clock_driver.poke(self, room)  # -- turn clock -- resumes (a refused action: the same wait)
 
     async def settled(self, room: Room) -> None:
         """Wait until no action is being worked out off the event loop (``perform``): then the table is read as it is."""
@@ -822,10 +839,11 @@ class GameHub:
     def interim_metas(self, room: Room) -> dict[str, tuple[str, dict[str, Any]]]:
         """-- resolving progress -- (on the event loop) each connection's viewer and the room's part of its view, as ``view`` builds it."""
         out: dict[str, tuple[str, dict[str, Any]]] = {}
-        for conn in list(room.connections.values()):
-            key = conn_key(conn)
-            if key not in out:
-                out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
+        with turn_clock_driver.one_instant(room):  # -- turn clock -- one block for every viewer
+            for conn in list(room.connections.values()):
+                key = conn_key(conn)
+                if key not in out:
+                    out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
         return out
 
     async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None,
@@ -834,6 +852,7 @@ class GameHub:
         viewer's view in the same pass and return it, for the HTTP reply to whoever acted (built after the sends, it would be the
         table worked out a second time); ``tunnel``: that reply goes through the invite link (no LAN room code)."""
         await self.settled(room)  # -- resolving progress -- (an action being worked out: its table, once applied)
+        turn_clock_driver.poke(self, room)  # -- turn clock -- every view carries the clock as of now
         room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
@@ -841,7 +860,7 @@ class GameHub:
         reply: dict[str, Any] | None = None
         # -- big boards (views) -- every view is built before any is sent (no await in between: all of the same table), in one read pass:
         # what each view derives, every permanent's characteristics, is worked out once for the table, not once per viewer
-        with room.session.reading() if room.started else nullcontext():
+        with room.session.reading() if room.started else nullcontext(), turn_clock_driver.one_instant(room):  # (-- turn clock -- one block)
             for conn in conns:
                 key = conn_key(conn)
                 if key not in cache:
@@ -946,6 +965,7 @@ class GameHub:
             "events": room.pulse.public(),
             **({"predictions": recap} if recap else {}),
             **bots.view_fields(room),  # -- test opponent -- the top bar's bot speed
+            **turn_clock_driver.view_fields(room),  # -- turn clock -- the same block for every viewer (no choice named in it)
         }
         if room.night.final_board() is not None:  # -- final board -- nothing to undo or redo on a finished table
             meta.update(can_undo=False, can_redo=False)
@@ -963,6 +983,7 @@ class GameHub:
                 del room.seats[pid]
         follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         bots.poke(self, room)  # -- test opponent -- (inside the event loop: its next action, paced)
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a new wait (or none)
         self.persist(room)
         self.save_rows(room)
         room.actions_since_save += 1

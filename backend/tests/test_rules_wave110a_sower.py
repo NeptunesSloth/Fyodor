@@ -72,3 +72,27 @@ def test_three_players_only_the_chosen_pair_counts(cards):
     _bolt(s, "p3")
     assert (life(s, "p1"), life(s, "p2"), life(s, "p3")) == (37, 37, 37)
     check(s)
+
+
+def test_the_turn_clock_never_chooses_a_pair_with_the_timed_out_player(cards):
+    # stage 3, final fix C1: the clock acts for Alice (her clock ran out) at "choose two players": linking herself could cost her the game
+    from app.game.clock_defaults import answers
+
+    s = _three(cards)
+    mana(s, "p1", B=2, C=4)
+    cast(s, "Sower of Discord")
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1"
+    assert [o.id for o in d.options] == ["p1,p2", "p1,p3", "p2,p3"]
+    got = answers(s.state, "p1", s.cards)
+    assert got[0]["option_ids"] == ["p2,p3"]
+    act(s, "p1", **got[0])
+    answer(s)
+    assert s.state.rules.chosen_objects[next(c.id for c in s.state.cards.values() if c.name == "Sower of Discord")] == "p2,p3"
+    _bolt(s, "p2")
+    assert (life(s, "p1"), life(s, "p2"), life(s, "p3")) == (40, 37, 37)
+    check(s)

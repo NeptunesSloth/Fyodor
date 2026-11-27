@@ -57,7 +57,7 @@ from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
-from app.game import placement, undo_requests
+from app.game import placement, turn_clock, undo_requests
 from app.game.errors import ActionError
 from app.game.factory import STARTING_LIFE, DeckCard, PlayerSetup, new_game
 from app.game.handlers import planechase
@@ -65,9 +65,10 @@ from app.game.mulligan import resolve_policy
 from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy, PlanarCard
+from app.game.turn_clock import ClockSettings, TurnClock
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
-from app.multiplayer import lan_art, response_call
+from app.multiplayer import lan_art, response_call, turn_clock_driver
 from app.multiplayer.hub import (
     RECONNECT_GRACE,
     Connection,
@@ -246,6 +247,7 @@ class CreateGameIn(BaseModel):
     planechase: bool = False
     planar_deck_size: int = Field(default=10, ge=2, le=60)
     planar_phenomena: bool = True
+    clock: ClockSettings = Field(default_factory=lambda: ClockSettings.model_validate({}))  # -- turn clock (stage 3) -- a lobby's setting
 
     @field_validator("name")
     @classmethod
@@ -256,6 +258,7 @@ class CreateGameIn(BaseModel):
     def _sandbox_starts_manual(self) -> CreateGameIn:
         if self.format == "sandbox":
             self.automation = "off"  # a Sandbox table starts as the manual table; the host turns automation on at the table
+            self.clock.on = False
         return self
 
 
@@ -268,6 +271,7 @@ class ActionIn(BaseModel):
     viewer: str | None = Field(default=None, max_length=32)
     # Idempotency: a retried action (same id) is applied once and answered ALREADY_APPLIED.
     client_action_id: ClientActionId | None = None
+    seen_revision: int | None = Field(default=None, ge=0, le=2**31 - 1)  # -- turn clock -- the view the click was made on (late())
 
 
 class MetaIn(BaseModel):
@@ -330,7 +334,8 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
                              auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order,
                              card_permissions=body.card_permissions, planechase=body.planechase,
-                             planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena)
+                             planar_deck_size=body.planar_deck_size, planar_phenomena=body.planar_phenomena,
+                             clock=body.clock)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -471,6 +476,8 @@ async def post_action(
             raise HTTPException(409, STOPPED_SHARING)
         _check_table_open(room, body.action.get("type"))
         try:
+            if (refused := turn_clock_driver.late(room, actor, body.seen_revision, body.action.get("type"))) is not None:
+                raise ActionError(refused)  # -- turn clock -- clicked before seeing what the clock did (remembered below, as any refusal)
             # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
             await services.hub.perform(room, actor, body.action, host=room.mode == "local" or room_host(room, request, x_seat_token))
         except ValidationError as exc:
@@ -559,7 +566,8 @@ async def save_game(game_id: str, body: SaveIn, request: Request, services: Serv
     name = clean_text(body.name, 80) or f"{room.session.state.name} — turn {room.session.state.turn.number}"
     async with room.lock:
         summary = services.saves.save(room.session.state, room.session.history, name=name,
-                                      extras={"table_snapshots": room.session.table_snapshots})
+                                      extras={"table_snapshots": room.session.table_snapshots,
+                                              **turn_clock.save_extras(room.session, turn_clock_driver.now())})
         room.session.notice(f"Game saved as “{name}”.")
     await services.hub.broadcast(room)
     return summary
@@ -688,9 +696,11 @@ def load_save(save_id: str, body: LoadIn, request: Request, services: ServicesDe
         services.hub.close(state.id)
     session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit,
                           rules=services.rules)
-    snaps = services.saves.extras(save_id).get("table_snapshots")
+    extras = services.saves.extras(save_id)
+    snaps = extras.get("table_snapshots")
     if isinstance(snaps, list):
         session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)][-MAX_SNAPSHOTS:]
+    turn_clock.load_extras(session, extras)  # -- turn clock (stage 3) --
     session.notice("Game loaded.")
     return _create_room(services, session, body.mode, body.password, "p1")
 
@@ -818,6 +828,7 @@ class LobbySettingsIn(BaseModel):
     planechase: bool | None = None  # -- planechase -- a shared planar deck (no Ready reset either)
     planar_deck_size: int | None = Field(default=None, ge=2, le=60)
     planar_phenomena: bool | None = None
+    clock: ClockSettings | None = None  # -- turn clock (stage 3) -- (no Ready reset either)
 
 
 class ArrangeIn(BaseModel):
@@ -1410,6 +1421,8 @@ async def start_game(
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
         )
+        if lobby.clock.on and lobby.format == "commander":
+            session.clock = TurnClock(settings=lobby.clock)  # -- turn clock (stage 3) --
         session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
         session.notice(f"Game started. {state.players[state.turn.active_player].name} goes first.")
         if night.order_source == "winner_last":
@@ -1835,6 +1848,7 @@ class WsAction(BaseModel):
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     id: int | None = None
     client_action_id: ClientActionId | None = None
+    seen_revision: int | None = Field(default=None, ge=0, le=2**31 - 1)  # -- turn clock -- the view the click was made on (late())
 
 
 class WsSimple(BaseModel):
@@ -2174,6 +2188,8 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             return
         try:
             if isinstance(msg, WsAction):
+                if (refused := turn_clock_driver.late(room, actor, msg.seen_revision, msg.action.get("type"))) is not None:
+                    raise ActionError(refused)  # -- turn clock -- clicked before seeing what the clock did (remembered below)
                 await services.hub.perform(room, actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
             elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
                 room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
