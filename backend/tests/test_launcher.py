@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import socket
 import sqlite3
+from pathlib import Path
 
 import pytest
+from fastapi import Request
 
 from app import launcher
 from app.config import load_settings
@@ -280,3 +282,75 @@ def test_the_server_is_built_with_a_frame_limit_just_above_the_message_limit(tmp
     options = launcher.server_options(load_settings({"FYODOR_DATA_DIR": str(tmp_path), "FYODOR_PORT": "8765"}))
     assert MAX_WS_MESSAGE * 4 <= options["ws_max_size"] <= MAX_WS_MESSAGE * 4 + 4096  # (a message's characters may be 4 bytes each)
     assert (options["port"], options["log_level"]) == (8765, "info")
+
+
+def test_uvicorn_does_not_rewrite_the_client_from_headers(tmp_path: Path) -> None:
+    """Fyodor's client_address is the only reader of forwarded headers: uvicorn's own proxy-header handling trusts loopback, which is every peer behind a tunnel."""
+    assert launcher.server_options(load_settings({"FYODOR_DATA_DIR": str(tmp_path)}))["proxy_headers"] is False
+
+
+def test_a_real_server_ignores_forwarded_for_from_loopback(tmp_path: Path) -> None:
+    import threading
+    import time
+
+    import httpx
+    import uvicorn
+
+    from app.api.deps import client_address
+    from app.main import create_app
+
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path), "FYODOR_HOST": "127.0.0.1", "FYODOR_PORT": "0"})
+    app = create_app(settings)
+
+    def peer(r: Request) -> dict[str, str]:
+        return {"peer": client_address(r)}
+
+    app.add_api_route("/_peer", peer)  # this test's own app only
+    server = uvicorn.Server(uvicorn.Config(app, **{**launcher.server_options(settings), "log_level": "warning"}))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 20
+        while not server.started and thread.is_alive() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert server.started
+        port = server.servers[0].sockets[0].getsockname()[1]
+        r = httpx.get(f"http://127.0.0.1:{port}/_peer", headers={"X-Forwarded-For": "203.0.113.9"}, timeout=10)
+        assert r.json() == {"peer": "127.0.0.1"}
+    finally:
+        server.should_exit = True
+        thread.join(timeout=20)
+
+
+def test_serve_listens_on_a_loopback_tunnel_port(tmp_path, monkeypatch, capsys):
+    """One uvicorn server, two sockets: the LAN port, and a loopback port the OS picks that only cloudflared connects to (never printed)."""
+    import uvicorn
+
+    import app.main
+
+    settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_HOST": "127.0.0.1", "FYODOR_PORT": "0",
+                              "FYODOR_AUTO_BACKUP_MINUTES": "0"})
+    made: list = []
+    real = app.main.create_app
+    monkeypatch.setattr(app.main, "create_app", lambda st: made.append(real(st)) or made[-1])
+    handed: list = []
+    monkeypatch.setattr(uvicorn.Server, "run", lambda self, sockets=None: handed.append(sockets))
+    launcher.serve(settings)
+    try:
+        assert len(handed) == 1 and len(handed[0]) == 2
+        lan, tun = handed[0]
+        address, port = tun.getsockname()[:2]
+        assert address == "127.0.0.1" and port != 0 and port == made[0].state.services.tunnel.port
+        assert lan.getsockname()[1] != port
+        assert str(port) not in capsys.readouterr().out
+    finally:
+        for s in (handed[0] if handed else None) or []:
+            s.close()
+        for m in made:
+            m.state.services.close()
+
+
+def test_local_help_says_an_invite_link_still_works(capsys):
+    with pytest.raises(SystemExit):
+        launcher.main(["--help"])
+    assert "only this computer can connect (an invite link you start still works)" in " ".join(capsys.readouterr().out.split())

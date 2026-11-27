@@ -887,7 +887,7 @@ def test_lobelia_actual_face_down_packet_rest_websocket_privacy_and_look_survive
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token='lobelia42-'+player
-        room.spectator_tokens.add('lobelia42-spectator')
+        room.spectator_tokens.append('lobelia42-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token='lobelia42-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
@@ -1411,7 +1411,7 @@ def test_intellect_pending_private_hand_choice_rest_websocket_hides_other_hands(
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token='intellect42-'+player
-        room.spectator_tokens.add('intellect42-spectator')
+        room.spectator_tokens.append('intellect42-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token='intellect42-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()

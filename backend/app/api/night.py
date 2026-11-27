@@ -19,13 +19,14 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.api.deps import is_local_request
+from app.api.deps import is_local_request, room_host
 from app.api.games import ServicesDep, _room, authorize, record_game_result
 from app.game.factory import PlayerSetup, new_game
 from app.game.mulligan import PRESETS
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
+from app.game.turn_clock import TurnClock
 from app.game.visibility import publicly_visible
 from app.multiplayer import response_call
 from app.multiplayer.hub import Room
@@ -64,7 +65,7 @@ def remaining(state: GameState) -> list[str]:
 
 
 def _actor(room: Room, request: Request, token: str | None, as_player: str | None) -> str:
-    _, actor = authorize(room, local=is_local_request(request), token=token, viewer=None, as_player=as_player)
+    _, actor = authorize(room, conn=request, token=token, viewer=None, as_player=as_player)
     if actor is None:
         raise HTTPException(403, "Spectators can't do that")
     return actor
@@ -158,7 +159,7 @@ async def vote(game_id: str, body: VoteIn, request: Request, services: ServicesD
             raise HTTPException(409, "The game isn't over yet")
         if body.force:
             # a LAN table's host holds the room's host token; a hot-seat table is the host computer's own (the host cookie)
-            if (room.mode == "lan" and not room.is_host(x_seat_token)) or (room.mode == "local" and not is_local_request(request)):
+            if (room.mode == "lan" and not room_host(room, request, x_seat_token)) or (room.mode == "local" and not is_local_request(request)):
                 raise HTTPException(403, "Only the host can settle the vote")
             decision: str | None = body.choice
         else:
@@ -203,6 +204,8 @@ def rematch(services: Services, room: Room) -> None:
     if settings.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
+    if room.session.clock is not None:  # -- turn clock (stage 3) -- the same settings, full banks
+        session.clock = TurnClock(settings=room.session.clock.settings.model_copy())
     session.begin_first_turn()  # -- first turn (S7) -- 502.4: no priority in the untap step
     night.number += 1
     night.order_source, night.rolls, night.previous_winner = source, rolls, winner
@@ -257,6 +260,8 @@ def to_lobby(services: Services, room: Room) -> None:
     # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
     room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
                                                "card_permissions": old.settings.card_permissions})
+    if room.session.clock is not None:  # (-- turn clock (stage 3) -- the same: the host's latest clock settings)
+        room.lobby = room.lobby.model_copy(update={"clock": room.session.clock.settings.model_copy()})
     room.session.history.listener = None
     if services.hub.journal is not None:
         services.hub.journal.forget(room.id)
@@ -284,7 +289,7 @@ async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer
     """The deck this seat brought to the current game, for its own side activities (opening-hand
     practice while eliminated, ELIMINATION_HUB.md). Only ever the asking seat's own deck."""
     room = _room(services, game_id)
-    seat, _ = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=viewer, as_player=None)
+    seat, _ = authorize(room, conn=request, token=x_seat_token, viewer=viewer, as_player=None)
     setup = room.night.setups.get(seat)
     if setup is None:
         raise HTTPException(404, "Your deck isn't available at this table")
@@ -330,7 +335,7 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
     Simulator). Nothing here touches the game: it is never logged, saved or replayed, carries no hidden information
     and is rate limited."""
     room = _room(services, game_id)
-    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
+    viewer, actor = authorize(room, conn=request, token=x_seat_token, viewer=None, as_player=body.as_player)
     state = room.session.state
     now = time.monotonic()
     who = actor or f"spectator:{x_seat_token or ''}"
@@ -404,7 +409,7 @@ async def set_reactions(game_id: str, body: ReactionsIn, request: Request, servi
     room = _room(services, game_id)
     if room.practice is not None:
         raise HTTPException(409, "A practice table has no reactions")
-    if room.mode == "lan" and not room.is_host(x_seat_token):
+    if room.mode == "lan" and not room_host(room, request, x_seat_token):
         raise HTTPException(403, "Only the host can change that")
     if room.mode == "local" and not is_local_request(request):
         raise HTTPException(403, "This is a hot-seat game on the host computer")

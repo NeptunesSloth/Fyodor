@@ -26,6 +26,7 @@ from app.main import create_app
     (("127.0.0.1",), "127.0.0.1", "198.51.100.7, junk", "127.0.0.1"),      # a garbled hop poisons the chain
     ((), None, "198.51.100.7", ""),                                        # no peer at all: one shared bucket
     (("127.0.0.1",), None, "198.51.100.7", ""),
+    (("127.0.0.1",), "127.0.0.1", "203.0.113.9:4711", "127.0.0.1"),       # an entry with a port is unparseable: falls back to the proxy (fail-safe)
     ((), "testclient", None, "testclient"),                                # a non-IP peer is passed through, never trusted
 ])
 def test_client_address(trusted, peer, xff, expected):

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, ValidationError
 
-from app.api.deps import is_local_request
+from app.api.deps import is_tunnel_request, room_host
 from app.api.games import ServicesDep, _check_table_open, _deck_cards, _room, authorize
 from app.decks import bot_decks
 from app.decks import service as deck_service
@@ -79,10 +79,10 @@ def _cards(services: Services, deck_id: str, seed: str = "") -> tuple[str, str |
 async def add_bot(game_id: str, body: BotIn, request: Request, services: ServicesDep,
                   x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     room = _room(services, game_id)
-    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
+    viewer, actor = authorize(room, conn=request, token=x_seat_token, viewer=None, as_player=body.as_player)
     if actor is None:
         raise HTTPException(403, "Spectators can't seat an opponent")
-    if room.mode == "lan" and not room.is_host(x_seat_token):
+    if room.mode == "lan" and not room_host(room, request, x_seat_token):
         raise HTTPException(403, "Only the host can seat an opponent")
     seed = f"{game_id}:{len(room.session.state.players)}"  # (-- bot decks -- the game and the seat it takes: the same request, the same deck)
     deck_name, library_id, cards = await run_in_threadpool(_cards, services, body.deck_id, seed)
@@ -95,27 +95,29 @@ async def add_bot(game_id: str, body: BotIn, request: Request, services: Service
         except (ActionError, ValidationError) as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
-    return {"view": await services.hub.broadcast(room, viewer=viewer) or services.hub.view(room, viewer)}
+    tunnel = is_tunnel_request(request)
+    return {"view": await services.hub.broadcast(room, viewer=viewer, tunnel=tunnel) or services.hub.view(room, viewer, tunnel=tunnel)}
 
 
 @router.post("/games/{game_id}/bot/speed")
 async def bot_speed(game_id: str, body: SpeedIn, request: Request, services: ServicesDep,
                     x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     room = _room(services, game_id)
-    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
+    viewer, actor = authorize(room, conn=request, token=x_seat_token, viewer=None, as_player=body.as_player)
     if actor is None:
         raise HTTPException(403, "Spectators can't change that")
     if not bots.has_bot(room):
         raise HTTPException(409, "There is no test opponent at this table")
     bots.set_speed(services.hub, room, body.speed)
-    return {"view": await services.hub.broadcast(room, viewer=viewer) or services.hub.view(room, viewer)}
+    tunnel = is_tunnel_request(request)
+    return {"view": await services.hub.broadcast(room, viewer=viewer, tunnel=tunnel) or services.hub.view(room, viewer, tunnel=tunnel)}
 
 
 @router.post("/games/{game_id}/bot/step")
 async def bot_step(game_id: str, body: StepIn, request: Request, services: ServicesDep,
                    x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     room = _room(services, game_id)
-    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
+    viewer, actor = authorize(room, conn=request, token=x_seat_token, viewer=None, as_player=body.as_player)
     if actor is None:
         raise HTTPException(403, "Spectators can't do that")
     if not bots.has_bot(room):
@@ -123,4 +125,4 @@ async def bot_step(game_id: str, body: StepIn, request: Request, services: Servi
     if not bots.waiting(room):
         raise HTTPException(409, "The opponent has nothing to do right now")
     bots.step_once(services.hub, room)
-    return {"view": services.hub.view(room, viewer)}
+    return {"view": services.hub.view(room, viewer, tunnel=is_tunnel_request(request))}

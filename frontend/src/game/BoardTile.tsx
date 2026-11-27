@@ -3,7 +3,8 @@
  * power and toughness on a parchment plate. The full card is a hover away (the card preview). A card without cached art
  * shows the redesigned proxy's art window (its colours and its type's icon), so the two read as the same card.
  */
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
+import { useImageRetry } from "../cards/imageRetry";
 import { GLYPHS, PALETTE, proxyColours, proxyFace } from "../cards/proxy";
 import { imageUrl } from "../services/cards";
 import { useCard } from "../state/cardCache";
@@ -19,7 +20,7 @@ export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: G
   const data = useCard(visible && !card.face_down ? card.card_id : null);
   const tokenArt = useCard(visible && !card.face_down ? tokenArtId(card) : null); // -- engine token art -- the picture only
   const sleeve = sleeveStyle(useSleeve(card.owner));
-  const [failed, setFailed] = useState<string | null>(null);
+  const { failed, nonce, onError } = useImageRetry();
   const custom = visible && !card.card_id && card.token
     ? { name: card.token.name, type_line: card.token.type_line, oracle_text: card.token.text, power: card.token.power, toughness: card.token.toughness, colors: card.token.colors }
     : undefined;
@@ -55,7 +56,7 @@ export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: G
   return (
     <div className={`board-tile ${art ? "has-art" : "tile-proxy"} ${card.is_token ? "tile-token" : ""} ${card.commander_key ? "tile-commander" : ""}`} style={style}>
       {art ? (
-        <img className="tile-art" src={art} alt={card.name} draggable={false} loading="lazy" onError={() => setFailed(art)} />
+        <img key={nonce} className="tile-art" src={art} alt={card.name} draggable={false} loading="lazy" onError={() => onError(art)} />
       ) : (
         <div className="tile-field" aria-hidden>
           {p && (

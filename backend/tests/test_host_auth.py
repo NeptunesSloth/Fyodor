@@ -54,6 +54,27 @@ def test_cookie_is_secure_over_https(settings: Settings) -> None:
         assert "secure" in r.headers["set-cookie"].lower().split("; ")
 
 
+def test_https_session_sets_the_host_prefixed_cookie(settings: Settings) -> None:
+    with TestClient(create_app(settings), base_url="https://testserver") as c:
+        r = c.post("/api/host/session", json={"secret": c.app.state.services.host_secret.value})  # type: ignore[attr-defined]
+        cookie = r.headers["set-cookie"].lower()
+        assert cookie.startswith("__host-fyodor_host=")
+        assert "secure" in cookie.split("; ") and "path=/" in cookie and "domain=" not in cookie
+
+
+def test_either_cookie_name_is_the_host(settings: Settings) -> None:
+    for name in ("fyodor_host", "__Host-fyodor_host"):
+        with TestClient(create_app(settings)) as c:
+            c.cookies.set(name, c.app.state.services.host_secret.value)  # type: ignore[attr-defined]
+            assert c.get("/api/host/session").json() == {"host": True}
+
+
+def test_plain_http_keeps_the_plain_name(settings: Settings) -> None:
+    with TestClient(create_app(settings)) as c:
+        r = c.post("/api/host/session", json={"secret": c.app.state.services.host_secret.value})  # type: ignore[attr-defined]
+        assert r.headers["set-cookie"].startswith("fyodor_host=")
+
+
 def test_secret_changes_each_start_and_file_is_private(settings: Settings) -> None:
     with TestClient(create_app(settings)) as a:
         first = a.app.state.services.host_secret.value  # type: ignore[attr-defined]

@@ -278,6 +278,20 @@ export type CardPermissions = "everyone" | "owner";
  */
 export type TableFormat = "commander" | "sandbox";
 
+export interface ClockSettings {
+  on: boolean;
+  bank_seconds: number;
+  buffer_seconds: number;
+  at_zero: "act" | "show";
+  grace_seconds: number;
+}
+export interface GameClock {
+  settings: ClockSettings;
+  sent_at: number;
+  // (buffer: null for a player not being waited on; the same shape as game/turnClock.ts's ClockEntry)
+  players?: Record<string, { bank: number; buffer: number | null; running: boolean; away: boolean }>;
+}
+
 export interface GameMeta {
   id: string;
   name: string;
@@ -318,6 +332,8 @@ export interface GameMeta {
   undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
   code: string | null;
+  /** Shared over the internet (an invite link through the tunnel). */
+  shared?: boolean;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
   /** Custom images used at this table (sleeves, playmats), by asset id. */
   assets?: Record<string, AssetRef>;
@@ -327,6 +343,8 @@ export interface GameMeta {
   revision?: number;
   /** LAN: the host's seat (table-level overrides are the host's). */
   host_seat?: string | null;
+  /** -- turn clock -- the server's optional clock: the settings, the server's wall time when this was sent, and (only while on) each player's time left. */
+  clock?: GameClock;
   /** Game night: turn order and its d20 rolls, an agreed-ending proposal, the result and rematch vote. */
   night?: NightInfo;
   /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
@@ -695,6 +713,8 @@ export interface LobbySettings {
   planechase?: boolean;
   planar_deck_size?: number;
   planar_phenomena?: boolean;
+  /** -- turn clock -- optional; a PATCH carrying it REPLACES the whole object, so always send all of it. */
+  clock?: ClockSettings;
 }
 
 export interface LobbyDeckSummary {
@@ -738,7 +758,7 @@ export interface LobbyView {
   phase: "lobby";
   /** Room revision when this lobby was built (older ones arriving late are ignored). */
   revision?: number;
-  game: { id: string; mode: "lan"; code: string | null; has_password: boolean };
+  game: { id: string; mode: "lan"; code: string | null; shared?: boolean; has_password: boolean };
   viewer: string;
   is_host: boolean;
   settings: LobbySettings;

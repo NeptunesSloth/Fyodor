@@ -43,6 +43,8 @@ const PATHS = {
   lock: "M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9.5H6zM12 14.5v2.5",
   // a sun with eight short rays, and a crescent moon: day and night (CR 726)
   sun: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4",
+  // a globe, a circle with a meridian and two parallels: shared over the internet
+  globe: "M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.6 5.9 12 3.5z",
   moon: "M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10z",
 } as const;
 

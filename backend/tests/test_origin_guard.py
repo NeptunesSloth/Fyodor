@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import socket
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +15,7 @@ from starlette.websockets import WebSocketDisconnect
 from app import netguard
 from app.config import Settings, load_settings
 from app.main import create_app
-from tests.conftest import connect_game
+from tests.conftest import claim_host, connect_game
 
 LOBBY = {"mode": "lan", "lobby": True, "name": "Friday", "seats": 4, "players": []}
 OWN = "http://testserver"
@@ -99,6 +101,10 @@ def test_origin_allowed_by_the_extra_list():
     ("192.168.1.20:80x", False),
     ("192.168.1.20:", False),
     ("[::1]:", False),
+    ("[fe80::1%a;b]:8000", False),                    # a zone id ('%') is never part of a Host: ipaddress takes any text after it
+    ("[fe80::1%a b]", False),
+    ("[fe80::1%eth0]", False),
+    ("[fe80::1%25eth0]:8000", False),
     ("", False),
     (None, False),
 ])
@@ -185,10 +191,34 @@ def test_a_get_with_a_foreign_origin_still_works(client: TestClient):
     assert client.get("/api/health", headers={"Sec-Fetch-Site": "cross-site"}).status_code == 200
 
 
-def test_a_dev_origin_from_cors_origins_passes(client: TestClient):
-    res = client.post("/api/games", json=LOBBY, headers={"Origin": "http://localhost:5173"})
-    assert res.status_code == 201
-    assert client.post("/api/games", json=LOBBY, headers={"Origin": "http://localhost:5174"}).status_code == 403
+DEV = "http://localhost:5173"
+
+
+@contextlib.contextmanager
+def served(tmp_path, env: dict[str, str]) -> Iterator[TestClient]:
+    base = {"FYODOR_DATA_DIR": str(tmp_path / "data"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")}
+    with TestClient(create_app(load_settings(base | env))) as c:
+        yield claim_host(c)
+
+
+def test_dev_origins_are_refused_by_default(client: TestClient):
+    assert client.app.state.services.settings.cors_origins == ()  # type: ignore[attr-defined]
+    assert client.post("/api/games", json=LOBBY, headers={"Origin": DEV}).status_code == 403
+    assert client.post("/api/games", json=LOBBY, headers={"Origin": "http://127.0.0.1:5173"}).status_code == 403
+
+
+def test_dev_origins_with_dev_tools(tmp_path):
+    with served(tmp_path, {"FYODOR_DEV_TOOLS": "1"}) as c:
+        assert c.post("/api/games", json=LOBBY, headers={"Origin": DEV}).status_code == 201
+        assert c.post("/api/games", json=LOBBY, headers={"Origin": "http://127.0.0.1:5173"}).status_code == 201
+        assert c.post("/api/games", json=LOBBY, headers={"Origin": "http://localhost:5174"}).status_code == 403
+
+
+def test_cors_origins_variable_wins(tmp_path):
+    for env in ({"FYODOR_CORS_ORIGINS": "https://a.example"}, {"FYODOR_CORS_ORIGINS": "https://a.example", "FYODOR_DEV_TOOLS": "1"}):
+        with served(tmp_path, env) as c:
+            assert c.post("/api/games", json=LOBBY, headers={"Origin": "https://a.example"}).status_code == 201
+            assert c.post("/api/games", json=LOBBY, headers={"Origin": DEV}).status_code == 403
 
 
 def test_an_invite_origin_in_services_extra_origins_passes(client: TestClient):
@@ -282,10 +312,13 @@ def test_socket_with_no_origin_closes_4403(client: TestClient, lan_game, monkeyp
     assert refused(client, f"/ws/games/{gid}") == 4403
 
 
-def test_socket_with_a_dev_origin_connects(client: TestClient, lan_game):
+def test_socket_with_a_dev_origin_connects_only_in_development(client: TestClient, lan_game, tmp_path):
     gid, token = lan_game
-    with connect_game(client, gid, token, headers={"Origin": "http://localhost:5173"}) as ws:
-        assert ws.receive_json()["type"] in {"lobby", "state"}
+    assert refused(client, f"/ws/games/{gid}", headers={"Origin": DEV}) == 4403
+    with served(tmp_path, {"FYODOR_DEV_TOOLS": "1"}) as c:
+        body = c.post("/api/games", json=LOBBY).json()
+        with connect_game(c, body["game"]["id"], body["seat"]["token"], headers={"Origin": DEV}) as ws:
+            assert ws.receive_json()["type"] in {"lobby", "state"}
 
 
 def test_socket_with_a_foreign_host_closes_4400_before_the_origin_is_looked_at(client: TestClient, lan_game):

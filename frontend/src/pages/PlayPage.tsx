@@ -33,8 +33,10 @@ import {
   importPackage,
   packageUrl,
   loadSave,
+  rememberInvite,
   rememberSeat,
   seatToken,
+  stored,
   submitLobbyDeck,
   type CreatePlayer,
 } from "../services/games";
@@ -43,7 +45,8 @@ import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
 import { joinWithPreferredSeat } from "./joinSeat";
-import { orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
+import { isTunnel } from "../services/share";
+import { heldTokenFor, orderGames, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
 import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
@@ -61,11 +64,15 @@ const AUTOMATION_HINT: Record<AutomationLevel, string> = {
 /** Join links already acted on in this page's life (a re-render or React's double effect never joins twice). */
 const handledInvites = new Set<string>();
 
-/** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. */
+/** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. A
+ *  browser that already holds a seat at the table this code opened sends that seat's token: the server gives the seat back (opening
+ *  the invite link again) instead of a second one. */
 async function joinTable(body: { code: string; name?: string; password?: string; spectate: boolean; handoff?: string | null }): Promise<void> {
   const preferred = usePrefs.getState().preferredSeat;
-  const res = await joinWithPreferredSeat((b) => joinGame(b), body, preferred);
+  const held = heldTokenFor(body.code, stored, seatToken);
+  const res = await joinWithPreferredSeat((b) => joinGame(b, held), body, preferred);
   rememberSeat(res.game_id, res.token);
+  rememberInvite(body.code, res.game_id);
   navigate(`/game/${res.game_id}`);
 }
 
@@ -87,6 +94,8 @@ export function PlayPage({ route }: { route: Route }) {
   const [games, setGames] = useState<GameSummary[] | null>(null);
   const [saves, setSaves] = useState<SaveSummary[]>([]);
   const [decks, setDecks] = useState<DeckSummary[]>([]);
+  const [tunnel, setTunnel] = useState<boolean | null>(null); // (reached through the invite link: read once)
+  useEffect(() => { void isTunnel().then(setTunnel); }, []);
 
   const refresh = useCallback(() => {
     listGames().then(setGames, (e) => {
@@ -115,19 +124,19 @@ export function PlayPage({ route }: { route: Route }) {
   const invite = useMemo(() => readInvite(route.query), [route.query]);
   const [askPassword, setAskPassword] = useState(false);
   useEffect(() => {
-    if (!invite || invite.action === "fill" || games === null) return;
+    if (!invite || invite.action === "fill" || games === null || tunnel === null) return;
     const key = `${invite.code}|${invite.action}|${invite.name}|${invite.handoff ?? ""}`;
     if (handledInvites.has(key)) return;
     handledInvites.add(key);
     window.history.replaceState(window.history.state, "", withoutInvite(window.location.hash));
-    const plan = planInvite(invite, games, (id) => !!seatToken(id));
+    const plan = planInvite(invite, games, (id) => !!seatToken(id), tunnel);
     if (plan.kind === "open") navigate(`/game/${plan.gameId}`);
     else if (plan.kind === "password") setAskPassword(true);
     else if (plan.kind === "join") {
       void joinTable({ code: invite.code, name: invite.name || activeProfile().name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
         .catch(toastError);
     }
-  }, [invite, games]);
+  }, [invite, games, tunnel]);
 
   // -- clear the shelf -- close every open table, then delete every save (closing autosaves a table: listed after)
   const clearAll = async () => {

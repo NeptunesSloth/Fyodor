@@ -1,3 +1,51 @@
+## INTERNET-PLAY STAGE 3: AN OPTIONAL, SERVER-OWNED TURN CLOCK (2026-11-25)
+
+Branch `internet-play-stage3`, built on Stage 2's final head `6b9dd82` (none of the three stages merged; merge Stage 1, then Stage 2, then this; the owner reads `docs/superpowers/specs/2026-11-25-stage3-audit.md` first). Plan `docs/superpowers/plans/2026-11-25-internet-play-stage3-turn-clock.md`. Off by default, so a pod night is unchanged; offered at LAN Commander tables only. Card coverage and the rules engine are unchanged.
+
+**The clock (`app/game/turn_clock.py`, `app/multiplayer/turn_clock_driver.py`)**
+- A bank per player (default 25 min) and an uncharged grace per decision (30 s), on the server's monotonic time; only the player the engine waits on is charged (priority, a pending decision, each undecided mulligan), never while an action resolves, while automation is off or paused, with nobody connected, or while a disconnected player has reconnect grace left (one budget per player per game, default 2 minutes plus the host's extensions, spent only while away and waited on; saved with the clock). One timer task per room acts under the existing `room.lock`.
+- Lives on `GameSession.clock`, saved in the save's `extras` and the crash record, never in `GameState`: replay is untouched and undo refunds nothing. Old saves load with the clock off; a restart keeps the banks and charges nothing for the downtime.
+
+**At zero (`app/game/clock_defaults.py`)**
+- **Act for the player**: the safest legal default with its rule number (pass, keep, decline a "may" or a harmless optional cost, no attack/block beyond what must, take back a cast in progress, Assisted rules confirmations "yes", a commander to the command zone). Anything where declining harms the player, tribute, a possible elimination or a manual resolution is left to the table with one log line. A required target is a permanent where one is offered, else an opponent, never the timed-out player while anything else is legal (only them: the table). It never concedes, and never chooses a loss for the timed-out player. **Only show it**: 0:00 and nothing happens.
+- A click from a view older than the clock's action is refused (`seen_revision`); a concession always goes through.
+
+**Host and table (`api/turn_clock.py`, frontend)**
+- `POST /api/games/{id}/clock` (host window only, 404 through the invite link): settings, +time, more reconnect grace, each a log notice. The lobby's **Turn clock** setting, a countdown chip on every seat plate (`0:24 · 12:31`, *Paused — reconnecting*, words not colour, no rope), and a Turn clock section in Host tools.
+
+**The gate (audit "Stage gate")**
+- ruff 10 as the base; mypy 304 vs the base's 303 (one more message on a pre-existing `night.py` line because `LobbySettings` gained a field); frontend typecheck and 1664 tests pass; bandit's 2 findings on new lines (two type-narrowing `assert`s) and the open pip/npm development-tool advisories answered; the 13-point gate walked (one literal new `except Exception` that logs and falls back, flagged for the owner).
+- Not done, one line each: the full backend run (the controller's, pending); the independent review (pending); the two-device manual check and Task 7's screenshots and critique (the owner's, NOT DONE).
+
+**Docs:** `docs/LAN_PLAY.md` "Turn clock"; `docs/UI_REFERENCE_STUDY.md` M4/G3 no longer forbid a clock (optional, off by default, no burning rope).
+
+## INTERNET-PLAY STAGE 2: AN INVITE LINK THROUGH A CLOUDFLARE QUICK TUNNEL (2026-11-25)
+
+Branch `internet-play-stage2`, built on `internet-play-stage1` (neither merged; merge Stage 1 first; the owner reads `docs/superpowers/specs/2026-11-25-stage2-audit.md` first). Plan `docs/superpowers/plans/2026-11-25-internet-play-stage2-invite-link.md`. The host presses **Invite over the internet** on a LAN table and sends one https link plus the password; nothing changes for a LAN night, and nothing is downloaded or started until someone presses it. Card coverage and the rules engine are unchanged.
+
+**The provider (audit "Provider verification")**
+- Checked on a real quick tunnel before any code: sockets work and survive a 10-minute idle, Cloudflare refuses a forged `CF-Connecting-IP` at its edge, the origin's `Host` is the public name, a `config.yaml` in `.cloudflared` would hijack routing (so Fyodor always passes `--config <empty file>`), four tabs × 100 pictures get 429s past 200 in flight. The owner accepted Cloudflare's "for testing and development" / "no uptime guarantee".
+
+**The tunnel (`backend/app/tunnel/`, `launcher.py`, `api/share.py`)**
+- `cloudflared` 2026.11.2 is downloaded on first use, pinned by version and SHA-256 (all five platforms, checked against the release notes and GitHub's digests), checked again before every launch, run with `--no-autoupdate`, metrics on loopback, as a child that dies with Fyodor on Windows (job object). Its hostname comes from the metrics `/quicktunnel` and must be a `*.trycloudflare.com` name.
+- One uvicorn server, two sockets: the LAN port as before and a loopback tunnel port only cloudflared connects to. uvicorn's own proxy-header handling is off.
+- `GET/POST/DELETE /api/games/{id}/share` (host window only): sharing needs a password, makes a 10-character invite code (kept for re-shares), starts the link; **Stop sharing** closes the remote players' sockets ("The host stopped sharing this table."), and the last unshare, closing a shared table or the link dying stops or reports it.
+
+**What the tunnel port is (`api/deps.py`, `netguard.py`, `main.py`)**
+- Never the host (cookie or room host token), never the LAN gate; client address from `CF-Connecting-IP`, IPv6 per /64; Host must be the invite name and Origin `https://` it; a frozen allowlist of 71 routes (everything else 404); only shared tables, joined by invite code only; `GET /api/games` is `[]`, codes hidden, `/api/health` trimmed to status and version for anyone not the host; request bodies 256 KB.
+
+**Stage 1's "Stage 2 must" and two Stage 1 review findings**
+- The host's own seat can't be removed and a left seat can't be claimed (SR1); large body allowances only for the host or a seat (NB1); spectator tokens capped at 32 per room; `__Host-fyodor_host` over https; `FYODOR_LEGACY_WS_TOKEN` deleted; `connect-src` names this host only; join passwords counted before hashing and hashed on their own pool; the Vite dev origins trusted only with `FYODOR_DEV_TOOLS=1` (`FYODOR_CORS_ORIGINS` defaults to none); an `X-Forwarded-For` entry with a port pinned by a test.
+
+**Frontend**
+- The invite panel in the lobby's Invite popover and in Host tools (password step, link with Copy, Stop sharing, Invite again), a "Shared over the internet" chip with a globe for everyone at a shared table, the LAN code chip hidden on the tunnel, the join asks for the password on the tunnel, and a card picture that got a 429 through the tunnel is retried once.
+
+**The gate (audit "Stage gate")**
+- ruff 10 and mypy 303 errors, the same as the base; frontend typecheck and 1633 tests pass; bandit's 4 findings on new lines (the `subprocess` use and an `assert`) and the open pip/npm development-tool advisories answered; the 13-point gate walked (one literal `except Exception` that re-raises, flagged); every "Stage 2 must" item with its test.
+- Not done, one line each: the full backend run (the controller's, pending); the independent review (pending); the manual check through a real tunnel with a phone on mobile data and an iPhone, and Task 15's screenshots (the owner's, NOT DONE).
+
+**Docs:** `docs/LAN_PLAY.md` "Inviting friends over the internet" (what to press, link plus password, Cloudflare sees the traffic, no uptime guarantee, Stop sharing and closing Fyodor end it, `FYODOR_ALLOW_NETWORK=0` turns it off) and the environment-variable changes; README's `FYODOR_CORS_ORIGINS` default corrected.
+
 ## INTERNET-PLAY STAGE 1: HARDENING BEFORE ANYTHING IS EXPOSED (2026-11-21)
 
 Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/specs/2026-11-21-stage1-audit.md` first). The design is `docs/superpowers/specs/2026-11-21-internet-play-design.md`; this is its Stage 1, the security work that has to exist before the tunnel of Stage 2 does. On a LAN night nothing new is asked of the host or the players. Card coverage and the rules engine are unchanged.
@@ -9,7 +57,7 @@ Branch `internet-play-stage1` (not merged: the owner reads `docs/superpowers/spe
 
 **What a request or socket must pass (`netguard.py`, `main.py`, `api/games.py`)**
 - A `Host` the server does not answer to is refused (400, DNS rebinding); a state-changing request that is cross-site, or whose `Origin` is not this server's own, is refused (403). The Origin must equal its own `scheme://host[:port]` form, nothing looser. `FYODOR_EXTRA_HOSTS` is validated at start.
-- The game socket takes no token in its address: the first message carries it, within 5 seconds, and every failure closes 4403. Seat links keep the token after the `#`. `FYODOR_LEGACY_WS_TOKEN=1` brings the old form back (off by default).
+- The game socket takes no token in its address: the first message carries it, within 5 seconds, and every failure closes 4403. Seat links keep the token after the `#`. A `?token=` in the address is ignored (the old `FYODOR_LEGACY_WS_TOKEN` switch is gone).
 - Guess limits: five wrong codes or passwords per address per 15 minutes, 30 wrong passwords per room; a right secret is never refused. Passwords use PBKDF2 at 600,000 rounds, upgraded on next use.
 - Sockets: four per seat, 24 per address, a ping every 25 seconds and a close after 90 silent ones, frames limited in bytes, a reclaimed seat's old sockets closed. Remembered action ids are per seat (migration 14).
 - Responses: HSTS only over https (directly, or from a trusted proxy), `/docs`, `/redoc` and `/openapi.json` only with `FYODOR_DEV_TOOLS=1`, the host cookie `Secure` over https.

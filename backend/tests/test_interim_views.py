@@ -12,7 +12,7 @@ import pytest
 
 from app.game.visibility import SPECTATOR
 from app.multiplayer import hub as hub_mod
-from app.multiplayer.hub import Connection, GameHub, InterimStream
+from app.multiplayer.hub import Connection, GameHub, InterimStream, conn_key
 from tests import test_rules_playtest_kiki_end_step_batch as kiki
 from tests.test_rules_playtest_kiki_end_step_batch import card_db  # noqa: F401 - (the fixture: Kiki-Jiki and Pestermite)
 from tests.wave9c_kit import check, reloaded, to_hand
@@ -172,10 +172,10 @@ def test_interim_views_offered_after_the_action_are_dropped():
 
         room.connections = {"c": Connection(viewer="p1", send=send, actor="p1", id="c")}
         stream = InterimStream(hub, room, asyncio.get_running_loop(), "p1")  # type: ignore[arg-type]
-        stream._offer({"p1:False": {"type": "interim", "revision": 3, "progress": {"resolved": 1}}})
+        stream._offer({conn_key(room.connections["c"]): {"type": "interim", "revision": 3, "progress": {"resolved": 1}}})
         await asyncio.sleep(0)
         await stream.close()
-        stream._offer({"p1:False": {"type": "interim", "revision": 3, "progress": {"resolved": 2}}})  # (late: the action is done)
+        stream._offer({conn_key(room.connections["c"]): {"type": "interim", "revision": 3, "progress": {"resolved": 2}}})  # (late: the action is done)
         await asyncio.sleep(0)
         assert stream.task is None
 

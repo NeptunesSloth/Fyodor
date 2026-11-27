@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(errors="replace")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(prog="fyodor", description="Start the Fyodor table on this computer.")
     # game night is a pod on one network: other devices may join unless --local says otherwise
-    parser.add_argument("--local", action="store_true", help="only this computer can connect")
+    parser.add_argument("--local", action="store_true", help="only this computer can connect (an invite link you start still works)")
     parser.add_argument("--lan", action="store_true", help=argparse.SUPPRESS)  # the default now; kept for old shortcuts
     parser.add_argument("--port", type=int, default=None, help="port to listen on (default 8000)")
     parser.add_argument("--no-browser", action="store_true", help="don't open a browser window")
@@ -326,23 +326,32 @@ FRAME_MARGIN = 1024  # what the transport allows above a message's own limit in 
 
 def server_options(settings: Settings) -> dict[str, Any]:
     """How uvicorn is set up. ``ws_max_size``: a game-socket frame bigger than a message may be (MAX_WS_MESSAGE characters, up to 4 bytes each in UTF-8) is refused as it arrives,
-    not after uvicorn has buffered up to 16 MiB of it (its default)."""
+    not after uvicorn has buffered up to 16 MiB of it (its default). ``proxy_headers`` is off: uvicorn would trust X-Forwarded-For/-Proto from any loopback peer
+    (every peer behind a tunnel) and rewrite the client before Fyodor looks; ``client_address`` (app/api/deps.py) is the only reader of forwarded headers."""
     from app.api.games import MAX_WS_MESSAGE
 
-    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN}
+    return {"host": settings.host, "port": settings.port, "log_level": settings.log_level.lower(), "ws_max_size": MAX_WS_MESSAGE * 4 + FRAME_MARGIN,
+            "proxy_headers": False}
 
 
 def serve(settings: Settings, browser: bool = False) -> None:
     """Run the server; Settings → Restart (after a restore) stops it and starts it again here, in the same program,
     which is when a staged restore is applied (app/storage/backup.py). With ``browser``, each start opens the table in a window
-    that holds that start's host secret (a restart makes a new one, so the old window is a guest until it is replaced)."""
+    that holds that start's host secret (a restart makes a new one, so the old window is a guest until it is replaced).
+
+    One server listens on two sockets: the LAN port, and the tunnel port, a loopback port the OS picks that only cloudflared
+    connects to (app/tunnel; never printed). One server, one event loop: the rooms' locks hold for both. uvicorn closes the sockets
+    it was handed when it shuts down, so each start binds both again (a restart gets a new tunnel port)."""
     import uvicorn
 
     from app.main import create_app
 
     while True:
         again = threading.Event()
+        lan = socket.create_server((settings.host, settings.port), family=socket.AF_INET6 if ":" in settings.host else socket.AF_INET)
+        tun = socket.create_server(("127.0.0.1", 0))
         app = create_app(settings)
+        app.state.services.tunnel.port = tun.getsockname()[1]
         if browser:
             threading.Thread(target=_open_when_ready, args=(f"http://127.0.0.1:{settings.port}", settings, app.state.services.host_secret.value),
                              daemon=True).start()
@@ -368,7 +377,7 @@ def serve(settings: Settings, browser: bool = False) -> None:
                 PAGE_SEEN.set()  # a window asked for the table (open_table watches for this)
             return await call_next(request)
 
-        server.run()
+        server.run(sockets=[lan, tun])
         if EXIT_FOR_UPDATE.is_set():
             # (the server has shut down and saved; a thread left behind must not keep Fyodor.exe running and locked)
             print("\nFyodor is closing to install an update; it starts again by itself.\n", flush=True)

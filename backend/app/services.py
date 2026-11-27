@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import contextlib
 import json
 import logging
@@ -30,11 +32,12 @@ from app.cards.token_art import TokenArt
 from app.config import Settings
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
-from app.game import engine
+from app.game import engine, turn_clock
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
 from app.hostauth import SECRET_FILE, HostSecret
 from app.jobs import JobManager, ProgressFn
+from app.multiplayer import turn_clock_driver
 from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
 from app.netguard import AttemptLimiter, ConnectionCaps
@@ -57,8 +60,13 @@ from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
 from app.storage.saves import SaveRepository
 from app.storage.taught import TaughtRepository
+from app.tunnel.manager import WENT_DOWN, TunnelManager
 
 log = logging.getLogger(__name__)
+
+# -- invite over the internet -- why remote sockets close (and a late remote action is refused) when a table stops being shared
+STOPPED_SHARING = "The host stopped sharing this table."
+CLOSED_TABLE = "The host closed this table."
 
 
 def replay_journal(session: GameSession, entries: list[dict[str, Any]]) -> int:
@@ -94,8 +102,14 @@ class Services:
         self.join_limiter_addr = AttemptLimiter(5, 900.0)  # wrong room codes and passwords, by client address
         self.host_limiter_addr = AttemptLimiter(5, 900.0)  # wrong host secrets, by client address (the right one is never refused)
         self.join_limiter_room = AttemptLimiter(30, 900.0)  # wrong passwords, by room code (a room that exists)
+        # /api/join's password checks (PBKDF2, ~0.2 s each): a pool of their own, so joins waiting to be hashed never hold the threads
+        # every other sync route runs on
+        self.hash_pool = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="pbkdf2")
         self.caps_seat = ConnectionCaps(4)  # open game sockets per seat ("<game id>:<seat>"): a tab, a spare window, a phone that has not timed out yet
         self.caps_addr = ConnectionCaps(24)  # open game sockets per client address, authenticated or not (hot-seat and the host's windows stay far under)
+        self.tunnel = TunnelManager(settings)  # -- invite over the internet -- (its port is set by the launcher; app/tunnel/manager.py)
+        self.tunnel.on_down = self._tunnel_down
+        self.share_lock = asyncio.Lock()  # a table being shared or unshared, and the tunnel stopped when none is (app/api/share.py)
         self.extra_origins: set[str] = set()  # origins besides the server's own and settings.cors_origins that may post and open sockets
         self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
@@ -139,9 +153,11 @@ class Services:
                 state, history = self.saves.load(live.checkpoint, history_limit=self.settings.history_limit)
                 session = GameSession(state, cards=self.cards, history=history, history_limit=self.settings.history_limit,
                                       rules=self.rules)
-                snaps = self.saves.extras(live.checkpoint).get("table_snapshots")
+                extras = self.saves.extras(live.checkpoint)
+                snaps = extras.get("table_snapshots")
                 if isinstance(snaps, list):
                     session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)]
+                turn_clock.load_extras(session, extras)  # -- turn clock -- (the crash record's newer banks, if any, follow in restore)
                 replayed = replay_journal(session, live.entries)
             except Exception:  # noqa: BLE001 - a damaged table must not stop the others from coming back
                 log.exception("Could not recover table %s; its autosaves are still in Saves", live.game_id)
@@ -282,7 +298,8 @@ class Services:
             return  # nothing to save before the host starts the game; a practice table is never saved (ELIMINATION_HUB.md)
         state = room.session.state
         saved = self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
-                                extras={"table_snapshots": room.session.table_snapshots})
+                                extras={"table_snapshots": room.session.table_snapshots,
+                                        **turn_clock.save_extras(room.session, turn_clock_driver.now())})
         if room.id in self.hub.rooms:
             self.hub.persist(room)
             self.journal.checkpoint(room.id, saved["id"])
@@ -301,7 +318,47 @@ class Services:
             out["recovered_tables"] = [{"game_id": r["game_id"], "name": r["name"]} for r in self.recovered]
         return out
 
+    async def _end_share(self, room: Room, reason: str) -> None:
+        """-- invite over the internet -- the table is no longer served on the tunnel port: its remote players' sockets (and those of
+        its practice tables) close with ``reason``, the LAN's stay, and everyone sees it. Under the room lock, as actions are applied: a
+        remote action applied before this stands, and one still waiting for the lock is refused (games.py checks tunnel_serves). The
+        invite code goes with it: the next share has a new one (and a link nobody had), even when the tunnel's hostname stays."""
+        async with room.lock:
+            room.shared = False
+            room.invite_code = None
+            self.hub.persist(room)
+            await self.hub.close_tunnel_connections(room, reason)
+        for practice in [r for r in self.hub.rooms.values() if r.practice is not None and r.practice.live == room.id]:
+            async with practice.lock:
+                await self.hub.close_tunnel_connections(practice, reason)
+        await self.hub.broadcast(room)
+
+    async def stop_tunnel_if_unused(self) -> None:
+        """End the tunnel once no table is shared (off the loop: stop() waits for cloudflared). A start under way is left alone. The
+        caller holds share_lock, so a share can't slip in between the check and the stop."""
+        if not any(r.shared for r in self.hub.rooms.values()) and self.tunnel.state not in ("stopped", "starting"):
+            await asyncio.get_running_loop().run_in_executor(None, self.tunnel.stop)
+
+    async def stop_sharing(self, room: Room, reason: str) -> None:
+        """The host stops sharing ``room`` (or closes or replaces it): unshare it if it is shared, then end the tunnel if nothing else
+        is shared."""
+        async with self.share_lock:
+            if room.shared:
+                await self._end_share(room, reason)
+            await self.stop_tunnel_if_unused()
+
+    async def _tunnel_down(self) -> None:
+        """The tunnel manager's on_down: cloudflared exited while running (its state already says "failed", WENT_DOWN). Every table is
+        unshared first, so one that fails below still stops being served."""
+        async with self.share_lock:
+            rooms = [r for r in self.hub.rooms.values() if r.shared]
+            for room in rooms:
+                room.shared = False
+            for room in rooms:
+                await self._end_share(room, WENT_DOWN)
+
     def close(self) -> None:
+        self.tunnel.stop()  # first: nobody reaches the tables over the internet while they are saved and closed
         for room in list(self.hub.rooms.values()):
             try:
                 self.autosave(room)
@@ -310,5 +367,7 @@ class Services:
         self.autobackups.stop()
         self.art_keeper.stop()
         self.jobs.shutdown()
+        # (a join still hashing finishes, queued ones are dropped; called from the lifespan, so the loop waits up to one hash, ~0.2 s)
+        self.hash_pool.shutdown(wait=True, cancel_futures=True)
         self.cards.close()
         self.app_db.close()

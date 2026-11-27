@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import logging
 from urllib.parse import urlsplit
 
@@ -11,9 +10,8 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.api import games
-from app.config import Settings, load_settings
-from app.main import create_app
-from tests.conftest import claim_host, connect_game
+from app.config import load_settings
+from tests.conftest import connect_game
 from tests.test_protocol_privacy import P1_DECK, P2_DECK
 
 LOBBY = {"mode": "lan", "lobby": True, "name": "Friday", "seats": 4, "players": []}
@@ -165,19 +163,13 @@ def test_an_unknown_game_closes_exactly_like_a_bad_token(client: TestClient, tab
     assert (missing.code, missing.reason) == (forged.code, forged.reason) == (4403, games.AUTH_REFUSED)
 
 
-def test_token_in_the_query_alone_is_refused_by_default(client: TestClient, table, monkeypatch: pytest.MonkeyPatch):
+def test_a_token_in_the_query_is_never_credentials(client: TestClient, table, monkeypatch: pytest.MonkeyPatch):
     gid, token = table
     monkeypatch.setattr(games, "AUTH_DEADLINE", 0.05)
+    monkeypatch.setenv("FYODOR_LEGACY_WS_TOKEN", "1")  # the removed switch changes nothing, in the environment or the settings
     with client.websocket_connect(f"/ws/games/{gid}?token={token}") as ws:
         assert closed_with(ws).code == 4403  # nothing came first: not the table, not an error
-
-
-def test_token_in_the_query_is_honoured_with_the_legacy_switch(settings: Settings, card_db):
-    with TestClient(create_app(dataclasses.replace(settings, legacy_ws_token=True))) as c:
-        claim_host(c)
-        gid, token = new_table(c)
-        with c.websocket_connect(f"/ws/games/{gid}?token={token}") as ws:
-            assert ws.receive_json()["type"] in {"lobby", "state"}
+    assert not hasattr(load_settings({"FYODOR_DATA_DIR": "x", "FYODOR_LEGACY_WS_TOKEN": "1"}), "legacy_ws_token")
 
 
 def test_both_query_token_and_auth_message_are_judged_on_the_auth_message(client: TestClient, table):
@@ -188,14 +180,6 @@ def test_both_query_token_and_auth_message_are_judged_on_the_auth_message(client
     with client.websocket_connect(f"/ws/games/{gid}?token=forged") as ws:
         ws.send_json({"type": "auth", "token": token, "viewer": None, "deltas": False})
         assert ws.receive_json()["type"] in {"lobby", "state"}
-
-
-def test_the_legacy_switch_is_on_only_for_the_exact_value_1(tmp_path):
-    def flag(value: str | None) -> bool:
-        env = {"FYODOR_DATA_DIR": str(tmp_path)} | ({"FYODOR_LEGACY_WS_TOKEN": value} if value is not None else {})
-        return load_settings(env).legacy_ws_token
-
-    assert [flag(None), flag("1"), flag("true"), flag("yes"), flag("0"), flag("")] == [False, True, False, False, False, False]
 
 
 def test_no_token_reaches_a_log_line(client: TestClient, table, caplog: pytest.LogCaptureFixture):

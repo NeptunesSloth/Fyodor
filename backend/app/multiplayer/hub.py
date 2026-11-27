@@ -28,10 +28,12 @@ from app.game.factory import PLAYER_COLORS
 from app.game.ops import down_public
 from app.game.session import GameSession
 from app.game.summary import player_commanders
+from app.game.turn_clock import TurnClock
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer import (
     bots,  # -- test opponent -- the server's pacing of its actions
     response_call,  # -- I have a response / flip the table --
+    turn_clock_driver,  # -- turn clock (stage 3) -- the room's timer
     view_delta,  # -- view deltas --
 )
 from app.multiplayer.elimination import PracticeLink, Pulse
@@ -52,10 +54,12 @@ SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 PASSWORD_ROUNDS = 600_000  # what a password is hashed at now (OWASP's figure for PBKDF2-HMAC-SHA256)
+MAX_SPECTATORS = 32  # spectator tokens per room; a join past it lets the earliest one go
 MAX_STORED_ROUNDS = 10_000_000  # a saved count above this is not ours: one join must not burn minutes of CPU on a doctored file
-# At most 4 hashes run at once: this bounds the CPU a burst of guesses costs, not the threadpool. A join waiting for a slot still holds
-# one of the shared worker threads (the join route is sync), so ~40 concurrent joins stall the other sync routes while they drain, and
-# they all pass the address limiter before the first failure is counted. Stage 2: count the attempt before hashing, hash off the pool.
+# At most 4 hashes run at once: this bounds the CPU hashing costs. /api/join counts a guess against the address before hashing it (a
+# burst from one address is refused from the sixth on, unhashed) and hashes on ``Services.hash_pool`` (4 threads of its own), so joins
+# waiting to be checked never hold the threads the other sync routes share. Room creation still hashes on a shared worker thread; the
+# slots keep it and the joins at 4 together.
 _hash_slots = threading.BoundedSemaphore(4)
 
 
@@ -125,7 +129,8 @@ class Connection:
     viewer: str  # player id, SPECTATOR or OMNISCIENT
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
-    host: bool = False  # connected with host rights (lobby management)
+    host: bool = False  # connected with host rights (lobby management): never through the tunnel (app/api/deps.py room_host)
+    tunnel: bool = False  # -- invite over the internet -- connected on the tunnel port (app/api/deps.py is_tunnel_request)
     token: str | None = field(default=None, repr=False)  # the seat token it authenticated with (a secret: never logged)
     close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
@@ -137,8 +142,14 @@ class Connection:
     vseq: int = 0
 
 
+def conn_key(conn: Connection) -> str:
+    """Connections that are sent the same message: one viewer, host rights or not, through the tunnel or not (no LAN room code)."""
+    return f"{conn.viewer}:{conn.host}:{conn.tunnel}"
+
+
 class GameNotStarted(RuntimeError):
     pass
+
 
 
 @dataclass
@@ -157,7 +168,8 @@ class Room:
     password_rounds: int = 120_000  # (the default is what metadata written before this field used)
     _password_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)  # the three password fields change together
     seats: dict[str, Seat] = field(default_factory=dict)
-    spectator_tokens: set[str] = field(default_factory=set)
+    spectator_tokens: list[str] = field(default_factory=list)  # oldest first, at most MAX_SPECTATORS
+    dropped_spectators: list[str] = field(default_factory=list)  # tokens let go by the cap, their sockets not yet closed (memory only)
     connections: dict[str, Connection] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     actions_since_save: int = 0
@@ -170,6 +182,8 @@ class Room:
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
+    shared: bool = False  # -- invite over the internet -- served on the tunnel port (app/api/deps.py tunnel_serves)
+    invite_code: str | None = None  # -- invite over the internet -- what the tunnel port takes in place of ``code`` (never in a view)
     predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
     saved_rows: dict[str, dict[str, str]] = field(default_factory=dict)  # -- saved rows -- deck id -> the rows last stored for it
     # -- resolving progress -- a rules intent being worked out off the event loop (``GameHub.perform``): done once it is applied.
@@ -218,7 +232,7 @@ class Room:
 
     def seat_for_token(self, token: str | None) -> str | None:
         """Player id for a seat token, SPECTATOR for a spectator token, else None."""
-        if not token or token.startswith(BOT_TOKEN):
+        if not token or not token.isascii() or token.startswith(BOT_TOKEN):  # (compare_digest raises on a non-ASCII str)
             return None  # (-- LAN bots -- nobody acts as a bot: the server plays it directly)
         for seat in self.seats.values():
             if seat.token and hmac.compare_digest(seat.token, token):
@@ -229,7 +243,7 @@ class Room:
 
     def is_host(self, token: str | None) -> bool:
         """The host token, or the seat token of the host's own seat."""
-        if not token:
+        if not token or not token.isascii():
             return False
         if hmac.compare_digest(self.host_token, token):
             return True
@@ -254,6 +268,7 @@ class Room:
             "mode": self.mode,
             "phase": self.phase,
             "code": self.code if self.mode == "lan" else None,
+            "shared": self.shared,
             "has_password": self.password_hash is not None,
             "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
         }
@@ -306,8 +321,9 @@ class Room:
         key = self.night.last_winner_key
         return next((pid for pid, seat in self.seats.items() if key and seat.token == key), None)
 
-    def lobby_view(self, viewer: str, *, host: bool = False) -> dict[str, Any]:
-        """The pregame lobby as one viewer may see it (deck lists follow the privacy setting)."""
+    def lobby_view(self, viewer: str, *, host: bool = False, tunnel: bool = False) -> dict[str, Any]:
+        """The pregame lobby as one viewer may see it (deck lists follow the privacy setting). ``tunnel``: sent through the invite link,
+        so without the LAN room code (it works only on the LAN port)."""
         settings = self.lobby or LobbySettings()
         seats = []
         for pid, seat in self.seats.items():
@@ -332,7 +348,8 @@ class Room:
             "game": {
                 "id": self.game_id,
                 "mode": self.mode,
-                "code": self.code if self.mode == "lan" else None,
+                "code": self.code if self.mode == "lan" and not tunnel else None,
+                "shared": self.shared,
                 "has_password": self.password_hash is not None,
             },
             "phase": self.phase,
@@ -428,17 +445,51 @@ class GameHub:
             if all(r.code != code for r in self.rooms.values()):
                 return code
 
+    def new_invite_code(self, room: Room) -> str:
+        """The room's invite code (10 characters, unique against every room's codes), made once per share: sharing again while shared
+        keeps it; stopping sharing clears it (Services._end_share), so the next share has a new one."""
+        if room.invite_code is None:
+            taken = {c for r in self.rooms.values() for c in (r.code, r.invite_code)}
+            while True:
+                code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(10))
+                if code not in taken:
+                    room.invite_code = code
+                    self.persist(room)
+                    break
+        return room.invite_code
+
+    def set_password(self, room: Room, password: str) -> None:
+        """Give the room a new password (new salt, current rounds) and store the room."""
+        if not password:
+            raise ValueError("A room password cannot be empty")
+        salt = secrets.token_bytes(16)
+        new_hash = _hash_password(password, salt, PASSWORD_ROUNDS)
+        with room._password_lock:
+            room.password_salt, room.password_hash, room.password_rounds = salt, new_hash, PASSWORD_ROUNDS
+        self.persist(room)
+
     def get(self, game_id: str) -> Room | None:
         return self.rooms.get(game_id)
 
     def by_code(self, code: str) -> Room | None:
         code = code.strip().upper()
+        if not code.isascii():  # (compare_digest raises on a non-ASCII str)
+            return None
         return next((r for r in self.rooms.values() if r.mode == "lan" and r.practice is None and hmac.compare_digest(r.code, code)), None)
+
+    def by_invite_code(self, code: str) -> Room | None:
+        """The shared LAN room this invite code opens (the tunnel port's way in; ``by_code`` never matches one)."""
+        code = code.strip().upper()
+        if not code.isascii():  # (compare_digest raises on a non-ASCII str)
+            return None
+        return next((r for r in self.rooms.values() if r.shared and r.invite_code is not None and r.mode == "lan" and r.practice is None
+                     and hmac.compare_digest(r.invite_code, code)), None)
 
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
         bots.forget(game_id)
         response_call.forget(game_id)
+        turn_clock_driver.forget(game_id)
         if room:
             if room.game is not None:
                 room.game.history.listener = None
@@ -451,14 +502,16 @@ class GameHub:
         """Everything about a room that isn't the game itself (for restoring it after a restart)."""
         salt, pw_hash, rounds = room.password_state()
         return {
-            "mode": room.mode, "code": room.code, "host_token": room.host_token, "host_seat": room.host_seat,
+            "mode": room.mode, "code": room.code, "invite_code": room.invite_code, "shared": room.shared, "host_token": room.host_token, "host_seat": room.host_seat,
             "password_salt": salt.hex() if salt else None,
             "password_hash": pw_hash.hex() if pw_hash else None,
             "password_rounds": rounds,
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
-            "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
+            "spectator_tokens": list(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
             "night": room.night.meta(),
             "lobby": room.lobby.model_dump(mode="json") if room.lobby is not None else None,  # (the pod rule, mulligans… for the next game)
+            # -- turn clock (stage 3) -- the banks as of this record (newer than the checkpoint's: every change stores this record)
+            "clock": room.game.clock.dump(turn_clock_driver.now()) if room.game is not None and room.game.clock is not None else None,
         }
 
     def persist(self, room: Room) -> None:
@@ -510,7 +563,12 @@ class GameHub:
         """Put a recovered table back: same id, room code, seats and tokens."""
         room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
         room.game = session
+        if meta.get("clock") is not None:  # -- turn clock (stage 3) -- over the checkpoint's; every seat starts away: nobody is charged
+            clock = TurnClock.load(meta["clock"])
+            if clock is not None:
+                session.clock = clock
         room.host_seat = meta.get("host_seat")
+        room.invite_code = meta.get("invite_code")  # (shared stays False: closing Fyodor ends the link)
         if meta.get("password_salt") and meta.get("password_hash"):
             room.password_salt = bytes.fromhex(meta["password_salt"])
             room.password_hash = bytes.fromhex(meta["password_hash"])
@@ -520,7 +578,8 @@ class GameHub:
             info = (meta.get("seats") or {}).get(pid) or {}
             room.seats[pid] = Seat(player_id=pid, token=info.get("token"), claimed_name=info.get("claimed_name"),
                                    last_seen=time.time())
-        room.spectator_tokens = set(meta.get("spectator_tokens") or [])
+        # (a list in join order; one written before the cap is sorted or set-like: its last ones are kept, not necessarily the newest)
+        room.spectator_tokens = list(meta.get("spectator_tokens") or [])[-MAX_SPECTATORS:]
         room.result_id = meta.get("result_id")
         room.night = Night.from_meta(meta.get("night"))
         if meta.get("lobby"):
@@ -529,6 +588,8 @@ class GameHub:
         room.client_actions = {actor: dict(ids) for actor, ids in client_actions.items()}
         if any(r.code == room.code for r in self.rooms.values()):
             room.code = self._new_code()
+        if room.invite_code is not None and any(room.invite_code in (r.code, r.invite_code) for r in self.rooms.values()):
+            room.invite_code = None
         self.rooms[room.id] = room
         self.track(room)
         follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
@@ -592,6 +653,18 @@ class GameHub:
         stale = [c for c in room.connections.values()
                  if c.viewer == player_id and (current is None or c.token is None or not hmac.compare_digest(c.token, current))]
         await self._close_all(room, stale, 4403, reason)
+
+    async def close_tunnel_connections(self, room: Room, reason: str) -> int:
+        """-- invite over the internet -- close, with 4403, every socket of the room that came in through the tunnel (the table is no
+        longer shared); the LAN's are untouched."""
+        return await self._close_all(room, [c for c in room.connections.values() if c.tunnel], 4403, reason)
+
+    async def close_dropped_spectators(self, room: Room) -> None:
+        """Close, with 4403, the sockets of spectators the cap let go, and forget them."""
+        dropped, room.dropped_spectators = room.dropped_spectators, []
+        stale = [c for c in room.connections.values()
+                 if c.token is not None and any(hmac.compare_digest(c.token, t) for t in dropped)]
+        await self._close_all(room, stale, 4403, "Too many spectators: the earliest one was let go.")
 
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""
@@ -666,12 +739,17 @@ class GameHub:
         """Claim a free seat (or become a spectator). Returns (viewer, token)."""
         token = secrets.token_urlsafe(24)
         if spectate:
-            room.spectator_tokens.add(token)
+            room.spectator_tokens.append(token)
+            while len(room.spectator_tokens) > MAX_SPECTATORS:  # (the earliest is let go; join_game closes its sockets)
+                dropped = room.spectator_tokens.pop(0)
+                room.night.queued.pop(dropped, None)
+                room.dropped_spectators.append(dropped)
             self.persist(room)
             return SPECTATOR, token
         state = room.game.state if room.game is not None else None
         nobody = {pid for pid, p in state.players.items() if p.dummy or p.bot is not None} if state is not None else set()  # -- target dummy -- (and -- test opponent --) nobody sits there
-        free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody]
+        left = {pid for pid, p in state.players.items() if p.left} if state is not None else set()  # -- removed player -- their seat is gone, not free
+        free = [s for s in room.seats.values() if s.token is None and s.player_id not in nobody and s.player_id not in left]
         if seat is not None:
             chosen = room.seats.get(seat)
             if chosen is None:
@@ -679,6 +757,8 @@ class GameHub:
             if seat in nobody:
                 raise PermissionError("That seat is the target dummy's" if state is not None and state.players[seat].dummy
                                       else "That seat is the test opponent's")
+            if seat in left:
+                raise PermissionError("That player has left the table")
             if chosen.token is not None:
                 raise PermissionError("That seat is already taken")
         elif free:
@@ -698,6 +778,7 @@ class GameHub:
         if conn.viewer in room.seats:
             room.seats[conn.viewer].connections += 1
         bots.poke(self, room)  # -- test opponent -- a table created or loaded off the event loop starts playing when someone sits down
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a player back within the grace is charged again
 
     def disconnect(self, room: Room, conn: Connection) -> None:
         if room.connections.pop(conn.id, None) is not None and conn.viewer in room.seats:
@@ -705,6 +786,7 @@ class GameHub:
             seat.connections = max(0, seat.connections - 1)
             if seat.connections == 0:
                 seat.last_seen = time.time()
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a player gone has a grace before being charged
 
     # -- resolving progress --------------------------------------------------------------
     async def perform(self, room: Room, actor: str, payload: dict[str, Any], *, host: bool = False) -> Action:
@@ -717,17 +799,20 @@ class GameHub:
         if payload.get("type") not in INTENT_TYPES or session.state.rules is None or not room.connections:
             done = False
             try:
+                turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out
                 action = session.perform(actor, payload, host=host)
                 done = True
                 return action
             finally:
                 response_call.after(self, room, actor, payload, applied=done)  # -- I have a response / flip the table --
+                turn_clock_driver.poke(self, room)  # -- turn clock -- resumes (a refused action: the same wait)
         loop = asyncio.get_running_loop()
         stream = InterimStream(self, room, loop, actor)
         stream.calls = response_call.pending(room)  # -- I have a response -- a hold heard while this is worked out stops its chain
         room.acting = loop.create_future()
         applied = False
         try:
+            turn_clock_driver.hold(room)  # -- turn clock -- nobody is charged while an action is worked out (pokes wait: room.acting)
             try:
                 prepared = await asyncio.to_thread(session.prepare, actor, payload, host=host, watcher=stream.watch)
             finally:
@@ -740,8 +825,11 @@ class GameHub:
             if done is not None and not done.done():
                 done.set_result(None)
             response_call.after(self, room, actor, payload, applied=applied)  # -- I have a response / flip the table --
-            if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
-                await self.broadcast(room, resync=True)
+            try:
+                if not applied and stream.sent:  # refused or failed after interim views went out: everyone back to the table as it is
+                    await self.broadcast(room, resync=True)
+            finally:
+                turn_clock_driver.poke(self, room)  # -- turn clock -- resumes (a refused action: the same wait)
 
     async def settled(self, room: Room) -> None:
         """Wait until no action is being worked out off the event loop (``perform``): then the table is read as it is."""
@@ -751,17 +839,20 @@ class GameHub:
     def interim_metas(self, room: Room) -> dict[str, tuple[str, dict[str, Any]]]:
         """-- resolving progress -- (on the event loop) each connection's viewer and the room's part of its view, as ``view`` builds it."""
         out: dict[str, tuple[str, dict[str, Any]]] = {}
-        for conn in list(room.connections.values()):
-            key = f"{conn.viewer}:{conn.host}"
-            if key not in out:
-                out[key] = (conn.viewer, self._meta(room, conn.viewer))
+        with turn_clock_driver.one_instant(room):  # -- turn clock -- one block for every viewer
+            for conn in list(room.connections.values()):
+                key = conn_key(conn)
+                if key not in out:
+                    out[key] = (conn.viewer, self._meta(room, conn.viewer, tunnel=conn.tunnel))
         return out
 
-    async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None) -> dict[str, Any] | None:
+    async def broadcast(self, room: Room, *, resync: bool = False, viewer: str | None = None,
+                        tunnel: bool = False) -> dict[str, Any] | None:
         """Send each connection a fresh view built for its own viewer (a new revision). ``viewer``: also build (or reuse) that
         viewer's view in the same pass and return it, for the HTTP reply to whoever acted (built after the sends, it would be the
-        table worked out a second time)."""
+        table worked out a second time); ``tunnel``: that reply goes through the invite link (no LAN room code)."""
         await self.settled(room)  # -- resolving progress -- (an action being worked out: its table, once applied)
+        turn_clock_driver.poke(self, room)  # -- turn clock -- every view carries the clock as of now
         room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
@@ -769,18 +860,19 @@ class GameHub:
         reply: dict[str, Any] | None = None
         # -- big boards (views) -- every view is built before any is sent (no await in between: all of the same table), in one read pass:
         # what each view derives, every permanent's characteristics, is worked out once for the table, not once per viewer
-        with room.session.reading() if room.started else nullcontext():
+        with room.session.reading() if room.started else nullcontext(), turn_clock_driver.one_instant(room):  # (-- turn clock -- one block)
             for conn in conns:
-                key = f"{conn.viewer}:{conn.host}"
+                key = conn_key(conn)
                 if key not in cache:
-                    message = self.message(room, conn.viewer, host=conn.host)
+                    message = self.message(room, conn.viewer, host=conn.host, tunnel=conn.tunnel)
                     cache[key] = {**message, "resync": True} if resync else message
             if viewer is not None and room.started:
-                reply = next((m["view"] for k, m in cache.items() if k.split(":", 1)[0] == viewer), None) or self.view(room, viewer)
+                reply = next((m["view"] for k, m in cache.items() if k.split(":")[0] == viewer and k.endswith(f":{tunnel}")), None) \
+                    or self.view(room, viewer, tunnel=tunnel)
         frozen: dict[str, tuple[dict[str, Any], str]] = {}  # -- view deltas -- each view as clients parse it, each patch: worked out once
         patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]] = {}
         for conn in conns:
-            key = f"{conn.viewer}:{conn.host}"
+            key = conn_key(conn)
             message = cache[key]
             if conn.deltas:
                 message = self._update(conn, key, message, frozen, patches, full=resync)
@@ -805,7 +897,7 @@ class GameHub:
     def full(self, conn: Connection, message: dict[str, Any]) -> dict[str, Any]:
         """A full view (or lobby) message about to be sent to ``conn`` outside a broadcast (its first view, a resync, a seat switch): the
         view the next update is a patch from."""
-        return self._update(conn, f"{conn.viewer}:{conn.host}", message, {}, {}, full=True) if conn.deltas else message
+        return self._update(conn, conn_key(conn), message, {}, {}, full=True) if conn.deltas else message
 
     def _update(self, conn: Connection, key: str, message: dict[str, Any], frozen: dict[str, tuple[dict[str, Any], str]],
                 patches: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any] | None]], *, full: bool) -> dict[str, Any]:
@@ -830,10 +922,10 @@ class GameHub:
         return {"type": "delta", "revision": message.get("revision", view.get("game", {}).get("revision")), "base": base_seq,
                 "vseq": conn.vseq, "patch": kept[1]}
 
-    def message(self, room: Room, viewer: str, *, host: bool = False) -> dict[str, Any]:
+    def message(self, room: Room, viewer: str, *, host: bool = False, tunnel: bool = False) -> dict[str, Any]:
         if not room.started:
-            return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host)}
-        return {"type": "state", "view": self.view(room, viewer), "revision": room.revision}
+            return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host, tunnel=tunnel)}
+        return {"type": "state", "view": self.view(room, viewer, tunnel=tunnel), "revision": room.revision}
 
     def _assets(self, room: Room) -> dict[str, Any]:
         if self.asset_info is None or room.game is None:
@@ -845,18 +937,21 @@ class GameHub:
             ids.add(st.table.playmat.asset_id)
         return self.asset_info(ids) if ids else {}
 
-    def view(self, room: Room, viewer: str) -> dict[str, Any]:
+    def view(self, room: Room, viewer: str, *, tunnel: bool = False) -> dict[str, Any]:
+        """``viewer``'s view of the table; ``tunnel``: sent through the invite link, so without the LAN room code."""
         room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
         room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
-        return room.session.view(viewer, meta=self._meta(room, viewer))
+        return room.session.view(viewer, meta=self._meta(room, viewer, tunnel=tunnel))
 
-    def _meta(self, room: Room, viewer: str) -> dict[str, Any]:
-        """The room's part of ``viewer``'s view (seats, revision, game night, undo rights…)."""
+    def _meta(self, room: Room, viewer: str, *, tunnel: bool = False) -> dict[str, Any]:
+        """The room's part of ``viewer``'s view (seats, revision, game night, undo rights…); ``tunnel``: no LAN room code (it works only
+        on the LAN port: -- invite over the internet -- remote players never see it)."""
         recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
         host = room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)
         meta = {
             "mode": room.mode,
-            "code": room.code if room.mode == "lan" else None,
+            "code": room.code if room.mode == "lan" and not tunnel else None,
+            "shared": room.shared,
             "seats": {pid: s.public() for pid, s in room.seats.items()},
             "host_seat": room.host_seat,
             "revision": room.revision,
@@ -870,6 +965,7 @@ class GameHub:
             "events": room.pulse.public(),
             **({"predictions": recap} if recap else {}),
             **bots.view_fields(room),  # -- test opponent -- the top bar's bot speed
+            **turn_clock_driver.view_fields(room),  # -- turn clock -- the same block for every viewer (no choice named in it)
         }
         if room.night.final_board() is not None:  # -- final board -- nothing to undo or redo on a finished table
             meta.update(can_undo=False, can_redo=False)
@@ -887,6 +983,7 @@ class GameHub:
                 del room.seats[pid]
         follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         bots.poke(self, room)  # -- test opponent -- (inside the event loop: its next action, paced)
+        turn_clock_driver.poke(self, room)  # -- turn clock -- a new wait (or none)
         self.persist(room)
         self.save_rows(room)
         room.actions_since_save += 1
@@ -993,7 +1090,7 @@ class InterimStream:
                 for conn in list(self.room.connections.values()):
                     if self.closed:
                         return
-                    message = frames.get(f"{conn.viewer}:{conn.host}")
+                    message = frames.get(conn_key(conn))
                     if message is None:
                         continue  # (connected after this action began: its next update is the action's own)
                     try:

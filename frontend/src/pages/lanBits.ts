@@ -72,13 +72,17 @@ export function readInvite(query: URLSearchParams): Invite | null {
  * What a join link does once the tables are listed: open a seat this browser already holds at that table, ask for the
  * password the table needs, or join (or watch) at once. A table that isn't listed is tried anyway: the server says why not.
  */
-export function planInvite(invite: Invite, games: GameSummary[], held: (gameId: string) => boolean): InvitePlan {
+export function planInvite(invite: Invite, games: GameSummary[], held: (gameId: string) => boolean, tunnel = false): InvitePlan {
   if (invite.action === "fill") return { kind: "fill" };
   const listed = games.find((g) => g.code === invite.code);
   if (listed && held(listed.id)) return { kind: "open", gameId: listed.id };
+  if (tunnel) return { kind: "password" }; // through the invite link a table always has a password
   if (listed?.has_password) return { kind: "password" };
   return { kind: "join", spectate: invite.action === "watch" };
 }
+
+/** The lobby's Invite popover is the host's whether or not there is a link for the LAN (none under --local): it holds the internet invite too. */
+export const showInvitePopover = (isHost: boolean, _lanLink: string | null): boolean => isHost;
 
 /** The address without the join link's parameters (anything else stays). */
 export function withoutInvite(hash: string): string {
@@ -198,3 +202,32 @@ export function listCount(text: string): number {
 
 /** The folder a copied deck goes into, so the shelf shows whose it was. */
 export const friendFolder = (from: string) => `From ${from.trim() || "a friend"}`.slice(0, 60);
+
+/** -- invite over the internet -- which table a join code opened in this browser. Through the invite link no table is listed
+ *  (GET /api/games is empty there), so the code is how opening the link again finds the seat this browser already holds. */
+export const inviteKey = (code: string): string => `fyodor.invite.${code.trim().toUpperCase()}`;
+/** The code this browser joined a table with (a remote player's views never carry the LAN code: a spectator taking a seat uses it). */
+export const inviteCodeKey = (gameId: string): string => `fyodor.invite-code.${gameId}`;
+
+/** The seat (or spectator) token to send with a join by ``code``: the one held for the table that code opened before, or null. The
+ *  server returns that very seat for it once the password is right, instead of a second one. */
+export function heldTokenFor(code: string, read: (key: string) => string | null, seatToken: (gameId: string) => string | null): string | null {
+  const gameId = read(inviteKey(code));
+  return gameId ? seatToken(gameId) : null;
+}
+
+/** The host's "Reclaim / assign seat" link(s) for the seat-link ``path`` (/#/game/…): on this network (``lanBase``, the host's own
+ *  address), and over the internet on the share's https address when the table is shared (``shareLink``, GET …/share's link). */
+export function seatLinks(path: string, lanBase: string, shareLink: string | null): { label: string; url: string }[] {
+  const rest = path.replace(/^\//, "");
+  const links = [{ label: "On this network", url: `${lanBase.replace(/\/+$/, "")}/${rest}` }];
+  let origin: string | null = null;
+  try {
+    const u = shareLink ? new URL(shareLink) : null;
+    origin = u && u.protocol === "https:" ? u.origin : null;
+  } catch {
+    origin = null;
+  }
+  if (origin) links.push({ label: "Over the internet", url: `${origin}/${rest}` });
+  return links;
+}

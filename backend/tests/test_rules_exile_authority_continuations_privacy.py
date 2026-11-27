@@ -41,7 +41,7 @@ def test_staged_private_library_choice_rest_ws_only_controller_inspects(cards, s
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token=mode+'-'+player
-        room.spectator_tokens.add(mode+'-spectator')
+        room.spectator_tokens.append(mode+'-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token=mode+'-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()

@@ -72,6 +72,34 @@ describe("game connection outbox", () => {
     expect(outbox.at(-1)).toBe(0);
   });
 
+  it("sends the revision an action was requested at, and keeps it across a reconnect", async () => {
+    const conn = new GameConnection("g1", { token: "t" }, { onState: () => {}, onLobby: () => {}, onStatus: () => {}, onClosedByServer: () => {} });
+    conn.connect();
+    const first = FakeSocket.last!;
+    first.open();
+    first.accept();
+    conn.revision = 7; // the view the click was made on
+    void conn.requestAction({ type: "action", action: { type: "pass_priority" } }).catch(() => {});
+    expect(first.sent.find((m) => m.type === "action")!.seen_revision).toBe(7);
+    first.drop();
+    await vi.advanceTimersByTimeAsync(1000); // reconnect: a fresh connection starts again at revision 0
+    const second = FakeSocket.last!;
+    second.open();
+    second.accept();
+    expect(second.sent.find((m) => m.type === "action")!.seen_revision).toBe(7);
+  });
+
+  it("before the first snapshot (revision 0) sends no revision, so the late-click check isn't triggered by a reconnect", () => {
+    const conn = new GameConnection("g1", { token: "t" }, { onState: () => {}, onLobby: () => {}, onStatus: () => {}, onClosedByServer: () => {} });
+    conn.connect();
+    FakeSocket.last!.open();
+    FakeSocket.last!.accept();
+    expect(conn.revision).toBe(0);
+    void conn.requestAction({ type: "action", action: { type: "pass_priority" } }).catch(() => {});
+    const sent = FakeSocket.last!.sent.find((m) => m.type === "action")!;
+    expect("seen_revision" in sent).toBe(false);
+  });
+
   it("reports a rejected action once", async () => {
     const conn = new GameConnection("g1", {}, { onState: () => {}, onLobby: () => {}, onStatus: () => {}, onClosedByServer: () => {} });
     conn.connect();

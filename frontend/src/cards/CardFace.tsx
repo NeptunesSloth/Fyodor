@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { imageUrl } from "../services/cards";
 import type { CardData, CardFaceData } from "../types/cards";
+import { useImageRetry } from "./imageRetry";
 import { ManaText } from "./ManaText";
 import { textMeasure, proxyFontsReady, tinyNameSize, whenProxyFontsReady } from "./proxyMeasure";
 import { GLYPHS, layoutProxy, proxyColours, proxyFace, stripReminders, TIERS, type ProxyFace } from "./proxy";
@@ -40,7 +41,7 @@ export function colorClass(colors: string[] | null | undefined): string {
 
 /** A single card picture: the cached scan when available, otherwise a readable text card. */
 export const CardFace = memo(function CardFace({ card, custom, face = 0, faceDown, backStyle, size = "normal", className }: Props) {
-  const [failed, setFailed] = useState<string | null>(null);
+  const { failed, nonce, onError } = useImageRetry();
   if (faceDown) return <div className={`card-face card-back ${backStyle ? "sleeved" : ""} ${className ?? ""}`} style={backStyle} aria-label="Face-down card" />;
   if (!card && !custom) return <div className={`card-face card-loading ${className ?? ""}`} />;
 
@@ -50,7 +51,7 @@ export const CardFace = memo(function CardFace({ card, custom, face = 0, faceDow
     if (card.has_image && failed !== src) {
       return (
         <div className={`card-face ${className ?? ""}`}>
-          <img src={src} alt={card.name} draggable={false} loading="lazy" onError={() => setFailed(src)} />
+          <img key={nonce} src={src} alt={card.name} draggable={false} loading="lazy" onError={() => onError(src)} />
         </div>
       );
     }

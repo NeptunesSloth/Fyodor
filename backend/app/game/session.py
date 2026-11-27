@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
@@ -22,6 +22,9 @@ from app.game.resolve import CardInfo, NoCardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
 from app.rules import RulesRegistry, Suggestion, progress, taught
+
+if TYPE_CHECKING:
+    from app.game.turn_clock import TurnClock
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +80,7 @@ class GameSession:
         self._dummy_gave_up: list[dict[str, Any]] | None = None  # the answers it last couldn't give (said once)
         self._bot_acting = False  # -- test opponent -- the server is playing for an opponent (app/game/bot.py)
         self.bot_memory: dict[str, Any] = {}  # -- test opponent -- what it tried this priority window (in memory: never replayed)
+        self.clock: TurnClock | None = None  # -- turn clock (stage 3) -- the table's clock, if the host set one (never replayed)
 
     def begin_first_turn(self) -> None:
         """-- first turn (S7) -- a new game with the rules on and no mulligans: 502.4, nobody gets priority in the first untap step, so

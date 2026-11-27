@@ -17,6 +17,7 @@ import {
   type PlayerView,
 } from "../types/game";
 import { reconcile } from "./reconcile";
+import { noteSkewWindow, type SkewSamples } from "../game/turnClock";
 import { publishTableEvents } from "../game/motion/tableEvents";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
@@ -47,6 +48,10 @@ export interface BrowserState {
 interface GameStore {
   gameId: string | null;
   view: GameView | null;
+  /** -- turn clock -- least (receive time - server send time), seconds: the client clock's offset plus the least delay seen (null: no clock yet). */
+  clockSkew: number | null;
+  /** -- turn clock -- the recent (receive time, skew) samples the skew is the minimum of. */
+  clockSamples: SkewSamples;
   /**
    * -- resolving progress -- `view` is an interim view: the table part way through a long automatic chain the server is still working
    * out (display only; the action's own update replaces it). Subscribers that react to what an update changed skip these and compare
@@ -187,6 +192,8 @@ function cardIdsOf(view: GameView): string[] {
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
+  clockSkew: null,
+  clockSamples: [],
   interim: false,
   committed: null,
   resolving: null,
@@ -238,8 +245,10 @@ export const useGame = create<GameStore>((set, get) => ({
         requestCards(cardIdsOf(view));
         const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
         const match = `${incoming.game.id}#${incoming.game.night?.number ?? 1}`;
+        const receivedAt = Date.now();
         set((s) => ({
           view,
+          ...clockSkewPatch(s, view, receivedAt),
           interim: false,
           committed: view,
           resolving: null,
@@ -276,7 +285,7 @@ export const useGame = create<GameStore>((set, get) => ({
       onCursor: (cursor) => window.dispatchEvent(new CustomEvent("fyodor:cursor", { detail: cursor })),
     });
     dropInterim();
-    set({ gameId, conn, view: null, interim: false, committed: null, resolving: null, lobby: null, selection: [], browser: null, dialog: null,
+    set({ gameId, conn, clockSkew: null, clockSamples: [], view: null, interim: false, committed: null, resolving: null, lobby: null, selection: [], browser: null, dialog: null,
       actingAs: null });
     conn.connect();
   },
@@ -368,7 +377,15 @@ export const useGame = create<GameStore>((set, get) => ({
  * no sounds, no table motion (cards simply are where the chain put them; the action's own update animates what changed after), and the
  * last authoritative view stays `committed`. Only over the same game's view (never instead of a different table or the lobby).
  */
-function applyInterim(set: (fn: (s: GameStore) => Partial<GameStore>) => void, get: () => GameStore, incoming: GameView | null,
+/** -- turn clock -- every applied view (whole, delta or interim) that carries the clock's send time updates the skew. */
+export function clockSkewPatch(s: { clockSkew: number | null; clockSamples: SkewSamples }, view: GameView, receivedAtMs: number): { clockSkew: number | null; clockSamples: SkewSamples } {
+  const sentAt = view.game.clock?.sent_at;
+  if (sentAt == null) return { clockSkew: s.clockSkew, clockSamples: s.clockSamples };
+  const n = noteSkewWindow(s.clockSamples, sentAt, receivedAtMs);
+  return { clockSkew: n.skew, clockSamples: n.samples };
+}
+
+export function applyInterim(set: (fn: (s: GameStore) => Partial<GameStore>) => void, get: () => GameStore, incoming: GameView | null,
   progress: ResolvingProgress): void {
   const prev = get().view;
   if (!prev || !incoming || prev.game.id !== incoming.game.id || (prev.game.night?.number ?? 1) !== (incoming.game.night?.number ?? 1)) {
@@ -377,7 +394,7 @@ function applyInterim(set: (fn: (s: GameStore) => Partial<GameStore>) => void, g
   }
   const view = reconcile(prev, incoming);
   requestCards(cardIdsOf(view));
-  set((s) => ({ view, interim: true, resolving: progress, selection: keptSelection(s.selection, prev, view) }));
+  set((s) => ({ view, ...clockSkewPatch(s, view, Date.now()), interim: true, resolving: progress, selection: keptSelection(s.selection, prev, view) }));
 }
 
 /** The selection on a new view: the cards still there, less one that just left my hand. -- sweep B2 -- a card played or cast from the

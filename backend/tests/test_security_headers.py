@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.decks.models import DeckIn
-from app.main import CSP, create_app
+from app.main import CSP, create_app, csp
 from app.multiplayer.lobby import LobbySettings
 
 HSTS = "max-age=31536000"
@@ -80,7 +80,7 @@ def test_always_sent_headers(settings: Settings):
     assert h["x-content-type-options"] == "nosniff"
     assert h["x-frame-options"] == "DENY"
     assert h["referrer-policy"] == "no-referrer"
-    assert h["content-security-policy"] == CSP
+    assert h["content-security-policy"] == csp("testserver")
 
 
 def test_csp_pins():
@@ -90,14 +90,32 @@ def test_csp_pins():
     assert directives["object-src"] == ["'none'"]
     assert "unsafe-eval" not in CSP
     assert directives["script-src"] == ["'self'"]
-    # every source anywhere in the policy is a keyword, a scheme or 'self': no host. ws:/wss: are schemes (the game socket,
-    # same host); data: is for inline images only
-    allowed = {"'self'", "'none'", "'unsafe-inline'", "data:", "ws:", "wss:"}
+    # every source anywhere in the policy is a keyword or 'self': no host, and no bare ws:/wss: scheme (any host); data: is for
+    # inline images only. (The game socket's own host is named per request: test_connect_src_names_this_host)
+    allowed = {"'self'", "'none'", "'unsafe-inline'", "data:"}
     for name, sources in directives.items():
         if name in {"frame-ancestors", "base-uri", "form-action", "object-src"}:
             continue
         assert set(sources) <= allowed, (name, sources)
     assert "http:" not in CSP and "https:" not in CSP and "*" not in CSP
+
+
+def test_connect_src_names_this_host(settings: Settings):
+    with _client(settings) as c:
+        csp = c.get("/api/health", headers={"Host": "192.168.1.20:8000"}).headers["content-security-policy"]
+    assert "connect-src 'self' ws://192.168.1.20:8000 wss://192.168.1.20:8000;" in csp
+
+
+def test_refused_host_gets_self_only(settings: Settings):
+    with _client(settings) as c:
+        res = c.get("/api/health", headers={"Host": "evil.example"})
+    assert res.status_code == 400
+    assert "connect-src 'self';" in res.headers["content-security-policy"]
+    assert "evil" not in res.headers["content-security-policy"]
+
+
+def test_csp_never_echoes_odd_host_text():
+    assert csp("a;b") == CSP and csp("x y") == CSP and csp("[fe80::1%a;b]") == CSP and csp("") == CSP
 
 
 # ------------------------------------------------------------------------------------------------------------ the API docs

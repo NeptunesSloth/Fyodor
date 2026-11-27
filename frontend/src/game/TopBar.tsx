@@ -23,8 +23,11 @@ import { dummyMenu } from "./targetDummy";
 import { Icon } from "../components/Icon";
 import { toastError } from "../components/Toasts";
 import { TurnRecap } from "./TurnRecap";
+import { SharedChip } from "./InternetInvite";
+import { useTunnelState } from "../services/share";
 
 export function TopBar() {
+  const tunnel = useTunnelState(); // (the LAN room code is no use to a friend on the invite link)
   const view = useGame((s) => s.view);
   const status = useGame((s) => s.status);
   const actingAs = useGame((s) => s.actingAs);
@@ -50,7 +53,8 @@ export function TopBar() {
       <a className="brand" href="#/play" title="Back to lobby">←</a>
       <div className="game-title">
         <b title={view.game.name}>{view.game.name}</b>{/* (-- sweep B -- a crowded bar shortens it: the whole name on hover) */}
-        {view.game.mode === "lan" && view.game.code && <span className="room-code" title="Room code for other players">Room {view.game.code}</span>}
+        {view.game.mode === "lan" && view.game.code && tunnel === false && <span className="room-code" title="Room code for other players">Room {view.game.code}</span>}
+        {view.game.shared && <SharedChip />}
         {status !== "open" && <span className={`status ${status}`}>{status === "reconnecting" ? "Reconnecting…" : status}</span>}
       </div>
       <span className="spacer" />

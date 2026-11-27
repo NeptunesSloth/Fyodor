@@ -11,6 +11,7 @@ import type { PlayerView } from "../types/game";
 import "./seat.css";
 import { PlayerInitial } from "./PlayerInitial";
 import { guestsOf } from "./attachments";
+import { TurnClockChip } from "./TurnClockChip";
 
 /**
  * Taps on a counter gathered into one change: three quick clicks send "−3" once (one log line, one undo step),
@@ -262,6 +263,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           {/* -- playtest (nov 17) -- a bot's seat says so on the 3D table too, with its level (as the 2D plaque's badge) */}
           {p.bot && <span className="t3d-bot-tag" data-testid={`bot-badge-${player}`} title={seatName(p)}><b className="seat-bot-badge">Bot</b> {botLevelName(botLevel(p))}</span>}
           {outTag}
+          <TurnClockChip player={player} />
           {counters && <span className="seat-side">{trackers}</span>}
         </div>
         {open && (
@@ -285,7 +287,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}
         {/* the 3D table's plaque: the turn and priority tabs at its top right, the counters under them (the plaque grows
             to hold both tabs, so they never cover the portrait) */}
-        {!flat ? <span className="seat-side">{flags}{trackers}</span> : trackers}
+        {!flat ? <span className="seat-side">{flags}<TurnClockChip player={player} />{trackers}</span> : <>{trackers}<TurnClockChip player={player} /></>}
       </div>
       {flat && <span className="seat-steps">
         {/* (out of the game: kept in place, hidden, so the plaque doesn't change size) */}

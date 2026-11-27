@@ -442,7 +442,7 @@ def test_mindclaw_actual_public_reveal_rest_websocket_and_end_of_resolution_clea
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token='mindclaw45-'+player
-        room.spectator_tokens.add('mindclaw45-spectator')
+        room.spectator_tokens.append('mindclaw45-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token='mindclaw45-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
@@ -956,7 +956,7 @@ def test_extract_actual_private_owner_and_caster_rest_websocket_views(cards,sett
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token='extract45-'+player
-        room.spectator_tokens.add('extract45-spectator')
+        room.spectator_tokens.append('extract45-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token='extract45-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()
@@ -1378,7 +1378,7 @@ def test_talent_actual_public_seven_rest_and_websocket_do_not_expose_eighth_card
         room=client.app.state.services.hub.create_room(s,mode='lan')
         for player,seat in room.seats.items():
             seat.token='talent46-'+player
-        room.spectator_tokens.add('talent46-spectator')
+        room.spectator_tokens.append('talent46-spectator')
         for viewer in ['p1','p2','p3','spectator']:
             token='talent46-'+viewer
             payload=client.get(f'/api/games/{room.id}/view',headers={'X-Seat-Token':token}).json()

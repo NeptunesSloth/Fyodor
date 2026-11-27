@@ -29,7 +29,7 @@ def _split_host(host_header: str | None) -> tuple[str, int | None] | None:
         port = rest[1:] if rest.startswith(":") else rest
         if rest and not rest.startswith(":"):
             return None
-        if rest == ":":
+        if rest == ":" or "%" in host:  # (a zone id never belongs in a Host, and ipaddress takes any text after the '%')
             return None
         try:
             ipaddress.IPv6Address(host)
@@ -108,11 +108,69 @@ def origin_allowed(origin: str | None, host_header: str | None, extra: Iterable[
     return any(key == _origin_key(e) for e in extra)
 
 
+# -- invite over the internet -- what the tunnel port serves (app/main.py net_guard): the page, and what a remote player at a shared
+# table needs; anything else there is a 404. (methods, the path matched whole). A route added later is outside this list until it
+# is named here, and one it would let through fails tests/test_tunnel_routes.py until it is added to the frozen set there.
+_GAME = r"/api/games/(?P<game_id>[^/]+)"
+TUNNEL_ROUTES: tuple[tuple[frozenset[str], re.Pattern[str]], ...] = tuple(
+    (frozenset(methods.split()), re.compile(pattern)) for methods, pattern in (
+        ("GET", r"/"),  # the built page (_mount_frontend serves only these two)
+        ("GET", r"/assets/.+"),
+        ("GET", r"/api/health"),
+        ("GET", r"/api/host/session"),  # (always {"host": false} here; the page asks)
+        ("POST", r"/api/join"),
+        ("GET", r"/api/games"),  # (always [] here)
+        ("GET", r"/api/cards/(search|autocomplete|glossary|(?!stats\Z)[^/]+|[^/]+/printings)"),  # (not the database's stats)
+        ("POST", r"/api/cards/batch"),
+        ("GET", r"/api/images/.+"),
+        ("GET", r"/api/symbols(/[^/]+\.svg)?"),
+        ("GET", r"/api/assets/[^/]+/file"),
+        ("GET", r"/api/rules/(support|coverage)"),
+        # the pod's card macros (read-only definitions): the game screen loads them for every seat (app/api/macros.py). Accepted: a
+        # stranger can read them, as can anyone on the LAN.
+        ("GET", r"/api/macros"),
+        # a table and everything under it, but its host's tools (and the turn clock's), saving, the assistant, the rules lab, sharing and the test opponent
+        # (a trailing '/' too, so those are a 404 rather than redirect_slashes' 307). Only the methods those routes use: HEAD and
+        # OPTIONS are a 404. Accepted: for a shared table, a stranger without a seat can read its summary (no code), GET /result and
+        # what the routes themselves answer without a seat. tests/test_tunnel_routes.py freezes the whole set of allowed routes.
+        ("GET POST DELETE", _GAME + r"(/(?!(save|assistant|rules/scenario|host/.*|share|clock|lobby/bot|bot(/.*)?)/?\Z).+)?"),
+    ))
+
+
+def tunnel_route(method: str, path: str) -> tuple[bool, str | None]:
+    """May ``method`` ``path`` be asked for on the tunnel port, and which table does it name (None: none)? (The game socket is
+    checked in game_socket: middleware never sees it.)"""
+    for methods, pattern in TUNNEL_ROUTES:
+        match = pattern.fullmatch(path)
+        if match is not None and method.upper() in methods:
+            return True, match.groupdict().get("game_id")
+    return False, None
+
+
+UNKNOWN_TUNNEL_CLIENT = "tunnel:unknown"
+
+
+def cf_client_key(value: str | None) -> str:
+    """The limiter key of a visitor through the tunnel, from Cloudflare's ``CF-Connecting-IP`` (one address; Cloudflare refuses a
+    client's own copy of the header, so what reaches us is Cloudflare's). An IPv4 address as text (an IPv4-mapped IPv6 as its IPv4);
+    an IPv6 address as its /64, the block one home or phone is given, so walking its own addresses buys no fresh budget. Missing
+    or unparseable: one shared bucket, ``tunnel:unknown`` (fails closed: it never escapes the limits)."""
+    try:
+        ip = ipaddress.ip_address((value or "").strip())
+    except ValueError:
+        return UNKNOWN_TUNNEL_CLIENT
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network((ip, 64), strict=False))
+    return str(ip)
+
+
 class AttemptLimiter:
     """Guesses allowed per key (an address, a room code): ``max_failures`` failures within ``window`` seconds block the key until the
     oldest of them is ``window`` old. Only failures count, and they leave only by expiring: the app never calls ``succeed`` (a key may
-    be shared by people behind one address, and a guesser's success must not buy a fresh budget). In memory, pure; ``clock`` is
-    injected."""
+    be shared by people behind one address, and a guesser's success must not buy a fresh budget); ``undo_last`` only takes back a
+    failure recorded ahead of a check that then succeeded. In memory, pure; ``clock`` is injected."""
 
     def __init__(self, max_failures: int, window: float, clock: Callable[[], float] = time.monotonic) -> None:
         self.max_failures = max_failures
@@ -147,6 +205,17 @@ class AttemptLimiter:
         self._failures.move_to_end(key)
         while len(self._failures) > MAX_KEYS:
             self._failures.popitem(last=False)
+
+    def undo_last(self, key: str) -> None:
+        """Drop the newest failure of ``key`` (none: nothing happens). /api/join records a failure before it checks the password (so
+        concurrent guesses are counted before any is hashed) and gives it back here when the password was right. Failures of one key
+        are interchangeable times: with others recorded meanwhile, the count drops by exactly one and the one left is the older."""
+        failures = self._recent(key)
+        if failures is None:
+            return
+        failures.pop()
+        if not failures:
+            del self._failures[key]
 
     def succeed(self, key: str) -> None:
         # (nothing in app calls this: a key may be shared by people behind one address, so failures only expire with the window)

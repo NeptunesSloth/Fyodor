@@ -195,6 +195,61 @@ stays as it was. The seat's old token stops working at once: the old tab, if it 
 valid here. Join again.* and the player there joins again with the room code if they still want to play. Treat a seat link like
 a key to the seat and don't post it where others read it.
 
+## Turn clock
+
+An optional clock for the whole game, kept by the server. It is **off** unless the host turns it on, so a normal pod night is
+unchanged. It is offered at LAN Commander tables only: never at a Sandbox table, the hot-seat table or a practice table.
+
+**Turning it on.** In the lobby, tick **Turn clock** and set the **Bank** (minutes each player has for the whole game, default
+25), the **Grace** (seconds each decision gets before the bank is touched, default 30) and **At zero** (**Act for the player**,
+the default, or **Only show it**). During the game the host changes it under **⋯ → Host tools… → Turn clock**: On/Off, At zero,
+**Grace per decision**, **Reconnect grace** (minutes, default 2), and for each player **+1:00**, **+5:00** and, while that
+player is disconnected, **Give 2 more minutes to reconnect**. Each change is one line in the log (*The host added 1:00 to
+Alice's clock.*). Only the host's window can change the clock (the invite link cannot reach it); everyone else just sees it. Turning
+the clock off and on again during a game never refills a bank: only **+1:00** / **+5:00** add time. A rematch, or a new game
+from the lobby, starts with full banks; the lobby keeps the last settings.
+
+**Who is charged.** Only the player the table is waiting on: the one holding priority, or the one making a pending choice
+(during mulligans, everyone still deciding, each on their own clock). Nobody is charged while the server works out an action,
+during someone else's choice, while rules automation is paused, or when nobody is connected. The clock runs only with rules
+automation on (Assisted or Full); with automation off the server waits on no one, so the clock never moves. Each decision first
+spends its grace, then the bank. Clicking something the table refuses, or another player acting, does not give you a fresh
+grace; a new decision does.
+
+**On the table.** Each seat plate shows that player's clock, for example `12:31`; while it runs, the grace left comes first
+(`0:24 · 12:31`). Everyone sees whose clock is running and each bank, never what the decision is. The countdown is drawn from the
+server's numbers, so a computer whose own clock is wrong still shows the right time.
+
+**A dropped connection.** Each player has one **reconnect grace** for the whole game (default 2 minutes; **Give 2 more
+minutes to reconnect** adds to it). While they are disconnected *and* the table is waiting on them, the server spends that grace
+instead of their clock: their plate says *Paused — reconnecting*, and when they come back the decision has the grace and bank it
+had. Coming back doesn't refill the reconnect grace, and neither does a new decision: once it is spent, a player who is still away
+is charged as usual (their plate says *Away — clock running*), and at zero the clock acts for them. Time while someone else is
+being waited on doesn't spend it. The reconnect grace left is saved with the game.
+
+The server only knows a connection has gone once the socket closes, or after **90 seconds** of silence (a phone that sleeps
+without closing it): until then that player is charged as if they were there.
+
+**At zero.** With **Act for the player**, the decision's grace still runs out first; then Fyodor makes the safest legal choice
+for that player: pass priority, keep the hand, decline a "may" or an optional cost, attack or block with nothing (or only what
+must), take back a spell that was still being cast. A target it must choose (a "deals 3 damage to any target" trigger) is a
+permanent where one is offered (someone else's before the player's own), else an opponent, and never the player whose clock ran
+out while anything else is legal (the "same for all" answer offered for several copies of a trigger included); a "choose
+players" choice (Sower of Discord's "choose two players") never includes them while another pair is legal. When only answers
+naming them are left, the clock doesn't choose. The log says *Alice ran out of time: Fyodor acted for them.* **It never concedes
+for anyone, and never chooses a loss for the player who ran out of time.** Where declining would hurt the player (a "pay or lose
+life", a sacrifice, a tribute, anything that could lose them the game) or the choice is a fact only the table knows (a manual
+resolution), the clock doesn't choose; the log says *Alice ran out of time, but Fyodor can't make this choice for them, so the
+table waits for them to make it. The host can add time, or remove a player who has left.* An empty bank stays empty, and each
+later decision still gets its full grace first. With **Only show it** the clock reads 0:00 and nothing happens.
+
+A click made just before the clock acted, from a screen that hadn't shown it yet, is refused with *The clock already acted for
+you. Look at the table and try again.* (a concession always goes through).
+
+**Saves and restarts.** The clock is saved with the game. After a restart the banks come back as they were, the time Fyodor was
+down is not charged, and a decision that was waiting starts again with a full grace. Undo never gives time back: a decision the
+clock made can be undone, but with an empty bank the player then has only that decision's grace (the host can add time first).
+
 ## Limits you can run into
 
 A normal night doesn't touch these. They slow down someone guessing a table's **password**; they do not hide the room code:
@@ -215,7 +270,58 @@ give the table one when not everyone on the network is in your pod.
 
 ## Friends outside your home network
 
-Fyodor has no built-in internet play yet. What should work, with no change to Fyodor, is a **private network** between the
+Two ways: an **invite link** from Fyodor itself (below), or a **private network** between the computers (option A).
+
+### Inviting friends over the internet
+
+For a friend who is not on your network, with nothing for them to install: they need only a browser.
+
+1. **Host:** in the table's lobby press **Invite** → **Invite over the internet** (or, at the table, **⋯ → Host tools → Invite
+   over the internet**). Only a LAN table can be shared, and only from the window the launcher opened.
+2. If the table has no password, type one (8 to 100 characters) and press **Share with this password**: a table shared over the
+   internet always has a password, and from then on LAN players need it too. If it already has one, the panel says *This table
+   already has a password.* and asks: **Share with it**, or **Set a new password** (8 to 100 characters). A short LAN password is
+   easy to guess from the internet, so set a new one unless the old one is long. A new password is needed by everyone who joins
+   from then on, LAN players too; players already seated keep their seats.
+3. Fyodor starts the link. The first time it downloads Cloudflare's tunnel program, `cloudflared` (about 55 MB on Windows, kept in the
+   `tunnel` folder of Fyodor's data folder), checks it against a checksum written into Fyodor, and runs it; a different file is never
+   run. A few seconds later the panel shows the link (`https://<random name>.trycloudflare.com/#/play?code=…`). **Copy link** and send
+   it to your friends, and **send the password separately**.
+4. **Friends** open the link, type the password, and take a seat. The top bar shows **Shared over the internet** (a globe) to everyone
+   at the table while the link is up.
+
+What the link reaches: only the tables you shared, and only what a player at them needs. It never lists your other tables, never
+gives anyone host tools (even from your own computer), and the LAN room code does not work through it (the link carries its own
+10-character invite code). Friends on your LAN keep joining with the room code as always.
+
+**Stop sharing** (same panel) closes the link's players' tables at once (*The host stopped sharing this table.*); LAN players play on.
+Pressing **Invite over the internet** again gives a new invite code (an old link no longer opens the table), with the table's password
+unless you set a new one. The address (`https://<random name>.trycloudflare.com`) is new only when no other table was being shared: the
+link's program keeps running, with the same address, while any table is shared. Closing the table ends its
+sharing (and the link, when no other table is shared); closing Fyodor ends the link: an old link stops answering. If the link goes down by itself, the panel says *The internet link went down.*
+and offers **Invite again**.
+
+Things to know:
+
+- **Cloudflare carries the traffic.** The link is a Cloudflare *quick tunnel*: no account and no router change, and Cloudflare sees
+  the traffic (it serves the https). Cloudflare describes quick tunnels as "for testing and development" with "no uptime guarantee": a
+  game night's link can drop or be refused, and Cloudflare can change or end the service. LAN play does not depend on it.
+- A quick tunnel handles at most 200 requests in flight; on a busy table a card picture may load a second late.
+- Anyone with the link **and** the password can join. Kick and seat tools work as for any player (for a shared table, Host tools'
+  **Reclaim / assign seat** also gives the seat's link on the internet address); to cut everyone off, press **Stop sharing**.
+- A friend who closes the tab can open the same link again while the table is shared: after the password, the browser that holds
+  their seat gets it back (not a second seat).
+- Friends over the internet can't upload their own sleeves or playmats (players on your network can); they play with the defaults.
+
+- `FYODOR_ALLOW_NETWORK=0` turns it off: nothing is downloaded and the panel says internet features are turned off. A server started
+  without the launcher (for example `uvicorn --factory`) cannot share. With nobody pressing **Invite over the internet**, nothing is
+  downloaded and no tunnel runs; `--local` still allows it (the tunnel only talks to this computer).
+- On macOS and Linux, if Fyodor is killed outright (not closed), `cloudflared` can be left running; it reaches nothing, and you can end
+  it by hand. On Windows it always ends with Fyodor.
+
+### Option A: a private network
+
+What should work, with no change to Fyodor, is a **private network** between the
 friends' computers, such as Tailscale. This project has not tested it yet. Install it on the host's computer and on each friend's, then the friends open
 `http://HOST-PRIVATE-ADDRESS:PORT` (the host's address on that private network, shown in the Tailscale app) as if it were
 the LAN. The game, the room code and the password should work as on a LAN, and nothing is opened to the internet. If the address
@@ -225,7 +331,7 @@ addresses to Fyodor, so a friend joining by one can play but **Join brings your 
 host only takes deck libraries from the local network). A friend can paste a list or pick from *My decks* instead.
 
 **Port-forwarding the host's router to the game port is not recommended.** It puts the table on the open internet,
-reachable by anyone who finds the address, before the protections for that exist; use a private network instead.
+reachable by anyone who finds the address; use an invite link or a private network instead.
 
 ## Settings for this
 
@@ -233,7 +339,10 @@ Environment variables (set them before starting the launcher; the defaults are r
 
 | Variable | What it does |
 |---|---|
-| `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. |
+| `FYODOR_TRUSTED_PROXIES` | Comma-separated addresses or ranges (`127.0.0.1`, `10.0.0.0/8`) of a reverse proxy or tunnel in front of Fyodor, whose `X-Forwarded-For` is believed when it says who connected. None by default. Leave it unset on a LAN; a bad entry stops Fyodor at start. This is the only place forwarded headers are read (the web server's own proxy-header handling is off), and an invite link never needs it. |
 | `FYODOR_EXTRA_HOSTS` | Comma-separated host names (no port, no `http://`, no `/`) Fyodor answers to besides IP addresses, `localhost` and this computer's own names (its name, with `.local`, and its full name on the network). None by default; a bad entry stops Fyodor at start. |
-| `FYODOR_LEGACY_WS_TOKEN` | `1` lets an old client put its seat token in the socket's address. Off by default; keep it off, a token in an address can end up in logs and history. |
-| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json`. Off by default (without it those pages are not there). |
+| `FYODOR_CORS_ORIGINS` | Comma-separated origins (`https://host`) besides Fyodor's own that may post and open sockets. None by default (before this release the Vite dev server's origins were trusted on every install). Never consulted for an invite link. |
+| `FYODOR_DEV_TOOLS` | `1` turns on the developer tools, including the API pages `/docs`, `/redoc` and `/openapi.json` and the rules test-scenario tools. Off by default (without it those pages are not there). It also trusts the Vite dev server's origins (`http://localhost:5173`, `http://127.0.0.1:5173`) unless `FYODOR_CORS_ORIGINS` is set; `scripts/dev.sh` sets it. |
+| `FYODOR_ALLOW_NETWORK` | `0` turns off everything that reaches the internet from this computer, the invite link included (and Archidekt import, artwork caching, card updates). On by default. |
+
+`FYODOR_LEGACY_WS_TOKEN` is gone: a seat token in the game socket's address is never accepted, whatever the environment says.

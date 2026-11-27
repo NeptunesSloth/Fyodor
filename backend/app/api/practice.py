@@ -43,7 +43,7 @@ class PracticeIn(SeatIn):
 
 def _seat(room: Room, request: Request, token: str | None, body: SeatIn) -> str:
     """The live game's seat asking (never a spectator: a practice table is built from your own deck)."""
-    _, actor = authorize(room, local=is_local_request(request), token=token, viewer=body.viewer,
+    _, actor = authorize(room, conn=request, token=token, viewer=body.viewer,
                          as_player=body.as_player or (body.viewer if room.mode == "local" else None))
     if actor is None:
         raise HTTPException(403, "Spectators have no deck here")

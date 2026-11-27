@@ -7,15 +7,16 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import Headers
+from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app import __version__
@@ -23,11 +24,21 @@ from app.api import assets, backups, cards, decks, games, health, macros, night,
 from app.api import bot as bot_api  # -- test opponent --
 from app.api import shortcut as shortcut  # -- desktop shortcut --
 from app.api import updates as updates  # -- install update --
-from app.api.deps import host_ok, is_https, origin_ok
+from app.api.deps import (
+    GAME_NOT_FOUND,
+    host_ok,
+    is_host_request,
+    is_https,
+    is_tunnel_request,
+    origin_ok,
+    tunnel_serves,
+)
 from app.api.host import router as host_router
 from app.api.lan import router as lan_router
+from app.api.share import router as share_router  # -- invite over the internet --
 from app.api.spectate import router as spectate_router
 from app.api.teach import router as teach_router  # -- Teach Fyodor --
+from app.api.turn_clock import router as turn_clock_router  # -- turn clock (stage 3) --
 from app.assets import validate as asset_validate
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
@@ -36,16 +47,29 @@ from app.logging_setup import configure_logging
 from app.multiplayer import handoff
 from app.multiplayer.discovery import Discovery
 from app.multiplayer.hub import GameNotStarted
+from app.netguard import tunnel_route
 from app.services import Services
 from app.storage import backup, package, taught, update
 
 log = logging.getLogger(__name__)
 
 # Everything is served from this origin; no third-party scripts, fonts or trackers.
-CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-    "connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
-)
+_CSP_HEAD = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+_CSP_TAIL = "; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+# what a Host that host_ok accepted can look like (a bracketed zone id, "[fe80::1%eth0]", is refused there, in netguard._split_host);
+# checked again here so nothing else is ever echoed
+_CSP_HOST = re.compile(r"[a-z0-9.\-\[\]:]+", re.ASCII)
+
+
+def csp(host_header: str | None) -> str:
+    """The policy, its connect-src naming this host (the game socket) rather than any ws:/wss: (older Safari and in-app WebViews do not
+    all match ws:/wss: with 'self'). `host_header` must be a Host that host_ok accepted; anything absent or odd gives 'self' only."""
+    host = (host_header or "").strip().lower()
+    sockets = f" ws://{host} wss://{host}" if _CSP_HOST.fullmatch(host) else ""
+    return f"{_CSP_HEAD}connect-src 'self'{sockets}{_CSP_TAIL}"
+
+
+CSP = csp(None)
 
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -57,36 +81,52 @@ TOO_LARGE = "That request is too large."
 # Larger allowances, each for routes that bound their own bodies (path, matched whole -> bytes); every other path gets BODY_LIMIT.
 # The route keeps its own check; the allowance is never larger than the route's own bound (plus room for JSON's escaping).
 _DECK_TEXT = 200_000  # a pasted deck list: DeckImportRequest.text and LobbyDeckIn.text, in characters
-BODY_ALLOWANCES: tuple[tuple[re.Pattern[str], int], ...] = tuple((re.compile(p), n) for p, n in (
+# Each allowance names who may use it, because FastAPI parses a body before a route's own host or seat check runs: "any" (the route
+# streams the body and stops at its own bound, so nobody gets more than that held in memory), "host" (the host's browser, is_host_request)
+# or "seat" (the host, or a seat or spectator of the room named in the path). Anyone else gets BODY_LIMIT; on the tunnel port only a seat
+# or spectator of the shared room keeps its "seat" allowance (a remote player bringing a deck with their "My decks" collection).
+# A streaming route's allowance is its bound + BODY_LIMIT, so a body just over the bound reaches the route, which says so in its own words.
+Who = Literal["any", "host", "seat"]
+_ALLOWANCES: tuple[tuple[str, int, Who], ...] = (
     # asset upload and replacement: the route streams the body and stops at the image limit (api/assets.py `_body`)
-    (r"/api/assets(/[^/]+/file)?", asset_validate.MAX_BYTES),
+    (r"/api/assets(/[^/]+/file)?", asset_validate.MAX_BYTES + BODY_LIMIT, "any"),
     # a player's Fyodor bringing its deck library: the route streams it and stops at handoff.MAX_BYTES (api/lan.py)
-    (r"/api/lan/handoff", handoff.MAX_BYTES),
-    # which printings the host lacks: up to 20,000 ids (MissingIn), sent with that same library
-    (r"/api/lan/handoff/missing", handoff.MAX_BYTES),
-    # host only: a backup to restore, streamed to a file and stopped at MAX_BACKUP_BYTES (api/backups.py)
-    (r"/api/backups/restore", backup.MAX_BACKUP_BYTES),
-    # host only: an update, streamed and stopped at MAX_UPLOAD_BYTES (api/updates.py)
-    (r"/api/update/upload", update.MAX_UPLOAD_BYTES),
-    # host only: a game package, streamed and stopped at MAX_PACKAGE_BYTES (api/tools.py)
-    (r"/api/packages/import", package.MAX_PACKAGE_BYTES),
-    # host only: a Teach Fyodor file, at most taught.MAX_FILE_BYTES (api/teach.py checks it after reading; this stops it while reading)
-    (r"/api/teach/import", taught.MAX_FILE_BYTES),
-    # host only: this browser's "My decks", at most MAX_BROWSER_DECKS_BYTES as JSON (storage/backup.py `browser_decks_blob`)
-    (r"/api/(browser-decks|backups)", backup.MAX_BROWSER_DECKS_BYTES + BODY_LIMIT),
-    # host only (the decks router): an import may carry saved Archidekt JSON (DeckImportRequest.json, archidekt.MAX_JSON_BYTES
+    (r"/api/lan/handoff", handoff.MAX_BYTES + BODY_LIMIT, "any"),
+    # which printings the host lacks: up to 20,000 ids (MissingIn), parsed whole, sent with that same library. Only LAN peers reach it:
+    # never granted on the tunnel port (a 404 there too, netguard.TUNNEL_ROUTES)
+    (r"/api/lan/handoff/missing", handoff.MAX_BYTES, "any"),
+    # a backup to restore, streamed to a file and stopped at MAX_BACKUP_BYTES (api/backups.py)
+    (r"/api/backups/restore", backup.MAX_BACKUP_BYTES + BODY_LIMIT, "host"),
+    # an update, streamed and stopped at MAX_UPLOAD_BYTES (api/updates.py)
+    (r"/api/update/upload", update.MAX_UPLOAD_BYTES + BODY_LIMIT, "host"),
+    # a game package, streamed and stopped at MAX_PACKAGE_BYTES (api/tools.py)
+    (r"/api/packages/import", package.MAX_PACKAGE_BYTES + BODY_LIMIT, "host"),
+    # a Teach Fyodor file, at most taught.MAX_FILE_BYTES (api/teach.py checks it after reading; this stops it while reading)
+    (r"/api/teach/import", taught.MAX_FILE_BYTES, "host"),
+    # this browser's "My decks", at most MAX_BROWSER_DECKS_BYTES as JSON (storage/backup.py `browser_decks_blob`)
+    (r"/api/(browser-decks|backups)", backup.MAX_BROWSER_DECKS_BYTES + BODY_LIMIT, "host"),
+    # (the decks router): an import may carry saved Archidekt JSON (DeckImportRequest.json, archidekt.MAX_JSON_BYTES
     # characters) or a pasted list; twice the characters for JSON's escapes (\" \\ \n) and accented names
-    (r"/api/decks(/.*)?", 2 * (archidekt.MAX_JSON_BYTES + _DECK_TEXT) + BODY_LIMIT),
-    # a seat choosing or queueing a deck: LobbyDeckIn.json (2,000,000 characters) or a list, and up to 20,000 collection entries
+    (r"/api/decks(/.*)?", 2 * (archidekt.MAX_JSON_BYTES + _DECK_TEXT) + BODY_LIMIT, "host"),
+    # a seat choosing or queueing a deck: LobbyDeckIn.json (LOBBY_JSON_CHARS) or a list, and up to 20,000 collection entries
     # (LobbyDeckIn.collection, CollectionIn: a few hundred bytes each)
     (r"/api/games/[^/]+/(lobby/(deck|import|collection)|load-deck|next-deck)",
-     2 * (2_000_000 + _DECK_TEXT) + 20_000 * 512),
-))
+     2 * (games.LOBBY_JSON_CHARS + _DECK_TEXT) + 20_000 * 512, "seat"),
+)
+BODY_ALLOWANCES = tuple((re.compile(p), n, who) for p, n, who in _ALLOWANCES)
+_ROOM_PATH = re.compile(r"/api/games/([^/]+)/")
 
 
-def body_limit(path: str) -> int:
-    """The most bytes a request to ``path`` may send: its allowance, or BODY_LIMIT."""
-    return next((n for pattern, n in BODY_ALLOWANCES if pattern.fullmatch(path)), BODY_LIMIT)
+def body_limit(path: str, *, host: bool, seat_ok: Callable[[str], bool], tunnel: bool) -> int:
+    """The most bytes a request to ``path`` may send: its allowance if this sender may use it (``host``: the host's browser;
+    ``seat_ok(path)``: a seat or spectator of the room the path names), else BODY_LIMIT. On the tunnel port only a "seat" allowance,
+    for a seat or spectator of the (shared) room the path names: nobody there is the host, and "any" routes are the LAN's."""
+    for pattern, n, who in BODY_ALLOWANCES:
+        if pattern.fullmatch(path):
+            if tunnel:
+                return n if who == "seat" and seat_ok(path) else BODY_LIMIT
+            return n if who == "any" or host or (who == "seat" and seat_ok(path)) else BODY_LIMIT
+    return BODY_LIMIT
 
 
 class BodyLimit:
@@ -101,9 +141,24 @@ class BodyLimit:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        limit = body_limit(scope["path"])
-        declared = Headers(scope=scope).get("content-length")
-        if declared is not None and declared.strip().isdigit() and int(declared) > limit:
+        conn = HTTPConnection(scope)
+        headers = Headers(scope=scope)
+
+        tunnel = is_tunnel_request(conn)
+
+        def seat_ok(path: str) -> bool:
+            # the X-Seat-Token header holds a seat or spectator token of the room the path names (on the tunnel port, a room it serves:
+            # net_guard has refused any other already; checked again here so the allowance never depends on the middleware order)
+            found = _ROOM_PATH.match(path)
+            services = conn.app.state.services
+            room = services.hub.get(found.group(1)) if found else None
+            if room is None or (tunnel and not tunnel_serves(services, room.id)):
+                return False
+            return room.seat_for_token(headers.get("x-seat-token")) is not None
+
+        limit = body_limit(scope["path"], host=is_host_request(conn), seat_ok=seat_ok, tunnel=tunnel)
+        declared = headers.get("content-length")
+        if declared is not None and declared.isascii() and declared.strip().isdigit() and int(declared) > limit:
             await JSONResponse({"detail": TOO_LARGE}, status_code=413)(scope, receive, send)
             return
         seen = 0
@@ -125,13 +180,34 @@ UNKNOWN_HOST = "This address is not one Fyodor answers to. Use http://<IP>:<port
 
 def _same_site_request(request: Request) -> bool:
     """May this state-changing request go on? Not when the browser says it is cross-site. No Origin and no Sec-Fetch-Site is not a
-    browser (the LAN handoff, scripts): let through. Otherwise a same-origin request or a typed navigation, or an allowed Origin."""
+    browser (the LAN handoff, scripts): let through. Otherwise a same-origin request or a typed navigation, or an allowed Origin.
+    On the tunnel port only the invite's own Origin (origin_ok): the exemptions above are the LAN's."""
+    if is_tunnel_request(request):
+        return origin_ok(request)
     site = request.headers.get("sec-fetch-site")
     if site == "cross-site":
         return False
     if site is None and "origin" not in request.headers:
         return True
     return site in {"same-origin", "none"} or origin_ok(request)
+
+
+NOT_FOUND = {"detail": "Not Found"}  # what the tunnel port answers for anything it doesn't serve: the same as a route that doesn't exist
+
+
+def _tunnel_refusal(request: Request) -> Response | None:
+    """-- invite over the internet -- on the tunnel port, in this order: the invite hostname while the tunnel runs (host_ok), a route in
+    TUNNEL_ROUTES, a table it names that is shared (tunnel_serves), and the invite's Origin on a state-changing request. None: go on."""
+    if not host_ok(request):
+        return JSONResponse(NOT_FOUND, status_code=404)
+    allowed, game_id = tunnel_route(request.method, request.scope["path"])
+    if not allowed:
+        return JSONResponse(NOT_FOUND, status_code=404)
+    if game_id is not None and not tunnel_serves(request.app.state.services, game_id):
+        return JSONResponse({"detail": GAME_NOT_FOUND}, status_code=404)
+    if request.method in UNSAFE_METHODS and not _same_site_request(request):
+        return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    return None
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -170,6 +246,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # added last, so it runs first: the Host (DNS rebinding) before anything else, then the Origin of a state-changing request
     @app.middleware("http")
     async def net_guard(request: Request, call_next: Any) -> Response:
+        if is_tunnel_request(request):
+            refusal = _tunnel_refusal(request)
+            if refusal is not None:
+                return refusal
+            tunnelled: Response = await call_next(request)
+            return tunnelled
         if not host_ok(request):  # (most often a person who typed a name into the address bar: say what to do, in plain words)
             return PlainTextResponse(UNKNOWN_HOST, status_code=400)
         if request.method in UNSAFE_METHODS and not _same_site_request(request):
@@ -184,7 +266,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        response.headers.setdefault("Content-Security-Policy", CSP)
+        response.headers.setdefault("Content-Security-Policy", csp(request.headers.get("host") if host_ok(request) else None))
         if is_https(request):  # never over plain http (a browser would hold the host to https): no includeSubDomains, no preload
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return response
@@ -208,6 +290,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rules.router, prefix="/api")
     app.include_router(host_router, prefix="/api")  # claiming the host session (app/api/host.py)
     app.include_router(lan_router, prefix="/api")  # finding tables on the network
+    app.include_router(turn_clock_router, prefix="/api")  # the host's turn clock controls (app/api/turn_clock.py)
+    app.include_router(share_router, prefix="/api")  # sharing a table over the invite link (app/api/share.py)
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 
     @app.exception_handler(GameNotStarted)

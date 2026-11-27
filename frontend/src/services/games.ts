@@ -1,6 +1,6 @@
 import { ApiError, api } from "./api";
 import type { BotLevel, BotSpeed, GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
-import type { NearbyServer } from "../pages/lanBits";
+import { inviteCodeKey, inviteKey, type NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
   name: string;
@@ -77,10 +77,26 @@ export function rememberSeat(gameId: string, token: string): void {
 }
 
 export function seatToken(gameId: string): string | null {
+  return stored(seatKey(gameId));
+}
+
+/** A remembered value, or null (storage unavailable). */
+export function stored(key: string): string | null {
   try {
-    return localStorage.getItem(seatKey(gameId));
+    return localStorage.getItem(key);
   } catch {
     return null;
+  }
+}
+
+/** -- invite over the internet -- the table a join code opened (and the code it was opened with), so opening the link again sends
+ *  the token held there (lanBits.heldTokenFor) and a spectator taking a seat has the code its view lacks. */
+export function rememberInvite(code: string, gameId: string): void {
+  try {
+    localStorage.setItem(inviteKey(code), gameId);
+    localStorage.setItem(inviteCodeKey(gameId), code.trim().toUpperCase());
+  } catch {
+    /* storage unavailable: opening the link again asks for a new seat, as before */
   }
 }
 
@@ -112,7 +128,8 @@ const seatHeaders = (gameId: string): Record<string, string> => {
   const token = seatToken(gameId);
   return token ? { "X-Seat-Token": token } : {};
 };
-/** A table action sent over HTTP as this seat (for a page that isn't at the table, as the Play page right after it creates one). */
+/** A table action sent over HTTP as this seat (for a page that isn't at the table, as the Play page right after it creates one).
+ * It has no view revision, so the turn clock's late-click check (seen_revision) doesn't apply to it: unguarded by design. */
 export const tableAction = (gameId: string, action: Record<string, unknown>) =>
   api.post<unknown>(`/games/${encodeURIComponent(gameId)}/actions`, { action }, seatHeaders(gameId));
 const lobbyPath = (gameId: string, rest = "") => `/games/${encodeURIComponent(gameId)}/lobby${rest}`;
@@ -140,6 +157,13 @@ export interface BroughtLibrary {
 }
 export const broughtDecks = (gameId: string) => api.get<BroughtLibrary>(lobbyPath(gameId, "/brought"), seatHeaders(gameId));
 export const leaveLobby = (gameId: string) => api.post<void>(lobbyPath(gameId, "/leave"), {}, seatHeaders(gameId));
+/** -- turn clock -- the host's clock route (app: POST /games/{id}/clock). `seconds` 1..3600; a grace extension is in seconds. */
+export type ClockBody =
+  | { op: "settings"; settings: import("../types/game").ClockSettings }
+  | { op: "add_time"; player: string; seconds: number }
+  | { op: "grace"; player: string; seconds: number };
+export const setClock = (gameId: string, body: ClockBody) =>
+  api.post<{ view: import("../types/game").GameView }>(`/games/${gameId}/clock`, body, seatHeaders(gameId));
 export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>) =>
   api.post<LobbyView>(lobbyPath(gameId, "/settings"), body, seatHeaders(gameId));
 /** -- seating -- host: every seat id once, in the order they should sit (seat 1 first). */

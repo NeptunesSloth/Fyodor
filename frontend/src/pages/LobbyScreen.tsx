@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
+import { CopyButton } from "../components/CopyButton";
 import { Modal } from "../components/Modal";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import { toast, toastError } from "../components/Toasts";
+import { InternetInvite, SharedChip } from "../game/InternetInvite";
+import { useTunnelState } from "../services/share";
+import { inviteCodeKey, showInvitePopover } from "./lanBits";
 import { navigate } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
@@ -22,6 +26,7 @@ import {
   personalCollection,
   rememberSeat,
   seatToken,
+  stored,
   syncPersonalCollection,
   rememberMyDeck,
   setLobbyProfile,
@@ -41,6 +46,7 @@ import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
 import { PlanechaseSetting } from "./PlanechaseSetting";
+import { TurnClockSetting } from "./TurnClockSetting";
 import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
@@ -91,6 +97,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const tunnel = useTunnelState(); // (the LAN room code means nothing to a friend on the invite link)
   const invite = useInviteLink(lobby.is_host ? lobby.game.code : null);
   const setLobby = (l: LobbyView) => useGame.getState().applyLobby(l);
   // -- bring my decks -- the decks this seat brought: from the player's own Fyodor (sent with the join), or this browser's My decks
@@ -156,12 +163,11 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
             {lobby.spectators > 0 && <span>{lobby.spectators} watching</span>}
           </p>
         </div>
-        {lobby.game.code && (
-          <div className="lobby-door">
-            <RoomCode code={lobby.game.code} />
-            {lobby.is_host && invite && <InviteControl link={invite} code={lobby.game.code} />}
-          </div>
-        )}
+        <div className="lobby-door">
+          {lobby.game.shared && <SharedChip />}
+          {lobby.game.code && tunnel === false && <RoomCode code={lobby.game.code} />}
+          {showInvitePopover(lobby.is_host, invite) && <InviteControl gameId={gameId} link={invite} code={lobby.game.code} />}
+        </div>
       </header>
 
       <main className="lobby-table">
@@ -303,41 +309,6 @@ function SeatChip({ seat, text, mine, onColor }: { seat: LobbySeat; text: React.
   return <span className="seat-chip" style={style} aria-hidden>{text}</span>;
 }
 
-/** Copies `text`, saying so on the button for a moment; falls back to a selection copy where the clipboard API is missing. */
-function CopyButton({ text, label, done, className, testId }: { text: string; label: React.ReactNode; done: string; className?: string; testId?: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 1800);
-    return () => window.clearTimeout(t);
-  }, [copied]);
-  const copy = async () => {
-    try {
-      if (navigator.clipboard) await navigator.clipboard.writeText(text);
-      else {
-        const area = document.createElement("textarea");
-        area.value = text;
-        area.setAttribute("readonly", "");
-        area.style.position = "fixed";
-        area.style.opacity = "0";
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand("copy");
-        area.remove();
-        if (!ok) throw new Error("copy");
-      }
-      setCopied(true);
-    } catch {
-      toast("Couldn't copy: select the text and copy it", "warn");
-    }
-  };
-  return (
-    <button type="button" className={`tt-btn ${className ?? ""}`} data-testid={testId} onClick={() => void copy()} aria-live="polite">
-      {copied ? <><Icon name="check" size={14} />{done}</> : label}
-    </button>
-  );
-}
-
 /** The room code players type on the Play screen; click to copy it. */
 function RoomCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
@@ -368,7 +339,7 @@ function useInviteLink(code: string | null): string | null {
   return addr && code ? `${addr}/#/play?code=${code}` : null;
 }
 
-function InviteControl({ link, code }: { link: string; code: string }) {
+function InviteControl({ gameId, link, code }: { gameId: string; link: string | null; code: string | null }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -394,12 +365,17 @@ function InviteControl({ link, code }: { link: string; code: string }) {
       </button>
       {open && (
         <div className="invite-pop" id="invite-pop" role="dialog" aria-label="Invite players">
-          <p>Friends on your network open this link:</p>
-          <div className="invite-row">
-            <input readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} autoFocus />
-            <CopyButton text={link} label="Copy link" done="Copied" className="brass" />
-          </div>
-          <p className="invite-or">Or they type the room code <b>{code}</b> on the Play screen.</p>
+          {link && (
+            <>
+              <p>Friends on your network open this link:</p>
+              <div className="invite-row">
+                <input readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} autoFocus />
+                <CopyButton text={link} label="Copy link" done="Copied" className="brass" />
+              </div>
+              {code && <p className="invite-or">Or they type the room code <b>{code}</b> on the Play screen.</p>}
+            </>
+          )}
+          <InternetInvite gameId={gameId} />
         </div>
       )}
     </div>
@@ -900,7 +876,9 @@ async function takeSeat(lobby: LobbyView, seat: string): Promise<void> {
   const password = lobby.game.has_password ? window.prompt("Room password") ?? undefined : undefined;
   if (lobby.game.has_password && password === undefined) return;
   const name = activeProfile().name === "Player" ? undefined : activeProfile().name;
-  const res = await joinGame({ code: lobby.game.code ?? "", seat, name, password }, seatToken(gameId));
+  // (through the invite link the view has no room code: the invite code this browser joined with stands in for it)
+  const code = lobby.game.code ?? stored(inviteCodeKey(gameId)) ?? "";
+  const res = await joinGame({ code, seat, name, password }, seatToken(gameId));
   rememberSeat(gameId, res.token);
   useGame.getState().connect(gameId, { token: res.token });
 }
@@ -1240,6 +1218,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
         <PlanechaseSetting value={draft} onChange={set} />
+        {!isSandbox(draft.format) && <TurnClockSetting value={draft.clock} onChange={set} />}
       </div>
       {configurable && draft.mulligan_policy && (
         <>
