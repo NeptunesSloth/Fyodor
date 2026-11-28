@@ -245,6 +245,8 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return (("LANDS",),)
     if effect in ("Add one mana of any of this creature's colors", "Add one mana of any of ~'s colors", "Add one mana of any of its colors"):  # -- counters (wave 44C) -- Katilda, Dawnhart Prime (read in casting.mana_abilities)
         return (("OWN_COLORS",),)
+    if effect == "Add one mana of any of this permanent's colors":  # -- lent abilities -- the lent wording (abilities_of._lent): the bearer's colors (201.5b)
+        return (("OWN_COLORS",),)
     if effect in ("Add one mana of any of the exiled card's colors", "Add one mana of any of the exiled cards' colors"):  # -- imprint (wave 51B) -- Chrome Mox, Pit of Offerings: the colors of what the linked exile ability put there (607.2a; casting._resolve_options)
         return (("EXILED_COLORS",),)
     # -- mana (wave 19E) -- "any color that a land / basic land / Gate you control could produce", "any type that a Gate …":
@@ -288,11 +290,13 @@ _CONTROL_COUNT = re.compile(rf"^Activate only if you control {_N} or more (?P<wh
 _COUNTERS_FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<kind>[a-z]+) counter on (?:this \w+|~)$")
 _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|artifact|enchantment|land|[A-Z][a-z]+) you control$")
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
-_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s (?P<stat>power|toughness)$")  # (toughness: wave 17B, Vhal)
+# -- lent own stat -- "this permanent" is the lender's name in a lent ability (abilities_of._lent): the bearer's own stat (201.5b, Marvin, Murderous Mimic)
+_SELF = r"(?:this creature|this permanent|[A-Z][^.]{0,60}?)"
+_POWER_OF = re.compile(rf"^Add an amount of \{{(?P<sym>[WUBRGC])\}} equal to {_SELF}'s (?P<stat>power|toughness)$")  # (toughness: wave 17B, Vhal)
 # -- activated sweep (wave 17B) -- "{T}, Sacrifice an artifact: Add an amount of {B} equal to the sacrificed artifact's mana value."
 # (Priest of Yawgmoth): the mana value of what the cost sacrificed, as it was (608.2h; casting._activate_choosing)
 _SAC_MV = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to the sacrificed (?:creature|artifact|permanent|land|enchantment)'s mana value$")
-_X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+_X_POWER = re.compile(rf"^Add X mana of any one color, where X is {_SELF}'s power$")
 # -- X sized by a count (wave 4K) -- "Add X mana of any one color, where X is the number of enchantments you control."
 # (Sanctum Weaver): counted as the ability resolves (605.3a: at once), like "Add {G} for each …"
 _X_COUNT = re.compile(r"^Add X mana of any one color, where X is the number of (?P<what>creatures|artifacts|enchantments|lands) "

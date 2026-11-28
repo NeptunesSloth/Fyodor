@@ -177,6 +177,9 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         # (the source and the event it triggered on: "if ~ is an enchantment", "if it's a Dragon", 603.4)
         check: dict[str, Any] = {"controller": controller, "source_card": source_card, "source_object": source_object,
                  "event": event.model_dump(mode="json") if event is not None else None}
+        # -- lent abilities -- an intervening "if" that reads an exile link reads the lent ability's own (607.5: abilities_of.scope_definition)
+        if (scope := next((e["scope"] for e in definition.get("effects") or [] if e.get("do") == "borrowed_link_scope"), None)) is not None:
+            check["borrowed_link_scope"] = scope
         # Delayed abilities restore captured object references before resolving.
         # Their intervening conditions need the same references when triggering.
         first: dict[str, Any] = next(iter(definition.get('effects') or []), {})
@@ -203,7 +206,8 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         # (effects.record_action): not if countered, declined, or a payment it hinges on wasn't made
         # (and several instances that triggered together: only the first to resolve does it)
         mark = {"object": source_object, "index": index}
-        if definition.get("optional") and len(definition["effects"]) == 1 and definition["effects"][0].get("do") == "search":
+        body = [e for e in definition["effects"] if e.get("do") != "borrowed_link_scope"]  # (-- lent abilities -- the scope opener is no instruction)
+        if definition.get("optional") and len(body) == 1 and body[0].get("do") == "search":
             mark["action"] = "search"
         definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
                                                 {"do": "record_action", **mark}]}

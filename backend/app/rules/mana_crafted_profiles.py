@@ -75,6 +75,8 @@ def parse_mana(text: str, identity: tuple[str, ...], name: str) -> M.ManaAbility
     from app.rules import mana as M
     from app.rules import scripts
 
+    if 'craft this permanent' in text:  # -- lent abilities -- (abilities_of._lent's wording: 702.167c, the cards used to craft another object — unsettled: manual)
+        return None
     if scripts.self_text(text, name) == '{T}: For each color among the exiled cards used to craft ~, add one mana of that color.':
         return M.ManaAbility(tap=True, sacrifice_self=False, options=((),), native_body=True, chooses=True,
             immediate_effects=({'do': 'crafted_color_mana'},))
